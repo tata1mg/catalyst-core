@@ -1,6 +1,7 @@
 {
     "name": "create-catalyst-app-starter",
     "version": "1.0.0",
+    "type": "module",
     "scripts": {
         "start": "catalyst start",
         "build": "catalyst build",
@@ -25,7 +26,7 @@
     "dependencies": {
         "@reduxjs/toolkit": "^2.9.0",
         "react-redux": "^9.2.0",
-        "catalyst-core": "1.0.1",
+        "catalyst-core": "1.0.2",
         "react": "19.0.0",
         "react-dom": "19.0.0",
         "react-router": "^7.18.2",

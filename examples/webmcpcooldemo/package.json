@@ -1,0 +1,47 @@
+{
+    "name": "webmcpcooldemo",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "catalyst start",
+        "build": "catalyst build",
+        "serve": "catalyst serve",
+        "lint": "eslint .",
+        "sync-core": "node ../sync-core.js",
+        "buildApp": "catalyst buildApp",
+        "buildApp:ios": "catalyst buildApp:ios",
+        "buildApp:android": "catalyst buildApp:android",
+        "setupEmulator": "catalyst setupEmulator",
+        "setupEmulator:ios": "catalyst setupEmulator:ios",
+        "setupEmulator:android": "catalyst setupEmulator:android"
+    },
+    "_moduleAliases": {
+        "@api": "api.js",
+        "@containers": "src/js/containers",
+        "@server": "server",
+        "@config": "config",
+        "@css": "src/static/css",
+        "@routes": "src/js/routes/",
+        "@lib": "src/js/lib/"
+    },
+    "dependencies": {
+        "@tailwindcss/postcss": "^4.1.4",
+        "catalyst-core": "1.0.1",
+        "react": "19.0.0",
+        "react-dom": "19.0.0",
+        "react-router": "^7.18.2",
+        "tailwindcss": "^4.1.4",
+        "three": "^0.170.0"
+    },
+    "devDependencies": {
+        "eslint": "^8.26.0",
+        "eslint-plugin-react": "^7.34.1",
+        "eslint-plugin-react-hooks": "^4.6.0"
+    },
+    "overrides": {
+        "react-helmet-async": {
+            "react": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0",
+            "react-dom": "^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+        }
+    },
+    "description": "WebMCP showcase demo"
+}

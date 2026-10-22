@@ -199,7 +199,7 @@ export function manifestCategorizationPlugin(options = {}) {
                 if (matchedViteEntry && matchedViteKey) {
                     newCategorizedChunks[category][matchedViteKey] = { ...matchedViteEntry }
                 } else {
-                    console.log(`❌ No manifest match found for ${chunkName}, keeping original structure`)
+                    console.debug(`No manifest match for ${chunkName}; keeping original structure`)
                     newCategorizedChunks[category][chunkName] = chunkData
                 }
             }
@@ -405,7 +405,7 @@ export function manifestCategorizationPlugin(options = {}) {
                         }
                     } catch (err) {
                         // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - importPath comes from the app's own module import graph resolved by Vite at build time, not attacker-controlled; console.log here does no printf-style substitution.
-                        console.log(`❌ Error resolving ${importPath}:`, err.message)
+                        console.debug(`Could not resolve ${importPath}: ${err.message}`)
                     }
                 })
             )
@@ -430,16 +430,18 @@ export function manifestCategorizationPlugin(options = {}) {
                     const manifestContent = fs.readFileSync(manifestPath, "utf8")
                     viteManifest = JSON.parse(manifestContent)
                 } else {
-                    console.log("❌ Could not find manifest.json at expected path:", manifestPath)
+                    // Silent: this fires as a *consequence* of the bundle
+                    // failing, so shouting about a missing manifest adds a
+                    // second, misleading error on top of the real one.
                     return
                 }
             } catch (e) {
-                console.log("❌ Could not read manifest from file system:", e.message)
+                // Same reasoning as above: a consequence, not the cause.
                 return
             }
 
             if (!processedManifest) {
-                console.log("❌ No processed manifest available")
+                console.debug("No processed manifest available")
                 return
             }
 

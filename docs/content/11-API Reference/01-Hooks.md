@@ -8,7 +8,7 @@ id: hooks
 
 Catalyst exposes two groups of hooks:
 
-- route data hooks (`useRouterData`, `useCurrentRouteData`) from `catalyst-core`
+- route data hooks (`useRouterData`, `useCurrentRouteData`) and `useRouterState` from `catalyst-core`
 - React Router hooks (`useParams`, `useNavigate`, `useLocation`, and the rest) from `react-router`,
   which Catalyst declares as a peer dependency
 - native or universal app hooks from `catalyst-core/hooks`
@@ -19,6 +19,7 @@ Catalyst exposes two groups of hooks:
 |------------|-------------|-----|-----|---------|
 | `useRouterData` | Access data for all matched routes | Yes | Yes | Yes |
 | `useCurrentRouteData` | Access current route fetcher state and data | Yes | Yes | Yes |
+| `useRouterState` | Read location, params, `navigate` and matched routes through Catalyst's router context | Yes | Yes | Yes |
 | `getDeviceInfo` | Read device, screen, and app metadata from the bridge | Yes | Yes | Yes |
 | `useCamera` | Capture media via the bridge or web fallback | Partial | Yes | Yes |
 | `useFilePicker` | Select files and normalize results | Partial | Yes | Yes |
@@ -138,6 +139,24 @@ useEffect(() => {
   return () => clear();
 }, []);
 ```
+
+### `useRouterState`
+
+Added in `1.0.2`. `useRouterState` returns the current router state through Catalyst's own router context instead of React Router's hooks. `catalyst-core/webmcp` uses it so that code loaded from a `catalyst-core` subpath reads the same router state as the app, even when the dev server resolves a separate copy of `react-router` for that subpath.
+
+In application components, keep using `useLocation`, `useParams` and `useNavigate` from `react-router`. Reach for `useRouterState` in code that cannot import `react-router` itself.
+
+#### Import
+
+```javascript
+import { useRouterState } from "catalyst-core";
+```
+
+#### Return Value
+
+`{ location, params, navigate, matchedRoutes }`: the current location, the params of the deepest matched route (`{}` when there are none), React Router's `navigate` function, and the matched route chain (`[]` when nothing matched).
+
+It throws `useRouterState must be used within a RouterDataProvider` when called outside `RouterDataProvider`.
 
 ## Universal App Hooks
 

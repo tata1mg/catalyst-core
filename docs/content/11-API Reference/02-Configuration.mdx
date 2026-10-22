@@ -113,7 +113,8 @@ The splash screen configuration belongs inside `WEBVIEW_CONFIG.splashScreen`, no
 | Key | Type | Notes |
 |-----|------|-------|
 | `backgroundColor` | `string` | Defaults to white |
-| `duration` | `number` | Primarily relevant on iOS |
+| `duration` | `number` | Primarily relevant on iOS. Ignored when `public/splashscreen.html` exists |
+| `minDuration` | `number` | Minimum time in ms the HTML splash stays on screen. Defaults to `0` |
 | `imageWidth` | `number` | Width of the splash asset |
 | `imageHeight` | `number` | Height of the splash asset |
 | `cornerRadius` | `number` | iOS rounded corners |
@@ -122,6 +123,9 @@ Place splash assets at:
 
 - `public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}`
 - `public/ios/splashscreen.{png|jpg|jpeg}`
+- `public/splashscreen.html` (optional, shared by both platforms)
+
+When `splashScreen` is set and `public/splashscreen.html` exists, the app shows the native image first, then the HTML splash, and switches to the app once its first page has loaded and `minDuration` has passed. The HTML splash is dismissed after 10 seconds even if the page is still loading. The file must be self-contained, with inline CSS and JavaScript and images as `data:` URIs. It has no access to the native bridge and should not make network requests, which Android blocks. Remove the file to go back to the image-only splash. See [Universal App Configuration](/content/02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for the full rules and an example.
 
 ## Validation Notes
 

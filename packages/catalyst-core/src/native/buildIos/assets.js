@@ -384,7 +384,7 @@ module.exports = function createAssetsPhase(ctx) {
                         resourcesPattern,
                         `$1\n\t\t\t\t${buildFileId} /* ${soundFile.filename} in Resources */,`
                     )
-                progress.log(`✅ Added ${soundFile.filename} to Xcode project`, "success")
+                progress.log(`Added ${soundFile.filename} to Xcode project`, "success")
             }
             fs.writeFileSync(projectFilePath, projectContent, "utf8")
             progress.log(`Registered ${soundFiles.length} sound file(s) in Xcode project`, "success")
@@ -424,7 +424,6 @@ module.exports = function createAssetsPhase(ctx) {
                 }
                 await removeGoogleServicesPlistFromXcodeProject()
             }
-            progress.log("Cleaned up notification assets", "success")
         } catch (error) {
             progress.log(`Warning: Error cleaning notification assets: ${error.message}`, "warning")
         }
@@ -435,7 +434,6 @@ module.exports = function createAssetsPhase(ctx) {
         try {
             await cleanupNotificationAssets(!hasNotificationConfig)
             if (!hasNotificationConfig) {
-                progress.log("Notifications disabled - skipped asset processing", "info")
                 return
             }
             const hasGoogleServices = await handleGoogleServicesPlist()
@@ -499,7 +497,6 @@ module.exports = function createAssetsPhase(ctx) {
                     `$1\n\t\t\t\t${buildFileId} /* ${offlineFileName} in Resources */,`
                 )
             fs.writeFileSync(projectFilePath, projectContent, "utf8")
-            progress.log("Registered offline.html with Xcode project", "success")
         } catch (error) {
             progress.log(
                 `Warning: Failed to register offline.html in Xcode project: ${error.message}`,
@@ -518,7 +515,6 @@ module.exports = function createAssetsPhase(ctx) {
             }
             fs.mkdirSync(destDir, { recursive: true })
             fs.copyFileSync(sourcePath, `${destDir}/offline.html`)
-            progress.log("offline.html copied to iOS bundle", "success")
             await addOfflinePageToXcodeProject()
             return true
         } catch (error) {
@@ -573,7 +569,6 @@ module.exports = function createAssetsPhase(ctx) {
             const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
             const iconSetDir = `${assetsDir}/AppIcon.appiconset`
             if (!fs.existsSync(publicDir)) {
-                progress.log("Public directory not found, skipping app icon copy", "info")
                 return
             }
             const iconSizes = [

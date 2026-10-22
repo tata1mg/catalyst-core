@@ -68,6 +68,7 @@ class CustomWebView(
     private var visibleOfflineSnapshotUrl: String? = null
     @Volatile private var defaultRequestHeaders: Map<String, String> = emptyMap()
     var onPageStarted: (() -> Unit)? = null
+    var onInitialPageLoaded: (() -> Unit)? = null
 
     // Counters for asset loading statistics
     private var assetLoadAttempts = 0
@@ -1142,6 +1143,7 @@ class CustomWebView(
                 if(!isInitialPageLoaded){
                     isInitialPageLoaded = true
                     metricsMonitor.markAppStartComplete()
+                    onInitialPageLoaded?.invoke()
                 }
                 url?.let { metricsMonitor.trackPageLoadEnd(it) }
 

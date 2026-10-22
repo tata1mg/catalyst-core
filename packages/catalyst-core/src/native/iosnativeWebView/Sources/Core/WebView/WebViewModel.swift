@@ -12,6 +12,8 @@ public class WebViewModel: ObservableObject {
     @Published public var loadingProgress: Double = 0.0
     @Published public var lastLoadedURL: URL?
     @Published public var isLoadingFromCache: Bool = false
+    // One-shot: true after the first page (or offline page) finishes loading; never reset
+    @Published public var hasFinishedInitialLoad = false
 
     // Safe area insets
     @Published public var safeAreaInsets: SafeAreaInsets = .zero

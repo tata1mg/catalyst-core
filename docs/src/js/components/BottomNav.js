@@ -1,5 +1,5 @@
 import React from 'react'
-import { useLocation } from 'catalyst-core'
+import { useLocation } from 'react-router'
 import { useNativeTransition } from 'catalyst-core/hooks'
 
 /**

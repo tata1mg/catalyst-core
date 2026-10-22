@@ -52,7 +52,7 @@ Three checks are wired:
 - The `addMiddlewares` export from `server/server.js` is validated for shape during server setup.
 - A missing `server/server.js` does fail at startup outright: its import is unguarded, unlike the try/catch around `server/index.js`.
 
-`catalyst start`, `build` and `serve` also check `config/config.json` and `package.json` before doing anything else, and unlike the checks above these are fatal. The command exits with a coded error if either file is missing or cannot be parsed, if `config.json` lacks any of `NODE_SERVER_HOSTNAME`, `NODE_SERVER_PORT`, `BUILD_OUTPUT_PATH`, `PUBLIC_STATIC_ASSET_PATH`, `PUBLIC_STATIC_ASSET_URL` or `CLIENT_ENV_VARIABLES`, or if the module aliases above are missing one of the six or define a name starting with `@catalyst`. Apps created from the templates already have all of them. See [Configuration](/docs/configuration) for the full key list.
+`catalyst start`, `build` and `serve` also check `config/config.json` and `package.json` before doing anything else, and unlike the checks above these are fatal. The command exits with a coded error if either file is missing or cannot be parsed, if `config.json` lacks any of `NODE_SERVER_HOSTNAME`, `NODE_SERVER_PORT`, `BUILD_OUTPUT_PATH`, `PUBLIC_STATIC_ASSET_PATH`, `PUBLIC_STATIC_ASSET_URL` or `CLIENT_ENV_VARIABLES`, or if the module aliases above are missing one of the six or define a name starting with `@catalyst`. Apps created from the templates already have all of them. See [Configuration](./02-Configuration.mdx) for the full key list.
 
 ## Core Project Layout
 
@@ -160,8 +160,9 @@ Controls the outer HTML document structure, including tags, metadata wrappers, a
 | `src/static/fonts` | Font files |
 | `public/android/` | Android-specific native assets |
 | `public/ios/` | iOS-specific native assets |
+| `public/splashscreen.html` | Optional animated splash for universal apps, shared by Android and iOS |
 
-For universal apps, keep platform assets under `public/android` and `public/ios` so the native build scripts can discover them during packaging.
+For universal apps, keep platform assets under `public/android` and `public/ios` so the native build scripts can discover them during packaging. `public/splashscreen.html` is the exception: it sits at the root of `public/` and both platforms use it. See [HTML Splash](../02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for its rules.
 
 ## Recommended Team Convention
 

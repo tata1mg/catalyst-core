@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.0.2] - unreleased
+
+This release adds two opt-in features, an animated HTML splash screen for universal apps and experimental WebMCP support, and gives every CLI command the same terminal output. There are no breaking API changes.
+
+### HTML splash screen
+
+A universal app can ship `public/splashscreen.html`. When `WEBVIEW_CONFIG.splashScreen` is set, the native splash image hands over to that page, which stays up until the app's first page has loaded. The new optional `splashScreen.minDuration` keeps it on screen for at least that many milliseconds, and it is dismissed after 10 seconds regardless. The file must be self-contained, and on Android it cannot make network requests. Without the file, the splash works as before.
+
+### WebMCP (experimental)
+
+The new `catalyst-core/webmcp` subpath lets an app expose its actions to AI agents running in the browser. `useTool()` registers a tool from a component, a `tool` field on a route derives one from the route, and `WebMcpProvider` adds the built-in `navigate`, `get_current_route` and `get_page_info` tools. `catalyst-core/webmcp/shim` installs an opt-in `document.modelContext` shim. The API may change in a minor release.
+
+### New root export
+
+The root entry of `catalyst-core` adds `useRouterState`, which returns `{ location, params, navigate, matchedRoutes }` through Catalyst's router context. `catalyst-core/webmcp` uses it to read router state without importing `react-router` from a subpath. The root entry now exports nine names; nothing was removed.
+
+### CLI output
+
+`catalyst start`, `build`, `serve`, the native build and setup commands, and `create-catalyst-app` now print a short header, one line per step with its timing, and one diagnostic block on failure with the error code, location, hint and docs link. The full bundler and native build output moved behind `--verbose`, and `--debug` adds stacks and the environment. `catalyst --help`, `--version` and a "did you mean" suggestion for mistyped commands are new. Once `catalyst serve` has started the production server, the app's own output passes through unchanged.
+
+### Fixes
+
+- `catalyst serve` refuses to serve a build whose inlined values (`PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH`, `CLIENT_ENV_VARIABLES`) differ from the current `config/config.json`, with `PREFLIGHT-022`. It also reports a missing build or a taken port before starting.
+- Fast Refresh now works for components written as JSX in `.js` files instead of reloading the page.
+- `MetaTag` no longer depends on `react-helmet-async`, which is removed from the dependencies. Route metadata from `setMetaData` renders through React 19's `<head>` support, and server-rendered head tags no longer outlive their page after client navigation.
+- `catalyst-core` no longer imports `prop-types` at runtime without declaring it.
+- `Otel.init()` no longer throws `ReferenceError: logger is not defined` when the app has not called `configureLogger()`. It logs to `console` until a global logger is set.
+- Signing passwords are redacted from the output of a failed signed build or `keytool` run.
+- File logs written by `configureLogger()` keep structured fields for plain objects again.
+
+### create-catalyst-app
+
+New apps declare `"type": "module"`, and the Tailwind template's config is `postcss.config.cjs`. `catalyst-core` loads either `postcss.config.cjs` or `postcss.config.js`, so existing apps need no change. `create-catalyst-app` declares `node >= 20.12.0` and runs across that range.
+
 ## [1.0.0] - 2026-09-29
 
 This release freezes the public API. The root entry of `catalyst-core` now exports exactly eight names and nothing else: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. Anything previously reachable through the root entry but not in that list is no longer public. Applications that import a removed name will fail at build time rather than silently resolving to `undefined`.

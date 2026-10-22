@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process"
+import { createRequire } from "node:module"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -18,6 +19,103 @@ const platformScripts = {
     "buildApp:android": "../dist/native/buildAppAndroid.js",
 }
 const validCommands = new Set([...webCommands, "buildApp", "setupEmulator", ...Object.keys(platformScripts)])
+
+const require = createRequire(import.meta.url)
+const pkg = require("../package.json")
+
+// The house style when the built CLI layer is present; plain text otherwise,
+// so help still works from a source checkout that has not been built.
+let theme = null
+try {
+    theme = require("../dist/cli/theme.js")
+} catch {
+    // Unbuilt checkout.
+}
+const paint = (name, text) => (theme ? theme.t[name](text) : text)
+const GUTTER = "  "
+
+const HELP = [
+    [
+        "Web",
+        [
+            ["start", "Start the development server"],
+            ["build", "Build the app for production"],
+            ["serve", "Serve the production build"],
+        ],
+    ],
+    [
+        "Native",
+        [
+            ["setupEmulator:android", "Configure and boot the Android emulator"],
+            ["setupEmulator:ios", "Configure and boot the iOS simulator"],
+            ["buildApp:android", "Build and install the Android app"],
+            ["buildApp:ios", "Build and install the iOS app"],
+        ],
+    ],
+    [
+        "More",
+        [
+            ["serve:inspect", "Serve with the Node inspector attached"],
+            ["plugins", "Turn native plugins on or off"],
+        ],
+    ],
+]
+
+function printHelp() {
+    const width = 24
+    const lines = [""]
+    lines.push(`${GUTTER}${paint("bold", paint("accent", "catalyst"))}${paint("dim", ` v${pkg.version}`)}`)
+    lines.push(`${GUTTER}${paint("dim", "─".repeat(46))}`)
+    lines.push(`${GUTTER}${paint("dim", "Usage")}  catalyst <command> [options]`)
+    for (const [group, commands] of HELP) {
+        lines.push("", `${GUTTER}${paint("bold", group)}`)
+        for (const [name, text] of commands)
+            lines.push(`${GUTTER}  ${paint("accent", name.padEnd(width))}${paint("dim", text)}`)
+    }
+    lines.push("", `${GUTTER}${paint("bold", "Options")}`)
+    lines.push(
+        `${GUTTER}  ${"--verbose".padEnd(width)}${paint("dim", "Show every step and the full tool output")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--debug".padEnd(width)}${paint("dim", "Also print stacks and the environment")}`
+    )
+    lines.push(`${GUTTER}  ${"-h, --help".padEnd(width)}${paint("dim", "Show this help")}`)
+    lines.push(`${GUTTER}  ${"-v, --version".padEnd(width)}${paint("dim", "Print the version")}`)
+    console.log(`${lines.join("\n")}\n`)
+}
+
+/** Edit distance, for suggesting the command someone meant. */
+function distance(a, b) {
+    const row = Array.from({ length: b.length + 1 }, (_, i) => i)
+    for (let i = 1; i <= a.length; i++) {
+        let previous = row[0]
+        row[0] = i
+        for (let j = 1; j <= b.length; j++) {
+            const current = row[j]
+            row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1))
+            previous = current
+        }
+    }
+    return row[b.length]
+}
+
+function closestCommand(input) {
+    let best = null
+    for (const command of validCommands) {
+        const d = distance(input.toLowerCase(), command.toLowerCase())
+        if (d <= Math.max(2, Math.floor(command.length / 3)) && (!best || d < best.d)) best = { command, d }
+    }
+    return best?.command ?? null
+}
+
+if (args.length === 0 || args[0] === "--help" || args[0] === "-h" || args[0] === "help") {
+    printHelp()
+    process.exit(0)
+}
+if (args[0] === "--version" || args[0] === "-v") {
+    console.log(pkg.version)
+    process.exit(0)
+}
 
 const scriptIndex = args.findIndex((arg) => validCommands.has(arg))
 const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
@@ -68,5 +166,11 @@ if (webCommands.has(script)) {
     handleProcessResult(runScript(`../dist/scripts/${scriptName}.js`, extraArgs))
 }
 
-console.error(`Unknown script "${script}".`)
+const suggestion = closestCommand(script)
+console.error(
+    `\n${GUTTER}${paint("bad", paint("bold", "error"))}\n${GUTTER}${paint("bold", `Unknown command "${script}"`)}\n\n` +
+        `${GUTTER}${paint("accent", "hint")}  ${
+            suggestion ? `Did you mean ${paint("accent", `catalyst ${suggestion}`)}? ` : ""
+        }Run ${paint("accent", "catalyst --help")} for the list.\n`
+)
 process.exit(1)
