@@ -6,6 +6,19 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading From 1.0.x To 1.0.2
+
+`1.0.2` has no breaking API changes. Set `catalyst-core` to `1.0.2` in `package.json` and reinstall. Two changes can need a follow-up:
+
+- `react-helmet-async` is no longer a dependency of `catalyst-core`. `MetaTag` now renders route metadata through React 19's own `<head>` support, so `setMetaData` works as before. If your app imports `react-helmet-async` directly, add it to your own `dependencies`.
+- `catalyst serve` refuses to serve a build made with different `PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH` or `CLIENT_ENV_VARIABLES` values than the current `config/config.json`. If a deploy changes those values after the build, rebuild before serving. See [CLI Reference](../16-CLI.md).
+
+New apps from `create-catalyst-app` declare `"type": "module"`, and the Tailwind template names its config `postcss.config.cjs`. Existing apps need no change, because `catalyst-core` loads either `postcss.config.cjs` or `postcss.config.js`. If you add `"type": "module"` to an existing app yourself, rename a CommonJS `postcss.config.js` to `postcss.config.cjs`.
+
+The root entry gains one export, `useRouterState`, so it now exports nine names. See [Hooks](../11-API%20Reference/01-Hooks.md). Existing imports are unaffected.
+
+The release also adds two opt-in features: an animated [HTML splash screen](../02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for universal apps, and experimental [WebMCP](../20-WebMCP.md) support for exposing app actions to in-browser agents.
+
 ## Upgrading From 0.3.x To 1.0.0
 
 Catalyst `1.0.0` freezes the public API. `0.3.0-beta.5` upgrades directly. `0.3.0-beta.1` to
@@ -55,8 +68,9 @@ Node `22.12` is the minimum. Nothing checks the version at startup; on Node 20, 
 
 ### Imports From The Root Entry
 
-The root entry exports exactly eight names: `RouterDataProvider`, `useCurrentRouteData`,
-`useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. React Router is no
+In `1.0.0` the root entry exports exactly eight names: `RouterDataProvider`, `useCurrentRouteData`,
+`useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. `1.0.2` adds a ninth,
+`useRouterState`. React Router is no
 longer re-exported, so router names move to their own import:
 
 ```javascript

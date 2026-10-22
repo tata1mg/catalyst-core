@@ -389,28 +389,44 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         }
     }
 
-    // ── splashScreen (top-level, not inside WEBVIEW_CONFIG) ────────────────────
-    if (!config.splashScreen) {
+    // ── splashScreen (inside WEBVIEW_CONFIG; the native builds read only that) ──
+    const splash = wc.splashScreen
+    const hasSplashHtml = fs.existsSync(path.join(root, "public", "splashscreen.html"))
+    if (!splash) {
         warnings.push({
-            field: "splashScreen",
-            message:
-                'splashScreen key missing from top level of config/config.json. Native app will show a blank white screen during JS load. Add splashScreen: { android: { path: "public/android/splashscreen.png" }, ios: { path: "public/ios/splashscreen.png" } }.',
+            field: "WEBVIEW_CONFIG.splashScreen",
+            message: config.splashScreen
+                ? "splashScreen is at the top level of config/config.json, where the native builds never read it. Move it into WEBVIEW_CONFIG.splashScreen."
+                : `WEBVIEW_CONFIG.splashScreen not set, so the native splash screen is off${hasSplashHtml ? " and public/splashscreen.html is ignored" : ""}. Add WEBVIEW_CONFIG.splashScreen (e.g. { "backgroundColor": "#ffffff" }) to turn it on.`,
         })
     } else {
-        const missingSplash = ["public/android/splashscreen.png", "public/ios/splashscreen.png"].filter(
-            (f) => {
-                const filePath = projectPath(root, f)
-                return !filePath || !fs.existsSync(filePath)
-            }
-        )
-        if (missingSplash.length) {
-            issues.push({
-                field: "splashScreen",
-                severity: "error",
-                message: `splashScreen configured but asset files missing: ${missingSplash.join(", ")}. Native build will fail when packaging.`,
+        // Images are optional: Android falls back to the launcher icon, iOS to a loader.
+        const found = (dir, exts) =>
+            exts
+                .map((ext) => `public/${dir}/splashscreen.${ext}`)
+                .find((f) => fs.existsSync(path.join(root, f)))
+        const androidImage = found("android", ["png", "jpg", "jpeg", "gif", "bmp", "webp"])
+        const iosImage = found("ios", ["png", "jpg", "jpeg"])
+        passed.push({
+            field: "WEBVIEW_CONFIG.splashScreen",
+            note: `android image: ${androidImage || "none (launcher icon)"}, ios image: ${iosImage || "none (loader)"}`,
+        })
+        // Same rule as the iOS build (buildIos/config.js): anything else is ignored with a warning.
+        const { minDuration } = splash
+        if (
+            minDuration !== undefined &&
+            !(typeof minDuration === "number" && Number.isFinite(minDuration) && minDuration >= 0)
+        ) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.splashScreen.minDuration",
+                message: `splashScreen.minDuration must be a non-negative number of milliseconds. Got ${JSON.stringify(minDuration)}; the build ignores it and uses 0.`,
             })
-        } else {
-            passed.push({ field: "splashScreen", note: "config and both asset files present" })
+        }
+        if (hasSplashHtml) {
+            passed.push({
+                field: "public/splashscreen.html",
+                note: `HTML splash on (catalyst-core 1.0.2+): shown after the native image until the first page loads, for at least minDuration (${minDuration || 0} ms), at most 10 s; duration is ignored`,
+            })
         }
     }
 

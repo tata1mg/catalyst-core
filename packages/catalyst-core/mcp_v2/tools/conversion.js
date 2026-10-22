@@ -390,23 +390,17 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk: "No config — splash screen config cannot be read.",
                     reason: "config/config.json not found",
                 }
-            if (!config.splashScreen)
+            if (!webviewConfig || !webviewConfig.splashScreen)
                 return {
                     status: "gap",
                     native_risk:
-                        "Without splashScreen config, native app shows a blank white screen during JS load. Not a crash, but poor UX and noticeable on slow devices.",
-                    reason: "splashScreen key missing from top level of config/config.json (not inside WEBVIEW_CONFIG)",
+                        "Without WEBVIEW_CONFIG.splashScreen the Catalyst splash is skipped and the app goes straight to the WebView while JS loads. Not a crash, but poor UX on slow devices.",
+                    reason: config.splashScreen
+                        ? "splashScreen is at the top level of config/config.json; the native builds read only WEBVIEW_CONFIG.splashScreen"
+                        : "WEBVIEW_CONFIG.splashScreen missing from config/config.json",
                 }
-            const missing = ["public/android/splashscreen.png", "public/ios/splashscreen.png"].filter(
-                (f) => !fileExists(f)
-            )
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Splash config exists but asset files missing — build will fail when packaging the native app.",
-                    reason: `Splash asset files missing: ${missing.join(", ")}`,
-                }
+            // Images are optional (Android falls back to the launcher icon, iOS to a loader), so a
+            // missing image is not a gap.
             return { status: "completed" }
         },
 
