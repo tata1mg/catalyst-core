@@ -13,13 +13,24 @@ public class SplashViewModel: ObservableObject {
     private var durationTimer: Timer?
     private var hasWebViewLoaded = false
 
+    // HTML splash (public/splashscreen.html): ignores duration and progress, dismisses after the
+    // first page load once splashScreenMinDuration has elapsed, capped at htmlSplashMaxDuration.
+    let isHTMLMode = SplashHTML.content != nil
+    private static let htmlSplashMaxDuration: TimeInterval = 10
+    private var minDurationTimer: Timer?
+
     public init() {
         logger.info("SplashViewModel initialized")
-        startDurationTimer()
+        if isHTMLMode {
+            startHTMLSplashCapTimer()
+        } else {
+            startDurationTimer()
+        }
     }
 
     deinit {
         durationTimer?.invalidate()
+        minDurationTimer?.invalidate()
     }
 
     private func startDurationTimer() {
@@ -35,6 +46,33 @@ public class SplashViewModel: ObservableObject {
         durationTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.dismissSplashByDuration()
+            }
+        }
+    }
+
+    private func startHTMLSplashCapTimer() {
+        logger.info("HTML splash: waiting for initial page load (cap \(Self.htmlSplashMaxDuration) seconds)")
+
+        durationTimer = Timer.scheduledTimer(withTimeInterval: Self.htmlSplashMaxDuration, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.dismissSplash()
+            }
+        }
+    }
+
+    func initialLoadFinished() {
+        guard isHTMLMode, shouldShowSplash, minDurationTimer == nil else { return }
+
+        let remaining = ConfigConstants.splashScreenMinDuration - Date().timeIntervalSince(startTime)
+        guard remaining > 0 else {
+            dismissSplash()
+            return
+        }
+
+        logger.info("HTML splash: initial load finished, holding for \(remaining) seconds")
+        minDurationTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.dismissSplash()
             }
         }
     }
@@ -73,6 +111,8 @@ public class SplashViewModel: ObservableObject {
 
         durationTimer?.invalidate()
         durationTimer = nil
+        minDurationTimer?.invalidate()
+        minDurationTimer = nil
 
         withAnimation(.easeOut(duration: 0.3)) {
             shouldShowSplash = false

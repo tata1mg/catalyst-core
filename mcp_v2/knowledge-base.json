@@ -490,7 +490,7 @@
     {
         "section": "config_structure",
         "title": "splashScreen Config Structure",
-        "content": "splashScreen sits INSIDE WEBVIEW_CONFIG (not at top-level config.json). All fields are optional \u2014 omitting splashScreen entirely = native build proceeds but shows blank splash. Fields: backgroundColor (string hex, default '#ffffff'), duration (number ms, iOS only \u2014 controls how long splash shows), imageWidth (number px, default 120), imageHeight (number px, default 120), cornerRadius (number px, iOS only, default 20). Example: WEBVIEW_CONFIG.splashScreen = { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }. Asset placement: put image at public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp} for Android, public/ios/splashscreen.{png|jpg|jpeg} for iOS. Asset is auto-discovered by filename \u2014 NO path field in config. Missing asset file = build proceeds with no splash image (no error). backgroundColor is applied to Android themes.xml (windowSplashScreenBackground). Pfizer example: splashScreen: { imageHeight: 200, imageWidth: 400 } (backgroundColor omits = defaults to white).",
+        "content": "splashScreen sits INSIDE WEBVIEW_CONFIG (not at the top level of config.json); the Android and iOS builds read only WEBVIEW_CONFIG.splashScreen. All fields are optional. Omitting splashScreen turns the Catalyst splash off and the app goes straight to the WebView. Fields: backgroundColor (string hex, default '#ffffff'), duration (number ms; Android defaults to 1000; on iOS, when unset, the splash is dismissed once the WebView finishes loading; ignored when public/splashscreen.html exists), minDuration (number ms, default 0, catalyst-core 1.0.2+; the minimum time the HTML splash stays up; a negative or non-number value is ignored with a build warning), imageWidth (number px, default 120), imageHeight (number px, default 120), cornerRadius (number px, default 20; 0 for square corners). Example: WEBVIEW_CONFIG.splashScreen = { backgroundColor: '#ffffff', duration: 2000, imageWidth: 400, imageHeight: 200, cornerRadius: 20 }. Asset placement: put image at public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp} for Android, public/ios/splashscreen.{png|jpg|jpeg} for iOS. Asset is auto-discovered by filename \u2014 NO path field in config. Missing image = build proceeds; Android shows the launcher icon, iOS a loader. backgroundColor is applied to Android themes.xml (windowSplashScreenBackground). Optional animated splash (1.0.2+): public/splashscreen.html, see 'HTML Splash Screen (1.0.2)'. Pfizer example: splashScreen: { imageHeight: 200, imageWidth: 400 } (backgroundColor omits = defaults to white).",
         "layer": "Config",
         "source": "static",
         "tags": ["splashscreen", "splash", "config", "webview_config", "android", "ios", "native", "assets"]
@@ -958,7 +958,7 @@
     {
         "section": "observability",
         "title": "OpenTelemetry Setup in Catalyst",
-        "content": "Catalyst provides built-in OpenTelemetry support via catalyst-core/otel. Server-side only.\n\nUSAGE: Call Otel.init() inside preServerInit() in server/index.js. Guard with an ENABLE flag and skip in development.\n\nimport Otel from 'catalyst-core/otel'\n\nexport const preServerInit = () => {\n  const otelConfig = JSON.parse(process.env.OTEL)\n  if (otelConfig.ENABLE && process.env.NODE_ENV !== 'development') {\n    Otel.init({\n      serviceName: 'my-catalyst-app',\n      serviceVersion: process.env.RELEASE_TAG,\n      environment: process.env.ENV_NAME,\n      traceUrl: otelConfig.ENDPOINT,\n      instrumentations: [ new HttpInstrumentation({ ... }) ],\n    })\n  }\n}\n\nCONFIG SHAPE (all optional, defaults shown):\n- serviceName: 'catalyst-server'\n- serviceVersion: '1.0.0'\n- environment: 'development'\n- traceUrl: 'http://localhost:4318/v1/traces'\n- metricUrl: 'http://localhost:4318/v1/metrics'\n- traceHeaders: {}\n- metricHeaders: {}\n- exportIntervalMillis: 10000\n- exportTimeoutMillis: 10000\n- instrumentations: [getNodeAutoInstrumentations()] by default\n\nAUTO METRICS: init() automatically collects process_cpu_usage_percent, process_memory_usage_bytes, process_memory_heap_used_bytes, process_memory_heap_total_bytes \u2014 no extra config needed.\n\nGRACEFUL SHUTDOWN: SIGTERM and SIGINT handlers registered automatically \u2014 sdk.shutdown() is called on process exit.\n\nRETURN VALUE: { sdk, meter } \u2014 use meter (OTel Meter instance) to create your own custom metrics via meter.createObservableGauge(), createCounter(), etc.\n\nPEER DEPS: Install @opentelemetry/* packages yourself \u2014 not bundled by catalyst-core.",
+        "content": "Catalyst provides built-in OpenTelemetry support via catalyst-core/otel. Server-side only.\n\nUSAGE: Call Otel.init() inside preServerInit() in server/index.js. Guard with an ENABLE flag and skip in development.\n\nimport Otel from 'catalyst-core/otel'\n\nexport const preServerInit = () => {\n  const otelConfig = JSON.parse(process.env.OTEL)\n  if (otelConfig.ENABLE && process.env.NODE_ENV !== 'development') {\n    Otel.init({\n      serviceName: 'my-catalyst-app',\n      serviceVersion: process.env.RELEASE_TAG,\n      environment: process.env.ENV_NAME,\n      traceUrl: otelConfig.ENDPOINT,\n      instrumentations: [ new HttpInstrumentation({ ... }) ],\n    })\n  }\n}\n\nCONFIG SHAPE (all optional, defaults shown):\n- serviceName: 'catalyst-server'\n- serviceVersion: '1.0.0'\n- environment: 'development'\n- traceUrl: 'http://localhost:4318/v1/traces'\n- metricUrl: 'http://localhost:4318/v1/metrics'\n- traceHeaders: {}\n- metricHeaders: {}\n- exportIntervalMillis: 10000\n- exportTimeoutMillis: 10000\n- instrumentations: [getNodeAutoInstrumentations()] by default\n\nAUTO METRICS: init() automatically collects process_cpu_usage_percent, process_memory_usage_bytes, process_memory_heap_used_bytes, process_memory_heap_total_bytes \u2014 no extra config needed.\n\nGRACEFUL SHUTDOWN: SIGTERM and SIGINT handlers registered automatically \u2014 sdk.shutdown() is called on process exit.\n\nRETURN VALUE: { sdk, meter } \u2014 use meter (OTel Meter instance) to create your own custom metrics via meter.createObservableGauge(), createCounter(), etc.\n\nPEER DEPS: Install @opentelemetry/* packages yourself \u2014 not bundled by catalyst-core.\n\nLOGGING: init() logs through the app-wide logger that configureLogger() from catalyst-core/logger installs. Before 1.0.2, calling Otel.init() in an app that never called configureLogger() threw ReferenceError: logger is not defined. From 1.0.2 it falls back to console until a global logger is set, and picks up a logger configured later. On older versions, call configureLogger() before Otel.init().",
         "layer": "Observability",
         "source": "static",
         "tags": [
@@ -1257,7 +1257,7 @@
     {
         "section": "framework_identity",
         "title": "Catalyst Runtime Generations",
-        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Catalyst 1.0.0 is the API freeze (there is no 0.4.0 release); see 'Upgrading catalyst-core 0.3.x to 1.0.0'. Do not combine instructions from different generations. If no version can be detected, ask which version the project targets.",
+        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Catalyst 1.0.0 is the API freeze (there is no 0.4.0 release); see 'Upgrading catalyst-core 0.3.x to 1.0.0'. Do not combine instructions from different generations. If no version can be detected, ask which version the project targets. Patch releases after 1.0.0 (1.0.1, 1.0.2) keep the frozen API; see 'Upgrading catalyst-core 1.0.x to 1.0.2'.",
         "layer": "Framework",
         "source": "static",
         "tags": ["versions", "0.2.x", "0.3.x", "1.0.0", "migration", "webpack", "vite"],
@@ -1281,10 +1281,22 @@
     {
         "section": "build_system",
         "title": "Catalyst 0.3.x CLI Commands",
-        "content": "Current web commands are catalyst start, catalyst build, catalyst serve, and catalyst serve:inspect. devBuild and devServe are legacy 0.2.x commands and are not accepted by the 0.3.x CLI. Native commands remain buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android.",
+        "content": "Current web commands are catalyst start, catalyst build, catalyst serve, and catalyst serve:inspect. devBuild and devServe are legacy 0.2.x commands and are not accepted by the 0.3.x CLI. Native commands remain buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android. catalyst-core 1.0.2 OUTPUT: every command prints a short header, one line per step with timing, and one diagnostic block on failure. Flags: --verbose shows every step and, on failure, the full tool output (bundler, Gradle); --debug also prints stacks and the environment. Child processes inherit the mode through CATALYST_OUTPUT_MODE=verbose|debug. Failures carry registry codes from the error catalog (for example BUNDLE-000, ANDROID-000, IOS-000, CCA-001); use the explain_error tool for any code. catalyst serve (1.0.2+) exits when there is no build in BUILD_OUTPUT_PATH and refuses a stale build with PREFLIGHT-022 when PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH or a CLIENT_ENV_VARIABLES value in config/config.json changed after catalyst build (the build records them in <BUILD_OUTPUT_PATH>/.catalyst-build.json; a build from an older version has no record, so serve warns and skips the check until you rebuild). Fix: run catalyst build again, then catalyst serve. catalyst serve passes the app's own stdout/stderr through unchanged, so JSON log shippers keep working. Scripts that parsed the old CLI text output must be updated.",
         "layer": "Build",
         "source": "static",
-        "tags": ["0.3.x", "cli", "start", "build", "serve", "native"],
+        "tags": [
+            "0.3.x",
+            "1.0.2",
+            "cli",
+            "start",
+            "build",
+            "serve",
+            "native",
+            "verbose",
+            "debug",
+            "stale-build",
+            "PREFLIGHT-022"
+        ],
         "github_files": ["packages/catalyst-core/bin/catalyst.js"]
     },
     {
@@ -1303,7 +1315,7 @@
     {
         "section": "routing",
         "title": "Catalyst 0.3.x Integrated Router",
-        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. As of 1.0.0 (the API freeze), catalyst-core does NOT re-export React Router. Its root entry exports exactly eight names: RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. There is no default export (split was previously also the default). React Router is a peerDependency (^7.18.2): install react-router in the application and import Outlet, Link, useParams, useNavigate, useLocation, Navigate and every other router name from 'react-router' directly. Import RouterProvider in client/index.js from 'react-router/dom', which passes React DOM's flushSync to the router. Metadata utilities (getMetaData, mergeHeadElements, deleteHeadTagsByDataAttribute), RouterContext, serverDataFetcher and useNavigateWithTransition are no longer public. Existing route arrays and preparedRoutes structure remain unchanged. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
+        "content": "Catalyst 0.3.x removes the @tata1mg/router package dependency. As of 1.0.0 (the API freeze), catalyst-core does NOT re-export React Router. Its root entry exported exactly eight names in 1.0.0: RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. 1.0.2 adds a ninth, useRouterState (returns { location, params, navigate, matchedRoutes } through Catalyst's router context; used by catalyst-core/webmcp; throws outside RouterDataProvider). App components should still use react-router's useLocation/useParams/useNavigate. There is no default export (split was previously also the default). React Router is a peerDependency (^7.18.2): install react-router in the application and import Outlet, Link, useParams, useNavigate, useLocation, Navigate and every other router name from 'react-router' directly. Import RouterProvider in client/index.js from 'react-router/dom', which passes React DOM's flushSync to the router. Metadata utilities (getMetaData, mergeHeadElements, deleteHeadTagsByDataAttribute), RouterContext, serverDataFetcher and useNavigateWithTransition are no longer public. Existing route arrays and preparedRoutes structure remain unchanged. Keeping both router packages can create duplicate runtime contracts and invalid React element errors.",
         "layer": "Runtime",
         "source": "static",
         "tags": [
@@ -1377,7 +1389,7 @@
     {
         "section": "version_migration",
         "title": "Upgrading catalyst-core 0.3.x to 1.0.0",
-        "content": "Upgrade path for an application on catalyst-core 0.3.x to 1.0.0, the stable release. Read the installed catalyst-core version from package.json first. 0.3.0-beta.5 upgrades directly. 0.3.0-beta.1 to 0.3.0-beta.4 used react-router-dom 6, so those also cross React Router 6 to 7 (step 1). Older applications first move to 0.3.x (see 'Legacy 0.2.x Migration Phase 0' and 'Catalyst 0.3.x React Runtime Contract'). 1.0.0 is the API freeze; there is no 0.4.0 release. Do the steps in order.\n\n1. DEPENDENCIES: set catalyst-core to 1.0.0. Add react-router ^7.18.2 as an application dependency: it is now a peer dependency and the server exits at startup if it is missing or outside that range. Keep react and react-dom pinned to 19.0.0. TypeScript applications also need @types/react ^19.0.0. catalyst-core no longer installs react-router-dom, so change any import from 'react-router-dom' to 'react-router', except RouterProvider, which comes from 'react-router/dom' (step 3).\n\n2. NODE: run node -v. catalyst-core 1.0.0 requires >=22.12; on Node 20, importing catalyst-core/hooks or catalyst-core/WebBridge fails with ERR_REQUIRE_ESM. If the runtime is older, stop and tell the user; do not change the project's Node pin yourself.\n\n3. IMPORTS: the root entry exports exactly RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body. Move every React Router name (Link, Outlet, useParams, useNavigate, useLocation, Navigate, ...) from 'catalyst-core' to 'react-router'. In client/index.js import RouterProvider from 'react-router/dom', not 'react-router': only the /dom export passes React DOM's flushSync to the router, and the wrong one renders without any error. Replace `import split from 'catalyst-core'` with `import { split } from 'catalyst-core'`; there is no default export. Replace imports from 'catalyst-core/document' with Head and Body from 'catalyst-core'. 'catalyst-core/caching' is removed with no replacement. RouterContext, serverDataFetcher, mergeHeadElements, deleteHeadTagsByDataAttribute, getMetaData, useNavigateWithTransition and sanitizeFilePickerOptions (catalyst-core/hooks) are internal with no replacement: if the application uses one, stop and tell the user instead of inventing a substitute.\n\n4. CONFIG: catalyst start, build and serve now run a preflight and exit before starting when config/config.json lacks NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES, or when package.json _moduleAliases lacks @api, @containers, @server, @config, @css or @routes. Apps created from the templates already have all of them. WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE are no longer read and can be removed.\n\n5. BUILD AND START: run the build, then start the server once. The build catches removed imports (they fail instead of resolving to undefined); startup catches the react-router range and the preflight. Nothing checks the Node version at startup; an old Node fails only when hooks or WebBridge is imported (step 2).\n\n6. HOOK ERROR FIELDS (not caught by the build): hook errors are now CatalystError instances. Rename reads of error.action to error.suggestedAction and error.nativeError to error.cause; error.recoverable and error.timestamp no longer exist. error.code values are registry codes (RUNTIME-NATIVE-xxx) instead of names like PERMISSION_DENIED, so replace string-literal comparisons with ERROR_CODES from catalyst-core/errors (for example ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED). error.category is now 'RUNTIME-NATIVE' instead of PERMISSION, NETWORK, FILE_SYSTEM and the other old values. JSON.stringify(error) no longer includes the message; log error.message. See 'CatalystError shape (1.0.0)'.\n\n7. OPTIONAL, NON-BREAKING: rename deprecated hook alias keys to the canonical ones (see 'Native hooks \u2014 aliases and deprecations'); aliases keep working until 2.0.\n\nUnchanged: route arrays, preparedRoutes, server/index.js, server/server.js and server/document.js contracts, server hooks, and WEBVIEW_CONFIG. Full guide: docs/content/12-Migration/02-Version-Upgrades.md.",
+        "content": "Upgrade path for an application on catalyst-core 0.3.x to 1.0.0, the stable release. Read the installed catalyst-core version from package.json first. 0.3.0-beta.5 upgrades directly. 0.3.0-beta.1 to 0.3.0-beta.4 used react-router-dom 6, so those also cross React Router 6 to 7 (step 1). Older applications first move to 0.3.x (see 'Legacy 0.2.x Migration Phase 0' and 'Catalyst 0.3.x React Runtime Contract'). 1.0.0 is the API freeze; there is no 0.4.0 release. Do the steps in order.\n\n1. DEPENDENCIES: set catalyst-core to 1.0.0. Add react-router ^7.18.2 as an application dependency: it is now a peer dependency and the server exits at startup if it is missing or outside that range. Keep react and react-dom pinned to 19.0.0. TypeScript applications also need @types/react ^19.0.0. catalyst-core no longer installs react-router-dom, so change any import from 'react-router-dom' to 'react-router', except RouterProvider, which comes from 'react-router/dom' (step 3).\n\n2. NODE: run node -v. catalyst-core 1.0.0 requires >=22.12; on Node 20, importing catalyst-core/hooks or catalyst-core/WebBridge fails with ERR_REQUIRE_ESM. If the runtime is older, stop and tell the user; do not change the project's Node pin yourself.\n\n3. IMPORTS: in 1.0.0 the root entry exports exactly RouterDataProvider, useCurrentRouteData, useRouterData, MetaTag, split, hydrationReady, Head, Body (1.0.2 adds useRouterState). Move every React Router name (Link, Outlet, useParams, useNavigate, useLocation, Navigate, ...) from 'catalyst-core' to 'react-router'. In client/index.js import RouterProvider from 'react-router/dom', not 'react-router': only the /dom export passes React DOM's flushSync to the router, and the wrong one renders without any error. Replace `import split from 'catalyst-core'` with `import { split } from 'catalyst-core'`; there is no default export. Replace imports from 'catalyst-core/document' with Head and Body from 'catalyst-core'. 'catalyst-core/caching' is removed with no replacement. RouterContext, serverDataFetcher, mergeHeadElements, deleteHeadTagsByDataAttribute, getMetaData, useNavigateWithTransition and sanitizeFilePickerOptions (catalyst-core/hooks) are internal with no replacement: if the application uses one, stop and tell the user instead of inventing a substitute.\n\n4. CONFIG: catalyst start, build and serve now run a preflight and exit before starting when config/config.json lacks NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES, or when package.json _moduleAliases lacks @api, @containers, @server, @config, @css or @routes. Apps created from the templates already have all of them. WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE are no longer read and can be removed.\n\n5. BUILD AND START: run the build, then start the server once. The build catches removed imports (they fail instead of resolving to undefined); startup catches the react-router range and the preflight. Nothing checks the Node version at startup; an old Node fails only when hooks or WebBridge is imported (step 2).\n\n6. HOOK ERROR FIELDS (not caught by the build): hook errors are now CatalystError instances. Rename reads of error.action to error.suggestedAction and error.nativeError to error.cause; error.recoverable and error.timestamp no longer exist. error.code values are registry codes (RUNTIME-NATIVE-xxx) instead of names like PERMISSION_DENIED, so replace string-literal comparisons with ERROR_CODES from catalyst-core/errors (for example ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED). error.category is now 'RUNTIME-NATIVE' instead of PERMISSION, NETWORK, FILE_SYSTEM and the other old values. JSON.stringify(error) no longer includes the message; log error.message. See 'CatalystError shape (1.0.0)'.\n\n7. OPTIONAL, NON-BREAKING: rename deprecated hook alias keys to the canonical ones (see 'Native hooks \u2014 aliases and deprecations'); aliases keep working until 2.0.\n\nUnchanged: route arrays, preparedRoutes, server/index.js, server/server.js and server/document.js contracts, server hooks, and WEBVIEW_CONFIG. Full guide: docs/content/12-Migration/02-Version-Upgrades.md.",
         "layer": "Framework",
         "source": "static",
         "tags": [
@@ -1457,5 +1469,110 @@
         "layer": "Bridge",
         "source": "static",
         "tags": "ai,catalyst-ai,native ai,on-device,gemma,gemma 4,e2b,litert,litert-lm,foundation models,apple intelligence,useAI,useNativeAI"
+    },
+    {
+        "section": "config_structure",
+        "title": "HTML Splash Screen (1.0.2)",
+        "content": "Available from catalyst-core 1.0.2 on Android and iOS. Add public/splashscreen.html (the root of public/, not public/android or public/ios; one file shared by both platforms) to show an HTML/CSS animation while the app loads. It takes effect only when WEBVIEW_CONFIG.splashScreen is set; without that key the file is ignored.\n\nSEQUENCE: native splash image (public/<platform>/splashscreen.<ext>) \u2192 the HTML splash \u2192 the app. The HTML splash sits above the main WebView, which loads underneath, and is dismissed once the first page has finished loading and minDuration has passed. Hard cap: it is dismissed after 10 seconds even if the page is still loading.\n\nCONFIG: WEBVIEW_CONFIG.splashScreen.minDuration (ms, default 0) keeps the animation on screen at least that long. A negative or non-number value is ignored (0) with a build warning. duration is ignored in HTML mode. Example: { \"WEBVIEW_CONFIG\": { \"splashScreen\": { \"backgroundColor\": \"#ffffff\", \"minDuration\": 1200 } } }.\n\nFILE RULES: one self-contained file: inline CSS and JS, images as data: URIs. Paint your own opaque, full-screen background (the native image sits underneath). No network requests (Android blocks network loads in the splash WebView). No native bridge (no JS interfaces are exposed). Prefer CSS transform and opacity animations, since the app is loading at the same time.\n\nBUILD: iOS embeds the file in the app binary at build time and warns above 1 MB; Android copies it to assets/splash/. Rebuild the native app after editing it. Delete the file to go back to the image-only splash (the Android build also removes its copy). check_config reports the file and validates minDuration.",
+        "layer": "Config",
+        "source": "static",
+        "tags": [
+            "1.0.2",
+            "splashscreen",
+            "splash",
+            "splashscreen.html",
+            "html-splash",
+            "animated-splash",
+            "minDuration",
+            "native",
+            "android",
+            "ios"
+        ],
+        "github_files": [
+            "docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.mdx",
+            "packages/catalyst-core/src/native/buildIos/config.js",
+            "packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SplashOverlay.kt"
+        ]
+    },
+    {
+        "section": "webmcp",
+        "title": "WebMCP (experimental, 1.0.2) \u2014 Setup",
+        "content": "WebMCP lets a page expose tools (named actions with a JSON-schema input) to an AI agent running in the browser. Catalyst ships it from catalyst-core 1.0.2 as catalyst-core/webmcp. EXPERIMENTAL: useTool, WebMcpProvider, the route `tool` field, the webmcp:* document events and inspect/invokeTool may change in a minor release. NOT the same as this MCP server: this server helps AI coding tools understand a Catalyst project (Node, build time); WebMCP runs in the app's browser tab and exposes the app's own actions to agents.\n\nSETUP: call installShim() from catalyst-core/webmcp/shim once, before the provider mounts. Catalyst targets this opt-in DOM shim; native browser document.modelContext is intentionally unsupported for now. Then wrap the app in WebMcpProvider inside RouterDataProvider, passing the app's own route table:\n\nimport { WebMcpProvider } from 'catalyst-core/webmcp'\nimport { installShim } from 'catalyst-core/webmcp/shim'\nimport routes from './routes'\ninstallShim()\nexport const App = ({ children }) => (\n  <WebMcpProvider routes={routes} filterNavigable={(route) => !route.path.startsWith('/docs/')}>{children}</WebMcpProvider>\n)\n\nfilterNavigable is optional and keeps large page sets out of the navigate tool's enum.\n\nBUILT-IN TOOLS (registered by the provider): navigate, get_current_route, get_page_info (built from the page's setMetaData). Agent side (shim): document.modelContext.getTools() and document.modelContext.executeTool(name, args).\n\nEXPORTS of catalyst-core/webmcp: WebMcpProvider, useTool, WebMcpError, WEBMCP_ERROR_CODES, inspect, invokeTool, isNative, plus helpers (flattenRoutes, declarativeToolFor, frameworkTools, toolNameFromPath, paramNames, fillPath, buildInputSchema, pageInfoTool, flattenHeadElements). catalyst-core/webmcp/shim exports installShim. A dev panel is app-level: listen for webmcp:register, webmcp:unregister, webmcp:execute:start and webmcp:execute:end on document and call inspect()/invokeTool(). Full guide: docs/content/20-WebMCP.md; example app: examples/webmcp-poc.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "1.0.2",
+            "webmcp",
+            "web-mcp",
+            "agents",
+            "ai-agent",
+            "modelContext",
+            "WebMcpProvider",
+            "installShim",
+            "shim",
+            "experimental",
+            "tools"
+        ],
+        "github_files": [
+            "docs/content/20-WebMCP.md",
+            "packages/catalyst-core/src/webmcp/index.js",
+            "packages/catalyst-core/src/webmcp/shim.js"
+        ]
+    },
+    {
+        "section": "webmcp",
+        "title": "WebMCP \u2014 Authoring Tools (route tool, useTool, errors)",
+        "content": "Three ways to author WebMCP tools (catalyst-core 1.0.2+, experimental):\n\n1. DECLARATIVE, on the route: add `tool` to a route and Catalyst derives the name from the path (static segments joined by '_', '/' is 'home'), the input schema (path params required, `searchParams` optional) and an execute that navigates. Route tools default to annotations { readOnlyHint: true } and are available app-wide.\n{ path: '/products', component: ProductList, tool: { description: 'Browse the catalogue, optionally filtered.', searchParams: { category: { type: 'string', enum: ['footwear', 'apparel'] } } } }\n\n2. IMPERATIVE, in a component: useTool(spec) registers an action tool for the component's lifetime and removes it on unmount or when the user leaves the route. spec = { name, description, inputSchema, annotations?, execute }. Returns { status, receipt, error }; the receipt is a registration handle, not an execution result.\nuseTool({ name: 'add_to_cart', description: 'Add the current product to the cart.', inputSchema: { type: 'object', properties: { quantity: { type: 'number', minimum: 1 } } }, execute: async ({ quantity = 1 }) => { dispatch(addItem({ id, quantity })); return { added: true } } })\n\n3. STATEFUL, with deps: useTool(spec, deps) refreshes description, inputSchema, annotations and execute in place when a dep changes (for example an enum of cart item ids), so a call already in flight still completes.\n\nERRORS: throw new WebMcpError with a code from WEBMCP_ERROR_CODES (TOOL_NOT_FOUND, INVALID_ARGS, EXECUTE_FAILED, ABORTED, DUPLICATE_TOOL; values are prefixed WEBMCP_, e.g. 'WEBMCP_INVALID_ARGS'). Arguments in the schema's `required` array are checked before execute runs.\n\nRULES: do side effects inside the tool (agents ignore 'now call X' hints in results). Mark intent with annotations: { readOnlyHint: true } for reads, { consequentialHint: true } for irreversible actions such as checkout. Keep names unique: route tool names must not collide with navigate, get_current_route or get_page_info; a collision logs a warning and the later tool is dropped.",
+        "layer": "Runtime",
+        "source": "static",
+        "tags": [
+            "1.0.2",
+            "webmcp",
+            "useTool",
+            "route-tool",
+            "declarative",
+            "WebMcpError",
+            "WEBMCP_ERROR_CODES",
+            "readOnlyHint",
+            "consequentialHint",
+            "experimental",
+            "tools"
+        ],
+        "github_files": [
+            "docs/content/20-WebMCP.md",
+            "packages/catalyst-core/src/webmcp/useTool.js",
+            "packages/catalyst-core/src/webmcp/declarative.js",
+            "packages/catalyst-core/src/webmcp/errors.js"
+        ]
+    },
+    {
+        "section": "version_migration",
+        "title": "Upgrading catalyst-core 1.0.x to 1.0.2",
+        "content": "1.0.2 is a patch release on the frozen 1.0 API; most applications need no code change. Read the installed catalyst-core version from package.json first; apps on 0.3.x follow 'Upgrading catalyst-core 0.3.x to 1.0.0' first.\n\n1. DEPENDENCIES: set catalyst-core to 1.0.2. Node stays >=22.12; react and react-dom stay 19.0.0; react-router stays ^7.18.2.\n\n2. react-helmet-async REMOVED: catalyst-core no longer depends on it. MetaTag and setMetaData work unchanged; the tags are now rendered through React 19 document metadata, and the server-rendered copies are removed once the client copies are in, so stale head tags no longer survive navigation. If the application imports react-helmet-async itself (it used to arrive transitively), add it to the application's own dependencies.\n\n3. CLI OUTPUT: start, build, serve and the native builds print a short header, one line per step and one diagnostic block on failure; --verbose and --debug show more (see 'Catalyst 0.3.x CLI Commands'). Update any script that parsed the old text output. catalyst serve now refuses a stale build (PREFLIGHT-022): after changing PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH or CLIENT_ENV_VARIABLES values, rebuild before serving. Run catalyst build once after upgrading so serve can run that check.\n\n4. FIXES, nothing to do: Fast Refresh works for JSX in .js files; Otel.init() no longer throws without configureLogger() (falls back to console); Head and Body no longer import prop-types at runtime, so apps that do not install prop-types no longer crash in SSR.\n\n5. NEW, OPT-IN: an animated HTML splash via public/splashscreen.html plus WEBVIEW_CONFIG.splashScreen.minDuration ('HTML Splash Screen (1.0.2)'); WebMCP via catalyst-core/webmcp, experimental ('WebMCP (experimental, 1.0.2) \u2014 Setup').\n\n6. NEW APPS ONLY: apps created by the create-catalyst-app released with catalyst-core 1.0.2 declare \"type\": \"module\" in package.json, and the Tailwind template ships postcss.config.cjs. catalyst-core reads postcss.config.cjs or postcss.config.js, so existing apps need no change. create-catalyst-app runs on Node >=20.12. NEW ROOT EXPORT: useRouterState is added to the root entry (now nine names); existing imports are unaffected.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": [
+            "migration",
+            "upgrade",
+            "update",
+            "bump",
+            "1.0.2",
+            "1.0.1",
+            "1.0.x",
+            "patch",
+            "react-helmet-async",
+            "helmet",
+            "verbose",
+            "stale-build",
+            "PREFLIGHT-022",
+            "splashscreen.html",
+            "webmcp",
+            "latest",
+            "useRouterState"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/12-Migration/02-Version-Upgrades.md"
+        ]
     }
 ]

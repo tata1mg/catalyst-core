@@ -197,29 +197,40 @@ describe("handleError output mode", () => {
         vi.resetModules()
     })
 
-    it("uses the non-'default' formatter branch when CATALYST_OUTPUT_MODE is verbose", async () => {
+    it("uses the registry box under CATALYST_OUTPUT_MODE=verbose, even with the CLI renderer installed", async () => {
         const saved = process.env.CATALYST_OUTPUT_MODE
         process.env.CATALYST_OUTPUT_MODE = "verbose"
         vi.resetModules()
         vi.spyOn(console, "log").mockImplementation(() => {})
+        ;(globalThis as any).__catalystRenderRegistryError = () => "cli renderer"
         try {
-            // outputMode is resolved at module load -> "verbose" -> the
-            // else branch of handleError runs (no "Failed to start
-            // server:" prefix).
+            // outputMode is resolved at module load -> "verbose".
             const mod = await import("../../src/server/utils/validator.js")
             mod.handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
             const logged = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().join("\n")
-            expect(logged).not.toContain("Failed to start server:")
+            expect(logged).toContain(`Code: ${ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING}`)
+            expect(logged).not.toContain("cli renderer")
         } finally {
+            delete (globalThis as any).__catalystRenderRegistryError
             if (saved === undefined) delete process.env.CATALYST_OUTPUT_MODE
             else process.env.CATALYST_OUTPUT_MODE = saved
         }
     })
 
-    it("uses the 'default' branch (with prefix) otherwise", () => {
+    it("uses the CLI's renderer by default when the server installed one", () => {
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        ;(globalThis as any).__catalystRenderRegistryError = (e: any, scope: string) => `cli ${e.code} ${scope}`
+        try {
+            handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
+            expect(logSpy.mock.calls.flat().join("\n")).toBe(`cli ${ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING} server`)
+        } finally {
+            delete (globalThis as any).__catalystRenderRegistryError
+        }
+    })
+
+    it("falls back to the registry format by default without a renderer (SSR bundle, tests)", () => {
         const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
         handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
-        const logged = logSpy.mock.calls.flat().join("\n")
-        expect(logged).toContain("Failed to start server:")
+        expect(logSpy.mock.calls.flat().join("\n")).toContain(`[${ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING}]`)
     })
 })

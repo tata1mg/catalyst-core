@@ -22,6 +22,7 @@ export const ERROR_CODES = {
     PREFLIGHT_GET_ROUTES_NOT_FUNCTION: "PREFLIGHT-019",
     PREFLIGHT_CUSTOM_DOCUMENT_MISSING: "PREFLIGHT-020",
     PREFLIGHT_CUSTOM_DOCUMENT_NOT_FUNCTION: "PREFLIGHT-021",
+    PREFLIGHT_BUILD_STALE: "PREFLIGHT-022",
 
     PROCESS_SERVER_INIT_FAILED: "PROCESS-001",
     PROCESS_USER_HOOK_FAILED: "PROCESS-002",
@@ -203,6 +204,13 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "document should be a react component exported from server/document.js",
         defaultDetails: "document was found but is not a function/component.",
         suggestedAction: "Ensure document is exported as a React component (function).",
+    },
+    [ERROR_CODES.PREFLIGHT_BUILD_STALE]: {
+        category: "PREFLIGHT",
+        defaultMessage: "The build is stale: config/config.json changed since it was built",
+        defaultDetails:
+            "PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH and the CLIENT_ENV_VARIABLES values are inlined into the bundles at build time, so serving this build would use the old values.",
+        suggestedAction: "Run `npm run build` again, then `npm run serve`.",
     },
 
     [ERROR_CODES.PROCESS_SERVER_INIT_FAILED]: {

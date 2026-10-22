@@ -379,7 +379,8 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         // so a plain "$*" is safe here.
         "**/CustomWebView.class", "**/CustomWebView\$*.class", "**/CustomWebViewKt.class",
         "**/MainActivity.class", "**/MainActivity\$*.class",
-        "**/SplashActivity.class", "**/SplashActivity\$*.class",
+        "**/SplashActivity.class", "**/SplashActivity\$*.class", "**/SplashActivityKt.class",
+        "**/SplashOverlay.class", "**/SplashOverlay\$*.class",
         "**/NativeCameraManager.class", "**/NativeCameraManager\$*.class",
         "**/camera/CameraSessionManager.class", "**/camera/CameraSessionManager\$*.class",
         "**/TransitionManager.class", "**/TransitionManager\$*.class",

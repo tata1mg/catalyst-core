@@ -206,12 +206,13 @@
         "detect_pattern": "field_check + file_exists",
         "how_to_check": [
             "file: config/config.json",
-            "field: splashScreen must exist at top level (NOT inside WEBVIEW_CONFIG)",
-            "file: public/android/splashscreen.png must exist",
-            "file: public/ios/splashscreen.png must exist"
+            "field: WEBVIEW_CONFIG.splashScreen must exist (NOT at the top level of config.json)",
+            "file (optional): public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}",
+            "file (optional): public/ios/splashscreen.{png|jpg|jpeg}",
+            "file (optional, 1.0.2+): public/splashscreen.html"
         ],
-        "fix_guide": "1) Add to top level of config/config.json (NOT inside WEBVIEW_CONFIG): splashScreen: { android: { path: 'public/android/splashscreen.png' }, ios: { path: 'public/ios/splashscreen.png' } }. 2) Place splash images at those paths. Recommended sizes: Android 1080x1920px, iOS 1242x2688px.",
-        "verify_hint": "Build and install the app on a device/emulator. On cold launch (after force-closing), you should see the splash image for ~1-2 seconds before the app loads. If you see a white flash instead, either the asset path is wrong or splashScreen is inside WEBVIEW_CONFIG instead of at the top level of config.json.",
+        "fix_guide": "1) Add WEBVIEW_CONFIG.splashScreen to config/config.json, e.g. { backgroundColor: '#ffffff', duration: 1000, imageWidth: 120, imageHeight: 120 }. There is no path field: images are found by filename. 2) Place the images at public/android/splashscreen.<ext> and public/ios/splashscreen.<ext>; without one, Android shows the launcher icon and iOS a loader. 3) Optional on catalyst-core 1.0.2+: add a self-contained public/splashscreen.html (inline CSS/JS, data: URI images, no network) for an animated splash shown after the native image until the first page loads; set splashScreen.minDuration (ms) to hold it longer. duration is ignored in that mode.",
+        "verify_hint": "Build and install the app on a device/emulator. On cold launch (after force-closing), you should see the splash image for ~1-2 seconds before the app loads. If you see no splash, check that splashScreen sits inside WEBVIEW_CONFIG (not at the top level of config.json) and that the image filename is splashscreen.<ext>.",
         "depends_on": ["T1_CONFIG"]
     },
     {

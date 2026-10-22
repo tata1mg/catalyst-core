@@ -1,11 +1,17 @@
 const path = require("path")
 const { createIosBuild, pwd } = require("./buildIos/index.js")
 const { composeIosPlugins } = require("./pluginComposerIos.js")
-const { resolveInternalPluginsRoot, resolvePluginConfig, resolveAIPluginSource } = require("./internalPluginUtils.js")
-const { formatBuildError } = require("./buildErrorFormat.js")
+const {
+    resolveInternalPluginsRoot,
+    resolvePluginConfig,
+    resolveAIPluginSource,
+} = require("./internalPluginUtils.js")
+const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
+const { buildFailure } = require("../cli/diagnostic.js")
+const { loadAppConfig } = require("../cli/appConfig.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = require(`${process.cwd()}/config/config.json`)
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
 async function main() {
     const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
@@ -19,8 +25,8 @@ async function main() {
         PROJECT_DIR,
     } = build
 
+    let building = false
     try {
-        progress.log("Starting build process...", "info")
         const aiPlugin = resolveAIPluginSource(WEBVIEW_CONFIG, process.cwd(), (message, status = "info") =>
             progress.log(message, status)
         )
@@ -36,16 +42,26 @@ async function main() {
         await updateInfoPlist(pluginComposition)
         await updateEntitlements(pluginComposition)
         await syncPluginResources(pluginComposition)
+        building = true
         await buildForIOS(pluginComposition)
     } catch (error) {
-        // progress.log() prefixes every call with an icon/color and does a
-        // single console.log per invocation — it's built for single-line
-        // status messages, not our multi-line boxed verbose/debug output
-        // (piping a box through it would prefix an icon onto every border
-        // line and break the box shape). Bypass it here and use plain
-        // console.error instead, matching buildAppAndroid.js; progress.log
-        // is unaffected everywhere else in this build.
-        console.error(formatBuildError({ code: "IOS-000", category: "IOS", upstreamName: "Xcode/CocoaPods", error }))
+        // buildForIOS already reported this through the progress tree, so the
+        // default mode does not repeat it. The steps before it report nothing
+        // themselves; without this their failure exited 1 with no output.
+        if (!building) {
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
+            process.stderr.write(buildFailure({ error, stage: error?.stage || "iOS build", code: "IOS-000" }))
+        }
+        // --verbose/--debug add the registry's boxed report, printed with
+        // console.error rather than progress.log, which would prefix every
+        // border line and break the box.
+        if (resolveOutputMode() !== "default") {
+            console.error(
+                formatBuildError({ code: "IOS-000", category: "IOS", upstreamName: "Xcode/CocoaPods", error })
+            )
+        } else if (process.env.CATALYST_DEBUG && error.stack) {
+            console.error(error.stack)
+        }
         process.exit(1)
     }
     process.exit(0)

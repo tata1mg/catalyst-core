@@ -76,6 +76,10 @@ export default defineConfig({
                     include: [
                         "test/**/*.test.ts",
                         "src/web-router/**/*.server.test.{js,jsx}",
+                        // WebMCP's registry/declarative helpers are pure logic
+                        // (no DOM, no React rendering) -- same rationale as the
+                        // rest of this project.
+                        "src/webmcp/**/*.test.js",
                     ],
                 },
             },

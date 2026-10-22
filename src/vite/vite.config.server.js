@@ -28,8 +28,15 @@ export default defineConfig(async () => {
             ...(customViteConfig?.ssrPlugins || []),
         ],
 
+        // The CLI prints its own build summary and asset table, so Vite's
+        // duplicate table and rollup's advisory warnings are pure noise.
+
         build: {
             ...baseConfig.build,
+            // Parallel client and server builds share this directory -- emptying it
+            // would delete the other bundle. Declared explicitly so Vite does not
+            // warn about an outDir outside the project root.
+            emptyOutDir: false,
             outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
             target: "es2022",
             minify: "esbuild",
@@ -38,6 +45,20 @@ export default defineConfig(async () => {
             ssrManifest: false,
 
             rollupOptions: {
+                // Advisory warnings about third-party code the app author
+                // cannot act on: a dependency's misplaced /*#__PURE__*/ comment
+                // and unused re-exports from our own entry. Genuine problems
+                // (unresolved imports, circular deps, missing exports) still
+                // surface.
+                onwarn(warning, defaultHandler) {
+                    const ignored = new Set([
+                        "INVALID_ANNOTATION",
+                        "UNUSED_EXTERNAL_IMPORT",
+                        "MODULE_LEVEL_DIRECTIVE",
+                    ])
+                    if (ignored.has(warning.code)) return
+                    defaultHandler(warning)
+                },
                 // Belt-and-suspenders with ssr.external: ensures the opt-in OTEL /
                 // node-only packages (and their transitive @opentelemetry/* deps) are
                 // never resolved/bundled, even though they may not be installed.
