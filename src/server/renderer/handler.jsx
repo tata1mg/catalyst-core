@@ -21,6 +21,8 @@ import {
     registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
+    generateInlinedCssMarkerElements,
+    generateInlinedCssMarkerStrings,
 } from "./extract.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -151,24 +153,33 @@ const _renderMarkUp = async (
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-    const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
+    const inlinedCssPaths = []
+    const inlineCss = readCssFromDisk(criticalAssets.css, buildDir, inlinedCssPaths)
 
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
     const deferredRouteInlineCss = readCssFromDisk(
         getCachedDeferredCssPathsForRoute(deferredRouteKey),
-        buildDir
+        buildDir,
+        inlinedCssPaths
     )
+    const inlinedCssMarkers = chunkExtractor
+        ? generateInlinedCssMarkerElements(inlinedCssPaths.map((p) => chunkExtractor._toCssUrl(p)))
+        : []
 
     const integrityManifest = getIntegrityManifest() || {}
     const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce, integrityManifest)
-    const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
+    const deferredPreloadUrls = [
+        ...(chunkExtractor ? chunkExtractor.getStaticImportPreloadUrls() : []),
+        ...getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js),
+    ]
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce, integrityManifest)
 
     // Build Head props
     const shellStart = renderStart({
         inlineCss,
         deferredRouteInlineCss,
+        inlinedCssMarkers,
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
@@ -193,6 +204,7 @@ const _renderMarkUp = async (
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
                     deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
+                    inlinedCssMarkers={finalProps.inlinedCssMarkers}
                     jsScripts={finalProps.jsScripts}
                     criticalPreloadLinks={finalProps.criticalPreloadLinks}
                     deferredPreloadLinks={finalProps.deferredPreloadLinks}
@@ -254,7 +266,17 @@ const _renderMarkUp = async (
                         isBot
                     )
                     if (newCssPaths.length) {
-                        this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+                        const inlinedNewCssPaths = []
+                        this.push(
+                            `<style>${readCssFromDisk(newCssPaths, buildDir, inlinedNewCssPaths)}</style>`
+                        )
+                        if (!isBot) {
+                            this.push(
+                                generateInlinedCssMarkerStrings(
+                                    inlinedNewCssPaths.map((p) => chunkExtractor._toCssUrl(p))
+                                )
+                            )
+                        }
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js, nonce, integrityManifest))

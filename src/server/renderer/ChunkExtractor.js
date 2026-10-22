@@ -97,10 +97,11 @@ export class ChunkExtractor {
 
         bucket.js.add(jsUrl)
 
-        // Collect direct + transitive CSS as relative file paths (not URLs)
+        // Collect transitive + direct CSS as relative file paths (not URLs). allCss is dependencies-first
+        // and already ends with the chunk's own CSS, so it goes first to keep that order.
         const cssPart = Array.isArray(manifestEntry.css) ? manifestEntry.css : []
         const allCssPart = Array.isArray(manifestEntry.allCss) ? manifestEntry.allCss : []
-        const cssFiles = [...cssPart, ...allCssPart]
+        const cssFiles = [...allCssPart, ...cssPart]
         for (const cssFile of cssFiles) {
             if (!this._allCssPaths.has(cssFile)) {
                 this._allCssPaths.add(cssFile)
@@ -138,6 +139,24 @@ export class ChunkExtractor {
 
     getRenderedComponentKeys() {
         return Array.from(this.components)
+    }
+
+    /**
+     * JS URLs of non-essential chunks that essential chunks import statically — e.g. a shared
+     * chunk that also holds split() targets. They load on every page, so they get a modulepreload,
+     * but stay out of `critical`: they must keep executing through their importer, and their CSS
+     * already comes with the chunks that use it.
+     */
+    getStaticImportPreloadUrls() {
+        const essential = this.assetManifest.essential || {}
+        const urls = new Set()
+        for (const entry of Object.values(essential)) {
+            for (const key of entry.imports || []) {
+                const file = !essential[key] && this.manifest[key]?.file
+                if (file) urls.add(this._toUrl(file))
+            }
+        }
+        return [...urls].filter((url) => !this.critical.js.has(url))
     }
 }
 
