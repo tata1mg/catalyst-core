@@ -37,7 +37,10 @@ export interface OneMgRouterContextValue {
 // and consumer then never meet and `useRouterState()` throws on every page.
 // Keying the context on the global symbol registry makes every copy share it.
 const CONTEXT_KEY = Symbol.for("catalyst-core.OneMgRouterContext")
-const globalScope = globalThis as unknown as Record<symbol, React.Context<OneMgRouterContextValue> | undefined>
+const globalScope = globalThis as unknown as Record<
+    symbol,
+    React.Context<OneMgRouterContextValue> | undefined
+>
 
 /**
  * @description This is internal context made for sharing data among router components
