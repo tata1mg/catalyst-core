@@ -1,0 +1,38 @@
+packages/create-catalyst-app/scripts/cli.cjs
+  s_be39530ce9affc::t_86ecc598cab770 196-199,202
+  s_be39530ce9affc::t_98efb81ea5cf89 112,188,487
+packages/catalyst-core/.npmrc
+  s_be39530ce9affc::t_ac8460da9c513a 2-3
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_be39530ce9affc::t_1f3e0cc1466bc5 407
+packages/catalyst-core/src/cli/appConfig.js
+  s_be39530ce9affc::t_722aace0417ea9 21
+packages/catalyst-core/src/native/buildIos/build.js
+  s_be39530ce9affc::t_99e66bb83463db 265
+packages/catalyst-core/src/native/utils.js
+  s_be39530ce9affc::t_de3cc6f8ce2264 183,187,195,214,228
+packages/catalyst-core/src/scripts/build.js
+  s_be39530ce9affc::t_7acbde6604bb46 173
+packages/catalyst-core/src/vite/vite.config.js
+  s_be39530ce9affc::t_9536e8edcda743 286
+packages/catalyst-core/src/webmcp/WebMcpProvider.jsx
+  s_be39530ce9affc::t_cc6a0586bfb200 130,149-150
+packages/catalyst-core/src/webmcp/useTool.js
+  s_be39530ce9affc::t_87d8437179d17c 92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54e91d30dc8282a0ebe0339f9481f5a980a58d7c",
+  "prompts": {},
+  "sessions": {
+    "s_be39530ce9affc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bc20ac9-1789-480f-a47e-a1d057d1521a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+README.md
+  f3095057de58b2da 14,146-179
+src/otel.js
+  f3095057de58b2da 18,147-152,158,160,165,168,198-199,205,215-216,221,223-234,280-311,320-323,381
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.10",
+  "base_commit_sha": "682b1f1240b3d24f1aaa5d4bb00ab3b67ca9dea3",
+  "prompts": {
+    "f3095057de58b2da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df33d599-82b6-4fe8-959b-cea6d0442b96",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Vishal Polley <vishal.polley@1mg.com>",
+      "messages": [],
+      "total_additions": 128,
+      "total_deletions": 35,
+      "accepted_lines": 101,
+      "overriden_lines": 0
+    }
+  }
+}
