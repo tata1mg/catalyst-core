@@ -1,6 +1,6 @@
 {
     "name": "catalyst-ai",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
     "main": "src/index.js",
     "exports": {
