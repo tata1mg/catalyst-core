@@ -262,6 +262,7 @@ module.exports = function createBuildPhase(ctx) {
             // Xcode project inside node_modules, so the artifact landed there
             // and was wiped by the next npm install.
             const destinationDir = path.join(
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the local project root from the CLI context.
                 ctx.appRoot || process.cwd(),
                 BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
                 "native",

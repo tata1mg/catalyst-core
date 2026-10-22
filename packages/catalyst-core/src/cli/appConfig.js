@@ -18,6 +18,7 @@ const { diagnostic } = require("./diagnostic.js")
  * @param {string} [cwd] - app root; defaults to the current working directory
  */
 function loadAppConfig(cwd = process.cwd()) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the local project directory; the file name is a fixed literal.
     const configPath = path.join(cwd, "config", "config.json")
 
     let raw

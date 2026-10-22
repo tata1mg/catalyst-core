@@ -170,6 +170,7 @@ function reportBundleFailures(failures, cwd) {
                 message: shortenPaths(cause.message, cwd),
                 code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cause.file is a build-tool diagnostic path, only used to display a location.
                 file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, "")) : undefined,
                 line: cause.line,
                 // esbuild reports columns 0-based; the frame's caret is 1-based.

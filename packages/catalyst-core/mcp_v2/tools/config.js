@@ -404,6 +404,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         const found = (dir, exts) =>
             exts
                 .map((ext) => `public/${dir}/splashscreen.${ext}`)
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project root; f comes from a fixed candidate list.
                 .find((f) => fs.existsSync(path.join(root, f)))
         const androidImage = found("android", ["png", "jpg", "jpeg", "gif", "bmp", "webp"])
         const iosImage = found("ios", ["png", "jpg", "jpeg"])

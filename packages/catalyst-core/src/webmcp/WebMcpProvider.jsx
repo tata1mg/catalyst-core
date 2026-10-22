@@ -127,7 +127,7 @@ export function WebMcpProvider({ children, routes, filterNavigable }) {
             if (res.ok) owners.push(key)
             else
                 // eslint-disable-next-line no-console
-                console.warn(`[webmcp] declarative tool "${spec.name}" failed to register:`, res.error)
+                console.warn('[webmcp] declarative tool "%s" failed to register:', spec.name, res.error)
         }
 
         // Framework: navigate + get_current_route + get_page_info.
@@ -146,7 +146,8 @@ export function WebMcpProvider({ children, routes, filterNavigable }) {
             else
                 // eslint-disable-next-line no-console
                 console.warn(
-                    `[webmcp] framework tool "${spec.name}" failed to register — a route tool may already use that name:`,
+                    '[webmcp] framework tool "%s" failed to register — a route tool may already use that name:',
+                    spec.name,
                     res.error
                 )
         }
