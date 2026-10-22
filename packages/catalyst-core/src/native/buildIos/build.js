@@ -3,7 +3,7 @@
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
-const { execSync } = require("child_process")
+const { execSync, execFileSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
 
 module.exports = function createBuildPhase(ctx) {
@@ -293,9 +293,10 @@ module.exports = function createBuildPhase(ctx) {
         progress.status("waiting for install")
         for (let i = 0; i < 30; i++) {
             try {
-                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`, {
+                // No shell: the bundle id is passed as an argv entry, never interpolated.
+                execFileSync("xcrun", ["simctl", "get_app_container", "booted", APP_BUNDLE_ID], {
                     stdio: ["ignore", "pipe", "ignore"],
-                }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - APP_BUNDLE_ID is generated from trusted native config.
+                })
                 break
             } catch (error) {
                 if (i === 29) throw new Error("Timeout: App installation took too long.")
@@ -318,9 +319,9 @@ module.exports = function createBuildPhase(ctx) {
         progress.status("waiting for launch")
         for (let i = 0; i < 10; i++) {
             try {
-                const launchResult = execSync(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`, {
+                const launchResult = execFileSync("xcrun", ["simctl", "launch", "booted", APP_BUNDLE_ID], {
                     stdio: ["ignore", "pipe", "ignore"],
-                }).toString() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                }).toString()
                 if (launchResult.includes("already launched")) {
                     break
                 }

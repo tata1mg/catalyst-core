@@ -74,11 +74,11 @@ function runCommand(command, { timeout } = {}) {
     // Redacted before it reaches the log file too -- the log is a build
     // artifact that gets attached to bug reports and uploaded by CI.
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native setup/build uses fixed internal command strings; preserve existing shell behavior.
         // stderr is captured, not inherited. Many tools (java -version, for
         // one) write to stderr on success, and an inherited fd puts that text
         // at column 0 -- straight through whatever the spinner is drawing.
         // The caller decides what, if anything, is worth showing.
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native setup/build uses fixed internal command strings; preserve existing shell behavior.
         return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout })
     } catch (error) {
         if (timeout && isTimeout(error)) throw toolTimeoutError(command, timeout)
