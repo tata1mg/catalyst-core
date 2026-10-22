@@ -1,4 +1,5 @@
 import { createContext } from "react"
+import type React from "react"
 import type { Location, NavigateFunction, Params, RouteMatch, RouteObject } from "react-router"
 
 /**
@@ -29,7 +30,17 @@ export interface OneMgRouterContextValue {
     navigate?: NavigateFunction
 }
 
+// One context per JS realm, not per module record. A production build can load
+// this file twice: the app's server bundle inlines catalyst-core's main entry
+// while `catalyst-core/webmcp` is loaded by Node at runtime (or the reverse),
+// and each copy's own `createContext()` would be a different context. Provider
+// and consumer then never meet and `useRouterState()` throws on every page.
+// Keying the context on the global symbol registry makes every copy share it.
+const CONTEXT_KEY = Symbol.for("catalyst-core.OneMgRouterContext")
+const globalScope = globalThis as unknown as Record<symbol, React.Context<OneMgRouterContextValue> | undefined>
+
 /**
  * @description This is internal context made for sharing data among router components
  */
-export const OneMgRouterContext = createContext<OneMgRouterContextValue>({})
+export const OneMgRouterContext: React.Context<OneMgRouterContextValue> = (globalScope[CONTEXT_KEY] ??=
+    createContext<OneMgRouterContextValue>({}))

@@ -1375,3 +1375,32 @@ jobs:
                   npm --prefix docs run lint
                   npm run docs:build
                   npm --prefix docs run docs:check-links -- --strict
+
+            # `docs:build` alone cannot catch a server-render failure: the docs
+            # app renders WebMcpProvider, and a production-only duplicate
+            # router context (issue #550) built fine and then returned 500 on
+            # every page under `catalyst serve`. Serve the real build and
+            # fetch real pages.
+            - name: Serve the production build and smoke-test it
+              working-directory: docs
+              run: |
+                  npm run serve > /tmp/docs-serve.log 2>&1 &
+                  SERVER_PID=$!
+                  trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+                  for i in $(seq 1 30); do
+                      curl -fs -o /dev/null http://localhost:3005/ && break
+                      sleep 2
+                  done
+                  status=0
+                  for path in / /content/Introduction/why-catalyst /errors; do
+                      code=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://localhost:3005$path")
+                      echo "$path -> $code"
+                      if [ "$code" != "200" ] || grep -q "Internal Server Error" /tmp/page.html; then
+                          status=1
+                      fi
+                  done
+                  if [ "$status" != "0" ]; then
+                      echo "--- server log ---"
+                      cat /tmp/docs-serve.log
+                  fi
+                  exit $status
