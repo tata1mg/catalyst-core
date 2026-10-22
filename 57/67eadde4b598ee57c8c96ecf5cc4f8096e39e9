@@ -1,0 +1,25 @@
+src/server/renderer/ChunkExtractor.js
+  dbc79fd2e7b0f7ea 100-101,104
+src/vite/manifest-categorization-plugin.js
+  dbc79fd2e7b0f7ea 228-229,241,250-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "5767eadde4b598ee57c8c96ecf5cc4f8096e39e9",
+  "prompts": {
+    "dbc79fd2e7b0f7ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a9b12e9-2cd1-444c-b5cb-454c01d13072",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 5,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}
