@@ -1404,3 +1404,17 @@ jobs:
                       cat /tmp/docs-serve.log
                   fi
                   exit $status
+
+            # The Devtron deploy gate scans the built IMAGE, which lockfile
+            # scans, npm audit and semgrep never see: npm's vendored
+            # dependencies, the Go binary esbuild ships, and the Alpine
+            # packages. Build the same image and apply the gate's rule (no
+            # fixable High/Critical). Medium/Low are listed for visibility but
+            # do not fail here, because new advisories would turn a docs PR
+            # red on a day it touched nothing.
+            - name: Scan the docs image (deploy-gate parity)
+              run: |
+                  docker build --pull -f docs/Dockerfile -t catalyst-docs:ci .
+                  TRIVY="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy:0.70.0 image --scanners vuln --ignore-unfixed --skip-version-check"
+                  $TRIVY --severity LOW,MEDIUM catalyst-docs:ci || true
+                  $TRIVY --severity HIGH,CRITICAL --exit-code 1 catalyst-docs:ci
