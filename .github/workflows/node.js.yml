@@ -769,6 +769,10 @@ jobs:
               working-directory: packages/catalyst-core/src/native/androidProject
               run: ./gradlew :catalyst-ai:compileDebugKotlin --console=plain
 
+            - name: Test Android AI prompt construction
+              working-directory: packages/catalyst-core/src/native/androidProject
+              run: ./gradlew :catalyst-ai:testDebugUnitTest --console=plain
+
             - name: Compile :app against :catalyst-ai with ai.enabled=true
               # ai.enabled=true puts :catalyst-ai on the app's
               # implementation config (APK bundling) and flips
