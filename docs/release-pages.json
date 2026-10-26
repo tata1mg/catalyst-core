@@ -1,0 +1,33 @@
+[
+    {
+        "version": "1.0.2",
+        "date": "2026-10-22",
+        "headline": "Splash screens, animated. Your app, ready for agents.",
+        "summary": "An animated HTML splash screen for universal apps, experimental WebMCP support, and the same calm terminal output across every CLI command.",
+        "tag": "catalyst-core@1.0.2",
+        "video": "https://github.com/tata1mg/catalyst-core/releases/download/catalyst-core%401.0.2/catalyst-core-1.0.2.mp4",
+        "poster": "/img/releases/1.0.2.jpg",
+        "notes": [
+            "Add `public/splashscreen.html`. One file, no network, and the native splash hands over to it.",
+            "Ask an agent in plain words. It calls the tools your app registered."
+        ]
+    },
+    {
+        "version": "1.0.1",
+        "date": "2026-10-08",
+        "headline": "On-device AI on iOS. Edge-to-edge, done right.",
+        "summary": "useAI runs on-device on iOS through LiteRT-LM or Apple Foundation Models, and Android edge-to-edge draws under transparent bars with insets in CSS pixels.",
+        "tag": "catalyst-core@1.0.1",
+        "video": "https://github.com/tata1mg/catalyst-core/releases/download/catalyst-core%401.0.1/catalyst-core-1.0.1.mp4",
+        "poster": "/img/releases/1.0.1.jpg"
+    },
+    {
+        "version": "1.0.0",
+        "date": "2026-09-29",
+        "headline": "Catalyst 1.0. Build on it.",
+        "summary": "The first stable release. The public API is frozen, React Router becomes a peer dependency, and the root entry exports exactly eight names.",
+        "tag": "catalyst-core@1.0.0",
+        "video": "https://github.com/tata1mg/catalyst-core/releases/download/catalyst-core%401.0.0/catalyst-core-1.0.0.mp4",
+        "poster": "/img/releases/1.0.0.jpg"
+    }
+]

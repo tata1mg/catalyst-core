@@ -81,6 +81,12 @@ export function addMiddlewares(app) {
         res.redirect(301, '/content/Introduction/why-catalyst')
     })
 
+    // The changelog page used to be called Releases; /releases is now the
+    // release announcements, so the old changelog URL follows the page.
+    app.get(['/content/releases', '/content/releases/'], (req, res) => {
+        res.redirect(301, '/content/changelog')
+    })
+
     // Pages the old docs platform shipped that this site does not: admin
     // surfaces, and two Docusaurus starter pages that were never real content.
     // They are all in the live sitemap, so answer deliberately (410 Gone)

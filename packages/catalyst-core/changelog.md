@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.2] - unreleased
+## [1.0.2] - 2026-10-22
 
 This release adds two opt-in features, an animated HTML splash screen for universal apps and experimental WebMCP support, and gives every CLI command the same terminal output. There are no breaking API changes.
 
@@ -33,6 +33,24 @@ The root entry of `catalyst-core` adds `useRouterState`, which returns `{ locati
 ### create-catalyst-app
 
 New apps declare `"type": "module"`, and the Tailwind template's config is `postcss.config.cjs`. `catalyst-core` loads either `postcss.config.cjs` or `postcss.config.js`, so existing apps need no change. `create-catalyst-app` declares `node >= 20.12.0` and runs across that range.
+
+## [1.0.1] - 2026-10-08
+
+This release fixes Android edge-to-edge and brings on-device AI to iOS through `catalyst-ai` 1.0.1. There are no breaking API changes, but apps that converted safe-area insets from device pixels should read the edge-to-edge section.
+
+### On-device AI on iOS
+
+`useNativeAI` and `useAI({ provider: "native" })` now run on-device on iOS. Set `ai.enabled: true` in `WEBVIEW_CONFIG`, install `catalyst-ai`, and build the iOS app as usual. Two engines sit behind the same hook. LiteRT-LM runs Gemma 4 E2B by default and downloads the model, about 2.6 GB, once. Apple Foundation Models needs no download and runs on iOS 26 or later on Apple Intelligence devices. The default `engine: "auto"` uses LiteRT-LM if its model is already downloaded, then Foundation Models if it is available, and otherwise LiteRT-LM with a download. The providers `litert` and `foundation-models` pin one engine. Installing `catalyst-ai` without `ai.enabled` adds nothing to the iOS build. Device requirements are in the `catalyst-ai` README.
+
+### Android edge-to-edge
+
+With `WEBVIEW_CONFIG.edgeToEdge.enabled`, the WebView now draws under transparent system bars instead of opaque ones, and the bottom inset stays stable while the keyboard is open. `useSafeArea()` and the `X-Safe-Area-*` headers report insets in CSS pixels, and 0 when edge-to-edge is disabled. Apps that divided the insets by `devicePixelRatio` should remove that. The new `edgeToEdge.statusBarStyle` option (`auto`, `dark-content`, `light-content`) sets the system bar icon colour.
+
+### Fixes
+
+- Dependency updates clear security advisories in `compression`, `proxy-addr` (through `express`) and `source-map-js`.
+- `catalyst-core` can be installed from a git branch. Its `prepare` script no longer reads files outside the package.
+- The 0.3 to 1.0 upgrade guide and the MCP server's upgrade context are corrected.
 
 ## [1.0.0] - 2026-09-29
 

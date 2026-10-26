@@ -38,6 +38,34 @@ It also copies images into `public/`, and writes `sitemap.xml` and `robots.txt`.
 Nothing in `src/js/generated/` or `public/` is committed. Both are rebuilt on
 every run, so edit `content/` and never the output.
 
+### Release pages
+
+`/releases` lists the release announcements and `/releases/<version>` shows
+one, with its release film above that version's section of
+`packages/catalyst-core/changelog.md`. The full changelog stays at
+`/content/changelog` (`/content/releases` 301s there).
+
+To announce a release:
+
+1. Make sure the changelog has a `## [x.y.z] - date` section. The generator
+   fails if `release-pages.json` lists a version the changelog does not.
+2. Upload the film to the GitHub release:
+   `gh release upload catalyst-core@x.y.z catalyst-core-x.y.z.mp4`. Use the
+   1080p share render (H.264, faststart) and keep it under about 15 MB.
+3. Save a poster frame as `static/img/releases/x.y.z.jpg` (1280px wide).
+4. Add the entry at the top of `release-pages.json` (newest first) with the
+   headline, a one-sentence summary, the tag, the video URL and the poster.
+
+The poster also becomes the page's social card image.
+
+For a fuller announcement, add `release-stories/x.y.z.mdx`. The page then
+shows a centred headline, the film with the two `notes` from
+`release-pages.json` beside it, and the story, with the changelog section
+folded into "Full release notes" below. The story uses the components in
+`src/js/containers/Releases/storyComponents.js` (`Section`, `Snippets`,
+`Feature`, `Farewell`, `Fixes`, `Tip`, `Thanks`); `1.0.2.mdx` is the
+reference. Card images live in `static/img/releases/x.y.z/`.
+
 ### URLs are a contract
 
 The site was Docusaurus until recently, and its URLs are indexed. The generator

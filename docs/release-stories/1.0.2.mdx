@@ -1,0 +1,109 @@
+<Kicker>
+Both features are opt-in. Nothing changes until you add the file or the hook.
+</Kicker>
+
+<Section eyebrow="01 / Try it" title="One file and one hook.">
+
+<Snippets>
+
+<Snippet label="config/config.json" note="Then add public/splashscreen.html">
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "splashScreen": {
+      "backgroundColor": "#ffffff",
+      "minDuration": 1200
+    }
+  }
+}
+```
+
+</Snippet>
+
+<Snippet label="ProductPage.js" note="Inside WebMcpProvider">
+
+```jsx
+import { useTool } from "catalyst-core/webmcp"
+
+useTool({
+  name: "add_to_cart",
+  description: "Add this product to the cart.",
+  inputSchema: { type: "object" },
+  execute: async () => addToCart(productId),
+})
+```
+
+</Snippet>
+
+</Snippets>
+
+Full setup: [HTML splash](/content/Guides%20and%20Tutorials/First%20Universal%20App/universal-app-configuration#html-splash) and [WebMCP](/content/webmcp).
+
+</Section>
+
+<Section eyebrow="02 / What's new" title="Fresh in 1.0.2.">
+
+<Features>
+
+<Feature title="Splash screens, animated" image="/img/releases/1.0.2/splash.jpg" by="mayansharma" pr="533">
+
+Ship `public/splashscreen.html` and the native splash image hands over to your page, which stays up until the app's first page has loaded. `minDuration` holds it a little longer, and it is dismissed after 10 seconds regardless.
+
+</Feature>
+
+<Feature title="Your app, ready for agents" image="/img/releases/1.0.2/webmcp.jpg" by="mayankmahavar1mg" pr="475" tag="Experimental">
+
+`useTool()` registers a tool from a component, a route's `tool` field derives one from the route, and `WebMcpProvider` adds `navigate`, `get_current_route` and `get_page_info`. This docs site registers its own, like `search_docs`.
+
+</Feature>
+
+<Feature title="A calmer terminal" image="/img/releases/1.0.2/terminal.jpg" by="mayansharma" pr="535">
+
+Every command prints a short header, one line per step with its timing, and one diagnostic block on failure with the error code, location, hint and docs link. The full bundler output lives behind `--verbose`.
+
+</Feature>
+
+</Features>
+
+</Section>
+
+<Section eyebrow="03 / Goodbye, hello">
+
+<Farewell from="react-helmet-async" to="React 19 <head>" by="astha1905" pr="502">
+
+`MetaTag` no longer depends on `react-helmet-async`. Route metadata from `setMetaData` renders through React 19's own `<head>` support, and head tags no longer outlive their page after client navigation. If your app imported `react-helmet-async` itself, add it to your own dependencies.
+
+</Farewell>
+
+</Section>
+
+<Section eyebrow="04 / Also fixed" title="Smaller things, sorted.">
+
+<Fixes>
+
+<Fix by="akshat-OwO" pr="526">Fast Refresh works for components written as JSX in `.js` files, instead of reloading the page.</Fix>
+
+<Fix by="akshat-OwO" pr="527">`catalyst serve` refuses a build whose inlined config no longer matches `config/config.json`.</Fix>
+
+<Fix by="mayansharma" pr="530">`Otel.init()` logs to `console` instead of throwing when the app never called `configureLogger()`.</Fix>
+
+<Fix by="tyagidevansh" pr="528">`catalyst-core` no longer imports `prop-types` at runtime without declaring it.</Fix>
+
+<Fix by="mayansharma" pr="536">Signing passwords are redacted from the output of a failed signed build.</Fix>
+
+</Fixes>
+
+</Section>
+
+<Tip title="Every failure has a code.">
+
+1. When a command fails, its diagnostic block names a code, such as `PREFLIGHT-022` for a stale build.
+2. Look it up in the [error reference](/errors/PREFLIGHT/PREFLIGHT-022) for the cause and the fix.
+
+</Tip>
+
+<Thanks
+  release="1.0.2"
+  people={["mayansharma", "mayankmahavar1mg", "astha1905", "akshat-OwO", "tyagidevansh"]}
+/>

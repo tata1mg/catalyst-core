@@ -4,6 +4,7 @@ import NotFound from '../containers/NotFound'
 import Landing from '../containers/Landing/Landing'
 import ErrorsIndexPage from '../components/docs/ErrorsIndexPage'
 import ErrorPage from '../components/docs/ErrorPage'
+import ReleasesIndex from '../containers/Releases/ReleasesIndex'
 import docsRoutes from '../generated/docsRoutes'
 import TryApp from '../containers/TryApp/TryApp'
 import Showcase from '../containers/Showcase/Showcase'
@@ -77,8 +78,14 @@ const routes = [
                 ],
             },
             // Generated from content/ — one route per page, paths reproducing
-            // the Docusaurus permalinks these URLs are indexed under.
+            // the Docusaurus permalinks these URLs are indexed under. Also
+            // carries one /releases/<version> page per release-pages.json entry.
             ...docsRoutes,
+            {
+                path: '/releases',
+                end: true,
+                component: ReleasesIndex,
+            },
             // Framework error reference. The catalog is fetched live from
             // errors/index.json on GitHub (see data/errorsCatalog.js), so
             // these two routes carry no generated content. getDocUrl() in
