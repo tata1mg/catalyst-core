@@ -36,7 +36,7 @@ const preServerInit = () => {
 
 This gives you a minimal integration with automatic instrumentation and default export settings.
 
-`Otel.init()` logs through the app's global `logger` when one is set (see [Logging](./08-Logging.md)). Without one, it logs to `console`, so calling `configureLogger()` first is optional.
+`Otel.init()` logs through the app's global `logger` when one is set (see [Logging](./03-Logging.md)). Without one, it logs to `console`, so calling `configureLogger()` first is optional.
 
 ## Why `preServerInit()` Matters
 

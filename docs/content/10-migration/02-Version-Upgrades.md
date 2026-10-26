@@ -11,13 +11,13 @@ id: 0.0.1-beta.4
 `1.0.2` has no breaking API changes. Set `catalyst-core` to `1.0.2` in `package.json` and reinstall. Two changes can need a follow-up:
 
 - `react-helmet-async` is no longer a dependency of `catalyst-core`. `MetaTag` now renders route metadata through React 19's own `<head>` support, so `setMetaData` works as before. If your app imports `react-helmet-async` directly, add it to your own `dependencies`.
-- `catalyst serve` refuses to serve a build made with different `PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH` or `CLIENT_ENV_VARIABLES` values than the current `config/config.json`. If a deploy changes those values after the build, rebuild before serving. See [CLI Reference](../16-CLI.md).
+- `catalyst serve` refuses to serve a build made with different `PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH` or `CLIENT_ENV_VARIABLES` values than the current `config/config.json`. If a deploy changes those values after the build, rebuild before serving. See [CLI Reference](../08-api-reference/06-CLI.md).
 
 New apps from `create-catalyst-app` declare `"type": "module"`, and the Tailwind template names its config `postcss.config.cjs`. Existing apps need no change, because `catalyst-core` loads either `postcss.config.cjs` or `postcss.config.js`. If you add `"type": "module"` to an existing app yourself, rename a CommonJS `postcss.config.js` to `postcss.config.cjs`.
 
-The root entry gains one export, `useRouterState`, so it now exports nine names. See [Hooks](../11-API%20Reference/01-Hooks.md). Existing imports are unaffected.
+The root entry gains one export, `useRouterState`, so it now exports nine names. See [Hooks](../08-api-reference/01-Hooks.md). Existing imports are unaffected.
 
-The release also adds two opt-in features: an animated [HTML splash screen](../02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for universal apps, and experimental [WebMCP](../20-WebMCP.md) support for exposing app actions to in-browser agents.
+The release also adds two opt-in features: an animated [HTML splash screen](../06-guides-and-tutorials/03-first-universal-app/03-Configuration.mdx) for universal apps, and experimental [WebMCP](../20-WebMCP.md) support for exposing app actions to in-browser agents.
 
 ## Upgrading From 0.3.x To 1.0.0
 
@@ -38,7 +38,7 @@ Work through it in this order:
 4. Update code that reads hook errors, as described under Hook Errors.
 5. Run `npm run build`, then `npm run start`, and fix anything either reports.
 
-To have an agent run the upgrade through the [Catalyst MCP server](../15-MCP.md), ask it to call
+To have an agent run the upgrade through the [Catalyst MCP server](../06-guides-and-tutorials/01-MCP.md), ask it to call
 `sync_knowledge_base` first. The knowledge base installed with `0.3.0-beta.5` predates `1.0.0`;
 after the sync, `query_knowledge` returns these steps.
 
@@ -148,7 +148,7 @@ Hooks that wrap several operations expose named functions and no `execute`: `use
 `useDataProtection`, and `useNativeTransition`. `useNotification` is also multi-action; its
 `execute` and `schedule` aliases predate this rule and stay frozen. Read-only hooks report state
 and have no action functions: `useNetworkStatus`, `useDeviceInfo`, and `useSafeArea`. See
-[Hooks](../11-API%20Reference/01-Hooks.md) for the full surface.
+[Hooks](../08-api-reference/01-Hooks.md) for the full surface.
 
 ### Hook Errors
 
@@ -178,7 +178,7 @@ starting when `config/config.json` is missing one of `NODE_SERVER_HOSTNAME`, `NO
 `CLIENT_ENV_VARIABLES`, or when `package.json` is missing one of the `@api`, `@containers`,
 `@server`, `@config`, `@css` or `@routes` module aliases. Apps created from the templates already
 have all of them. The contract is documented under
-[File Conventions](../11-API%20Reference/03-File-Conventions.md).
+[File Conventions](../08-api-reference/03-File-Conventions.md).
 
 ---
 

@@ -162,7 +162,7 @@ Controls the outer HTML document structure, including tags, metadata wrappers, a
 | `public/ios/` | iOS-specific native assets |
 | `public/splashscreen.html` | Optional animated splash for universal apps, shared by Android and iOS |
 
-For universal apps, keep platform assets under `public/android` and `public/ios` so the native build scripts can discover them during packaging. `public/splashscreen.html` is the exception: it sits at the root of `public/` and both platforms use it. See [HTML Splash](../02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for its rules.
+For universal apps, keep platform assets under `public/android` and `public/ios` so the native build scripts can discover them during packaging. `public/splashscreen.html` is the exception: it sits at the root of `public/` and both platforms use it. See [HTML Splash](../06-guides-and-tutorials/03-first-universal-app/03-Configuration.mdx) for its rules.
 
 ## Recommended Team Convention
 

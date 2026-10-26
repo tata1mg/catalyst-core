@@ -125,7 +125,7 @@ Place splash assets at:
 - `public/ios/splashscreen.{png|jpg|jpeg}`
 - `public/splashscreen.html` (optional, shared by both platforms)
 
-When `splashScreen` is set and `public/splashscreen.html` exists, the app shows the native image first, then the HTML splash, and switches to the app once its first page has loaded and `minDuration` has passed. The HTML splash is dismissed after 10 seconds even if the page is still loading. The file must be self-contained, with inline CSS and JavaScript and images as `data:` URIs. It has no access to the native bridge and should not make network requests, which Android blocks. Remove the file to go back to the image-only splash. See [Universal App Configuration](/content/02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for the full rules and an example.
+When `splashScreen` is set and `public/splashscreen.html` exists, the app shows the native image first, then the HTML splash, and switches to the app once its first page has loaded and `minDuration` has passed. The HTML splash is dismissed after 10 seconds even if the page is still loading. The file must be self-contained, with inline CSS and JavaScript and images as `data:` URIs. It has no access to the native bridge and should not make network requests, which Android blocks. Remove the file to go back to the image-only splash. See [Universal App Configuration](/content/guides-and-tutorials/first-universal-app/universal-app-configuration) for the full rules and an example.
 
 ## Validation Notes
 
