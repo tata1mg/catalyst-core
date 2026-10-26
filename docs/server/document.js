@@ -15,10 +15,11 @@ const CANONICAL_BY_PATH = new Map(
     manifest.map((page) => [encodeURI(page.url), encodeURI(page.canonical)])
 )
 // Release pages share their film's poster and the film itself, so a link
-// posted for a release unfurls with that release's card.
+// posted for a release unfurls with that release's card. A release without a
+// film keeps the site's card.
 const RELEASE_BY_PATH = new Map(
     manifest
-        .filter((page) => page.kind === 'release')
+        .filter((page) => page.kind === 'release' && page.release.video)
         .map((page) => [encodeURI(page.url), page.release])
 )
 

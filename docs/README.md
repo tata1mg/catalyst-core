@@ -63,8 +63,12 @@ shows a centred headline, the film with the two `notes` from
 `release-pages.json` beside it, and the story, with the changelog section
 folded into "Full release notes" below. The story uses the components in
 `src/js/containers/Releases/storyComponents.js` (`Section`, `Snippets`,
-`Feature`, `Farewell`, `Fixes`, `Tip`, `Thanks`); `1.0.2.mdx` is the
+`Feature`, `Farewell`, `Fixes`, `Tip`, `Thanks`); `1.1.0.mdx` is the
 reference. Card images live in `static/img/releases/x.y.z/`.
+
+A release without a film, such as 1.0.2, leaves out `video`, `poster` and
+`notes`. Its page shows the changelog section alone, and the index shows the
+version in place of a poster.
 
 ### URLs are a contract
 

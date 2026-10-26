@@ -59,12 +59,21 @@ const ReleasesIndex = () => {
                             {earlier.map((page) => (
                                 <li key={page.url}>
                                     <Link to={page.url} className={styles.card}>
-                                        <img
-                                            src={page.release.poster}
-                                            alt=""
-                                            loading="lazy"
-                                            className={styles.cardPoster}
-                                        />
+                                        {page.release.poster ? (
+                                            <img
+                                                src={page.release.poster}
+                                                alt=""
+                                                loading="lazy"
+                                                className={styles.cardPoster}
+                                            />
+                                        ) : (
+                                            <span
+                                                className={`${styles.cardPoster} ${styles.cardPosterEmpty}`}
+                                                aria-hidden="true"
+                                            >
+                                                v{page.release.version}
+                                            </span>
+                                        )}
                                         <span className={styles.cardBody}>
                                             <span className={styles.cardTitle}>
                                                 Catalyst {page.release.version}

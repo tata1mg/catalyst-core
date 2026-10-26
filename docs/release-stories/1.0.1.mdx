@@ -1,0 +1,109 @@
+<Kicker>
+No breaking API changes. If your app divided safe-area insets by `devicePixelRatio`, read the goodbye below.
+</Kicker>
+
+<Section eyebrow="01 / Try it" title="One flag and one hook.">
+
+<Snippets>
+
+<Snippet label="config/config.json" note="Then install catalyst-ai">
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "ai": { "enabled": true },
+    "edgeToEdge": {
+      "enabled": true,
+      "statusBarStyle": "auto"
+    }
+  }
+}
+```
+
+</Snippet>
+
+<Snippet label="Ask.js" note="Runs on the iPhone">
+
+```jsx
+import { useAI } from "catalyst-core/hooks"
+
+const { generate, output } = useAI({
+  provider: "native",
+})
+
+generate({
+  messages: [{ role: "user", content: "Hi" }],
+})
+```
+
+</Snippet>
+
+</Snippets>
+
+Full setup: [useAI](/content/API%20Reference/hooks#useai) and [edge-to-edge](/content/Guides%20and%20Tutorials/First%20Universal%20App/universal-app-configuration#edge-to-edge).
+
+</Section>
+
+<Section eyebrow="02 / What's new" title="Fresh in 1.0.1.">
+
+<Features>
+
+<Feature title="On-device AI, now on iOS" image="/img/releases/1.0.1/ai.jpg" by="mayankmahavar1mg" pr="503">
+
+`useNativeAI` and `useAI({ provider: "native" })` run on the iPhone. Set `ai.enabled: true`, install `catalyst-ai`, and build the iOS app as usual. Without `ai.enabled`, `catalyst-ai` adds nothing to the iOS build.
+
+</Feature>
+
+<Feature title="It picks the engine" image="/img/releases/1.0.1/auto.jpg" by="mayankmahavar1mg" pr="503">
+
+LiteRT-LM runs Gemma 4 E2B after a one-time download of about 2.6 GB. Apple Foundation Models needs no download on iOS 26 Apple Intelligence devices. The default uses whichever is ready, and `litert` or `foundation-models` pins one.
+
+</Feature>
+
+<Feature title="Edge-to-edge, done right" image="/img/releases/1.0.1/edge.jpg" by="mayansharma" pr="510">
+
+The Android WebView draws under transparent system bars instead of opaque ones. The new `statusBarStyle` sets the bar icon colour, and the bottom inset holds steady while the keyboard is open.
+
+</Feature>
+
+</Features>
+
+</Section>
+
+<Section eyebrow="03 / Goodbye, hello">
+
+<Farewell from="inset / devicePixelRatio" to="inset" by="mayansharma" pr="510">
+
+`useSafeArea()` and the `X-Safe-Area-*` headers now report insets in CSS pixels, and 0 when edge-to-edge is disabled. Apps that divided the insets by `devicePixelRatio` should remove that.
+
+</Farewell>
+
+</Section>
+
+<Section eyebrow="04 / Also fixed" title="Smaller things, sorted.">
+
+<Fixes>
+
+<Fix by="mayansharma" pr="518">The bottom safe-area inset no longer shrinks the viewport a second time while the keyboard is open.</Fix>
+
+<Fix by="mayansharma" pr="517">Dependency updates clear security advisories in `compression`, `proxy-addr` and `source-map-js`.</Fix>
+
+<Fix by="mayansharma" pr="511">`catalyst-core` can be installed from a git branch. Its `prepare` script no longer reads files outside the package.</Fix>
+
+<Fix by="mayansharma" pr="509">The 0.3 to 1.0 upgrade guide and the MCP server's upgrade context are corrected.</Fix>
+
+</Fixes>
+
+</Section>
+
+<Tip title="Pin the engine while you test.">
+
+1. `useAI({ provider: "foundation-models" })` skips the download on a supported iPhone, so the first answer comes straight away.
+2. Switch to `useAI({ provider: "litert" })` to try Gemma 4 E2B on any iPhone 13 Pro or newer.
+
+</Tip>
+
+<Thanks
+  release="1.0.1"
+  people={["mayankmahavar1mg", "mayansharma"]}
+/>

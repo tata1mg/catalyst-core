@@ -42,23 +42,23 @@ Full setup: [HTML splash](/content/Guides%20and%20Tutorials/First%20Universal%20
 
 </Section>
 
-<Section eyebrow="02 / What's new" title="Fresh in 1.0.2.">
+<Section eyebrow="02 / What's new" title="New since 1.0.1.">
 
 <Features>
 
-<Feature title="Splash screens, animated" image="/img/releases/1.0.2/splash.jpg" by="mayansharma" pr="533">
+<Feature title="Splash screens, animated" image="/img/releases/1.1.0/splash.jpg" by="mayansharma" pr="533">
 
 Ship `public/splashscreen.html` and the native splash image hands over to your page, which stays up until the app's first page has loaded. `minDuration` holds it a little longer, and it is dismissed after 10 seconds regardless.
 
 </Feature>
 
-<Feature title="Your app, ready for agents" image="/img/releases/1.0.2/webmcp.jpg" by="mayankmahavar1mg" pr="475" tag="Experimental">
+<Feature title="Your app, ready for agents" image="/img/releases/1.1.0/webmcp.jpg" by="mayankmahavar1mg" pr="475" tag="Experimental">
 
 `useTool()` registers a tool from a component, a route's `tool` field derives one from the route, and `WebMcpProvider` adds `navigate`, `get_current_route` and `get_page_info`. This docs site registers its own, like `search_docs`.
 
 </Feature>
 
-<Feature title="A calmer terminal" image="/img/releases/1.0.2/terminal.jpg" by="mayansharma" pr="535">
+<Feature title="A calmer terminal" image="/img/releases/1.1.0/terminal.jpg" by="mayansharma" pr="535">
 
 Every command prints a short header, one line per step with its timing, and one diagnostic block on failure with the error code, location, hint and docs link. The full bundler output lives behind `--verbose`.
 
@@ -82,6 +82,8 @@ Every command prints a short header, one line per step with its timing, and one 
 
 <Fixes>
 
+<Fix by="mayankmahavar1mg" pr="549">`WebMcpProvider` no longer throws on every page under `catalyst serve`. This is the one change since 1.0.2.</Fix>
+
 <Fix by="akshat-OwO" pr="526">Fast Refresh works for components written as JSX in `.js` files, instead of reloading the page.</Fix>
 
 <Fix by="akshat-OwO" pr="527">`catalyst serve` refuses a build whose inlined config no longer matches `config/config.json`.</Fix>
@@ -94,6 +96,8 @@ Every command prints a short header, one line per step with its timing, and one 
 
 </Fixes>
 
+Everything else on this page first shipped in [1.0.2](/releases/1.0.2), earlier the same day.
+
 </Section>
 
 <Tip title="Every failure has a code.">
@@ -104,6 +108,6 @@ Every command prints a short header, one line per step with its timing, and one 
 </Tip>
 
 <Thanks
-  release="1.0.2"
+  release="1.1.0"
   people={["mayansharma", "mayankmahavar1mg", "astha1905", "akshat-OwO", "tyagidevansh"]}
 />

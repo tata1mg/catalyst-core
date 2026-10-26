@@ -64,14 +64,21 @@ export const Features = ({ children }) => (
     <div className={styles.features}>{children}</div>
 )
 
-export const Feature = ({ title, image, by, pr, tag, children }) => (
+/** `image` is a still from the film; `code` shows a code tile instead. */
+export const Feature = ({ title, image, code, by, pr, tag, children }) => (
     <article className={styles.feature}>
-        <img
-            src={image}
-            alt=""
-            loading="lazy"
-            className={styles.featureImage}
-        />
+        {image ? (
+            <img
+                src={image}
+                alt=""
+                loading="lazy"
+                className={styles.featureImage}
+            />
+        ) : (
+            <div className={styles.featureCode} aria-hidden="true">
+                <code>{code}</code>
+            </div>
+        )}
         <div className={styles.featureBody}>
             <h3>
                 {title}

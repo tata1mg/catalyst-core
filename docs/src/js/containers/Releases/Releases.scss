@@ -262,6 +262,16 @@
     border-bottom: 1px solid var(--hub-border);
 }
 
+/* A release without a film: its version in place of the poster. */
+.cardPosterEmpty {
+    display: grid;
+    place-items: center;
+    background: var(--hub-card-background);
+    color: var(--hub-text-muted);
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+}
+
 .cardBody {
     display: flex;
     flex-direction: column;

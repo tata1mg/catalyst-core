@@ -234,6 +234,24 @@
         border-bottom: 1px solid var(--hub-border);
     }
 
+    .featureCode {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 4 / 3;
+        border-bottom: 1px solid var(--hub-border);
+        background: #15131f;
+
+        code {
+            padding: 0;
+            border: 0;
+            background: none;
+            color: #b9b0ff;
+            font-family: var(--font-mono);
+            font-size: 1.35rem;
+            letter-spacing: 0.02em;
+        }
+    }
+
     .featureBody {
         display: flex;
         flex: 1;

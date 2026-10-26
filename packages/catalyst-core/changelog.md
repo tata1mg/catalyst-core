@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2026-10-22
+
+This release contains everything in 1.0.2, namely the HTML splash screen, experimental WebMCP support and the new CLI output, plus one fix. There are no breaking API changes.
+
+### Fixes
+
+- `WebMcpProvider` no longer throws `useRouterState must be used within a RouterDataProvider` on every page under `catalyst serve`. A production build can load Catalyst's router context twice, once inlined in the app's server bundle and once from `catalyst-core/webmcp`, and the two copies did not share state. The context is now shared across copies.
+
 ## [1.0.2] - 2026-10-22
 
 This release adds two opt-in features, an animated HTML splash screen for universal apps and experimental WebMCP support, and gives every CLI command the same terminal output. There are no breaking API changes.
