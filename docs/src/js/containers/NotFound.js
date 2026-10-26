@@ -15,9 +15,19 @@ const NotFound = () => (
         <main className="hub-not-found">
             <h1>404</h1>
             <p>This page doesn&apos;t exist.</p>
-            <Link to="/" className="hub-cta">
-                Back to home
-            </Link>
+            <div className="hub-not-found-actions">
+                <Link to="/" className="hub-cta">
+                    Back to home
+                </Link>
+                <a
+                    href="https://github.com/tata1mg/catalyst-core/issues/new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hub-not-found-report"
+                >
+                    Report a broken link
+                </a>
+            </div>
         </main>
     </ThemeProvider>
 )

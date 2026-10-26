@@ -10,7 +10,7 @@ const versionBase = (url) => url.match(/^\/v\/\d+/)?.[0] ?? ''
 /**
  * Resolve a markdown file link to its canonical URL. Docusaurus supports two
  * forms in content: relative (./x.md, ../dir/y.mdx) and absolute-from-content
- * source paths (/content/11-API%20Reference/04-SSR-Lifecycle.md).
+ * source paths (/content/07-api-reference/04-SSR-Lifecycle.md).
  */
 const resolveDocFileLink = (href, fromSourcePath, bySourcePath) => {
     const [rawTarget, hash = ''] = href.split('#')

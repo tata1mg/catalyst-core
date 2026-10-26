@@ -1,0 +1,580 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Floating docs assistant (containers/ChatBot).
+
+   A launcher pinned bottom-right plus a panel docked to the right edge. The
+   panel is a drawer, not a modal: opening it stamps `chatbot-open` on <body>,
+   which shifts `.docs-site` left by the panel width instead of covering it.
+
+   Every colour here is one of the tokens declared at the top of docs.scss, so
+   both themes follow :root[data-theme] with no palette of its own.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --chatbot-width: 400px;
+    /* Under .search-overlay (100) — the drawer is page chrome, the command
+       palette is a modal and must still win. Above the navbar (60). */
+    --chatbot-z: 90;
+}
+
+/* ── Content shift ──────────────────────────────────────────────────── */
+
+.docs-site {
+    transition: margin-right var(--dur-slow) var(--ease);
+}
+
+/* Only where there is room to give. Below this the panel is full-width, and
+   shifting would push the page off screen entirely. */
+@media (min-width: 641px) {
+    body.chatbot-open .docs-site {
+        margin-right: var(--chatbot-width);
+    }
+}
+
+/* ── Launcher ───────────────────────────────────────────────────────── */
+
+.chatbot-launcher {
+    --chatbot-launcher-shift: 0px;
+
+    position: fixed;
+    right: 20px;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    /* Above the panel so it stays clickable once it has slid alongside it. */
+    z-index: calc(var(--chatbot-z) + 1);
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+    border: none;
+    border-radius: var(--radius-full);
+    box-shadow: var(--hub-shadow-2);
+    cursor: pointer;
+    transform: translateX(var(--chatbot-launcher-shift));
+    transition:
+        transform var(--dur-slow) var(--ease),
+        background-color var(--dur-med) var(--ease),
+        opacity var(--dur-med) var(--ease);
+
+    svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    &:hover {
+        background: var(--hub-primary-strong);
+    }
+
+    &:active {
+        transform: translateX(var(--chatbot-launcher-shift)) scale(0.94);
+    }
+
+    &.is-open {
+        --chatbot-launcher-shift: calc(-1 * var(--chatbot-width));
+    }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────── */
+
+.chatbot-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--chatbot-z);
+    display: flex;
+    flex-direction: column;
+    width: var(--chatbot-width);
+    max-width: 100%;
+    background: var(--hub-background);
+    border-left: 1px solid var(--hub-border);
+    box-shadow: var(--hub-shadow-3);
+    transform: translateX(100%);
+    /* `inert` on the element handles focus; visibility keeps the closed panel
+       out of find-in-page too, delayed so the slide-out stays visible. */
+    visibility: hidden;
+    transition:
+        transform var(--dur-slow) var(--ease),
+        visibility 0s linear var(--dur-slow);
+
+    &.is-open {
+        transform: translateX(0);
+        visibility: visible;
+        transition:
+            transform var(--dur-slow) var(--ease),
+            visibility 0s;
+    }
+
+    /* Edge-to-edge: a panel covering the viewport should not read as a sheet
+       floating above the page. Width is already handled by --chatbot-width. */
+    &.is-fullscreen {
+        border-left: none;
+        box-shadow: none;
+
+        .chatbot-resize-handle {
+            display: none;
+        }
+    }
+}
+
+/* ── Resize handle ──────────────────────────────────────────────────── */
+
+/* The panel's right edge is pinned to the viewport, so dragging this strip
+   only changes the width — which the component writes back into
+   --chatbot-width, taking the content shift and launcher along with it. */
+.chatbot-resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 6px;
+    cursor: col-resize;
+    /* Stops the browser from panning/scrolling instead of reporting the drag. */
+    touch-action: none;
+    transition: background-color var(--dur-fast) var(--ease);
+
+    &:hover {
+        background: var(--hub-primary);
+        opacity: 0.35;
+    }
+}
+
+/* Set for the duration of a drag: without it the pointer sweep selects the
+   page text it passes over. */
+body.chatbot-resizing {
+    user-select: none;
+    cursor: col-resize;
+
+    /* Both follow --chatbot-width, whose easing would otherwise make them
+       trail the cursor by a full slow-transition. */
+    .docs-site,
+    .chatbot-launcher {
+        transition: none;
+    }
+}
+
+.chatbot-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 14px;
+    background: var(--hub-navbar-background);
+    border-bottom: 1px solid var(--hub-border);
+}
+
+.chatbot-title {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--hub-text);
+}
+
+.chatbot-subtitle {
+    margin: 2px 0 0;
+    font-size: var(--text-xs);
+    color: var(--hub-text-muted);
+}
+
+.chatbot-header-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+}
+
+.chatbot-icon-button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: none;
+    color: var(--hub-text-muted);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease);
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover {
+        color: var(--hub-text);
+    }
+}
+
+/* ── Transcript ─────────────────────────────────────────────────────── */
+
+.chatbot-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.chatbot-empty {
+    font-size: var(--text-md);
+    line-height: 1.55;
+    color: var(--hub-text-muted);
+
+    p {
+        margin: 0 0 8px;
+        font-weight: 600;
+        color: var(--hub-text);
+    }
+
+    ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    li {
+        margin: 4px 0;
+    }
+}
+
+.chatbot-message {
+    max-width: 88%;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    font-size: var(--text-md);
+    line-height: 1.55;
+    /* Model output carries its own newlines, and code identifiers must be
+       breakable or a long one widens the panel. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.chatbot-message-user {
+    align-self: flex-end;
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+    border-bottom-right-radius: var(--radius-xs);
+}
+
+.chatbot-message-assistant {
+    align-self: flex-start;
+    background: var(--hub-card-background);
+    color: var(--hub-text);
+    border: 1px solid var(--hub-border);
+    border-bottom-left-radius: var(--radius-xs);
+}
+
+/* ── Rendered markdown (assistant turns only) ───────────────────────── */
+
+/* react-markdown emits real block elements, so the transcript's pre-wrap has
+   to be switched off here or every newline in the source would double up as
+   blank space. `pre` keeps its own whitespace below. */
+.chatbot-markdown {
+    white-space: normal;
+
+    > :first-child {
+        margin-top: 0;
+    }
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+
+    p,
+    ul,
+    ol,
+    pre,
+    blockquote,
+    table {
+        margin: 0 0 8px;
+    }
+
+    /* Doc headings are sized for a full page; in a 400px panel they only need
+       to read as slightly stronger than body text. */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        margin: 12px 0 6px;
+        font-size: var(--text-base);
+        font-weight: 700;
+        line-height: 1.35;
+        color: var(--hub-text);
+    }
+
+    ul,
+    ol {
+        padding-left: 20px;
+    }
+
+    li {
+        margin: 3px 0;
+    }
+
+    /* Nested steps inside a flow list. */
+    li > ul,
+    li > ol {
+        margin: 3px 0;
+    }
+
+    code {
+        padding: 1px 5px;
+        background: var(--hub-code-background);
+        border-radius: var(--radius-xs);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+    }
+
+    pre {
+        padding: 10px;
+        background: var(--hub-code-background);
+        border: 1px solid var(--hub-border);
+        border-radius: var(--radius-sm);
+        /* A code sample must scroll rather than widen the panel. */
+        overflow-x: auto;
+
+        code {
+            display: block;
+            padding: 0;
+            background: none;
+            white-space: pre;
+            font-size: var(--text-xs);
+            line-height: 1.5;
+        }
+    }
+
+    blockquote {
+        padding-left: 10px;
+        border-left: 2px solid var(--hub-border-strong);
+        color: var(--hub-text-muted);
+    }
+
+    /* Links are load-bearing here — they are the documentation sources. */
+    a {
+        color: var(--hub-primary);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+
+        &:hover {
+            color: var(--hub-primary-strong);
+        }
+    }
+
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border-collapse: collapse;
+        font-size: var(--text-sm);
+    }
+
+    th,
+    td {
+        padding: 5px 8px;
+        border: 1px solid var(--hub-border);
+        text-align: left;
+    }
+
+    hr {
+        margin: 10px 0;
+        border: none;
+        border-top: 1px solid var(--hub-border);
+    }
+}
+
+/* ── Source citations ───────────────────────────────────────────────── */
+
+.chatbot-sources {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--hub-border);
+    font-size: var(--text-xs);
+
+    ul {
+        margin: 2px 0 0;
+        padding-left: 16px;
+    }
+
+    li {
+        margin: 2px 0;
+    }
+
+    a {
+        color: var(--hub-primary);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+
+        &:hover {
+            color: var(--hub-primary-strong);
+        }
+    }
+}
+
+.chatbot-sources-label {
+    font-weight: 600;
+    color: var(--hub-text-muted);
+}
+
+.chatbot-typing {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 12px;
+
+    span {
+        width: 6px;
+        height: 6px;
+        background: var(--hub-text-muted);
+        border-radius: var(--radius-full);
+        animation: chatbot-blink 1.2s var(--ease) infinite;
+
+        &:nth-child(2) {
+            animation-delay: 0.16s;
+        }
+
+        &:nth-child(3) {
+            animation-delay: 0.32s;
+        }
+    }
+}
+
+@keyframes chatbot-blink {
+    0%,
+    80%,
+    100% {
+        opacity: 0.25;
+    }
+    40% {
+        opacity: 1;
+    }
+}
+
+.chatbot-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--hub-danger-soft);
+    color: var(--hub-danger-text);
+    border: 1px solid var(--hub-danger);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+}
+
+.chatbot-retry {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    background: none;
+    color: inherit;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-xs);
+    font-family: inherit;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+/* ── Composer ───────────────────────────────────────────────────────── */
+
+.chatbot-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 12px 16px 16px;
+    background: var(--hub-background);
+    border-top: 1px solid var(--hub-border);
+}
+
+.chatbot-input {
+    flex: 1;
+    min-width: 0;
+    min-height: 40px;
+    max-height: 120px;
+    padding: 10px 12px;
+    background: var(--hub-card-background);
+    color: var(--hub-text);
+    caret-color: var(--hub-primary);
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    /* 16px keeps iOS from zooming the viewport on focus. */
+    font-size: var(--text-lg);
+    line-height: 1.4;
+    resize: none;
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--hub-primary);
+        box-shadow: 0 0 0 3px var(--hub-focus-ring);
+    }
+
+    &::placeholder {
+        color: var(--hub-text-muted);
+    }
+}
+
+.chatbot-send {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: var(--hub-primary);
+    color: var(--hub-on-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background-color var(--dur-med) var(--ease);
+
+    svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover:not(:disabled) {
+        background: var(--hub-primary-strong);
+    }
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+}
+
+/* ── Small viewports ────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .chatbot-panel {
+        width: 100%;
+        border-left: none;
+    }
+
+    /* The panel already fills the viewport here, so there is nothing to widen
+       and nothing for "fullscreen" to mean. */
+    .chatbot-resize-handle,
+    .chatbot-fullscreen {
+        display: none;
+    }
+
+    /* Full-width panel — there is nowhere for the launcher to slide to, and
+       the header's close button is the only affordance that makes sense. */
+    .chatbot-launcher.is-open {
+        --chatbot-launcher-shift: 0px;
+
+        opacity: 0;
+        pointer-events: none;
+    }
+}
