@@ -68,11 +68,11 @@ npx catalyst setupEmulator:ios --yes
 | Property | Description |
 |----------|-------------|
 | `port` | Development server port |
-| `buildType` | `Debug` or `Release` |
+| `buildType` | `debug` or `release` |
 | `appBundleId` | Your app's bundle identifier |
 | `simulatorName` | Simulator name (spaces allowed) |
 
-`buildType` is case-sensitive on iOS. Use `Debug` for simulator development and `Release` for store builds.
+Use `debug` for simulator and device development. `release` (in any case) makes `buildApp:ios` build the signed store IPA instead; see [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md).
 
 ---
 

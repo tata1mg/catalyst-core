@@ -104,6 +104,10 @@ export const LEDGER = {
     "IOS-004": "not-example-reproducible",
     "IOS-005": "not-example-reproducible",
     "IOS-006": "not-example-reproducible",
+    // IOS-012 (bad CI signing inputs) is raised by the macOS security tool
+    // while the temporary keychain is set up, so it needs macOS. Covered by
+    // test/native/iosSigning.test.ts in catalyst-core.
+    "IOS-012": "not-example-reproducible",
 }
 
 export default scenarios

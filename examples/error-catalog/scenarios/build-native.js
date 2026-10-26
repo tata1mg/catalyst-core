@@ -110,6 +110,141 @@ export const buildNativeScenarios = [
         },
         expect: { inOutput: ["IOS-000"], exitNonZero: true },
     },
+    // IOS-007..011 and IOS-013 fire while buildApp:ios resolves the release
+    // config, before Xcode is touched, so they reproduce on a Linux runner.
+    // ios.buildType "release" stands in for --release.
+    {
+        code: "IOS-007",
+        title: "Release build points at a LAN address",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = { port: 3005, LOCAL_IP: "192.168.1.10", ios: { buildType: "release" } }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-007"], exitNonZero: true },
+    },
+    {
+        code: "IOS-008",
+        title: "Release build without a build number",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                ios: { buildType: "release" },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-008"], exitNonZero: true },
+    },
+    {
+        code: "IOS-009",
+        title: "Release build number of 0",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                ios: { buildType: "release", version: { major: 1, buildNumber: 0 } },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-009"], exitNonZero: true },
+    },
+    {
+        code: "IOS-010",
+        title: "Signed release build with no development team",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                ios: { buildType: "release", version: { major: 1, buildNumber: 7 } },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-010"], exitNonZero: true },
+    },
+    {
+        code: "IOS-011",
+        title: "App Store Connect API key with only a key ID",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                ios: {
+                    buildType: "release",
+                    version: { major: 1, buildNumber: 7 },
+                    developmentTeam: "ABCDE12345",
+                    ascApiKey: { keyId: "ABC123" },
+                },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-011"], exitNonZero: true },
+    },
+    {
+        code: "IOS-013",
+        title: "Unknown iOS export method",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                ios: {
+                    buildType: "release",
+                    version: { major: 1, buildNumber: 7 },
+                    developmentTeam: "ABCDE12345",
+                    exportMethod: "app-store-please",
+                },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["IOS-013"], exitNonZero: true },
+    },
 ]
 
 export default buildNativeScenarios

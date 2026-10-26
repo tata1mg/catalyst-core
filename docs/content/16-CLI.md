@@ -72,20 +72,32 @@ production-style run.
 | `npm run setupEmulator:ios` | Check Xcode, install an iOS runtime and a simulator if missing, then boot it |
 | `npm run buildApp:android` | Build and run the Android debug app |
 | `npm run buildApp:android -- --release --build-number <n>` | Build the signed Android App Bundle for Google Play |
-| `npm run buildApp:ios` | Build and run the iOS app using the configured build type |
+| `npm run buildApp:ios` | Build and run the iOS debug app on a simulator or connected iPhone |
+| `npm run buildApp:ios -- --release --build-number <n>` | Build the signed iOS IPA for App Store Connect |
 
-For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. `buildApp:android` builds a release when given `--release` or when `WEBVIEW_CONFIG.android.buildType` is `release`.
+For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. `buildApp:android` and `buildApp:ios` build a release when given `--release` or when the platform's `buildType` is `release`.
 
 | Option | Effect |
 |--------|--------|
 | `--release` | Build the signed store release, using `WEBVIEW_CONFIG.release` over the base config |
-| `--build-number <n>` | The store build number (Android `versionCode`). Also read from `CATALYST_BUILD_NUMBER` |
+| `--build-number <n>` | The store build number (Android `versionCode`, iOS `CFBundleVersion`). Also read from `CATALYST_BUILD_NUMBER` |
+| `--no-sign` | `buildApp:ios`: archive the release without signing and skip the IPA export. For CI checks without signing secrets |
 | `--yes` | `setupEmulator`: download missing SDK pieces, create the emulator or simulator, and save the config without asking |
 | `--accept-licenses` | `setupEmulator:android`: accept the Android SDK licences without the interactive review (for CI) |
 
 A debug `buildApp` starts the dev server in the background when nothing is listening on `WEBVIEW_CONFIG.port`, so `npm run buildApp:android` or `npm run buildApp:ios` is enough on its own.
 
 The flags can go before or after the command. Android release signing reads `CATALYST_ANDROID_KEYSTORE_BASE64`, `CATALYST_ANDROID_STORE_PASSWORD`, `CATALYST_ANDROID_KEY_PASSWORD` and `CATALYST_ANDROID_KEY_ALIAS` in CI; see [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) for the full flow.
+
+iOS signing reads these environment variables; see [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md):
+
+| Variable | Use |
+|----------|-----|
+| `CATALYST_ASC_KEY_PATH` or `CATALYST_ASC_KEY_BASE64` | App Store Connect API key file (`.p8`), as a path or base64, for automatic signing |
+| `CATALYST_ASC_KEY_ID`, `CATALYST_ASC_ISSUER_ID` | The API key's ID and issuer ID |
+| `CATALYST_IOS_P12_BASE64`, `CATALYST_IOS_P12_PASSWORD` | Distribution certificate and private key for manual signing in CI |
+| `CATALYST_IOS_PROFILE_BASE64` | App Store provisioning profile for manual signing in CI |
+| `CATALYST_BUILD_NUMBER` | Build number when `--build-number` is not given |
 
 ## Production Web Flow
 

@@ -358,12 +358,12 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             } else {
                 passed.push({ field: "WEBVIEW_CONFIG.ios.appName", value: ios.appName })
             }
-            // buildType — case-sensitive (Debug/Release not debug/release)
-            if (ios.buildType && !["Debug", "Release"].includes(ios.buildType)) {
+            // buildType: debug or release, any case. release builds the store IPA.
+            if (ios.buildType && !["debug", "release"].includes(String(ios.buildType).toLowerCase())) {
                 issues.push({
                     field: "WEBVIEW_CONFIG.ios.buildType",
                     severity: "error",
-                    message: `ios.buildType must be "Debug" or "Release" (case-sensitive). Got: "${ios.buildType}". Common mistake: using lowercase "debug" breaks Xcode build.`,
+                    message: `ios.buildType must be "debug" or "release" (any case). Got: "${ios.buildType}".`,
                 })
             } else {
                 passed.push({
@@ -377,6 +377,17 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                     field: "WEBVIEW_CONFIG.ios.developmentTeam",
                     message:
                         "ios.deviceUDID is set (physical device build) but ios.developmentTeam is missing. Physical device builds require Apple Developer Team ID for code signing.",
+                })
+            }
+            if (
+                String(ios.buildType || "").toLowerCase() === "release" &&
+                !ios.developmentTeam &&
+                !ios.provisioningProfile
+            ) {
+                warnings.push({
+                    field: "WEBVIEW_CONFIG.ios.developmentTeam",
+                    message:
+                        "ios.buildType is release but neither ios.developmentTeam (automatic signing) nor ios.provisioningProfile is set. A signed release fails with IOS-010 unless CI signing variables are set.",
                 })
             }
             if (ios.cachePattern !== undefined && typeof ios.cachePattern !== "string") {

@@ -5,6 +5,7 @@ const os = require("os")
 const path = require("path")
 const { execSync, execFileSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
+const { xcodeAuthArgs } = require("./signing.js")
 
 module.exports = function createBuildPhase(ctx) {
     const {
@@ -526,17 +527,27 @@ module.exports = function createBuildPhase(ctx) {
             isNotificationsEnabled ? "Building with notifications enabled" : "Building without notifications",
             "info"
         )
-        const buildCommand = `xcodebuild \
-        -scheme ${scheme} \
-        -sdk iphoneos \
-        -configuration Debug \
-        -destination platform=iOS,id=${device.udid} \
-        PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
-        ONLY_ACTIVE_ARCH=YES \
-        build`
-        // The full command is a dozen wrapped lines of build settings; the
-        // streamed output below is what actually tells you how it is going.
-        return runCommandStreaming(buildCommand)
+        // Automatic signing may create or fetch the development certificate
+        // and profile and register this device: with the App Store Connect
+        // key when one is configured, else with the Apple account signed in
+        // to Xcode. A manual profile (ios.provisioningProfile) needs neither.
+        const signingArgs = ctx.signingPlan?.style === "manual" ? [] : xcodeAuthArgs(ctx.apiKey)
+        // The streamed output is what tells you how it is going; argv, not a
+        // shell string, so a key path with spaces needs no quoting.
+        return runCommandStreaming("xcodebuild", [
+            "-scheme",
+            scheme,
+            "-sdk",
+            "iphoneos",
+            "-configuration",
+            "Debug",
+            "-destination",
+            `platform=iOS,id=${device.udid}`,
+            `PRODUCT_BUNDLE_IDENTIFIER=${bundleId}`,
+            "ONLY_ACTIVE_ARCH=YES",
+            ...signingArgs,
+            "build",
+        ])
     }
 
     async function findPhysicalDeviceAppPath() {

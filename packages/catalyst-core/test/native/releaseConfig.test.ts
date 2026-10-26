@@ -57,9 +57,14 @@ describe("parseNativeArgs", () => {
         expect(parseNativeArgs([])).toEqual({
             release: false,
             buildNumber: undefined,
+            noSign: false,
             yes: false,
             acceptLicenses: false,
         })
+    })
+
+    it("reads iOS's --no-sign", () => {
+        expect(parseNativeArgs(["--release", "--no-sign"])).toMatchObject({ release: true, noSign: true })
     })
 
     it("reads setup's --yes and --accept-licenses", () => {

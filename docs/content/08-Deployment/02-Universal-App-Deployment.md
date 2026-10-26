@@ -82,16 +82,14 @@ Catalyst 1.1.0 and earlier shipped a shared keystore inside the Android template
 ## iOS Release Flow
 
 1. Deploy the production web application over HTTPS.
-2. Finalize `WEBVIEW_CONFIG`, the bundle identifier, version, build number, capabilities, and app assets.
-3. Run `npm run buildApp:ios` from the consuming Catalyst app.
-4. Open the generated `iosnativeWebView.xcodeproj` and configure Release signing.
-5. Archive the `iosnativeWebView` scheme with a generic iOS device destination.
-6. Validate and upload the archive through Xcode.
-7. Complete TestFlight testing and the App Store Connect release.
+2. Put the production host in `WEBVIEW_CONFIG.release` and set `ios.appBundleId`, `ios.developmentTeam` and the version.
+3. Set up signing: an App Store Connect API key for automatic signing, a provisioning profile name, or in CI the `CATALYST_IOS_*` variables.
+4. Run `npm run buildApp:ios -- --release --build-number <n>`. The IPA and zipped dSYMs are written to `<BUILD_OUTPUT_PATH>/native/ios/<version>-<build>/`.
+5. Upload the IPA with Transporter, test it in TestFlight and submit it for review.
 
-`npm run buildApp:ios` prepares the package-owned Xcode project and performs a Debug native build. It does not create the App Store archive. The production artifact is created by the scheme's Release Archive action in Xcode. This flow is the same for Catalyst `0.2.x` and `0.3.x`.
+From Catalyst 1.1.1 Xcode does not need to be opened. Before that, `buildApp:ios` only ran a Debug build and the archive was made in Xcode.
 
-See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for the complete release procedure and checklist.
+See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for signing options, CI variables and troubleshooting.
 
 ## What to Validate Before Release
 

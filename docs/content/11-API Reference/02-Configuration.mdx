@@ -63,7 +63,7 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 | `WEBVIEW_CONFIG.appInfo` | Yes | Build identifier used by native tooling |
 | `WEBVIEW_CONFIG.useHttps` | No | Defaults to `false` |
 | `WEBVIEW_CONFIG.profiler.enabled` | No | Enables the debug-only Catalyst Profiler; defaults to `false` |
-| `WEBVIEW_CONFIG.release` | Yes for store builds | Production overrides, deep-merged over `WEBVIEW_CONFIG` for release builds only. Usually sets `LOCAL_IP`, `port`, `useHttps` and `apiBaseUrl` |
+| `WEBVIEW_CONFIG.release` | Yes for store builds | Production overrides, deep-merged over `WEBVIEW_CONFIG` for Android and iOS release builds only. Usually sets `LOCAL_IP`, `port`, `useHttps` and `apiBaseUrl`, and can override `android` and `ios` fields |
 | `WEBVIEW_CONFIG.release.allowPrivateHost` | No | `true` lets a release start URL use a private or local host (internal apps). Defaults to `false` |
 
 ### Android fields
@@ -85,10 +85,14 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 | Key | Required | Notes |
 |-----|----------|-------|
 | `WEBVIEW_CONFIG.ios.appBundleId` | Required for distribution | Set this explicitly for release builds |
-| `WEBVIEW_CONFIG.ios.buildType` | No | Must be `Debug` or `Release`, case-sensitive |
+| `WEBVIEW_CONFIG.ios.buildType` | No | `debug` or `release`, in any case. `release` builds the store IPA like `buildApp:ios --release` |
+| `WEBVIEW_CONFIG.ios.version` | No | `{ major, minor, patch, buildNumber }`. Without it the version comes from `package.json` |
 | `WEBVIEW_CONFIG.ios.simulatorName` | No | Used for simulator builds |
 | `WEBVIEW_CONFIG.ios.deviceUDID` | No | For physical device builds |
-| `WEBVIEW_CONFIG.ios.developmentTeam` | Required with `deviceUDID` | Apple team ID for signing |
+| `WEBVIEW_CONFIG.ios.developmentTeam` | Yes for device and release builds | Apple team ID. With no `provisioningProfile`, Xcode signs automatically for this team |
+| `WEBVIEW_CONFIG.ios.provisioningProfile` | No | Profile name for manual signing. Put the App Store profile in `release.ios.provisioningProfile` |
+| `WEBVIEW_CONFIG.ios.ascApiKey` | No | `{ path, keyId, issuerId }` of an App Store Connect API key, so automatic signing works without an Apple account in Xcode. Keep the `.p8` outside the repository |
+| `WEBVIEW_CONFIG.ios.exportMethod` | No | How the release archive is exported: `app-store-connect` (default), `release-testing`, `enterprise` or `debugging` |
 | `WEBVIEW_CONFIG.ios.cachePattern` | No | Array of glob-style URL patterns (e.g. `["*.css", "*.js"]`) the native WebView cache should match — a single string is treated as one literal pattern, not comma-split; when unset, no pattern-based caching is enabled (offline-route caching can still apply) |
 
 ## Access Control
@@ -137,7 +141,7 @@ When `splashScreen` is set and `public/splashscreen.html` exists, the app shows 
 
 - Missing required top-level config keys cause startup failures.
 - Using `CLIENT_ENV_KEYS` is outdated. The current key is `CLIENT_ENV_VARIABLES`.
-- iOS build types are case-sensitive: use `Debug` or `Release`.
+- `ios.buildType` accepts `debug` or `release` in any case. `release` makes `buildApp:ios` build the store IPA instead of running the app.
 - `LOCAL_IP` should be a reachable LAN IP for emulator or device builds. Put the production host in `WEBVIEW_CONFIG.release`.
-- A release build fails when its start URL points at a local or private host, or when it has no build number. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md).
+- A release build fails when its start URL points at a local or private host, or when it has no build number. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) and [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md).
 - `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT`, and `ANALYZE_BUNDLE` are no longer required or read, so you can delete them or leave them in place.

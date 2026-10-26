@@ -35,6 +35,13 @@ export const ERROR_CODES = {
     IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
     IOS_APP_ICON_INVALID: "IOS-005",
     IOS_APP_ICON_HAS_ALPHA: "IOS-006",
+    IOS_RELEASE_PRIVATE_HOST: "IOS-007",
+    IOS_MISSING_BUILD_NUMBER: "IOS-008",
+    IOS_INVALID_BUILD_NUMBER: "IOS-009",
+    IOS_SIGNING_NOT_SET_UP: "IOS-010",
+    IOS_ASC_API_KEY_INVALID: "IOS-011",
+    IOS_MANUAL_SIGNING_INVALID: "IOS-012",
+    IOS_EXPORT_METHOD_INVALID: "IOS-013",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
     ANDROID_RELEASE_PRIVATE_HOST: "ANDROID-002",
@@ -309,6 +316,63 @@ export const ERROR_DEFINITIONS = {
             "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
         suggestedAction:
             "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
+    // IOS-007..013 are copied into src/native/utils.js NATIVE_ERRORS too.
+    [ERROR_CODES.IOS_RELEASE_PRIVATE_HOST]: {
+        category: "IOS",
+        defaultMessage: "Release build points at a local or private host",
+        defaultDetails:
+            "An iOS release build (buildApp:ios --release, or ios.buildType release) would open a start URL on localhost, a loopback, private (RFC 1918), link-local or .local address, or this machine's own address. Devices of App Store users can never reach it. The start URL comes from WEBVIEW_CONFIG.release merged over the base config.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
+    },
+    [ERROR_CODES.IOS_MISSING_BUILD_NUMBER]: {
+        category: "IOS",
+        defaultMessage: "Release build has no build number",
+        defaultDetails:
+            "Every build uploaded to App Store Connect needs a CFBundleVersion higher than the last one for that version. A release build takes it from --build-number, then CATALYST_BUILD_NUMBER, then WEBVIEW_CONFIG.ios.version.buildNumber, and none of them is set.",
+        suggestedAction:
+            "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.ios.version.buildNumber.",
+    },
+    [ERROR_CODES.IOS_INVALID_BUILD_NUMBER]: {
+        category: "IOS",
+        defaultMessage: "Invalid build number",
+        defaultDetails:
+            "The build number becomes CFBundleVersion (CURRENT_PROJECT_VERSION). It must be a whole number from 1 to 2100000000.",
+        suggestedAction:
+            "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded for this version.",
+    },
+    [ERROR_CODES.IOS_SIGNING_NOT_SET_UP]: {
+        category: "IOS",
+        defaultMessage: "iOS code signing is not set up",
+        defaultDetails:
+            "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key or an Apple account signed in to Xcode; manual signing needs ios.provisioningProfile or the CI signing variables. xcodebuild reported a signing failure, or a release build has no team to sign for.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.ios.developmentTeam and an App Store Connect API key (ios.ascApiKey, or CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64 with CATALYST_ASC_KEY_ID and CATALYST_ASC_ISSUER_ID) for automatic signing, or sign manually with ios.provisioningProfile, or in CI with CATALYST_IOS_P12_BASE64, CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64.",
+    },
+    [ERROR_CODES.IOS_ASC_API_KEY_INVALID]: {
+        category: "IOS",
+        defaultMessage: "App Store Connect API key settings are incomplete or wrong",
+        defaultDetails:
+            "Automatic signing without Xcode uses an App Store Connect API key, which takes three values: the .p8 key file, its key ID and the issuer ID. Some of them are set but not all, or the key file does not exist.",
+        suggestedAction:
+            "Give all three of the key file (ios.ascApiKey.path, CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64), the key ID (ios.ascApiKey.keyId or CATALYST_ASC_KEY_ID) and the issuer ID (ios.ascApiKey.issuerId or CATALYST_ASC_ISSUER_ID).",
+    },
+    [ERROR_CODES.IOS_MANUAL_SIGNING_INVALID]: {
+        category: "IOS",
+        defaultMessage: "Manual signing inputs are incomplete or wrong",
+        defaultDetails:
+            "CI signing imports a .p12 into a temporary keychain and installs a provisioning profile for the build. Only one of CATALYST_IOS_P12_BASE64 and CATALYST_IOS_PROFILE_BASE64 is set, the p12 or its password is wrong, the p12 has no code signing identity, or the profile is unreadable, expired or for another bundle ID.",
+        suggestedAction:
+            "Set CATALYST_IOS_P12_BASE64 (a base64 .p12 holding the distribution certificate and its private key), CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64 (a base64 .mobileprovision for WEBVIEW_CONFIG.ios.appBundleId), and check that they belong together.",
+    },
+    [ERROR_CODES.IOS_EXPORT_METHOD_INVALID]: {
+        category: "IOS",
+        defaultMessage: "Unknown iOS export method",
+        defaultDetails:
+            "WEBVIEW_CONFIG.ios.exportMethod picks how the release archive is exported to an IPA. Xcode 26 accepts app-store-connect, release-testing, enterprise and debugging; the older names app-store, ad-hoc and development are mapped to them with a warning.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
     },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",

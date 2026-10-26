@@ -1144,6 +1144,12 @@ jobs:
             # writes an .xcresult bundle carrying per-target line coverage,
             # parsed below via `xcrun xccov`. resultBundlePath must not
             # already exist, which is guaranteed here (fresh checkout).
+            # localhost.p12 (the in-app HTTPS server's self-signed identity) is
+            # generated per build and not committed; the app target bundles
+            # it, so create one before Xcode builds.
+            - name: Generate localhost.p12
+              run: node packages/catalyst-core/src/native/buildIos/localhostCert.js
+
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |

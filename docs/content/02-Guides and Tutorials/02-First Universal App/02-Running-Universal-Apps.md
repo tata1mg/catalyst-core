@@ -82,7 +82,7 @@ xcrun simctl launch booted your.app.bundle.id
 
 - The local IP address might change when switching networks; rerun `setupEmulator` to update it
 - Some corporate networks might block required ports
-- iOS build types are case-sensitive: use `Debug` or `Release`
+- `ios.buildType` set to `release` (any case) makes `buildApp:ios` build the store IPA instead of running the app; leave it at `debug` for development
 - Keep your SDK tools and development environment updated
 - Ensure `WEBVIEW_CONFIG.accessControl.allowedUrls` includes every required API or asset domain when access control is enabled
 

@@ -66,9 +66,9 @@ Android CLI tooling can be inconsistent with space-separated names. Prefer names
 
 First setup is slower because SDK and bridge checks are performed.
 
-## Why is iOS `buildType` failing even though the value looks right?
+## Why does `buildApp:ios` build an IPA instead of opening the simulator?
 
-iOS `buildType` is case-sensitive. Use `Debug` or `Release`, not lowercase values.
+`WEBVIEW_CONFIG.ios.buildType` is `release` (in any case), which builds the store IPA like `--release`. Set it to `debug` for development.
 
 ## Common Errors
 

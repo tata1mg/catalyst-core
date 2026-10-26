@@ -602,15 +602,47 @@ const NATIVE_ERRORS = {
         message: "App icon has transparency",
         hint: "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
     },
+    "IOS-007": {
+        message: "Release build points at a local or private host",
+        hint: "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
+    },
+    "IOS-008": {
+        message: "Release build has no build number",
+        hint: "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.ios.version.buildNumber.",
+    },
+    "IOS-009": {
+        message: "Invalid build number",
+        hint: "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded for this version.",
+    },
+    "IOS-010": {
+        message: "iOS code signing is not set up",
+        hint: "Set WEBVIEW_CONFIG.ios.developmentTeam and an App Store Connect API key (ios.ascApiKey, or CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64 with CATALYST_ASC_KEY_ID and CATALYST_ASC_ISSUER_ID) for automatic signing, or sign manually with ios.provisioningProfile, or in CI with CATALYST_IOS_P12_BASE64, CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64.",
+    },
+    "IOS-011": {
+        message: "App Store Connect API key settings are incomplete or wrong",
+        hint: "Give all three of the key file (ios.ascApiKey.path, CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64), the key ID (ios.ascApiKey.keyId or CATALYST_ASC_KEY_ID) and the issuer ID (ios.ascApiKey.issuerId or CATALYST_ASC_ISSUER_ID).",
+    },
+    "IOS-012": {
+        message: "Manual signing inputs are incomplete or wrong",
+        hint: "Set CATALYST_IOS_P12_BASE64 (a base64 .p12 holding the distribution certificate and its private key), CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64 (a base64 .mobileprovision for WEBVIEW_CONFIG.ios.appBundleId), and check that they belong together.",
+    },
+    "IOS-013": {
+        message: "Unknown iOS export method",
+        hint: "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
+    },
 }
 
-// Per-platform codes for the shared release checks. iOS adds its own codes
-// here when its release build lands.
+// Per-platform codes for the shared release checks.
 const RELEASE_ERROR_CODES = {
     android: {
         privateHost: "ANDROID-002",
         missingBuildNumber: "ANDROID-003",
         invalidBuildNumber: "ANDROID-004",
+    },
+    ios: {
+        privateHost: "IOS-007",
+        missingBuildNumber: "IOS-008",
+        invalidBuildNumber: "IOS-009",
     },
 }
 
@@ -634,16 +666,24 @@ function releaseErrorCode(platform, kind) {
 
 /**
  * The native flags the CLI forwards: `--release`, `--build-number <n>` (or
- * `--build-number=<n>`), and setup's `--yes` (allow downloads and config
- * writes without asking) and `--accept-licenses` (accept the Android SDK
- * licences). bin/catalyst.js keeps them out of command dispatch; this reads
- * them back in the platform script.
+ * `--build-number=<n>`), `--no-sign` (iOS: an unsigned release archive, for
+ * CI), and setup's `--yes` (allow downloads and config writes without
+ * asking) and `--accept-licenses` (accept the Android SDK licences).
+ * bin/catalyst.js keeps them out of command dispatch; this reads them back in
+ * the platform script.
  */
 function parseNativeArgs(argv = process.argv.slice(2)) {
-    const result = { release: false, buildNumber: undefined, yes: false, acceptLicenses: false }
+    const result = {
+        release: false,
+        buildNumber: undefined,
+        noSign: false,
+        yes: false,
+        acceptLicenses: false,
+    }
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i]
         if (arg === "--release") result.release = true
+        else if (arg === "--no-sign") result.noSign = true
         else if (arg === "--yes") result.yes = true
         else if (arg === "--accept-licenses") result.acceptLicenses = true
         else if (arg === "--build-number") result.buildNumber = argv[++i]

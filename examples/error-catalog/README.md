@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 89 error codes, then assert the dev
+mistake** for every one of the framework's 96 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 89, one block per code: the mistake, what
+- **`npm run test:error`** — runs all 96, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-89 / 89 codes accounted for: **65 reproduced by a scenario**, **24 in the
+96 / 96 codes accounted for: **71 reproduced by a scenario**, **25 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 89-code ledger
+## The 96-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -98,6 +98,13 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `IOS-004`            | —                                                                            | —              | No iOS simulator runtime installed                                      | **LEDGER: not-example-reproducible** |
 | `IOS-005`            | —                                                                            | —              | App icon is not usable                                                  | **LEDGER: not-example-reproducible** |
 | `IOS-006`            | —                                                                            | —              | App icon has transparency                                               | **LEDGER: not-example-reproducible** |
+| `IOS-007`            | Release build whose LOCAL_IP is a LAN address                                | build-native   | Release build points at a local or private host                         | scenario                             |
+| `IOS-008`            | Release build with no build number                                           | build-native   | Release build has no build number                                       | scenario                             |
+| `IOS-009`            | Release build number of 0                                                    | build-native   | Invalid build number                                                    | scenario                             |
+| `IOS-010`            | Signed release build with no development team                                | build-native   | iOS code signing is not set up                                          | scenario                             |
+| `IOS-011`            | App Store Connect API key with only a key ID                                 | build-native   | App Store Connect API key settings are incomplete or wrong              | scenario                             |
+| `IOS-012`            | —                                                                            | —              | Manual signing inputs are incomplete or wrong                           | **LEDGER: not-example-reproducible** |
+| `IOS-013`            | Unknown ios.exportMethod                                                     | build-native   | Unknown iOS export method                                               | scenario                             |
 | `PREFLIGHT-001`      | config/config.json deleted                                                   | cli (halts)    | config not found in config folder                                       | scenario                             |
 | `PREFLIGHT-002`      | config/config.json is a JSON string                                          | cli (halts)    | config export is not an object                                          | scenario                             |
 | `PREFLIGHT-003`      | Removed a required key from config/config.json                               | cli (halts)    | required key missing inside config.json                                 | scenario                             |
@@ -157,7 +164,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 89, human-readable
+# All 96, human-readable
 npm run test:error
 
 # One code

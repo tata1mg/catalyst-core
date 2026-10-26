@@ -62,6 +62,12 @@ describe("native build flags", () => {
         ])
     })
 
+    it("forwards iOS's --no-sign wherever it appears", () => {
+        expect(run(["--no-sign", "buildApp:ios", "--release", "--build-number=7"])).toEqual([
+            { script: "buildAppIos", args: ["--no-sign", "--release", "--build-number=7"] },
+        ])
+    })
+
     it("forwards setup's --yes and --accept-licenses wherever they appear", () => {
         expect(run(["--yes", "setupEmulator:android", "--accept-licenses"])).toEqual([
             { script: "androidSetup", args: ["--yes", "--accept-licenses"] },
