@@ -1,0 +1,19 @@
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_556214d828fdce::t_e54457513a0cf0 2,4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4968997243af1b25e27df016d2ee9bea8e7b0a3b",
+  "prompts": {},
+  "sessions": {
+    "s_556214d828fdce": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "485928",
+        "model": "AUTO"
+      },
+      "human_author": "asthadhakar <astha.dhakar@1mg.com>"
+    }
+  }
+}

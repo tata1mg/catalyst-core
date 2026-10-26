@@ -1,0 +1,29 @@
+src/critical-css/core.js
+  s_250d5801b1fb56::t_594881928911fe 1-18,23-148,164-165
+  s_250d5801b1fb56::t_e620dfa31da3f4 149-163
+  s_250d5801b1fb56::t_78a4f6faea7f12 19-22
+bin/catalyst.js
+  s_250d5801b1fb56::t_ec00d5a17df0f2 16-23,28,31
+src/critical-css/generate.js
+  s_250d5801b1fb56::t_a16ba4490292e2 1-150
+src/scripts/criticalCss.js
+  s_250d5801b1fb56::t_f479f19055585d 1-61
+package.json
+  s_250d5801b1fb56::t_9019af2e7c361c 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f4b9275e181cf997d8ae79294fa3bf610199bbf",
+  "prompts": {},
+  "sessions": {
+    "s_250d5801b1fb56": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9235eb1f-704d-4356-b6ec-47bec726c7e2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

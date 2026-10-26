@@ -1,0 +1,24 @@
+packages/catalyst-core/src/web-router/context.test.jsx
+  s_be39530ce9affc::t_c934fa293bdacf 1,10-19
+  s_be39530ce9affc::t_645aae8b36096c 20
+.github/workflows/node.js.yml
+  s_be39530ce9affc::t_c934fa293bdacf 1378-1406
+packages/catalyst-core/src/web-router/context.tsx
+  s_be39530ce9affc::t_76518cdb6104ef 2,33-41,45-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2438e6528c808ae54d9ae596d9c17698cac73a5b",
+  "prompts": {},
+  "sessions": {
+    "s_be39530ce9affc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bc20ac9-1789-480f-a47e-a1d057d1521a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

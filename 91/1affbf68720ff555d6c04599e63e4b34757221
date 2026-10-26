@@ -1,0 +1,27 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsNativeAITests.swift
+  s_142fca248d57d5::t_21e721254447eb 166,183
+  s_142fca248d57d5::t_eb0908a8398ee2 1-165,167-182,184-307
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/NativeAI.swift
+  s_142fca248d57d5::t_6c983849643bb3 1-76
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_142fca248d57d5::t_d551f90f85c5f6 129-143,361,368,372-389,1068,1144
+  s_142fca248d57d5::t_ceaba8230a0c53 390,637-638,643-644,832,839,844-1020
+  s_142fca248d57d5::t_8cbb4251468fcd 687-690,693,698-762,767,769-770,775-777,781,785,787-814
+  s_142fca248d57d5::t_272aacdb2329ad 391
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "911affbf68720ff555d6c04599e63e4b34757221",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

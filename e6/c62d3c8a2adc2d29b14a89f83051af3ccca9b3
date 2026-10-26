@@ -1,0 +1,19 @@
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_9f266df34d05f4::t_57f6925dab8db0 99-104,106-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e6c62d3c8a2adc2d29b14a89f83051af3ccca9b3",
+  "prompts": {},
+  "sessions": {
+    "s_9f266df34d05f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a5a9bac-0c1a-4b90-bc1b-cbc5ff1ef0e9",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
