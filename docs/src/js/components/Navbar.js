@@ -8,7 +8,7 @@ import SearchModal from './SearchModal'
  * the Companion copy this came from had to point at a remote URL.
  */
 const COMMUNITY_ITEMS = [
-    { label: 'Conferences', to: '/content/conferences' },
+    { label: 'Conferences', to: '/content/community-and-meta/conferences' },
     { label: 'Discord', href: 'https://discord.gg/GTzYzP8X6s' },
     { label: 'X (formerly Twitter)', href: 'https://x.com/Catalyst448356' },
     {
@@ -158,10 +158,16 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
 
             <div className={`hub-navbar-items ${menuOpen ? 'open' : ''}`}>
                 <Link
-                    to="/content/Introduction/why-catalyst"
+                    to="/content/introduction/why-catalyst"
                     onClick={closeMenu}
                 >
                     Documentation
+                </Link>
+                <Link
+                    to="/content/guides-and-tutorials/mcp-integration"
+                    onClick={closeMenu}
+                >
+                    MCP
                 </Link>
                 <a href="/#features" onClick={closeMenu}>
                     Features
@@ -199,7 +205,7 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                         )}
                     </div>
                 </div>
-                <Link to="/content/contribution" onClick={closeMenu}>
+                <Link to="/content/community-and-meta/contribution" onClick={closeMenu}>
                     Contribute
                 </Link>
             </div>

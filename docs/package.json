@@ -22,10 +22,13 @@
     },
     "dependencies": {
         "@mdx-js/react": "^3.1.1",
+        "catalyst-ai": "^0.1.1",
         "catalyst-core": "^0.3.0-beta.5",
         "prism-react-renderer": "^2.4.1",
         "react": "19.0.0",
-        "react-dom": "19.0.0"
+        "react-dom": "19.0.0",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@mdx-js/mdx": "^3.1.1",
@@ -37,7 +40,6 @@
         "rehype-slug": "^6.0.0",
         "remark-directive": "^4.0.0",
         "remark-frontmatter": "^5.0.0",
-        "remark-gfm": "^4.0.1",
         "unist-util-visit": "^5.1.0"
     },
     "overrides": {

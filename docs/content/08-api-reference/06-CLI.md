@@ -1,0 +1,70 @@
+---
+title: CLI Reference
+slug: cli-reference
+id: cli-reference
+---
+
+# CLI Reference
+
+Catalyst workflows are split between the framework CLI and project-level npm scripts. The CLI handles web app lifecycle commands, while native builds are usually exposed as scripts in the generated app.
+
+## Core Commands
+
+These commands apply to Catalyst `0.3.x`:
+
+| Command | Purpose |
+|---------|---------|
+| `npx create-catalyst-app@latest` | Create a new Catalyst project |
+| `catalyst start` | Start the local development environment |
+| `catalyst build` | Create a production web build |
+| `catalyst serve` | Serve the production build |
+
+## Typical npm Scripts
+
+Most apps wrap the CLI in package scripts:
+
+```json title="package.json"
+{
+  "scripts": {
+    "start": "catalyst start",
+    "build": "catalyst build",
+    "serve": "catalyst serve",
+    "buildApp": "catalyst buildApp",
+    "buildApp:android": "catalyst buildApp:android",
+    "buildApp:ios": "catalyst buildApp:ios"
+  }
+}
+```
+
+Your exact script names can differ, but the flow should remain clear and predictable for the team.
+
+### Legacy Catalyst 0.2.x
+
+`devBuild` and `devServe` are webpack-era commands available to legacy `0.2.x` applications. They
+were removed in `0.3.x`; use `start` for Vite development and `build` followed by `serve` for a
+production-style run.
+
+## Universal App Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run buildApp:android` | Build and run the Android debug app |
+| `npm run buildApp:ios` | Build and run the iOS app using the configured build type |
+
+For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. Release behavior is driven by the configured `buildType`, not by a separate built-in `:release` command.
+
+## Production Web Flow
+
+1. Run `catalyst build`.
+2. Start the server with `catalyst serve` or your process manager.
+3. In production deployments, teams commonly run the server through PM2 or a container entrypoint.
+
+In `0.3.x`, `catalyst build` emits separate Vite client and SSR outputs and generates the offline
+manifest. Service workers and route offline snapshots are not enabled by `catalyst start`.
+
+## Related Docs
+
+- [React App Migration](/content/10-migration/03-React-App-to-Catalyst.md)
+- [Configuration API](/content/08-api-reference/02-Configuration.mdx)
+- [Catalyst App Deployment](/content/09-deployment/01-Deployment.md)
+- [Universal App Deployment](/content/09-deployment/02-Universal-App-Deployment.md)

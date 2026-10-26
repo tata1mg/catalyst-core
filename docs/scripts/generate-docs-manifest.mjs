@@ -43,6 +43,52 @@ const ROUTE_BASE = '/content'
 
 const stripPrefix = (segment) => segment.replace(/^\d+-/, '')
 
+/**
+ * Words that must survive title-casing intact, so a folder segment renders as
+ * "API Reference" rather than "Api Reference". Keyed by the lowercased word;
+ * add an entry when a new category folder introduces another acronym.
+ */
+const ACRONYMS = new Map(
+    Object.entries({
+        api: 'API',
+        cdn: 'CDN',
+        cli: 'CLI',
+        csrf: 'CSRF',
+        css: 'CSS',
+        html: 'HTML',
+        http: 'HTTP',
+        https: 'HTTPS',
+        ios: 'iOS',
+        mcp: 'MCP',
+        pwa: 'PWA',
+        seo: 'SEO',
+        spa: 'SPA',
+        ssg: 'SSG',
+        ssr: 'SSR',
+        ui: 'UI',
+        ux: 'UX',
+    })
+)
+
+/**
+ * Human-readable label for a kebab-cased folder segment (numeric prefix already
+ * stripped): split on hyphens, title-case each word (acronyms preserved), and
+ * render a standalone "and" as "&" — "styling-and-assets" → "Styling & Assets".
+ * Only a display fallback: a folder's `_category_.json` label always wins, for
+ * the cases no rule can derive (e.g. "Legacy (0.2.x)").
+ */
+const prettifySegment = (segment) =>
+    stripPrefix(segment)
+        .split('-')
+        .filter(Boolean)
+        .map((word) => {
+            const lower = word.toLowerCase()
+            if (ACRONYMS.has(lower)) return ACRONYMS.get(lower)
+            if (lower === 'and') return '&'
+            return word.charAt(0).toUpperCase() + word.slice(1)
+        })
+        .join(' ')
+
 const walk = (dir, files = []) => {
     for (const entry of fs
         .readdirSync(dir, { withFileTypes: true })
@@ -178,7 +224,7 @@ const buildPages = () => {
             const meta = readCategoryMeta(
                 path.join(CONTENT_ROOT, ...dirSegments.slice(0, index + 1))
             )
-            return meta?.label || stripPrefix(segment)
+            return meta?.label || prettifySegment(segment)
         })
 
         const fileTitle = stripPrefix(
@@ -394,20 +440,47 @@ const emitSeoFiles = (pages) => {
     const siteUrl = (
         process.env.SITE_URL || 'https://catalyst.1mg.com'
     ).replace(/\/$/, '')
+
+    /** ISO date of a file's last write, or null when it can't be read. */
+    const lastModified = (absPath) => {
+        try {
+            return fs.statSync(absPath).mtime.toISOString().slice(0, 10)
+        } catch {
+            return null
+        }
+    }
+
     // Companion surfaces (/app, /try, /showcase) are noindexed and deliberately
-    // left out of the sitemap.
-    const staticUrls = ['/']
-    const allUrls = [...staticUrls, ...pages.map((page) => page.url)]
+    // left out of the sitemap. The landing page is the only non-content route
+    // that belongs here, dated by its own source file.
+    const staticEntries = [
+        {
+            url: '/',
+            lastmod: lastModified(
+                path.join(APP_ROOT, 'src/js/containers/Landing/Landing.js')
+            ),
+        },
+    ]
+    const entries = [
+        ...staticEntries,
+        ...pages.map((page) => ({
+            url: page.url,
+            lastmod: lastModified(
+                path.join(CONTENT_ROOT, ...page.sourcePath.split('/'))
+            ),
+        })),
+    ]
 
     const sitemap = [
         `<?xml version="1.0" encoding="UTF-8"?>`,
         `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-        ...allUrls.map((url) => {
+        ...entries.map(({ url, lastmod }) => {
             const escaped = `${siteUrl}${url === '/' ? '' : encodeURI(url)}`
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-            return `    <url><loc>${escaped || siteUrl}</loc></url>`
+            const loc = `<loc>${escaped || siteUrl}</loc>`
+            return `    <url>${loc}${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`
         }),
         `</urlset>`,
         '',
@@ -425,7 +498,7 @@ const emitSeoFiles = (pages) => {
     fs.mkdirSync(publicDir, { recursive: true })
     fs.writeFileSync(path.join(publicDir, 'sitemap.xml'), sitemap)
     fs.writeFileSync(path.join(publicDir, 'robots.txt'), robots)
-    console.log(`Generated sitemap.xml (${allUrls.length} URLs) + robots.txt`)
+    console.log(`Generated sitemap.xml (${entries.length} URLs) + robots.txt`)
 }
 
 const main = async () => {

@@ -1322,3 +1322,20 @@ body {
         margin: 0 0 1rem;
     }
 }
+
+.hub-not-found-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.hub-not-found-report {
+    color: var(--hub-text-muted);
+    font-size: var(--text-sm);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--hub-text);
+    }
+}

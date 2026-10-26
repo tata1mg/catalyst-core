@@ -8,5 +8,18 @@
     "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
     "API_URL": "",
     "ANALYZE_BUNDLE": false,
-    "CLIENT_ENV_VARIABLES": ["API_URL"]
+    "CLIENT_ENV_VARIABLES": ["API_URL"],
+    "AI_CONFIG": {
+        "enabled": true,
+        "providers": {
+            "openai": {
+                "apiKey": "",
+                "defaultModel": "gpt-4o-mini"
+            },
+            "anthropic": {
+                "apiKey": "",
+                "defaultModel": "claude-sonnet-5"
+            }
+        }
+    }
 }

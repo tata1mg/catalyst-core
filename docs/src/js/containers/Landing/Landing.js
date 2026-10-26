@@ -142,7 +142,7 @@ function HomepageHero() {
                     <div className={styles.heroCta}>
                         <Link
                             className={`button button--primary button--lg ${styles.ctaPrimary}`}
-                            to="/content/Introduction/getting-started"
+                            to="/content/getting-started/overview"
                         >
                             Get Started
                         </Link>
@@ -265,6 +265,60 @@ function UniversalSection() {
     )
 }
 
+function StartHereSection() {
+    return (
+        <section className={styles.startHere}>
+            <div className="container">
+                <h2 className={styles.sectionTitle}>Start where you are</h2>
+                <div className={styles.startHereGrid}>
+                    <Link
+                        to="/content/getting-started/overview"
+                        className={styles.startHereCard}
+                    >
+                        <div className={styles.startHereTitle}>
+                            New to Catalyst
+                        </div>
+                        <p>Zero-to-running in under five minutes.</p>
+                        <span className={styles.startHereLink}>
+                            Getting Started →
+                        </span>
+                    </Link>
+                    <Link
+                        to="/content/migration/NextJS-to-Catalyst"
+                        className={styles.startHereCard}
+                    >
+                        <div className={styles.startHereTitle}>
+                            Coming from Next.js
+                        </div>
+                        <p>
+                            A direct map from getServerSideProps to
+                            serverFetcher.
+                        </p>
+                        <span className={styles.startHereLink}>
+                            Migration guide →
+                        </span>
+                    </Link>
+                    <Link
+                        to="/content/introduction/universal-app"
+                        className={styles.startHereCard}
+                    >
+                        <div className={styles.startHereTitle}>
+                            Adding a native app
+                        </div>
+                        <p>
+                            Turn an existing Catalyst web app into a universal
+                            app.
+                        </p>
+                        <span className={styles.startHereLink}>
+                            Universal App →
+                        </span>
+                    </Link>
+                </div>
+            </div>
+        </section>
+    )
+}
+
 function HomepageFooter() {
     return (
         <footer className={styles.footer}>
@@ -291,13 +345,13 @@ function HomepageFooter() {
                     <div className={styles.footerLinks}>
                         <div className={styles.footerLinkColumn}>
                             <h4>Docs</h4>
-                            <Link to="/content/Introduction/getting-started">
+                            <Link to="/content/getting-started/overview">
                                 Getting Started
                             </Link>
-                            <Link to="/content/data-fetching">
+                            <Link to="/content/api-reference/data-fetching">
                                 Data Fetching
                             </Link>
-                            <Link to="/content/Introduction/universal-app">
+                            <Link to="/content/introduction/universal-app">
                                 Universal App
                             </Link>
                         </div>
@@ -344,6 +398,7 @@ export default function Landing() {
             <main>
                 <FeaturesSection />
                 <UniversalSection />
+                <StartHereSection />
             </main>
             <HomepageFooter />
         </div>
