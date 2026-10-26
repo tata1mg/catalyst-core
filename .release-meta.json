@@ -1,14 +1,8 @@
 {
-  "tag": "beta",
+  "branch": "fix/docs-security-headers",
   "packages": {
-    "catalyst-core": {
-      "publish": true,
-      "version": "0.3.0-beta.5"
-    },
-    "create-catalyst-app": {
-      "publish": true,
-      "version": "0.3.0-beta.5",
-      "templateCatalystCoreVersion": "0.3.0-beta.5"
-    }
+    "catalyst-core": "1.1.0",
+    "create-catalyst-app": "1.1.0",
+    "catalyst-ai": "1.1.0"
   }
 }

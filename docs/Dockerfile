@@ -1,10 +1,15 @@
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+# Pinned to the patch release, not the floating 22-alpine tag: the October 2026
+# Node.js security release (22.23.4) fixed four High CVEs (TLS hostname checks,
+# dns.resolve, Brotli decoder), and a cached 22-alpine layer silently kept
+# serving 22.22.x. Bump this on every Node security release.
+FROM --platform=$BUILDPLATFORM node:22.23.4-alpine AS build
 
-# node:22-alpine tracks alpine:3.23, which already carries the patched
+# node:22.23.4-alpine is on alpine 3.24, which already carries the patched
 # libcrypto3/libssl3 (3.5.8-r0). This upgrade is here so a cached base layer
-# cannot pin us to the vulnerable 3.5.7-r0 — build with --pull as well.
-RUN apk upgrade --no-cache libcrypto3 libssl3
+# cannot pin us to the vulnerable 3.5.7-r0 — build with --pull as well. zlib
+# is upgraded for the same reason (a Medium fixed in the current alpine repo).
+RUN apk upgrade --no-cache libcrypto3 libssl3 zlib
 
 RUN apk add --no-cache \
     make \
@@ -21,17 +26,21 @@ RUN apk add --no-cache \
 # picomatch, postcss-selector-parser and brace-expansion.
 RUN npm install -g npm@12.0.2
 
-# npm 12.0.2 still lags its own dependencies on four advisories, and because
-# these are bundleDependencies — shipped as files inside the npm tarball, with
-# no "resolved" URL — package.json overrides cannot reach them. Replacing the
+# npm 12.0.2 still lags its own dependencies on several advisories, and because
+# these are bundleDependencies -- shipped as files inside the npm tarball, with
+# no "resolved" URL -- package.json overrides cannot reach them. Replacing the
 # directories outright is the only lever left while npm stays in the image.
-# Re-check these pins whenever the npm version above moves.
+# Re-check these pins whenever the npm version above moves, and whenever the
+# image scan (CI "Scan the docs image" step / Devtron gating) reports a node-pkg
+# CVE that is not in docs/package-lock.json. Still unfixable upstream:
+# http-cache-semantics 4.2.0 (no patched release; not gated).
 RUN npm install -g --prefix /tmp/npmpatch \
         tar@7.5.22 \
-        undici@6.28.0 \
-        ip-address@10.3.1 \
-        brace-expansion@5.0.9 && \
-    for pkg in tar undici ip-address brace-expansion; do \
+        undici@6.28.1 \
+        ip-address@10.7.1 \
+        brace-expansion@5.0.12 \
+        postcss-selector-parser@7.1.6 && \
+    for pkg in tar undici ip-address brace-expansion postcss-selector-parser; do \
         rm -rf "/usr/local/lib/node_modules/npm/node_modules/$pkg" && \
         cp -R "/tmp/npmpatch/lib/node_modules/$pkg" \
               "/usr/local/lib/node_modules/npm/node_modules/$pkg"; \
@@ -52,6 +61,7 @@ COPY docs/package.json docs/package-lock.json ./docs/
 RUN npm --prefix docs ci
 
 COPY docs ./docs
+COPY packages/catalyst-core/changelog.md ./packages/catalyst-core/changelog.md
 
 WORKDIR /opt/1mg/web/docs
 

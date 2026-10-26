@@ -115,23 +115,36 @@ function createAssetsPhase(ctx) {
         }
     }
 
-    async function copyOfflinePage() {
+    // Copies public/<fileName> to assets/<destSubdir>/<fileName>. Optional files are
+    // removed from assets when absent so deleting the source turns the feature off.
+    async function copyPublicHtml(fileName, destSubdir, optional = false) {
         try {
-            const sourcePath = `${process.cwd()}/public/offline.html`
-            const destDir = `${pwd}/androidProject/app/src/main/assets/offline`
-            const destPath = `${destDir}/offline.html`
+            const sourcePath = `${process.cwd()}/public/${fileName}`
+            const destDir = `${pwd}/androidProject/app/src/main/assets/${destSubdir}`
+            const destPath = `${destDir}/${fileName}`
 
             if (!fs.existsSync(sourcePath)) {
-                progress.log("offline.html not found in public/; skipping offline asset copy", "warning")
+                if (optional) {
+                    fs.rmSync(destPath, { force: true })
+                    return
+                }
+                progress.log(`${fileName} not found in public/; skipping ${destSubdir} asset copy`, "warning")
                 return
             }
 
             ctx.runCommand(`mkdir -p ${destDir}`)
             fs.copyFileSync(sourcePath, destPath)
-            progress.log("offline.html copied to Android assets", "success")
         } catch (error) {
-            progress.log(`Warning: Error copying offline.html: ${error.message}`, "warning")
+            progress.log(`Warning: Error copying ${fileName}: ${error.message}`, "warning")
         }
+    }
+
+    async function copyOfflinePage() {
+        await copyPublicHtml("offline.html", "offline")
+    }
+
+    async function copySplashHtml() {
+        await copyPublicHtml("splashscreen.html", "splash", true)
     }
 
     async function copyIconAssets() {
@@ -228,9 +241,6 @@ function createAssetsPhase(ctx) {
             if (hasCustomIcons) {
                 progress.log("Applied Android launcher icons from public/android/appIcons.", "success")
             }
-            if (usedFallback) {
-                progress.log("Used bundled Catalyst fallback icon for launcher.", "info")
-            }
         } catch (error) {
             progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
         }
@@ -277,7 +287,6 @@ function createAssetsPhase(ctx) {
                     fs.mkdirSync(appDir, { recursive: true })
                 }
                 fs.copyFileSync(rootGoogleServicesPath, androidGoogleServicesPath)
-                progress.log("Copied google-services.json to androidProject/app/", "success")
                 return true
             } else if (fs.existsSync(androidGoogleServicesPath)) {
                 progress.log("google-services.json already exists in androidProject/app/", "info")
@@ -310,7 +319,6 @@ function createAssetsPhase(ctx) {
             await cleanupNotificationAssets()
 
             if (!hasNotificationConfig) {
-                progress.log("Notifications disabled - cleaned up notification configurations", "info")
                 return
             }
 
@@ -339,7 +347,6 @@ function createAssetsPhase(ctx) {
             ].join("\n")
 
             fs.writeFileSync(propertiesPath, propertiesContent)
-            progress.log("Updated generated Android build properties", "success")
         } catch (error) {
             throw new Error(`Failed to write generated Android build properties: ${error.message}`)
         }
@@ -666,6 +673,7 @@ function createAssetsPhase(ctx) {
         copyBuildAssets,
         copySplashscreenAssets,
         copyOfflinePage,
+        copySplashHtml,
         copyIconAssets,
         configureAppName,
         processNotifications,

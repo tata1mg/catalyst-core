@@ -10,7 +10,9 @@
 export function resolveDevBase(devServer = {}) {
     const base = devServer?.base
     if (!base || base === "/") return "/"
-    return `/${String(base).trim().replace(/^\/+|\/+$/g, "")}`
+    return `/${String(base)
+        .trim()
+        .replace(/^\/+|\/+$/g, "")}`
 }
 
 /**
@@ -36,10 +38,18 @@ export function resolveDevFsAllow(devFs, frameworkPaths) {
  * first so the framework-owned `hmr` and `fs` always win.
  */
 export function buildDevServer(devServer = {}, { frameworkPaths, isProduction = false } = {}) {
+    // `base` is pulled out to keep it out of serverOverrides -- it is applied
+    // at the config root, not under `server` -- so it is unused by design.
+    // eslint-disable-next-line no-unused-vars
     const { base, hmr, fs, ...serverOverrides } = devServer
+    // CATALYST_NO_HMR lets a one-shot consumer of this config (the offline
+    // manifest step, which spins up a throwaway server purely to load a
+    // module) opt out. isProduction is captured at module load, so it cannot
+    // be flipped by setting NODE_ENV just before createServer().
+    const hmrDisabled = isProduction || process.env.CATALYST_NO_HMR === "true"
     return {
         ...serverOverrides,
-        hmr: isProduction ? false : (hmr ?? true),
+        hmr: hmrDisabled ? false : (hmr ?? true),
         fs: { allow: resolveDevFsAllow(fs, frameworkPaths) },
     }
 }

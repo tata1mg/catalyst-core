@@ -7,10 +7,12 @@ sidebar_position: 1
 
 # Defining Routes
 
-This page documents Catalyst `0.3.x`, where routing APIs are exported by `catalyst-core`. In legacy
-`0.2.x` applications, the same route model is provided by `@tata1mg/router`.
+This page documents Catalyst `0.3.x`. Route components and hooks come from `react-router`, which
+Catalyst declares as a peer dependency; `catalyst-core` itself exports `RouterDataProvider`,
+`MetaTag`, and `split`. In legacy `0.2.x` applications, the same route model is provided by
+`@tata1mg/router`.
 
-Routes are defined in `src/js/routes/index.js`. Catalyst uses [React Router v6](https://reactrouter.com/en/main) for routing.
+Routes are defined in `src/js/routes/index.js`. Catalyst builds on [React Router v7](https://reactrouter.com) for routing.
 
 > **Note:** Do not prefix child routes with a slash. Use `"settings"` not `"/settings"`.
 

@@ -2,6 +2,15 @@
 dist
 loadable-stats.json
 
+# TypeScript sources. The eslint config parses with @babel/eslint-parser, which
+# has no TypeScript plugin, so pointing eslint at a .ts/.tsx file is a parsing
+# error. `eslint .` does not pick these up on its own (eslint 8 only walks .js),
+# but this makes the exclusion explicit for direct paths and lint-staged.
+# Type and syntax checking for these files comes from `npm run typecheck` (tsc).
+# Revisit when the migration is far enough along to justify typescript-eslint.
+*.ts
+*.tsx
+
 logs
 build
 .env

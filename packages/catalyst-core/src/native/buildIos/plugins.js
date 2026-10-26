@@ -44,7 +44,12 @@ function formatSwiftPackageRequirement(dependency) {
 }
 
 function formatSwiftPackageEntries(dependencies) {
-    return dependencies.map((d) => `        .package(url: "${d.url}", ${formatSwiftPackageRequirement(d)})`)
+    return dependencies.map((d) =>
+        // Local packages (requirement.type "path") are addressed by directory, not URL + version.
+        d.requirement.type === "path"
+            ? `        .package(path: ${JSON.stringify(d.url)})`
+            : `        .package(url: "${d.url}", ${formatSwiftPackageRequirement(d)})`
+    )
 }
 
 function formatSwiftProductEntries(dependencies) {
@@ -153,7 +158,7 @@ module.exports = function createPluginsPhase(ctx) {
                 l.url.localeCompare(r.url)
             )
 
-            progress.log(`🔧 Generating Package.swift (notifications: ${isNotificationsEnabled})`, "info")
+            progress.log(`Generating Package.swift (notifications: ${isNotificationsEnabled})`, "info")
 
             const configHash = crypto
                 .createHash("md5")
@@ -188,8 +193,6 @@ module.exports = function createPluginsPhase(ctx) {
             }
 
             if (shouldUpdate) {
-                progress.log("Generating Package.swift dynamically", "info")
-
                 let packageContent = `// swift-tools-version: 5.9
 // Auto-generated Package.swift - DO NOT EDIT MANUALLY
 // Generated based on config: notifications.enabled = ${isNotificationsEnabled}
@@ -197,7 +200,7 @@ import PackageDescription
 
 let package = Package(
     name: "iosnativeWebView",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "CatalystCore", targets: ["CatalystCore"])`
 
@@ -205,9 +208,16 @@ let package = Package(
                     packageContent += `,\n        .library(name: "CatalystNotifications", targets: ["CatalystNotifications"])`
                 }
 
+                // CatalystCoreLogic (#432) is a local nested package (CoreLogic/), not a
+                // remote dependency, so it has no `url` and cannot flow through
+                // mergePackageDependency/formatSwiftPackageEntries (both keyed on url).
+                // Emitted as a literal .package(path:) entry instead. Its own
+                // Package.swift is static/checked-in (no config-dependent content), so
+                // it is never itself regenerated here.
                 packageContent += `
     ],
     dependencies: [
+        .package(path: "CoreLogic"),
 ${formatSwiftPackageEntries(packageDependencies).join(",\n")}
     ],
     targets: [
@@ -216,6 +226,7 @@ ${formatSwiftPackageEntries(packageDependencies).join(",\n")}
         .target(
             name: "CatalystCore",
             dependencies: [
+                .product(name: "CatalystCoreLogic", package: "CoreLogic"),
 ${formatSwiftProductEntries(coreDependencies).join(",\n")}
             ],
             path: "Sources/Core"
@@ -253,15 +264,17 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                     }
                     execSync(`cd "${PROJECT_DIR}" && rm -rf .swiftpm`, { stdio: "ignore" }) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
                     const projectPath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+                    // Piped, not inherited: inherited stdio put xcodebuild's
+                    // 19-line package graph on screen at column 0, outside the
+                    // gutter. Captured instead, so a failure can still show it.
                     execSync(
                         `cd "${PROJECT_DIR}" && xcodebuild -resolvePackageDependencies -project "${projectPath}" -scheme "${SCHEME_NAME}"`, // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - PROJECT_DIR, projectPath, and SCHEME_NAME are generated from trusted iOS project config.
-                        { stdio: "inherit" }
+                        { stdio: ["ignore", "pipe", "pipe"] }
                     )
-                    progress.log("Package dependencies resolved successfully", "success")
                 } catch (error) {
                     if (isNotificationsEnabled) {
                         progress.log(
-                            `❌ CRITICAL: Package resolution failed. Firebase dependencies required for notifications could not be resolved.`,
+                            `CRITICAL: Package resolution failed. Firebase dependencies required for notifications could not be resolved.`,
                             "error"
                         )
                         throw new Error(
@@ -275,10 +288,8 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                     }
                 }
             }
-
-            progress.log("✅ Package.swift ready", "success")
         } catch (error) {
-            progress.log(`❌ Failed to generate Package.swift: ${error.message}`, "error")
+            progress.log(`Failed to generate Package.swift: ${error.message}`, "error")
             throw error
         }
     }
@@ -289,7 +300,7 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
             const projectFilePath = path.join(PROJECT_DIR, `${PROJECT_NAME}.xcodeproj`, "project.pbxproj") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
 
             progress.log(
-                `🔧 Updating Xcode package dependencies (notifications: ${isNotificationsEnabled})`,
+                `Updating Xcode package dependencies (notifications: ${isNotificationsEnabled})`,
                 "info"
             )
 
@@ -323,7 +334,7 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                     `\t\t${NOTIF_PRODUCT_ID} /* CatalystNotifications */ = {\n\t\t\tisa = XCSwiftPackageProductDependency;\n\t\t\tpackage = C99974322E97D56900C25611 /* XCLocalSwiftPackageReference "." */;\n\t\t\tproductName = CatalystNotifications;\n\t\t};\n$1`
                 )
                 fs.writeFileSync(projectFilePath, projectContent, "utf8")
-                progress.log("✅ CatalystNotifications added to Xcode project", "success")
+                progress.log("CatalystNotifications added to Xcode project", "success")
             } else if (!isNotificationsEnabled && hasNotifications) {
                 progress.log("Removing CatalystNotifications from Xcode project", "info")
                 projectContent = projectContent.replace(
@@ -343,12 +354,10 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
                     ""
                 )
                 fs.writeFileSync(projectFilePath, projectContent, "utf8")
-                progress.log("✅ CatalystNotifications removed from Xcode project", "success")
-            } else {
-                progress.log("Package dependencies already correct", "info")
+                progress.log("CatalystNotifications removed from Xcode project", "success")
             }
         } catch (error) {
-            progress.log(`❌ Failed to update package dependencies: ${error.message}`, "error")
+            progress.log(`Failed to update package dependencies: ${error.message}`, "error")
             throw error
         }
     }
@@ -448,7 +457,6 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
             fs.rmSync(pluginResourceDir, { recursive: true, force: true })
             await removePluginResourcesFromXcodeProject()
             if (resources.length === 0) {
-                progress.log("No managed plugin resources to sync", "info")
                 return
             }
             for (const resource of resources) {
@@ -477,7 +485,7 @@ ${formatSwiftProductEntries(notificationsDependencies).join(",\n")}
             await addPluginResourcesToXcodeProject(resources)
             progress.log(`Synced ${resources.length} managed plugin resource(s)`, "success")
         } catch (error) {
-            progress.log(`❌ Failed to sync plugin resources: ${error.message}`, "error")
+            progress.log(`Failed to sync plugin resources: ${error.message}`, "error")
             throw error
         }
     }

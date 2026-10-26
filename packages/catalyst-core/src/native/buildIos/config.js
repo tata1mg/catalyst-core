@@ -91,6 +91,7 @@ module.exports = function createConfigPhase(ctx) {
         WEBVIEW_CONFIG,
         iosConfig,
         PROJECT_DIR,
+        PUBLIC_PATH,
         url,
         progress,
         restoreManagedFileFromBaseline,
@@ -135,18 +136,32 @@ module.exports = function createConfigPhase(ctx) {
     async function generateConfigConstants() {
         progress.start("config")
         try {
+            // CatalystCoreLogic (#432): ConfigConstants moved into the nested
+            // CoreLogic/ package so it can be consumed by swift-test-only code
+            // without pulling in UIKit. This generator must write to the new
+            // location, not the old Sources/Core/Constants/ path.
             const appConfigPath = path.join(
                 PROJECT_DIR, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PROJECT_DIR is the fixed generated iOS project directory.
+                "CoreLogic",
                 "Sources",
-                "Core",
+                "CatalystCoreLogic",
                 "Constants",
                 "ConfigConstants.swift"
             )
             const appConfigDir = path.dirname(appConfigPath)
             if (!fs.existsSync(appConfigDir)) fs.mkdirSync(appConfigDir, { recursive: true })
 
+            // CatalystCoreLogic's Package.swift declares platforms: [.iOS(.v17),
+            // .macOS(.v13)] so `swift test` can run this file on plain macOS (no
+            // simulator). UIKit doesn't exist there, so CGFloat needs the same
+            // canImport guard already used in the checked-in CatalystConstants.swift.
             let configContent = `// This file is auto-generated. Do not edit.
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 public enum ConfigConstants {
     public static let url = "${url}"`
@@ -168,6 +183,7 @@ public enum ConfigConstants {
                 for (const [key, value] of Object.entries(iosConfig)) {
                     if (addedKeys.has(key)) continue
                     configContent += "\n" + generateSwiftProperty(key, value)
+                    addedKeys.add(key)
                 }
             }
 
@@ -202,12 +218,37 @@ public enum ConfigConstants {
                 configContent += `\n    public static let splashScreenImageWidth: CGFloat = ${splashConfig.imageWidth || 120}`
                 configContent += `\n    public static let splashScreenImageHeight: CGFloat = ${splashConfig.imageHeight || 120}`
                 configContent += `\n    public static let splashScreenCornerRadius: CGFloat = ${splashConfig.cornerRadius || 20}`
+
+                // Optional HTML splash: public/splashscreen.html is embedded as base64 so no
+                // bundle resource or Xcode project registration is needed.
+                const splashHtmlPath = path.join(PUBLIC_PATH, "splashscreen.html") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PUBLIC_PATH is the app's fixed public directory.
+                if (fs.existsSync(splashHtmlPath)) {
+                    const splashHtml = fs.readFileSync(splashHtmlPath)
+                    if (splashHtml.length > 1024 * 1024) {
+                        progress.log(
+                            `splashscreen.html is ${(splashHtml.length / (1024 * 1024)).toFixed(1)} MB; it is embedded in the app binary, keep it small`,
+                            "warning"
+                        )
+                    }
+                    configContent += `\n    public static let splashScreenHtml: String? = "${splashHtml.toString("base64")}"`
+                } else {
+                    configContent += `\n    public static let splashScreenHtml: String? = nil`
+                }
+                const minDuration = splashConfig.minDuration
+                const validMinDuration =
+                    typeof minDuration === "number" && Number.isFinite(minDuration) && minDuration >= 0
+                if (minDuration !== undefined && !validMinDuration) {
+                    progress.log(
+                        `Ignoring invalid splashScreen.minDuration: ${JSON.stringify(minDuration)}`,
+                        "warning"
+                    )
+                }
+                configContent += `\n    public static let splashScreenMinDuration: TimeInterval = ${validMinDuration ? minDuration / 1000.0 : 0}`
             } else {
-                configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20`
+                configContent += `\n\n    // Splash Screen Configuration\n    public static let splashScreenEnabled = false\n    public static let splashScreenDuration: TimeInterval? = nil\n    public static let splashScreenBackgroundColor = "#ffffff"\n    public static let splashScreenImageWidth: CGFloat = 120\n    public static let splashScreenImageHeight: CGFloat = 120\n    public static let splashScreenCornerRadius: CGFloat = 20\n    public static let splashScreenHtml: String? = nil\n    public static let splashScreenMinDuration: TimeInterval = 0`
             }
 
             if (!addedKeys.has("notifications")) {
-                progress.log("Notifications not found in config, adding default (false)", "info")
                 configContent +=
                     "\n    public enum Notifications {\n        public static let enabled = false\n    }"
                 addedKeys.add("notifications")
@@ -216,7 +257,6 @@ public enum ConfigConstants {
             }
 
             if (!addedKeys.has("googleSignIn")) {
-                progress.log("Google Sign-In not found in config, adding defaults (disabled)", "info")
                 configContent +=
                     '\n    public enum GoogleSignIn {\n        public static let enabled = false\n        public static let clientId = ""\n        public static let iosClientId = ""\n    }'
                 addedKeys.add("googleSignIn")
@@ -233,8 +273,6 @@ public enum ConfigConstants {
                 configContent +=
                     "\n    public enum EdgeToEdge {\n        public static let enabled = false\n    }"
                 addedKeys.add("edgeToEdge")
-            } else {
-                progress.log("EdgeToEdge config was processed from WEBVIEW_CONFIG", "info")
             }
 
             if (!addedKeys.has("initial_url")) {
@@ -248,10 +286,19 @@ public enum ConfigConstants {
                 addedKeys.add("appInfo")
             }
 
+            // Ensure cachePattern always exists (default to no patterns, i.e. caching
+            // opt-in disabled) — CacheManager.swift references ConfigConstants.cachePattern
+            // unconditionally, and it's only emitted above when WEBVIEW_CONFIG.ios.cachePattern
+            // is set, which every create-catalyst-app scaffold omits by default (#485).
+            if (!addedKeys.has("cachePattern")) {
+                progress.log("cachePattern not found in config, adding default (no patterns)", "info")
+                configContent += "\n" + generateSwiftProperty("cachePattern", [])
+                addedKeys.add("cachePattern")
+            }
+
             configContent += `\n}`
 
             fs.writeFileSync(appConfigPath, configContent, "utf8")
-            progress.log("Configuration constants generated successfully (SPM Package)", "success")
             progress.complete("config")
         } catch (error) {
             progress.fail("config", error.message)
@@ -334,11 +381,12 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPort
 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 `
             fs.writeFileSync(xconfigPath, xconfigContent, "utf8")
-            console.log(
-                `✅ Generated Shared.xcconfig with Swift ${swiftVersion}, iOS ${deploymentTarget}, Bundle ID: ${bundleId}`
-            )
+            // Detail the step's own check line already covers, so it rides the
+            // spinner row rather than escaping the gutter at column 0.
+            progress.status(`xcconfig · Swift ${swiftVersion} · iOS ${deploymentTarget}`)
         } catch (error) {
-            console.error(`❌ Failed to generate Shared.xcconfig: ${error.message}`)
+            // Keep the original error (its code and stack); only say which file.
+            error.message = `Failed to generate Shared.xcconfig: ${error.message}`
             throw error
         }
     }

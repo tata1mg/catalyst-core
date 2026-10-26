@@ -1,0 +1,157 @@
+package io.yourname.androidproject.utils
+
+import android.content.res.Resources
+import android.util.DisplayMetrics
+import android.view.View
+import android.view.Window
+import androidx.core.graphics.Insets
+import androidx.core.view.WindowInsetsCompat
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+
+/**
+ * Unit tests for SafeAreaUtils.fromWindowInsets (Android coverage batch
+ * 3), previously entirely untested (0/17 lines).
+ *
+ * androidx.core.graphics.Insets and WindowInsetsCompat are androidx
+ * library classes (not android.jar SDK stubs) -- Insets.of(l,t,r,b) is a
+ * real static factory that actually assigns its fields, so value
+ * assertions on the returned SafeAreaInsets are meaningful here (unlike
+ * android.graphics.RectF in ViewfinderMapperTest, which IS an android.jar
+ * stub whose constructor never runs).
+ *
+ * Deliberately out of scope, per the task: getSafeAreaInsets(window,
+ * rootView, edgeToEdgeEnabled) is a thin passthrough that calls
+ * ViewCompat.getRootWindowInsets(...) -- a static androidx method --
+ * before delegating to fromWindowInsets. Testing it would require
+ * mockStatic(ViewCompat), which the task explicitly says to skip; only
+ * fromWindowInsets is covered.
+ */
+class SafeAreaUtilsTest {
+
+    private fun windowInsetsCompatWith(
+        systemBars: Insets,
+        cutout: Insets = Insets.NONE,
+        visibleSystemBars: Insets = systemBars
+    ): WindowInsetsCompat {
+        return mock {
+            on { getInsets(WindowInsetsCompat.Type.systemBars()) } doReturn visibleSystemBars
+            on { getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars()) } doReturn systemBars
+            on { getInsets(WindowInsetsCompat.Type.displayCutout()) } doReturn cutout
+        }
+    }
+
+    // ============================================================
+    // Null input
+    // ============================================================
+
+    @Test
+    fun `fromWindowInsets returns ZERO when insets is null`() {
+        val result = SafeAreaUtils.fromWindowInsets(null, edgeToEdgeEnabled = true, density = 1f)
+        assertEquals(SafeAreaInsets.ZERO, result)
+    }
+
+    // ============================================================
+    // getSafeAreaInsets passthrough
+    // ============================================================
+
+    @Test
+    fun `getSafeAreaInsets returns ZERO when the window has no root insets yet`() {
+        // Under the mockable android.jar Build.VERSION.SDK_INT is 0, so
+        // ViewCompat.getRootWindowInsets returns null for both views (no
+        // static mocking needed) and the passthrough delegates a null.
+        val resources = mock<Resources> { on { getDisplayMetrics() } doReturn DisplayMetrics() }
+        val rootView = mock<View> { on { getResources() } doReturn resources }
+        val window = mock<Window> { on { getDecorView() } doReturn mock<View>() }
+
+        val result = SafeAreaUtils.getSafeAreaInsets(window, rootView, edgeToEdgeEnabled = true)
+
+        assertEquals(SafeAreaInsets.ZERO, result)
+    }
+
+    // ============================================================
+    // edge-to-edge disabled -- always ZERO (system already insets the WebView)
+    // ============================================================
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge disabled returns ZERO`() {
+        val systemBars = Insets.of(10, 20, 30, 40)
+        val windowInsets = windowInsetsCompatWith(systemBars)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false, density = 1f)
+
+        assertEquals(SafeAreaInsets.ZERO, result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge disabled ignores the display cutout`() {
+        val systemBars = Insets.of(10, 20, 30, 40)
+        val cutout = Insets.of(100, 100, 100, 100)
+        val windowInsets = windowInsetsCompatWith(systemBars, cutout)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = false, density = 1f)
+
+        assertEquals(SafeAreaInsets.ZERO, result)
+    }
+
+    // ============================================================
+    // edge-to-edge enabled -- max(system bars, cutout) per edge
+    // ============================================================
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled takes the max of system bars and cutout per edge`() {
+        val systemBars = Insets.of(10, 50, 30, 5)
+        val cutout = Insets.of(0, 20, 60, 15)
+        val windowInsets = windowInsetsCompatWith(systemBars, cutout)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 1f)
+
+        // left: max(10, 0)=10, top: max(50, 20)=50, right: max(30, 60)=60, bottom: max(5, 15)=15
+        assertEquals(SafeAreaInsets(top = 50, right = 60, bottom = 15, left = 10), result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled and a zero cutout equals the system bars`() {
+        val systemBars = Insets.of(10, 20, 30, 40)
+        val windowInsets = windowInsetsCompatWith(systemBars, Insets.NONE)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 1f)
+
+        assertEquals(SafeAreaInsets(top = 20, right = 30, bottom = 40, left = 10), result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled converts physical px to CSS px by density`() {
+        val systemBars = Insets.of(0, 66, 0, 0)
+        val windowInsets = windowInsetsCompatWith(systemBars)
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 2.75f)
+
+        assertEquals(SafeAreaInsets(top = 24, right = 0, bottom = 0, left = 0), result)
+    }
+
+    @Test
+    fun `fromWindowInsets with edge-to-edge enabled ignores the IME-inflated visible system bar bottom`() {
+        val windowInsets = windowInsetsCompatWith(
+            systemBars = Insets.of(0, 0, 0, 63),
+            visibleSystemBars = Insets.of(0, 0, 0, 883)
+        )
+
+        val result = SafeAreaUtils.fromWindowInsets(windowInsets, edgeToEdgeEnabled = true, density = 2.625f)
+
+        assertEquals(SafeAreaInsets(top = 0, right = 0, bottom = 24, left = 0), result)
+    }
+
+    // ============================================================
+    // SafeAreaInsets.toMap()
+    // ============================================================
+
+    @Test
+    fun `toMap exposes all four edges by name`() {
+        val insets = SafeAreaInsets(top = 1, right = 2, bottom = 3, left = 4)
+        assertEquals(mapOf("top" to 1, "right" to 2, "bottom" to 3, "left" to 4), insets.toMap())
+    }
+}

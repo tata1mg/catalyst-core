@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Runtime-guarded in NotificationUtils.showNotification (checkSelfPermission
+         || SDK_INT < TIRAMISU); only requested/used when the notifications
+         feature is enabled at build time. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <queries>
         <intent>

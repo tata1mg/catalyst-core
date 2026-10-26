@@ -1,9 +1,11 @@
 "use strict"
 
 const path = require("path")
+const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
 const { runCommand, runInteractiveCommand } = require("../utils.js")
-const TerminalProgress = require("../TerminalProgress.js").default
+const { buildFailure } = require("../../cli/diagnostic.js")
+const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
 const { resolvePluginConfig, resolveInternalPluginsRoot } = require("../internalPluginUtils.js")
 
@@ -17,21 +19,12 @@ const pwd = path.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
 const steps = {
-    config: "Initialize Configuration",
-    tools: "Validate Android Tools",
-    emulator: "Check and Start Emulator",
-    copyAssets: "Copy Build Assets",
-    build: "Build and Install Application",
-    aab: "Build Signed AAB",
-}
-
-const progressConfig = {
-    titlePaddingTop: 2,
-    titlePaddingBottom: 1,
-    stepPaddingLeft: 4,
-    stepSpacing: 1,
-    errorPaddingLeft: 6,
-    bottomMargin: 2,
+    config: "Initialize configuration",
+    tools: "Validate Android tools",
+    emulator: "Check and start emulator",
+    copyAssets: "Copy build assets",
+    build: "Build and install application",
+    aab: "Build signed AAB",
 }
 
 function createAndroidBuild(config) {
@@ -40,7 +33,7 @@ function createAndroidBuild(config) {
     const configPath = `${process.cwd()}/config/config.json`
     const publicPath = `${process.cwd()}/public`
 
-    const progress = new TerminalProgress(steps, "Catalyst Android Build", progressConfig)
+    const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "android" })
 
     const ctx = {
         WEBVIEW_CONFIG,
@@ -59,6 +52,7 @@ function createAndroidBuild(config) {
         copyBuildAssets,
         copySplashscreenAssets,
         copyOfflinePage,
+        copySplashHtml,
         copyIconAssets,
         configureAppName,
         processNotifications,
@@ -80,7 +74,10 @@ function createAndroidBuild(config) {
         const appNodeModules = path.join(process.cwd(), "node_modules")
         const aiPackageSrc = path.join(appNodeModules, "catalyst-ai")
         if (!fs.existsSync(aiPackageSrc)) {
-            progress.log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync", "warning")
+            progress.log(
+                "ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI sync",
+                "warning"
+            )
             return
         }
 
@@ -99,7 +96,6 @@ function createAndroidBuild(config) {
             entry.isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d)
         }
     }
-
 
     async function buildAndroidApp() {
         let androidConfig = null
@@ -160,6 +156,7 @@ function createAndroidBuild(config) {
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
+            await copySplashHtml()
             await copyIconAssets()
             await configureAppName(androidConfig)
             const pluginConfig = resolvePluginConfig(wvConfig)
@@ -188,213 +185,40 @@ function createAndroidBuild(config) {
                 movedApkPath = await moveApkToOutputPath(buildType, bop, androidConfig.appName)
             }
 
-            const summaryItems = [
-                "Build completed successfully:",
-                { text: `Build Type: ${buildType}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: "├─ ", color: "gray" },
-                {
-                    text: `Build Optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-            ]
-
-            if (buildType === "release") {
-                if (movedApkPath) {
-                    summaryItems.push({
-                        text: `APK Build Location: ${movedApkPath}`,
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "green",
-                    })
-                }
+            // Aligned key/value rows, matching the Config tree the setup
+            // commands print. printTreeContent draws the branch glyphs.
+            const deviceName =
+                targetDevice?.type === "physical"
+                    ? targetDevice.model
+                    : `${androidConfig.emulatorName} emulator`
+            const summaryItems = [{ text: `device     ${deviceName}`, color: "gray" }]
+            if (movedApkPath) {
                 summaryItems.push({
-                    text: `Output: Signed AAB generated in build-output/`,
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "green",
+                    text: `artifact   ${displayPath(movedApkPath, process.cwd())}`,
+                    color: "gray",
                 })
-            } else {
-                if (movedApkPath) {
-                    summaryItems.push({
-                        text: `APK Build Location: ${movedApkPath}`,
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "green",
-                    })
-                }
-
-                if (targetDevice && targetDevice.type === "physical") {
-                    summaryItems.push({
-                        text: `Target Device: ${targetDevice.model} (Physical)`,
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "green",
-                    })
-                } else {
-                    summaryItems.push({
-                        text: `Target Device: ${androidConfig.emulatorName} (Emulator)`,
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "gray",
-                    })
-                }
             }
+            if (buildType === "release") {
+                summaryItems.push({ text: `output     Signed AAB in build-output/`, color: "gray" })
+            }
+            summaryItems.push({
+                text: `build      ${buildType}${buildOptimisation ? ", optimised" : ""}`,
+                color: "gray",
+            })
 
-            progress.printTreeContent("Build Summary", summaryItems)
+            progress.printTreeContent("Build", summaryItems)
+            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
         } catch (error) {
-            if (progress.currentStep) {
-                progress.fail(progress.currentStep.id, error.message)
+            // Mark the step, then show what actually broke. The old handler
+            // printed a generic "check your SDK" checklist here, which is
+            // noise when the real Kotlin error is sitting in the output.
+            // The ✗ line carries no message: the diagnostic below is the message.
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
 
-                const troubleshootingItems = [
-                    "Build failed. Please try the following steps:",
-                    {
-                        text: "Check if Android SDK is properly configured",
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "yellow",
-                    },
-                    {
-                        text: "Verify build assets exist in the source directory",
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "yellow",
-                    },
-                ]
+            process.stderr.write(
+                buildFailure({ error, stage: error.stage || "Android build", code: "ANDROID-000" })
+            )
 
-                const buildType = androidConfig?.buildType || "debug"
-
-                if (buildType !== "release") {
-                    if (
-                        error.message.includes("physical device") ||
-                        error.message.includes("installation test")
-                    ) {
-                        troubleshootingItems.push(
-                            "\nPhysical Device Issues:",
-                            {
-                                text: "Enable Developer Options on your device",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: "Enable USB Debugging in Developer Options",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: 'Accept the "Allow USB Debugging" prompt on your device',
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: "Try disconnecting and reconnecting your device",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: 'Check if "adb devices" shows your device as authorized',
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            }
-                        )
-                    }
-
-                    troubleshootingItems.push(
-                        {
-                            text: "Verify that the emulator exists and is working",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "If using physical device, ensure it stays connected",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        }
-                    )
-                } else {
-                    troubleshootingItems.push(
-                        {
-                            text: "Verify keystore configuration for release builds",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Check that keystore passwords are properly set",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        }
-                    )
-                }
-
-                troubleshootingItems.push(
-                    {
-                        text: 'Run "npm run setupEmulator:android" to reconfigure Android settings',
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "yellow",
-                    },
-                    "\nVerify Configuration:"
-                )
-
-                if (androidConfig) {
-                    troubleshootingItems.push(
-                        { text: `Build Type: ${buildType}`, indent: 1, prefix: "├─ ", color: "gray" },
-                        {
-                            text: `Android SDK Path: ${androidConfig.sdkPath || "Not configured"}`,
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "gray",
-                        }
-                    )
-
-                    if (buildType !== "release") {
-                        if (targetDevice) {
-                            troubleshootingItems.push({
-                                text: `Target Device: ${targetDevice.type === "physical" ? `${targetDevice.model} (Physical)` : `${androidConfig.emulatorName} (Emulator)`}`,
-                                indent: 1,
-                                prefix: "└─ ",
-                                color: "gray",
-                            })
-                        } else {
-                            troubleshootingItems.push({
-                                text: `Selected Emulator: ${androidConfig.emulatorName || "Not configured"}`,
-                                indent: 1,
-                                prefix: "└─ ",
-                                color: "gray",
-                            })
-                        }
-                    } else {
-                        troubleshootingItems.push({
-                            text: `Output Path: ${androidConfig.outputPath || "build-output/"}`,
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "gray",
-                        })
-                    }
-                } else {
-                    troubleshootingItems.push(
-                        { text: "Configuration could not be loaded", indent: 1, prefix: "├─ ", color: "red" },
-                        {
-                            text: "Check if config/config.json exists and has valid Android configuration",
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "red",
-                        }
-                    )
-                }
-
-                progress.printTreeContent("Troubleshooting Guide", troubleshootingItems)
-            }
             throw error
         }
     }
@@ -408,6 +232,7 @@ function createAndroidBuild(config) {
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
+            await copySplashHtml()
             await copyIconAssets()
             await configureAppName(androidConfig)
 
@@ -421,7 +246,7 @@ function createAndroidBuild(config) {
             await processNotifications(wvConfig)
             syncAIPackageIfEnabled(wvConfig, progress)
 
-            progress.log("✅ buildAndroidForTesting complete — project ready for gradlew test", "success")
+            progress.log("buildAndroidForTesting complete — project ready for gradlew test", "success")
             return { success: true }
         } catch (error) {
             progress.log("buildAndroidForTesting failed: " + error.message, "error")

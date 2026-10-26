@@ -1,6 +1,7 @@
 import Foundation
 import WebKit
 import MachO
+import CatalystCoreLogic
 
 enum CatalystPerf {
     private static let maxBufferSize = 500

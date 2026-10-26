@@ -139,7 +139,8 @@ Configure a custom splashscreen displayed during app startup.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `duration` | number | `1000` | Display time in milliseconds |
+| `duration` | number | `1000` | Display time in milliseconds. Ignored when an HTML splash is used |
+| `minDuration` | number | `0` | Minimum time in milliseconds the HTML splash stays on screen |
 | `backgroundColor` | string | `"#ffffff"` | Background color (hex) |
 | `imageWidth` | number | `120` | Image width in dp/px |
 | `imageHeight` | number | `120` | Image height in dp/px |
@@ -155,6 +156,57 @@ Configure a custom splashscreen displayed during app startup.
 - Recommended: PNG, 512x512px
 - File size: Under 1MB
 - Fallback: Progress bar with loader
+
+### HTML Splash
+
+To show an animation while the app loads, add `public/splashscreen.html`. It goes at the root of `public/`, not in `public/android` or `public/ios`, and both platforms use the same file. It only takes effect when `splashScreen` is set in the config.
+
+On launch the app shows the native splash image, then the HTML splash, and then the app once its first page has loaded. Set `minDuration` to keep the animation on screen for at least that many milliseconds, even when the page loads sooner. If the page takes longer than 10 seconds, the HTML splash is dismissed anyway. `duration` is ignored in this mode.
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "splashScreen": {
+      "backgroundColor": "#ffffff",
+      "minDuration": 1200
+    }
+  }
+}
+```
+
+The file has a few rules:
+
+- Keep it to one self-contained file. Put CSS and JavaScript inline and embed images as `data:` URIs.
+- Paint your own opaque, full-screen background. The native image sits underneath.
+- Do not make network requests. Android blocks them.
+- The page has no access to the native bridge.
+- Prefer CSS `transform` and `opacity` animations. The splash runs while the app is loading, so heavy JavaScript competes with it.
+
+```html title="public/splashscreen.html"
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #ffffff; }
+      body { display: flex; align-items: center; justify-content: center; }
+      .dot {
+        width: 48px; height: 48px; border-radius: 50%; background: #3b5bdb;
+        animation: pulse 1s ease-in-out infinite alternate;
+      }
+      @keyframes pulse {
+        from { transform: scale(0.6); opacity: 0.4; }
+        to { transform: scale(1); opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dot"></div>
+  </body>
+</html>
+```
+
+Delete the file to go back to the image-only splash.
 
 ### Examples
 
@@ -237,6 +289,40 @@ Enable the Catalyst Profiler for a debug build:
 Use [Performance Profiling](/content/core-concepts/performance-profiling) for the Android Chrome DevTools workflow, iOS trace export, captured signals, and the `window.CatalystPerf` API.
 
 The profiler is disabled by default and only runs in debug builds. Rebuild the native app after changing the setting.
+
+---
+
+## Edge-to-Edge
+
+Let the WebView draw behind the status bar and navigation bar.
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "edgeToEdge": {
+      "enabled": true,
+      "statusBarStyle": "auto"
+    }
+  }
+}
+```
+
+### Options
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enabled` | boolean | `false` | Draw page content behind the system bars on Android and iOS |
+| `statusBarStyle` | string | `"auto"` | System bar icon colour. Android only for now |
+
+`statusBarStyle` accepts these values:
+
+- `auto` follows the system light or dark theme.
+- `dark-content` uses dark icons, for light pages.
+- `light-content` uses light icons, for dark pages.
+
+When edge-to-edge is enabled, the app is responsible for keeping content clear of the system bars. Read the insets with [`useSafeArea()`](/content/API%20Reference/hooks#usesafearea) and apply them as padding. The values are in CSS pixels on both platforms. On Android they also update when the insets change, for example when the user switches navigation mode. When edge-to-edge is disabled, the insets are `0`.
+
+On Android 10 (API 29) and later the system bars are fully transparent. Below API 29 the navigation bar keeps a translucent scrim.
 
 ---
 

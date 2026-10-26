@@ -25,6 +25,7 @@ const baseWebviewConfig = {
     },
     splashScreen: {
         duration: 2000,
+        minDuration: 0,
         backgroundColor: '#ffffff',
         imageWidth: 120,
         imageHeight: 120,
@@ -35,8 +36,6 @@ const baseWebviewConfig = {
 const appConfig = {
     NODE_SERVER_HOSTNAME: 'localhost',
     NODE_SERVER_PORT: 3005,
-    WEBPACK_DEV_SERVER_HOSTNAME: 'localhost',
-    WEBPACK_DEV_SERVER_PORT: 3006,
     BUILD_OUTPUT_PATH: 'build',
     PUBLIC_STATIC_ASSET_PATH: '/assets/',
     PUBLIC_STATIC_ASSET_URL: 'http://localhost:3006',

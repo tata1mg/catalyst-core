@@ -23,7 +23,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst start",
             label: "Start dev server",
-            detail: "Starts the Vite middleware-mode development server and Catalyst SSR server on NODE_SERVER_PORT. Hot reload and React Fast Refresh are enabled.",
+            detail: "Starts the Vite middleware-mode development server and Catalyst SSR server on NODE_SERVER_PORT. Hot reload and React Fast Refresh are enabled, including for JSX in .js files (1.0.2+). Since 1.0.2 the terminal shows a short header and one line per step; add --verbose for every step and the full tool output, or --debug for stacks and the environment.",
         },
         {
             step: 2,
@@ -38,13 +38,13 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: "catalyst build",
             label: "Production build",
-            detail: "Runs parallel Vite client and SSR builds. Outputs client assets to build/client, the renderer to build/server, Vite manifests under build/.vite, and offline runtime files at the build root.",
+            detail: "Runs parallel Vite client and SSR builds. Outputs client assets to build/client, the renderer to build/server, Vite manifests under build/.vite, and offline runtime files at the build root. Since 1.0.2 it prints one line per step with timing and, on failure, the extracted errors with file, line and a hint; --verbose or --debug add the error code (BUNDLE-000), its docs link and the bundler's full output. It also writes <BUILD_OUTPUT_PATH>/.catalyst-build.json with the config values inlined into the bundles.",
         },
         {
             step: 2,
             cmd: "catalyst serve",
             label: "Serve built app (local)",
-            detail: "Serves from build/ — same as production but local. Use for smoke-testing the build before deploy.",
+            detail: "Serves from build/ — same as production but local. Use for smoke-testing the build before deploy. Since 1.0.2 it exits if there is no build, and refuses a stale build (PREFLIGHT-022) when PUBLIC_STATIC_ASSET_URL, PUBLIC_STATIC_ASSET_PATH or a CLIENT_ENV_VARIABLES value changed in config/config.json after the build; rebuild, then serve. The app's own output passes through unchanged.",
         },
     ],
 
@@ -101,7 +101,7 @@ const MASTER_FLOWS = {
             step: 3,
             cmd: "npm run buildApp:android",
             label: "Android debug build",
-            detail: "Runs buildAppAndroid.js: validates ADB + emulator path from sdkPath, launches emulator (emulatorName), copies web assets to androidProject/, runs Gradle debug build, installs APK.",
+            detail: "Runs buildAppAndroid.js: validates ADB + emulator path from sdkPath, launches emulator (emulatorName), copies web assets to androidProject/, runs Gradle debug build, installs APK. Since 1.0.2 Gradle runs behind one progress line that shows the current task; on failure --verbose or --debug add the ANDROID-000 report with the full Gradle output.",
         },
         {
             step: 4,
@@ -301,7 +301,7 @@ const MASTER_DIAGRAMS = {
             "LOCAL_IP — override auto-detected IP for device builds",
             "accessControl.allowedUrls — whitelist for outbound requests from WebView",
             "googleSignIn.enabled / clientId / iosClientId",
-            "splashScreen — duration, backgroundColor, logo asset",
+            "splashScreen — duration, minDuration, backgroundColor, image size; optional animated public/splashscreen.html (1.0.2+)",
             "notifications.enabled — push notification permission prompt",
             "android.buildOptimisation — enables build caching",
             "android.keystoreConfig — signing for release builds",
@@ -760,7 +760,7 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
         project_context.push(`iOS configured: ${ctx.hasIos}`)
         if (ctx.hasGoogleSignIn) project_context.push("googleSignIn: enabled")
         const { readJson } = makeProjectHelpers(catalystRoot.dir)
-        const splash = (readJson("config/config.json") || {}).splashScreen
+        const splash = (readJson("config/config.json") || {}).WEBVIEW_CONFIG?.splashScreen
         if (splash)
             project_context.push(`splashScreen: configured (duration: ${splash.duration || "default"})`)
     }

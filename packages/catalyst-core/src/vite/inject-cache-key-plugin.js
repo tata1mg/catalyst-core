@@ -1,9 +1,6 @@
 import path from "path"
-import { readFileSync, existsSync, statSync } from "fs"
-import { fileURLToPath } from "url"
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import { existsSync, statSync } from "fs"
+import { getModuleAliases } from "./moduleAliases.js"
 
 // Cache for loaded aliases
 let aliasCache = null
@@ -18,28 +15,7 @@ function loadAliases() {
     }
 
     const appRoot = process.env.src_path || process.cwd()
-    const appPackageJsonConfig = path.resolve(appRoot, "package.json")
-    const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
-
-    let appModuleAliases = {}
-    let catalystModuleAliases = {}
-
-    try {
-        const appPackageJson = JSON.parse(readFileSync(appPackageJsonConfig, "utf8"))
-        appModuleAliases = appPackageJson._moduleAliases || {}
-    } catch {
-        // Silently fail if app package.json doesn't exist or is invalid
-    }
-
-    try {
-        const catalystPackageJson = JSON.parse(readFileSync(catalystPackageJsonConfig, "utf8"))
-        catalystModuleAliases = catalystPackageJson._moduleAliases || {}
-    } catch {
-        // Silently fail if catalyst package.json doesn't exist or is invalid
-    }
-
-    // Application aliases take precedence over catalyst-core aliases
-    const allAliases = { ...catalystModuleAliases, ...appModuleAliases }
+    const allAliases = getModuleAliases(appRoot)
 
     aliasCache = {}
     for (const [alias, aliasPath] of Object.entries(allAliases)) {

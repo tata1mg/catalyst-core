@@ -389,28 +389,45 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         }
     }
 
-    // ── splashScreen (top-level, not inside WEBVIEW_CONFIG) ────────────────────
-    if (!config.splashScreen) {
+    // ── splashScreen (inside WEBVIEW_CONFIG; the native builds read only that) ──
+    const splash = wc.splashScreen
+    const hasSplashHtml = fs.existsSync(path.join(root, "public", "splashscreen.html"))
+    if (!splash) {
         warnings.push({
-            field: "splashScreen",
-            message:
-                'splashScreen key missing from top level of config/config.json. Native app will show a blank white screen during JS load. Add splashScreen: { android: { path: "public/android/splashscreen.png" }, ios: { path: "public/ios/splashscreen.png" } }.',
+            field: "WEBVIEW_CONFIG.splashScreen",
+            message: config.splashScreen
+                ? "splashScreen is at the top level of config/config.json, where the native builds never read it. Move it into WEBVIEW_CONFIG.splashScreen."
+                : `WEBVIEW_CONFIG.splashScreen not set, so the native splash screen is off${hasSplashHtml ? " and public/splashscreen.html is ignored" : ""}. Add WEBVIEW_CONFIG.splashScreen (e.g. { "backgroundColor": "#ffffff" }) to turn it on.`,
         })
     } else {
-        const missingSplash = ["public/android/splashscreen.png", "public/ios/splashscreen.png"].filter(
-            (f) => {
-                const filePath = projectPath(root, f)
-                return !filePath || !fs.existsSync(filePath)
-            }
-        )
-        if (missingSplash.length) {
-            issues.push({
-                field: "splashScreen",
-                severity: "error",
-                message: `splashScreen configured but asset files missing: ${missingSplash.join(", ")}. Native build will fail when packaging.`,
+        // Images are optional: Android falls back to the launcher icon, iOS to a loader.
+        const found = (dir, exts) =>
+            exts
+                .map((ext) => `public/${dir}/splashscreen.${ext}`)
+                // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project root; f comes from a fixed candidate list.
+                .find((f) => fs.existsSync(path.join(root, f)))
+        const androidImage = found("android", ["png", "jpg", "jpeg", "gif", "bmp", "webp"])
+        const iosImage = found("ios", ["png", "jpg", "jpeg"])
+        passed.push({
+            field: "WEBVIEW_CONFIG.splashScreen",
+            note: `android image: ${androidImage || "none (launcher icon)"}, ios image: ${iosImage || "none (loader)"}`,
+        })
+        // Same rule as the iOS build (buildIos/config.js): anything else is ignored with a warning.
+        const { minDuration } = splash
+        if (
+            minDuration !== undefined &&
+            !(typeof minDuration === "number" && Number.isFinite(minDuration) && minDuration >= 0)
+        ) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.splashScreen.minDuration",
+                message: `splashScreen.minDuration must be a non-negative number of milliseconds. Got ${JSON.stringify(minDuration)}; the build ignores it and uses 0.`,
             })
-        } else {
-            passed.push({ field: "splashScreen", note: "config and both asset files present" })
+        }
+        if (hasSplashHtml) {
+            passed.push({
+                field: "public/splashscreen.html",
+                note: `HTML splash on (catalyst-core 1.0.2+): shown after the native image until the first page loads, for at least minDuration (${minDuration || 0} ms), at most 10 s; duration is ignored`,
+            })
         }
     }
 
@@ -432,6 +449,46 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                 note: "enabled=true and Firebase files present",
             })
         }
+    }
+
+    // ── ai (optional, on-device AI via catalyst-ai) ───────────────────────────
+    if (wc.ai && wc.ai.enabled) {
+        const aiPkg = path.join(root, "node_modules", "catalyst-ai", "package.json")
+        if (!fs.existsSync(aiPkg)) {
+            issues.push({
+                field: "WEBVIEW_CONFIG.ai",
+                severity: "error",
+                message:
+                    "ai.enabled=true but catalyst-ai is not installed. The native AI plugin is silently skipped and on-device AI will not work. Run: npm install catalyst-ai",
+            })
+        } else {
+            passed.push({ field: "WEBVIEW_CONFIG.ai", note: "enabled=true and catalyst-ai installed" })
+        }
+        const browser = (config.AI_CONFIG && config.AI_CONFIG.browser) || {}
+        const engine = browser.engine
+        if (engine !== undefined && !["auto", "litert", "foundation-models"].includes(engine)) {
+            issues.push({
+                field: "AI_CONFIG.browser.engine",
+                severity: "error",
+                message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
+            })
+        }
+        if (browser.provider === "foundation-models" && platform === "android") {
+            warnings.push({
+                field: "AI_CONFIG.browser.provider",
+                message:
+                    "foundation-models is iOS-only (iOS 26+, Apple Intelligence devices). Android needs provider 'litert' or 'native'.",
+            })
+        }
+    } else if (
+        config.AI_CONFIG &&
+        config.AI_CONFIG.browser &&
+        /^(native|litert|foundation-models)$/.test(config.AI_CONFIG.browser.provider || "")
+    ) {
+        warnings.push({
+            field: "WEBVIEW_CONFIG.ai.enabled",
+            message: `AI_CONFIG.browser.provider is "${config.AI_CONFIG.browser.provider}" (on-device) but WEBVIEW_CONFIG.ai.enabled is not true — the native AI module is not built into the app.`,
+        })
     }
 
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })

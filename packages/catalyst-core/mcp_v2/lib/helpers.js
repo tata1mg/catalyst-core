@@ -60,10 +60,20 @@ function findCatalystRoot() {
         let dir = start
         while (dir !== path.parse(dir).root) {
             const pkgPath = path.join(dir, "package.json")
+            // A package.json inside a node_modules segment is an installed copy, not
+            // the catalyst-core source repo itself — for the standard install layout
+            // (<app>/node_modules/catalyst-core/mcp_v2/mcp.js), walking up from
+            // __dirname hits catalyst-core's own installed package.json (name:
+            // "catalyst-core") before it ever reaches the consumer app's root. Only
+            // the isSourcePackage branch below should match on pkg.name, and only for
+            // a real (non-node_modules) source checkout — otherwise keep climbing so
+            // the walk finds the consumer's package.json instead, which matches via
+            // the deps["catalyst-core"] branch further down.
+            const isInstalledCopy = dir.split(path.sep).includes("node_modules")
             if (fs.existsSync(pkgPath)) {
                 try {
                     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
-                    if (pkg.name === "catalyst-core") {
+                    if (pkg.name === "catalyst-core" && !isInstalledCopy) {
                         const sourceVersion = pkg.version || null
                         return {
                             dir,
@@ -86,19 +96,21 @@ function findCatalystRoot() {
                     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
                     const declaredRef = deps["catalyst-core"]
                     if (declaredRef) {
-                        const nmPath = path.join(dir, "node_modules", "catalyst-core")
-                        const installed = fs.existsSync(nmPath)
-                        // Read the actual installed version from node_modules
+                        // A fixed `<dir>/node_modules/catalyst-core` path only finds a
+                        // flat install. In a hoisted workspace (npm/yarn workspaces,
+                        // pnpm with hoisting) the package can live several levels above
+                        // `dir` instead. require.resolve with `paths` walks node_modules
+                        // up the tree the same way Node's own module resolution does, so
+                        // it finds the installed copy regardless of hoisting.
                         let installedVersion = null
-                        if (installed) {
-                            try {
-                                const nmPkg = JSON.parse(
-                                    fs.readFileSync(path.join(nmPath, "package.json"), "utf8")
-                                )
-                                installedVersion = nmPkg.version || null
-                            } catch {
-                                /* ignore */
-                            }
+                        let installed = false
+                        try {
+                            const nmPkgPath = require.resolve("catalyst-core/package.json", { paths: [dir] })
+                            const nmPkg = JSON.parse(fs.readFileSync(nmPkgPath, "utf8"))
+                            installedVersion = nmPkg.version || null
+                            installed = true
+                        } catch {
+                            /* not installed relative to dir */
                         }
                         const isGithubRef = declaredRef.startsWith("github:") || declaredRef.includes("#")
                         return {

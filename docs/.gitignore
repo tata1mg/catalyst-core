@@ -11,9 +11,13 @@ config/config.json
 # Emitted by scripts/generate-docs-manifest.mjs on every build
 src/js/generated/
 public/img/
+public/v/
 public/docs-assets/
 public/sitemap.xml
 public/robots.txt
+
+# Exported by scripts/generate-docs-manifest.mjs --export
+/versions/
 # Dependencies
 */node_modules
 
@@ -71,6 +75,8 @@ Thumbs.db
 
 # Large media files
 *.mp4
+# Companion first-launch demo, shipped with the /app route
+!src/static/media/onboarding.mp4
 *.tiff
 *.avi
 *.flv

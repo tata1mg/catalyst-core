@@ -1,4 +1,4 @@
-import pc from "picocolors"
+import pc from "ansis"
 import winston from "winston"
 import DailyRotateFile from "winston-daily-rotate-file"
 
@@ -13,6 +13,55 @@ const { createLogger, format, transports } = winston
  * @returns loggerInstance
  *
  */
+/**
+ * Render a log argument as text.
+ *
+ * JSON.stringify was wrong in two ways that mattered: an Error serializes to
+ * "{}" (message and stack are non-enumerable), so error logs said nothing at
+ * all, and a circular reference made the logger itself throw -- turning a
+ * logged problem into a crash.
+ */
+function formatLogMessage(msg) {
+    if (typeof msg === "string") return msg
+    if (msg instanceof Error) return msg.stack || `${msg.name}: ${msg.message}`
+
+    try {
+        const seen = new WeakSet()
+        const text = JSON.stringify(msg, (key, value) => {
+            if (value instanceof Error) return value.stack || `${value.name}: ${value.message}`
+            if (typeof value === "bigint") return value.toString()
+            if (typeof value === "object" && value !== null) {
+                if (seen.has(value)) return "[Circular]"
+                seen.add(value)
+            }
+            return value
+        })
+        // stringify returns undefined for functions and symbols.
+        return text === undefined ? String(msg) : text
+    } catch (error) {
+        return String(msg)
+    }
+}
+
+/**
+ * What winston receives for a log argument.
+ *
+ * A plain object goes in as an object, so file logs keep its fields
+ * queryable rather than nesting it as one escaped string under "message".
+ * It is a clone built from the console text -- cycle-safe, Errors as their
+ * stack -- which also keeps winston from writing level and timestamp onto the
+ * caller's own object. Strings, Errors and anything else go in as text.
+ */
+function toLogRecord(msg, text) {
+    if (msg === null || typeof msg !== "object" || Array.isArray(msg) || msg instanceof Error) return text
+    try {
+        const record = JSON.parse(text)
+        return record !== null && typeof record === "object" && !Array.isArray(record) ? record : text
+    } catch (error) {
+        return text
+    }
+}
+
 const configureLogger = (config = {}) => {
     const { enableDebugLogs = true, enableFileLogging = true, enableConsoleLogging = true } = config
 
@@ -55,22 +104,28 @@ const configureLogger = (config = {}) => {
         errorLogger.add(fileTransport("error"))
     }
 
+    // Winston serializes with format.json(), which renders an Error as {} for
+    // the same reason JSON.stringify does, so it gets the formatted text for
+    // those -- and a safe structured copy of a plain object (toLogRecord).
     const Logger = {
         debug: () => {},
         error: (msg) => {
-            console.log(pc.red(pc.bold("ERROR: " + JSON.stringify(msg))))
-            errorLogger.error(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.red(pc.bold("ERROR: " + text)))
+            errorLogger.error(toLogRecord(msg, text))
         },
         info: (msg) => {
-            console.log(pc.green(pc.bold("INFO: " + JSON.stringify(msg))))
-            infoLogger.info(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.green(pc.bold("INFO: " + text)))
+            infoLogger.info(toLogRecord(msg, text))
         },
     }
 
     if (enableDebugLogs && JSON.parse(enableDebugLogs)) {
         Logger.debug = (msg) => {
-            console.log(pc.yellow(pc.bold("DEBUG: " + JSON.stringify(msg))))
-            debugLogger.debug(msg)
+            const text = formatLogMessage(msg)
+            console.log(pc.yellow(pc.bold("DEBUG: " + text)))
+            debugLogger.debug(toLogRecord(msg, text))
         }
     }
 

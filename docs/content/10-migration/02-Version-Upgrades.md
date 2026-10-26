@@ -6,6 +6,182 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading From 1.0.x To 1.0.2
+
+`1.0.2` has no breaking API changes. Set `catalyst-core` to `1.0.2` in `package.json` and reinstall. Two changes can need a follow-up:
+
+- `react-helmet-async` is no longer a dependency of `catalyst-core`. `MetaTag` now renders route metadata through React 19's own `<head>` support, so `setMetaData` works as before. If your app imports `react-helmet-async` directly, add it to your own `dependencies`.
+- `catalyst serve` refuses to serve a build made with different `PUBLIC_STATIC_ASSET_URL`, `PUBLIC_STATIC_ASSET_PATH` or `CLIENT_ENV_VARIABLES` values than the current `config/config.json`. If a deploy changes those values after the build, rebuild before serving. See [CLI Reference](../16-CLI.md).
+
+New apps from `create-catalyst-app` declare `"type": "module"`, and the Tailwind template names its config `postcss.config.cjs`. Existing apps need no change, because `catalyst-core` loads either `postcss.config.cjs` or `postcss.config.js`. If you add `"type": "module"` to an existing app yourself, rename a CommonJS `postcss.config.js` to `postcss.config.cjs`.
+
+The root entry gains one export, `useRouterState`, so it now exports nine names. See [Hooks](../11-API%20Reference/01-Hooks.md). Existing imports are unaffected.
+
+The release also adds two opt-in features: an animated [HTML splash screen](../02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for universal apps, and experimental [WebMCP](../20-WebMCP.md) support for exposing app actions to in-browser agents.
+
+## Upgrading From 0.3.x To 1.0.0
+
+Catalyst `1.0.0` freezes the public API. `0.3.0-beta.5` upgrades directly. `0.3.0-beta.1` to
+`0.3.0-beta.4` used React Router 6 through `react-router-dom`, so those releases also move to React
+Router 7, as described under Runtime Dependencies. On `0.2.x`, work through the sections below
+first. Removed names fail at build time rather than resolving to `undefined`. Three changes are
+not caught by a build: the React Router check runs at server startup, `RouterProvider` must come
+from `react-router/dom` (see Client Entry), and the hook error fields under Hook Errors are
+renamed.
+
+Work through it in this order:
+
+1. Switch to Node `22.12` or later.
+2. Update `package.json` as shown under Runtime Dependencies, then reinstall.
+3. Move router imports and replace removed names, as described under Imports From The Root Entry,
+   Client Entry and Removed Export Paths.
+4. Update code that reads hook errors, as described under Hook Errors.
+5. Run `npm run build`, then `npm run start`, and fix anything either reports.
+
+To have an agent run the upgrade through the [Catalyst MCP server](../15-MCP.md), ask it to call
+`sync_knowledge_base` first. The knowledge base installed with `0.3.0-beta.5` predates `1.0.0`;
+after the sync, `query_knowledge` returns these steps.
+
+### Runtime Dependencies
+
+```json title="package.json"
+{
+  "dependencies": {
+    "catalyst-core": "1.0.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-router": "^7.18.2"
+  }
+}
+```
+
+React Router is now a peer dependency of `catalyst-core`; the application declares it directly,
+as shown above. The server verifies the resolved version at startup and fails with an error
+naming the required range if it is missing or outside `^7.18.2`. TypeScript applications also
+need `@types/react` `^19.0.0`.
+
+`catalyst-core` no longer installs `react-router-dom`. Change imports from it to `react-router`,
+except `RouterProvider`, which comes from `react-router/dom`.
+
+Node `22.12` is the minimum. Nothing checks the version at startup; on Node 20, importing
+`catalyst-core/hooks` or `catalyst-core/WebBridge` fails with `ERR_REQUIRE_ESM`.
+
+### Imports From The Root Entry
+
+In `1.0.0` the root entry exports exactly eight names: `RouterDataProvider`, `useCurrentRouteData`,
+`useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head`, and `Body`. `1.0.2` adds a ninth,
+`useRouterState`. React Router is no
+longer re-exported, so router names move to their own import:
+
+```javascript
+// before
+import { useCurrentRouteData, useParams, Link } from "catalyst-core"
+
+// after
+import { useCurrentRouteData } from "catalyst-core"
+import { useParams, Link } from "react-router"
+```
+
+The default export is gone; `split` is named only:
+
+```javascript
+// before
+import split from "catalyst-core"
+
+// after
+import { split } from "catalyst-core"
+```
+
+These previously reachable names are now internal and have no replacement: `RouterContext`,
+`serverDataFetcher`, `mergeHeadElements`, `deleteHeadTagsByDataAttribute`, `getMetaData`,
+`useNavigateWithTransition`, and `sanitizeFilePickerOptions` (from `catalyst-core/hooks`). If your
+application depends on one of them, open an issue describing the use case before upgrading.
+
+### Client Entry
+
+`client/index.js` must import `RouterProvider` from `react-router/dom`, not from `react-router`.
+The `react-router/dom` build passes React DOM's `flushSync` into the router, which view
+transitions and `flushSync` navigations depend on. Importing it from `react-router` renders the
+same tree without any error, but silently skips that.
+
+```javascript title="client/index.js"
+// before
+import { RouterProvider, hydrationReady } from "catalyst-core"
+
+// after
+import { hydrationReady } from "catalyst-core"
+import { RouterProvider } from "react-router/dom"
+```
+
+### Removed Export Paths
+
+- `catalyst-core/caching` is removed; the caching feature was withdrawn with no replacement.
+- `catalyst-core/document` is removed; import `Head` and `Body` from the root entry.
+
+### Native Hook Keys
+
+The native hooks now share one set of key names: `data`, `loading`, `error`, `isNative`, `isWeb`,
+and `execute` for single-action hooks. The old names keep working as deprecated aliases until
+2.0, but new code should use the canonical keys. Your editor shows the deprecated names struck
+through.
+
+| Hook                        | Deprecated alias | Use instead     |
+| --------------------------- | ---------------- | --------------- |
+| `useCamera`                 | `photo`          | `data`          |
+| `useCamera`                 | `isLoading`      | `loading`       |
+| `useCamera`                 | `clearPhoto`     | `clear`         |
+| `useCameraPermission`       | `permission`     | `data`          |
+| `useCameraPermission`       | `isLoading`      | `loading`       |
+| `useCameraPermission`       | `request`        | `execute`       |
+| `useDeviceInfo`             | `deviceInfo`     | `data`          |
+| `useFilePicker`             | `isLoading`      | `loading`       |
+| `useFilePicker`             | `clearFile`      | `clear`         |
+| `useIntent`                 | `isLoading`      | `loading`       |
+| `useIntent`                 | `reset`          | `clear`         |
+| `useNativeTransition`       | `transitioning`  | `loading`       |
+| `useNotificationPermission` | `permission`     | `data`          |
+| `useNotificationPermission` | `isLoading`      | `loading`       |
+| `useNotification`           | `execute`        | `scheduleLocal` |
+| `useNotification`           | `schedule`       | `scheduleLocal` |
+
+Hooks that wrap several operations expose named functions and no `execute`: `useVideoStream`,
+`useDataProtection`, and `useNativeTransition`. `useNotification` is also multi-action; its
+`execute` and `schedule` aliases predate this rule and stay frozen. Read-only hooks report state
+and have no action functions: `useNetworkStatus`, `useDeviceInfo`, and `useSafeArea`. See
+[Hooks](../11-API%20Reference/01-Hooks.md) for the full surface.
+
+### Hook Errors
+
+Hook failures are now `CatalystError` values carrying a `RUNTIME-NATIVE-*` code, a message, a
+category, a suggested action, a documentation link, and the originating platform error as
+`cause`. Two hooks return no `error` key by design: `useNativeTransition` and `useSafeArea`. On
+`useDeviceInfo` and `useNetworkStatus`, `error` stays a plain string until 2.0.
+
+The error fields changed with it. `action` is now `suggestedAction`, `nativeError` is now `cause`,
+and `recoverable` and `timestamp` are gone. `code` values are registry codes such as
+`RUNTIME-NATIVE-001` instead of names such as `PERMISSION_DENIED`, so compare against
+`ERROR_CODES` from `catalyst-core/errors` rather than string literals. `category` is now
+`RUNTIME-NATIVE` instead of values such as `PERMISSION`, `NETWORK` and `FILE_SYSTEM`.
+`CatalystError` extends `Error`, so `JSON.stringify(error)` no longer includes the message; log
+`error.message` explicitly, or use the `code` and `docUrl` fields.
+
+### App Contract Reporting
+
+Missing or malformed app-contract exports are reported once at startup, naming the file, the
+export, and what the application must provide. Reporting is not fatal: startup continues instead
+of failing later inside an unrelated render. An application that satisfies the contract sees no
+change.
+
+The configuration checks are stricter. `catalyst start`, `build` and `serve` now exit before
+starting when `config/config.json` is missing one of `NODE_SERVER_HOSTNAME`, `NODE_SERVER_PORT`,
+`BUILD_OUTPUT_PATH`, `PUBLIC_STATIC_ASSET_PATH`, `PUBLIC_STATIC_ASSET_URL` or
+`CLIENT_ENV_VARIABLES`, or when `package.json` is missing one of the `@api`, `@containers`,
+`@server`, `@config`, `@css` or `@routes` module aliases. Apps created from the templates already
+have all of them. The contract is documented under
+[File Conventions](../11-API%20Reference/03-File-Conventions.md).
+
+---
+
 ## Upgrading From 0.2.x To 0.3.0-beta.1
 
 Catalyst `0.3.x` migrates the web runtime from webpack/CommonJS to Vite/ESM. Treat the upgrade as a
@@ -29,7 +205,9 @@ Remove `@tata1mg/router` and `@loadable/component`. Keep React and React DOM pin
 ### Router And Hydration
 
 Import Catalyst router APIs from `catalyst-core`. Replace loadable components with `split()`, and
-replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`.
+replace `loadableReady()` with `hydrationReady()` before `hydrateRoot()`. On `0.3.x`,
+`RouterProvider` comes from `catalyst-core`; `1.0.0` moves it to `react-router/dom`, as described
+above.
 
 ```javascript
 import { RouterProvider, hydrationReady } from "catalyst-core"

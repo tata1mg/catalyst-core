@@ -1,14 +1,19 @@
 "use strict"
 
-const { execFile, execFileSync } = require("child_process")
+const { execFile, execFileSync, spawn } = require("child_process")
 const fs = require("fs")
 const path = require("path")
-const TerminalProgress = require("../TerminalProgress.js").default
+const { displayPath } = require("../../cli/theme.js")
+const TerminalProgress = require("../terminalProgress.js").default
+const { buildFailure } = require("../../cli/diagnostic.js")
 
 const createConfigPhase = require("./config.js")
 const createPluginsPhase = require("./plugins.js")
 const createAssetsPhase = require("./assets.js")
 const createBuildPhase = require("./build.js")
+
+// Matches runInteractiveCommand: keep the tail, not the whole transcript.
+const MAX_STREAMED_OUTPUT_BYTES = 1024 * 1024
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -36,27 +41,18 @@ function createIosBuild(config) {
     const IPHONE_MODEL = iosConfig.simulatorName
 
     const steps = {
-        config: "Generating Required Configuration for build",
-        deviceDetection: "Detecting Physical Device",
-        launchSimulator: "Launch iOS Simulator",
-        clean: "Clean Build Artifacts",
-        assets: "Process Notification Assets",
-        build: "Build IOS Project",
-        findApp: "Locate Built Application",
-        install: "Install Application",
-        launch: "Launch Application",
+        config: "Generate build configuration",
+        deviceDetection: "Detect physical device",
+        launchSimulator: "Launch iOS simulator",
+        clean: "Clean build artifacts",
+        assets: "Process notification assets",
+        build: "Build iOS project",
+        findApp: "Locate built application",
+        install: "Install application",
+        launch: "Launch application",
     }
 
-    const progressConfig = {
-        titlePaddingTop: 2,
-        titlePaddingBottom: 1,
-        stepPaddingLeft: 4,
-        stepSpacing: 1,
-        errorPaddingLeft: 6,
-        bottomMargin: 2,
-    }
-
-    const progress = new TerminalProgress(steps, "Catalyst iOS Build", progressConfig)
+    const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "ios" })
 
     // ─── Low-level helpers shared across modules ──────────────────────────────
 
@@ -65,19 +61,110 @@ function createIosBuild(config) {
             execFile(
                 shellCommand,
                 shellArgs(command),
-                { maxBuffer: 1024 * 1024 * 10, ...options },
-                (error, stdout, stderr) => {
+                // Unbounded: a 10MB cap turned a large-but-successful build into
+                // a spurious ERR_CHILD_PROCESS_STDIO_MAXBUFFER failure.
+                { maxBuffer: Infinity, ...options },
+                (error, stdout) => {
                     if (error) {
-                        console.error(`Command failed: ${command}`)
-                        console.error(`Error: ${error.message}`)
-                        console.error(`stderr: ${stderr}`)
+                        // Let one layer above print this once. It used to print
+                        // three lines here and the callers printed the same
+                        // failure again -- ~6 lines across 4 layers per error.
+                        // execFile already appends stderr to error.message, so
+                        // appending it again here showed it twice.
                         reject(error)
                         return
                     }
-                    if (stderr) console.warn(`Warning: ${stderr}`)
+                    // Tools write plenty of non-fatal chatter to stderr, so a
+                    // successful command reporting "Warning: ..." was noise.
                     resolve(stdout.trim())
                 }
             )
+        })
+    }
+
+    /**
+     * The phase from an xcodebuild line, or null for lines worth ignoring.
+     * "CompileSwift normal arm64 /path/ContentView.swift" becomes
+     * "CompileSwift ContentView.swift".
+     */
+    function xcodePhase(line) {
+        const match =
+            /^(CompileSwift|CompileC|Ld|CodeSign|ProcessInfoPlistFile|CpResource|Touch)\b(.*)$/.exec(
+                line.trim()
+            )
+        if (!match) return null
+        const file = (match[2].trim().split(/\s+/).pop() || "").split("/").pop()
+        return file ? `${match[1]} ${file}` : match[1]
+    }
+
+    /**
+     * Streaming sibling of runCommand, for the long xcodebuild calls.
+     *
+     * Buffered execFile means nothing appears until the build finishes -- for
+     * xcodebuild that is minutes of apparent hang. Rather than scroll its
+     * hundreds of lines (nobody reads them on success, and the error path
+     * re-derives what it needs from error.output), the current phase is shown
+     * on the spinner's own row. The full output is still resolved for callers
+     * that parse it.
+     */
+    function runCommandStreaming(command) {
+        return new Promise((resolve, reject) => {
+            progress.pause()
+
+            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Internal build command strings, same source as runCommand.
+            const child = spawn(shellCommand, shellArgs(command), { stdio: ["ignore", "pipe", "pipe"] })
+
+            let output = ""
+            const partial = { stdout: "", stderr: "" }
+
+            const consume = (data, stream) => {
+                const text = data.toString()
+
+                // Same 1MB tail cap as runInteractiveCommand. Without it a long
+                // xcodebuild retained every byte it ever printed.
+                output += text
+                if (output.length > MAX_STREAMED_OUTPUT_BYTES) {
+                    output = output.slice(-MAX_STREAMED_OUTPUT_BYTES)
+                }
+
+                const lines = (partial[stream] + text).split("\n")
+                partial[stream] = lines.pop()
+                for (const line of lines) progress.status(xcodePhase(line))
+            }
+
+            const flush = () => {
+                for (const stream of ["stdout", "stderr"]) {
+                    partial[stream] = ""
+                }
+            }
+
+            child.stdout.on("data", (data) => consume(data, "stdout"))
+            child.stderr.on("data", (data) => consume(data, "stderr"))
+
+            child.on("error", (error) => {
+                flush()
+                progress.resume()
+                reject(error)
+            })
+
+            child.on("close", (code) => {
+                flush()
+                progress.resume()
+
+                if (code === 0) {
+                    resolve(output.trim())
+                    return
+                }
+
+                // Carry the whole output so the reporter can mine the real
+                // compiler errors out of it. A 5-line tail was arbitrary --
+                // xcodebuild puts the cause in the middle and summary noise
+                // at the end.
+                const error = new Error(`Command failed with exit code ${code}`)
+                error.code = code
+                error.output = output
+                reject(error)
+            })
         })
     }
 
@@ -121,6 +208,8 @@ function createIosBuild(config) {
     const ctx = {
         WEBVIEW_CONFIG,
         BUILD_OUTPUT_PATH,
+        // Captured before the build chdirs into the Xcode project.
+        appRoot: process.cwd(),
         iosConfig,
         isGoogleSignInEnabled,
         PROJECT_DIR,
@@ -132,6 +221,7 @@ function createIosBuild(config) {
         PUBLIC_PATH,
         progress,
         runCommand,
+        runCommandStreaming,
         getXcodeProjectFilePath,
         ensureManagedBaseline,
         restoreManagedFileFromBaseline,
@@ -166,6 +256,7 @@ function createIosBuild(config) {
 
     async function buildForIOS(pluginComposition = {}) {
         const originalDir = process.cwd()
+
         try {
             await generatePackageSwift(pluginComposition.iosDependencies)
             await updateXcodeProjectPackageDependencies()
@@ -176,12 +267,11 @@ function createIosBuild(config) {
             await generateXCConfig()
             await copySplashscreenAssets()
             await copyAppIcon()
-            progress.log("Changing directory to: " + PROJECT_DIR, "info")
             process.chdir(PROJECT_DIR)
             const physicalDevice = await detectPhysicalDevices()
             let APP_PATH, targetInfo
             if (physicalDevice) {
-                progress.log("🔥 Building for physical device workflow", "success")
+                progress.log("Building for physical device workflow", "success")
                 targetInfo = { type: "physical", name: physicalDevice.name, udid: physicalDevice.udid }
                 await cleanBuildArtifacts()
                 progress.start("build")
@@ -195,28 +285,10 @@ function createIosBuild(config) {
                     )
                     progress.complete("build")
                 } catch (error) {
-                    progress.fail("build", error.message)
-                    progress.printTreeContent("Physical Device Build Failed", [
-                        "Build failed. Please check:",
-                        {
-                            text: "Code signing certificates are properly installed",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Provisioning profile matches your bundle ID",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Device is connected and trusted",
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "yellow",
-                        },
-                    ])
+                    // The diagnostic in the catch below shows what xcodebuild
+                    // said, with a signing hint when that is the cause; a fixed
+                    // checklist here only guessed.
+                    error.stage = error.stage || "Building for the device"
                     throw error
                 }
                 progress.start("findApp")
@@ -225,12 +297,11 @@ function createIosBuild(config) {
                     progress.log("Found app at: " + APP_PATH, "success")
                     progress.complete("findApp")
                 } catch (error) {
-                    progress.fail("findApp", error.message)
+                    error.stage = error.stage || "Locating the built app"
                     throw error
                 }
                 await installAndLaunchOnPhysicalDevice(APP_PATH, physicalDevice)
             } else {
-                progress.log("📱 Building for simulator workflow", "info")
                 targetInfo = { type: "simulator", name: IPHONE_MODEL }
                 await launchIOSSimulator(IPHONE_MODEL)
                 await cleanBuildArtifacts()
@@ -241,21 +312,25 @@ function createIosBuild(config) {
                 const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH)
                 APP_PATH = MOVED_APP_PATH
             }
-            progress.printTreeContent("Build Summary", [
-                "Build completed successfully:",
-                {
-                    text: `Target: ${targetInfo.type === "physical" ? "📱 Physical Device" : "📱 Simulator"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "green",
-                },
-                { text: `Device: ${targetInfo.name}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `App Path: ${APP_PATH}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
+            // Same aligned key/value shape as the Android summary and the
+            // Config tree the setup commands print.
+            const deviceName = `${targetInfo.name}${targetInfo.type === "physical" ? "" : " simulator"}`
+            progress.printTreeContent("Build", [
+                { text: `device     ${deviceName}`, color: "gray" },
+                { text: `artifact   ${displayPath(APP_PATH, originalDir)}`, color: "gray" },
+                { text: `loads      ${url}`, color: "gray" },
             ])
+
+            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
             return { success: true, targetInfo, appPath: APP_PATH }
         } catch (error) {
-            progress.log("Build failed: " + error.message, "error")
+            // Mark the step, then show what actually broke -- once. The ✗ line
+            // carries no message: the diagnostic below is the message.
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
+            process.stderr.write(
+                buildFailure({ error, stage: error.stage || "iOS build", code: "IOS-000", cwd: originalDir })
+            )
+
             throw error
         } finally {
             process.chdir(originalDir)
@@ -317,7 +392,7 @@ function createIosBuild(config) {
                 }
             }
 
-            progress.log("✅ build-for-testing complete — test bundle ready for xctest runner", "success")
+            progress.log("build-for-testing complete — test bundle ready for xctest runner", "success")
             return { success: true }
         } catch (error) {
             progress.log("buildIosForTesting failed: " + error.message, "error")

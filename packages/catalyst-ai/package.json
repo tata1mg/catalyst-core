@@ -1,14 +1,29 @@
 {
     "name": "catalyst-ai",
-    "version": "0.1.0",
+    "version": "1.1.0",
     "description": "AI provider for catalyst-core — cloud/web/native useAI hooks + OpenAI/Gemini SSE route",
     "main": "src/index.js",
     "exports": {
         ".": "./src/index.js",
         "./route": "./src/route.js"
     },
+    "files": [
+        "src",
+        "scripts",
+        "android/src",
+        "android/build.gradle.kts",
+        "plugins",
+        "!plugins/ai/Package.swift",
+        "!plugins/ai/Tests",
+        "!plugins/ai/.build",
+        "!plugins/**/.build",
+        "README.md"
+    ],
     "scripts": {
-        "preinstall": "node ./scripts/check-peer.js"
+        "preinstall": "node ./scripts/check-peer.js",
+        "test": "npm run test:types && vitest run",
+        "test:watch": "vitest",
+        "test:types": "tsc --noEmit"
     },
     "peerDependencies": {
         "catalyst-core": ">=0.3.0-0"
@@ -23,5 +38,11 @@
         "type": "git",
         "url": "https://github.com/tata1mg/catalyst-core.git",
         "directory": "packages/catalyst-ai"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.1",
+        "@vitest/coverage-v8": "4.1.11",
+        "typescript": "^7.0.2",
+        "vitest": "4.1.11"
     }
 }

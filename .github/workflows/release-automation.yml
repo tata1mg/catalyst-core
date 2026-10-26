@@ -16,11 +16,17 @@ on:
                     - latest
                     - canary
             pr_number:
-                description: "PR number used for release notes"
-                required: true
+                description: "PR number used for release notes, resolved from commit_sha when empty"
+                required: false
                 type: string
+                default: ""
             commit_sha:
                 description: "Commit SHA, optional"
+                required: false
+                type: string
+                default: ""
+            previous_sha:
+                description: "Previous release commit SHA, optional; notes cover previous_sha...commit_sha"
                 required: false
                 type: string
                 default: ""
@@ -40,6 +46,10 @@ on:
                 required: false
                 type: string
                 default: ""
+            previous_sha:
+                required: false
+                type: string
+                default: ""
 
 permissions:
     contents: read
@@ -56,6 +66,7 @@ jobs:
                   NPM_TAG: ${{ inputs.npm_tag }}
                   PR_NUMBER_INPUT: ${{ inputs.pr_number }}
                   COMMIT_SHA_INPUT: ${{ inputs.commit_sha }}
+                  PREVIOUS_SHA: ${{ inputs.previous_sha }}
                   RELEASE_AUTOMATION_URL: https://stagcatalyst.1mg.com/release-automation/release-requests
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -77,6 +88,19 @@ jobs:
                     exit 1
                   fi
 
+                  if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+                    echo "::error::pr_number must be a number (got '$PR_NUMBER')"
+                    exit 1
+                  fi
+                  if ! [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                    echo "::error::commit_sha must be a full 40-character sha (got '$COMMIT_SHA')"
+                    exit 1
+                  fi
+                  if [ -n "$PREVIOUS_SHA" ] && ! [[ "$PREVIOUS_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                    echo "::error::previous_sha must be empty or a full 40-character sha (got '$PREVIOUS_SHA')"
+                    exit 1
+                  fi
+
                   OIDC_RESPONSE=$(curl --fail-with-body -sS \
                     -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
                     "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=catalyst-release-automation")
@@ -95,6 +119,7 @@ jobs:
                     --arg prNumber "$PR_NUMBER" \
                     --arg commitSha "$COMMIT_SHA" \
                     --arg tagName "catalyst-core@$VERSION" \
+                    --arg previousSha "$PREVIOUS_SHA" \
                     '{
                       repo: $repo,
                       packageName: $packageName,
@@ -103,9 +128,23 @@ jobs:
                       prNumber: $prNumber,
                       commitSha: $commitSha,
                       tagName: $tagName
-                    }')
+                    } + (if $previousSha != "" then { previousSha: $previousSha } else {} end)')
 
-                  curl --fail-with-body -X POST "$RELEASE_AUTOMATION_URL" \
+                  if ! RESPONSE=$(curl --fail-with-body -sS -X POST "$RELEASE_AUTOMATION_URL" \
                     -H "Content-Type: application/json" \
                     -H "Authorization: Bearer $OIDC_TOKEN" \
-                    -d "$PAYLOAD"
+                    -d "$PAYLOAD"); then
+                    echo "::error::release automation request failed"
+                    echo "$RESPONSE"
+                    exit 1
+                  fi
+                  echo "$RESPONSE"
+
+                  {
+                    echo "- Release notes requested for catalyst-core@$VERSION ($NPM_TAG)"
+                    if [ -n "$PREVIOUS_SHA" ]; then
+                      echo "- Changes: https://github.com/$GITHUB_REPOSITORY/compare/$PREVIOUS_SHA...$COMMIT_SHA"
+                    else
+                      echo "- From PR #$PR_NUMBER"
+                    fi
+                  } >> "$GITHUB_STEP_SUMMARY"

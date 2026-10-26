@@ -16,6 +16,12 @@ export const IS_BOT_KEY = createContextKey("catalyst.is_bot")
 import semanticConventions from "@opentelemetry/semantic-conventions"
 const { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT } = semanticConventions
 
+// The app-wide logger only exists once the app calls configureLogger() from
+// catalyst-core/logger, which nothing in core does for it. Resolve it per call,
+// so a logger configured after this module loads is still picked up, and fall
+// back to console so init() never throws a ReferenceError on a bare `logger`.
+const getLogger = () => global.logger ?? console
+
 function init(config = {}) {
     // OpenTelemetry is opt-in — bail out unless explicitly enabled. Mirrors the
     // OTEL_ENABLE guard in server/expressServer.js and server/renderer/handler.jsx
@@ -84,7 +90,7 @@ function init(config = {}) {
         const sdk = new NodeSDK(sdkConfig)
 
         sdk.start()
-        logger.info("✅ OpenTelemetry started successfully")
+        getLogger().info("✅ OpenTelemetry started successfully")
 
         // Initialize custom metrics only if metrics are enabled
         let meter = null
@@ -93,11 +99,11 @@ function init(config = {}) {
         }
 
         const gracefulShutdown = (signal) => {
-            logger.info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
+            getLogger().info(`📡 Received ${signal}, shutting down OpenTelemetry gracefully...`)
             sdk.shutdown()
-                .then(() => logger.info("✅ OpenTelemetry shutdown completed"))
+                .then(() => getLogger().info("✅ OpenTelemetry shutdown completed"))
                 .catch((error) => {
-                    logger.error("❌ Error terminating OpenTelemetry:", error)
+                    getLogger().error("❌ Error terminating OpenTelemetry:", error)
                 })
                 .finally(() => process.exit())
         }
@@ -107,7 +113,7 @@ function init(config = {}) {
 
         return { sdk, meter }
     } catch (error) {
-        logger.error("❌ Failed to initialize OpenTelemetry:", error)
+        getLogger().error("❌ Failed to initialize OpenTelemetry:", error)
         throw error
     }
 }
@@ -122,13 +128,13 @@ function init(config = {}) {
  */
 function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📡 Creating HTTP trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating HTTP trace exporter for URL: ${url}`)
         return new OTLPTraceExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📡 Creating gRPC trace exporter for URL: ${url}`)
+        getLogger().info(`📡 Creating gRPC trace exporter for URL: ${url}`)
         return new OTLPTraceExporter({
             url: url,
             headers: headers,
@@ -151,13 +157,13 @@ function createTraceExporter(protocol, url, headers = {}, grpcCredentials) {
  */
 function createMetricExporter(protocol, url, headers = {}, grpcCredentials) {
     if (protocol.toLowerCase() === "http") {
-        logger.info(`📊 Creating HTTP metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating HTTP metric exporter for URL: ${url}`)
         return new OTLPMetricExporterHTTP({
             url: url,
             headers: headers,
         })
     } else if (protocol.toLowerCase() === "grpc") {
-        logger.info(`📊 Creating gRPC metric exporter for URL: ${url}`)
+        getLogger().info(`📊 Creating gRPC metric exporter for URL: ${url}`)
         return new OTLPMetricExporter({
             url: url,
             headers: headers,

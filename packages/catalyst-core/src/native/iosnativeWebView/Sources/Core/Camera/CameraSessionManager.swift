@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import UIKit
 import os
+import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "CameraSessionManager")
 

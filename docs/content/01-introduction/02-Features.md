@@ -21,6 +21,7 @@ Catalyst is built around a small set of framework capabilities that work togethe
 - Build web, iOS, and Android apps from one React codebase.
 - Keep shared business logic while allowing platform-specific UI when needed.
 - Use one project for browser and native app delivery with consistent cache behavior across platforms.
+- Show an animated HTML splash screen from one `public/splashscreen.html` on Android and iOS while the app loads.
 
 [Learn more about Universal Apps →](/content/introduction/universal-app)
 
@@ -55,6 +56,14 @@ Catalyst is built around a small set of framework capabilities that work togethe
 - Store app-level data in device storage when needed for persistence, offline resilience, and faster resume behavior.
 
 [Performance and Cache Management →](/content/guides-and-tutorials/first-universal-app/configuring-cache-behavior)
+
+## WebMCP (Experimental)
+
+- Expose your app's actions to AI agents running in the browser as named tools.
+- Register a tool per action with `useTool()`, or add a `tool` field to a route.
+- Built-in `navigate`, `get_current_route` and `get_page_info` tools.
+
+[WebMCP →](/content/webmcp)
 
 ## Build And Deployment Readiness
 

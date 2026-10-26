@@ -1,4 +1,5 @@
 import SwiftUI
+import CatalystCoreLogic
 
 public struct SplashView: View {
     @ObservedObject var webViewModel: WebViewModel
@@ -29,18 +30,34 @@ public struct SplashView: View {
                         }
                     }
                 )
+                .overlay(
+                    // HTML splash from public/splashscreen.html, drawn above the native image
+                    Group {
+                        if splashViewModel.isHTMLMode {
+                            SplashHTMLView()
+                                .ignoresSafeArea(.all)
+                        }
+                    }
+                )
                 .onReceive(webViewModel.$loadingProgress) { progress in
+                    // HTML splash dismisses on the initial load only, not on progress
+                    guard !splashViewModel.isHTMLMode else { return }
                     splashViewModel.updateProgress(progress)
                 }
                 .onReceive(webViewModel.$isLoading) { isLoading in
                     // If WebView stops loading and no duration is set, dismiss splash
-                    if !isLoading && ConfigConstants.splashScreenDuration == nil {
+                    if !isLoading && ConfigConstants.splashScreenDuration == nil && !splashViewModel.isHTMLMode {
                         splashViewModel.forceDismiss()
+                    }
+                }
+                .onReceive(webViewModel.$hasFinishedInitialLoad) { finished in
+                    if finished {
+                        splashViewModel.initialLoadFinished()
                     }
                 }
         }
     }
-    
+
     // Load custom splash screen image from Assets.xcassets (copied from public folder during build)
     private func loadSplashImage() -> UIImage? {
         // Try to load the launch screen image from Assets.xcassets
@@ -49,10 +66,10 @@ public struct SplashView: View {
             print("✅ Loaded launch screen image from Assets.xcassets")
             return image
         }
-        
+
         // Fallback: Try to load using Bundle.main.path (for backward compatibility)
         let imageExtensions = ["png", "jpg", "jpeg"]
-        
+
         for ext in imageExtensions {
             if let path = Bundle.main.path(forResource: "launchscreen", ofType: ext),
                let image = UIImage(contentsOfFile: path) {
@@ -60,7 +77,7 @@ public struct SplashView: View {
                 return image
             }
         }
-        
+
         print("❌ No launch screen image found")
         return nil
     }
@@ -88,7 +105,7 @@ extension Color {
             .sRGB,
             red: Double(r) / 255,
             green: Double(g) / 255,
-            blue:  Double(b) / 255,
+            blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
     }

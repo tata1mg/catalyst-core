@@ -1,6 +1,6 @@
 const fs = require("fs")
 const path = require("path")
-const pc = require("picocolors")
+const pc = require("ansis")
 const { execFileSync } = require("child_process")
 
 const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)

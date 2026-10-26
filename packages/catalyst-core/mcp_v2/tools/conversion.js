@@ -92,7 +92,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     review_context: {
                         question: "Which catalyst-core version is this project targeting?",
                         what_correct_looks_like:
-                            "0.2.x uses @tata1mg/router; 0.3.x+ removes it and imports Catalyst router APIs from catalyst-core.",
+                            "0.2.x uses @tata1mg/router; 0.3.x removes it and imports router APIs from catalyst-core; 1.0.0+ imports router names from react-router.",
                         what_gap_looks_like:
                             "Router dependencies and imports are mixed across runtime generations.",
                     },
@@ -111,7 +111,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     status: "gap",
                     native_risk:
                         "Catalyst 0.3.x owns the router implementation. Keeping @tata1mg/router can install a second routing runtime and produce incompatible React elements.",
-                    reason: "Remove @tata1mg/router and import router APIs from catalyst-core",
+                    reason: "Remove @tata1mg/router and import router APIs from catalyst-core on 0.3.x, or from react-router on 1.0.0+",
                 }
             return { status: "completed", note: "Current 0.3.x integrated router contract detected." }
         },
@@ -390,23 +390,17 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk: "No config — splash screen config cannot be read.",
                     reason: "config/config.json not found",
                 }
-            if (!config.splashScreen)
+            if (!webviewConfig || !webviewConfig.splashScreen)
                 return {
                     status: "gap",
                     native_risk:
-                        "Without splashScreen config, native app shows a blank white screen during JS load. Not a crash, but poor UX and noticeable on slow devices.",
-                    reason: "splashScreen key missing from top level of config/config.json (not inside WEBVIEW_CONFIG)",
+                        "Without WEBVIEW_CONFIG.splashScreen the Catalyst splash is skipped and the app goes straight to the WebView while JS loads. Not a crash, but poor UX on slow devices.",
+                    reason: config.splashScreen
+                        ? "splashScreen is at the top level of config/config.json; the native builds read only WEBVIEW_CONFIG.splashScreen"
+                        : "WEBVIEW_CONFIG.splashScreen missing from config/config.json",
                 }
-            const missing = ["public/android/splashscreen.png", "public/ios/splashscreen.png"].filter(
-                (f) => !fileExists(f)
-            )
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Splash config exists but asset files missing — build will fail when packaging the native app.",
-                    reason: `Splash asset files missing: ${missing.join(", ")}`,
-                }
+            // Images are optional (Android falls back to the launcher icon, iOS to a loader), so a
+            // missing image is not a gap.
             return { status: "completed" }
         },
 

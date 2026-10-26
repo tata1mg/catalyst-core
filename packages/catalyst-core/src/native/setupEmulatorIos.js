@@ -1,7 +1,7 @@
 import { execSync } from "child_process"
 import fs from "fs"
 import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
-import TerminalProgress from "./TerminalProgress.js"
+import TerminalProgress from "./terminalProgress.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
 const { setupServer } = require("./setupServer.js")
@@ -9,23 +9,15 @@ const { setupServer } = require("./setupServer.js")
 const ITEMS_PER_PAGE = 10
 
 const steps = {
-    platform: "Check Platform Compatibility",
-    config: "Initialize Configuration",
-    simulator: "Configure iOS Simulator",
-    launch: "Launch iOS Simulator",
-    saveConfig: "Saving configuration",
-    setupServer: "Setup Server",
-}
-const progressPaddingConfig = {
-    titlePaddingTop: 2,
-    titlePaddingBottom: 1,
-    stepPaddingLeft: 4,
-    stepSpacing: 1,
-    errorPaddingLeft: 6,
-    bottomMargin: 2,
+    platform: "Check platform compatibility",
+    config: "Initialize configuration",
+    simulator: "Configure iOS simulator",
+    launch: "Launch iOS simulator",
+    saveConfig: "Save configuration",
+    setupServer: "Set up server",
 }
 
-const progress = new TerminalProgress(steps, "Catalyst Universal Ios Setup", progressPaddingConfig)
+const progress = new TerminalProgress(steps, "catalyst setupEmulator", { subject: "ios" })
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
@@ -71,7 +63,7 @@ async function setupIOSEnvironment() {
     try {
         progress.start("platform")
         if (process.platform !== "darwin") {
-            progress.log("iOS Simulator is only available on macOS.")
+            progress.log("iOS Simulator is only available on macOS.", "error")
             process.exit(1)
         }
         progress.complete("platform")
@@ -93,29 +85,22 @@ async function setupIOSEnvironment() {
         progress.complete("saveConfig")
 
         progress.start("setupServer")
-        await setupServer(configPath)
-        progress.start("setupServer")
+        await setupServer(configPath, (message) => progress.log(message, "info"))
+        progress.complete("setupServer")
 
-        progress.printTreeContent("Configuration Explanation", [
-            "WEBVIEW_CONFIG: Main configuration object for the WebView setup",
-            { text: "port: Port number for the WebView server", indent: 1, prefix: "├─ ", color: "gray" },
-            { text: "ios: iOS-specific configuration", indent: 1, prefix: "└─ ", color: "gray" },
-            { text: "buildType: Build type (debug/release)", indent: 2, prefix: "├─ ", color: "gray" },
-            {
-                text: "appBundleId: iOS application bundle identifier",
-                indent: 2,
-                prefix: "├─ ",
-                color: "gray",
-            },
-            { text: "simulatorName: Selected iOS simulator name", indent: 2, prefix: "└─ ", color: "gray" },
+        const iosCfg = config.ios || {}
+        progress.printTreeContent("Config  config/config.json", [
+            { text: `port            ${config.port ?? ""}`, color: "gray" },
+            { text: `appBundleId     ${iosCfg.appBundleId ?? ""}`, color: "gray" },
+            { text: `simulatorName   ${iosCfg.simulatorName ?? ""}`, color: "gray" },
         ])
-
-        progress.printTreeContent("Final Configuration", [JSON.stringify(config, null, 2)])
+        progress.summary("Ready", "Run catalyst buildApp:ios to install the app")
         process.exit(0)
     } catch (error) {
         if (progress.currentStep) {
             progress.fail(progress.currentStep.id, error.message)
         }
+        progress.hint(error.hint)
         process.exit(1)
     }
 }
@@ -150,15 +135,15 @@ async function getRuntime() {
     if (!availableRuntime) {
         const runningSimulators = execSync("xcrun simctl list devices booted").toString()
         if (runningSimulators.includes("(Booted)") && parsedRuntimes.length > 0) {
-            console.log(`Using runtime: ${parsedRuntimes[0].name}`)
+            progress.status(`runtime ${parsedRuntimes[0].name}`)
             return parsedRuntimes[0]
         }
 
-        console.error("No available iOS runtime found. Please install one through Xcode.")
+        progress.log("No available iOS runtime found. Install one through Xcode.", "error")
         process.exit(1)
     }
 
-    console.log(`Using runtime: ${availableRuntime.name}`)
+    progress.status(`runtime ${availableRuntime.name}`)
     return availableRuntime
 }
 
@@ -260,8 +245,35 @@ async function configureSimulator(config) {
 //     }
 // }
 
+// Xcode 27 replaced the standalone Simulator.app (com.apple.iphonesimulator)
+// with DeviceHub.app (com.apple.dt.Devices); older Xcode installs still ship
+// the former. Resolve whichever is actually installed instead of hardcoding
+// the app name, which no longer resolves via `open -a` on either app.
+function resolveSimulatorAppBundleId() {
+    const candidates = ["com.apple.dt.Devices", "com.apple.iphonesimulator"]
+    for (const bundleId of candidates) {
+        try {
+            execSync(`osascript -e 'id of app id "${bundleId}"'`, { stdio: "ignore" })
+            return bundleId
+        } catch {
+            // Not installed under this bundle id; try the next candidate.
+        }
+    }
+    return null
+}
+
+// Text mirrors errors/registry.js ERROR_DEFINITIONS[IOS-001] (see
+// errors/IOS/IOS-001.md) — this CJS subtree can't import the ESM error
+// registry (see native/buildErrorFormat.js), so the message is duplicated
+// here rather than imported. This condition is recoverable (the simulator
+// can still boot headlessly via simctl) so callers log it as a warning
+// instead of throwing.
+const SIMULATOR_APP_NOT_FOUND_WARNING =
+    "[IOS-001] Could not find an installed iOS Simulator app (checked DeviceHub.app and the legacy Simulator.app). " +
+    "The simulator is booted but its window may not be visible. Suggested action: confirm a full Xcode.app is installed and selected via xcode-select -p, then open it once from Spotlight."
+
 async function launchIOSSimulator(simulatorName) {
-    progress.log("Launching iOS Simulator...")
+    progress.status("launching simulator")
     try {
         // Get all simulators including both available and booted ones
         const allSimulatorInfo = execSync("xcrun simctl list devices -j").toString()
@@ -302,30 +314,33 @@ async function launchIOSSimulator(simulatorName) {
         })
 
         if (!foundSimulator) {
-            console.log(`Configured simulator "${simulatorName}" not found.`)
+            progress.log(`Configured simulator "${simulatorName}" not found`, "warning")
             return
         }
 
         if (!isBooted) {
-            console.log(`Booting simulator: ${simulatorName}`)
+            progress.status(`booting ${simulatorName}`)
             runCommand(`xcrun simctl boot ${foundSimulatorId}`)
         } else {
-            console.log(`Simulator ${simulatorName} is already booted`)
+            progress.status("already booted")
         }
 
-        // Open Simulator.app and focus
-        progress.log("Opening Simulator.app...")
-        runCommand("open -a Simulator")
+        // Open the simulator UI (DeviceHub on Xcode 27+, Simulator.app on older Xcode) and focus it
+        const simulatorAppBundleId = resolveSimulatorAppBundleId()
+        if (simulatorAppBundleId) {
+            progress.status("opening simulator")
+            runCommand(`open -b ${simulatorAppBundleId}`)
 
-        // Give the simulator a moment to open/focus
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+            // Give the simulator a moment to open/focus
+            await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        // Activate the Simulator.app window to bring it to front
-        runCommand("osascript -e 'tell application \"Simulator\" to activate'")
-
-        console.log("iOS Simulator launched successfully.")
+            // Activate the simulator UI window to bring it to front
+            runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
+        } else {
+            progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
+        }
     } catch (error) {
-        console.error("Failed to launch iOS Simulator. Error:", error.message)
+        progress.log(`Failed to launch iOS Simulator: ${error.message}`, "error")
     }
     // process.exit(0);
 }

@@ -4,6 +4,7 @@ import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 import { resolveDevBase, buildDevServer } from "./resolveDevServerConfig.js"
+import { getModuleAliases } from "./moduleAliases.js"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -50,15 +51,27 @@ function scssModulesPlugin() {
     }
 }
 
+// Automatic runtime so the output imports react/jsx-(dev-)runtime: plugin-react
+// only adds Fast Refresh to .js files that import it. Classic createElement
+// output leaves the module without an HMR boundary, forcing full page reloads.
 function jsxInJsPlugin() {
+    let isProduction = process.env.NODE_ENV === "production"
+
     return {
         name: "vite-plugin-jsx-in-js",
         enforce: "pre",
+        configResolved(config) {
+            isProduction = config.isProduction
+        },
         async transform(code, id) {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, { loader: "jsx" })
+            return transformWithEsbuild(code, id, {
+                loader: "jsx",
+                jsx: "automatic",
+                jsxDev: !isProduction,
+            })
         },
     }
 }
@@ -103,35 +116,7 @@ const __dirname = dirname(__filename)
 import path from "path"
 import fs from "fs"
 
-const packageJsonConfig = path.resolve(process.env.src_path, "package.json")
-const catalystPackageJsonConfig = path.resolve(__dirname, "../../package.json")
-
-let packageJsonContent, catalystPackageJsonContent
-let _moduleAliases = {},
-    catalyst_moduleAliases = {}
-
-try {
-    packageJsonContent = fs.readFileSync(packageJsonConfig, "utf8")
-    const packageJson = JSON.parse(packageJsonContent)
-    _moduleAliases = packageJson._moduleAliases || {}
-} catch (error) {
-    // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - packageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
-    console.warn(`Failed to read or parse package.json from ${packageJsonConfig}:`, error.message)
-}
-
-try {
-    catalystPackageJsonContent = fs.readFileSync(catalystPackageJsonConfig, "utf8")
-    const catalystPackageJson = JSON.parse(catalystPackageJsonContent)
-    catalyst_moduleAliases = catalystPackageJson._moduleAliases || {}
-} catch (error) {
-    console.warn(
-        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring - catalystPackageJsonConfig is a build-time-resolved local path, not attacker-controlled; console.warn here does no printf-style substitution.
-        `Failed to read or parse catalyst package.json from ${catalystPackageJsonConfig}:`,
-        error.message
-    )
-}
-
-const allAliases = { ..._moduleAliases, ...catalyst_moduleAliases }
+const allAliases = getModuleAliases(process.env.src_path)
 
 import { imageUrl, fontUrl } from "./scssParams.js"
 
@@ -150,14 +135,20 @@ import { imageUrl, fontUrl } from "./scssParams.js"
 // options — so anything else is left alone and Vite falls back to its normal
 // auto-loaded postcss.config.js resolution.
 const resolvePostcssPlugins = () => {
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
-    const configPath = path.join(process.env.src_path, "postcss.config.js")
-    if (!fs.existsSync(configPath)) return null
+    // .cjs first: an app with "type": "module" (the scaffold default) must
+    // name a CommonJS config .cjs, and a .js one is ESM there.
+    const configPath = ["postcss.config.cjs", "postcss.config.js"]
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - process.env.src_path is the app root set by the framework's own build tooling, not request/user input.
+        .map((name) => path.join(process.env.src_path, name))
+        .find((candidate) => fs.existsSync(candidate))
+    if (!configPath) return null
 
     const appRequire = createRequire(configPath)
 
     try {
-        const userConfig = appRequire(configPath)
+        const loaded = appRequire(configPath)
+        // require() of an ESM config returns its namespace.
+        const userConfig = loaded?.__esModule || loaded?.default ? loaded.default : loaded
         const pluginsConfig = userConfig?.plugins
 
         if (!pluginsConfig || Array.isArray(pluginsConfig) || typeof pluginsConfig !== "object") {
@@ -283,7 +274,28 @@ const getScssResourcesImport = () => {
 
 // Pre-bundling upfront avoids Vite discovering deps at runtime which causes
 // cascading full-page reloads and "stuck in loading" on dev server.
-const browserOptimizeDeps = [
+/**
+ * Keep only the packages this app can actually resolve.
+ *
+ * The list below is a superset covering every dependency a Catalyst app might
+ * use. Vite logs "Failed to resolve dependency: X, present in
+ * 'optimizeDeps.include'" for each entry it cannot find, so an app that uses
+ * half of them opened with 23 warning lines it could do nothing about.
+ */
+function resolvableFrom(candidates, appRoot) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the local project root resolved by the CLI.
+    const resolver = createRequire(path.join(appRoot, "package.json"))
+    return candidates.filter((name) => {
+        try {
+            resolver.resolve(name)
+            return true
+        } catch (error) {
+            return false
+        }
+    })
+}
+
+const candidateBrowserDeps = [
     "react",
     "react-dom",
     "react-dom/client",
@@ -293,9 +305,7 @@ const browserOptimizeDeps = [
     "redux",
     "redux-thunk",
     "axios",
-    "react-helmet-async",
     "react-google-recaptcha",
-    "react-fast-compare",
     "history",
     "lottie-web",
     // Pre-bundle alongside React so esbuild marks react/react-router as external
@@ -322,7 +332,6 @@ const browserOptimizeDeps = [
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
-    "react-side-effect",
     "react-async-script",
     "normalize.css",
 ]
@@ -382,14 +391,12 @@ export const sharedViteConfig = {
         // the bundler never tries to resolve the optional (opt-in) OTEL packages.
         external: nodeOnlyExternalDeps,
         optimizeDeps: {
-            include: [
-                "invariant",
-                "react-fast-compare",
-                "shallowequal",
-                "prop-types",
-                "redux-thunk",
-                "redux-logger",
-            ],
+            // Same treatment as the browser list: only include what this app
+            // can resolve, or Vite warns about every entry it cannot find.
+            include: resolvableFrom(
+                ["invariant", "shallowequal", "prop-types", "redux-thunk", "redux-logger"],
+                process.env.src_path
+            ),
             // Prevent pre-bundling React ecosystem packages for SSR to avoid duplicate
             // React instances. Pre-bundled copies in .vite/deps_ssr/ create a separate
             // React instance from node_modules/react used by react-dom/server, causing
@@ -456,8 +463,18 @@ export const sharedViteConfig = {
             path.join(process.env.src_path, "client/index.js"),
             path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
         ],
-        include: browserOptimizeDeps,
-        exclude: ["catalyst-core/router/ClientRouter"],
+        include: resolvableFrom(candidateBrowserDeps, process.env.src_path),
+        // catalyst-core/webmcp (and its shim subpath) must share the SAME
+        // pre-bundled module instance as catalyst-core's main entry:
+        // WebMcpProvider reads router state through a React context
+        // (OneMgRouterContext, via useRouterState()) that RouterDataProvider
+        // populates. If esbuild's dep scanner pre-bundles the subpath as its
+        // own separate optimized chunk, that chunk gets its own
+        // `createContext()` call — a second, unlinked context instance that
+        // WebMcpProvider reads from empty, throwing "must be used within a
+        // RouterDataProvider" even though one genuinely is an ancestor.
+        // Same rationale as the existing ClientRouter exclusion below.
+        exclude: ["catalyst-core/router/ClientRouter", "catalyst-core/webmcp", "catalyst-core/webmcp/shim"],
         esbuildOptions: {
             format: "esm",
             target: "node2022",
@@ -509,6 +526,16 @@ export const sharedViteConfig = {
     },
 }
 
+// Every catalyst-core subpath export except the main entry and webmcp, as bare
+// specifiers ("catalyst-core/hooks"). Read from package.json so a new subpath
+// stays externalized in dev SSR without touching this list.
+function catalystCoreExternalSubpaths() {
+    const { exports = {} } = JSON.parse(fs.readFileSync(path.join(__dirname, "../../package.json"), "utf8"))
+    return Object.keys(exports)
+        .filter((key) => key.startsWith("./") && key !== "./package.json" && !key.startsWith("./webmcp"))
+        .map((key) => `catalyst-core/${key.slice(2)}`)
+}
+
 // ─── Dev server config ────────────────────────────────────────────────────────
 // Async factory so it can read the app's buildConfig.devServer for `base`, HMR
 // and other Vite server options. `base` comes solely from devServer.base; the
@@ -521,6 +548,30 @@ export default defineConfig(async () => {
     return {
         ...sharedViteConfig,
         base: resolveDevBase(devServer),
+        // Dev SSR only: transform catalyst-core/webmcp through Vite instead of
+        // externalizing it. Node cannot load its .jsx files, and its provider
+        // must share one module record (one createContext()) with the main
+        // entry, which Vite always transforms (.jsx is never externalized).
+        // ssr.noExternal only matches package names, so the package goes in
+        // noExternal and every other subpath is pinned external: CJS subpaths
+        // (hooks, WebBridge, sentry) would fail to inline ("exports is not
+        // defined"), and apps that do not import webmcp resolve exactly as
+        // before. Keyed on NODE_ENV, not Vite's `command`: `catalyst build`
+        // also spins up this config for the offline manifest, and built
+        // output runs under plain Node ESM, one module record per file.
+        ssr: {
+            ...sharedViteConfig.ssr,
+            noExternal: [
+                ...new Set([
+                    ...(sharedViteConfig.ssr?.noExternal || []),
+                    ...(isProduction ? [] : ["catalyst-core"]),
+                ]),
+            ],
+            external: [
+                ...(sharedViteConfig.ssr?.external || []),
+                ...(isProduction ? [] : catalystCoreExternalSubpaths()),
+            ],
+        },
         server: buildDevServer(devServer, {
             frameworkPaths: [process.env.src_path, __dirname],
             isProduction,

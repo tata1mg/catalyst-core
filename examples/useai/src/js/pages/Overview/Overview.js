@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "@tata1mg/router";
+import { Link } from "react-router"
 
 export default function Overview({ onNext, theme = "dark" }) {
     const palette = [

@@ -41,8 +41,10 @@ Prefer `buildConfig.js` for new and upgraded applications.
 
 ## Development And Production
 
-`npm run start` starts Vite middleware mode with SSR and Fast Refresh. `npm run build` creates the
-client and server production outputs, and `npm run serve` runs the built renderer.
+`npm run start` starts Vite middleware mode with SSR and Fast Refresh. From `1.0.2`, Fast Refresh
+also covers components written as JSX in `.js` files, which used to trigger a full page reload. `npm
+run build` creates the client and server production outputs, and `npm run serve` runs the built
+renderer.
 
 `devBuild` and `devServe` are legacy Catalyst `0.2.x` commands and are not available in `0.3.x`.
 

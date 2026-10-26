@@ -526,8 +526,14 @@ enum GeneratedPluginIndex {
     fs.writeFileSync(path.join(pluginsDir, "GeneratedPluginIndex.swift"), indexContent)
 }
 
-function composeIosPlugins({ corePluginsRoot, iosProjectPath, pluginConfig, log }) {
-    const discovered = discoverInternalPlugins(corePluginsRoot, log)
+function composeIosPlugins({ corePluginsRoot, externalPluginRoots = [], iosProjectPath, pluginConfig, log }) {
+    // externalPluginRoots: plugin directories shipped by npm packages (e.g. catalyst-ai's
+    // plugins/ai), same manifest format as the internal plugins. They flow through the same
+    // validation/toggle/dependency/entitlement path, so a clash with an internal plugin id fails loudly.
+    const discovered = [
+        ...discoverInternalPlugins(corePluginsRoot, log),
+        ...externalPluginRoots.flatMap((root) => discoverInternalPlugins(root, log)),
+    ]
     validatePlugins(discovered)
     const enabled = selectPluginsByConfig(discovered, pluginConfig, log)
     const selected = selectPluginsForPlatform(enabled, "ios", log)

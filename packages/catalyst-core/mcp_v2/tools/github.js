@@ -120,6 +120,41 @@ const ISSUE_TEMPLATES = {
     },
 }
 
+// Pull-request templates, one per change type. Section lists mirror the
+// `##` headings in .github/PULL_REQUEST_TEMPLATE/<change_type>.md exactly —
+// the drift test in test/github.test.ts asserts that, the same way it
+// checks ISSUE_TEMPLATES against .github/ISSUE_TEMPLATE/*.yml.
+const PR_TEMPLATES = {
+    fix: {
+        change_type: "fix",
+        name: "Bug fix",
+        use_when: "The PR corrects broken, ignored, regressed, or misdocumented behavior.",
+        sections: ["Root cause", "Repro", "Fix", "Regression test", "Affected error codes"],
+    },
+    feature: {
+        change_type: "feature",
+        name: "Feature",
+        use_when: "The PR adds a new capability, hook, CLI behavior, or framework ergonomics change.",
+        sections: ["What", "Why", "New error codes", "Test coverage"],
+    },
+    chore: {
+        change_type: "chore",
+        name: "Chore (no behaviour change)",
+        use_when:
+            "The PR changes deps, CI, tooling, docs, or internal structure with no runtime behavior change.",
+        sections: ["What triggered this", "Change", "No behaviour change"],
+    },
+}
+
+// Appended verbatim to every rendered PR body. Kept in sync with the shared
+// footer in .github/PULL_REQUEST_TEMPLATE*.md (also asserted by the drift test).
+const PR_FOOTER_CHECKLIST = [
+    "- [ ] `npm run test:unit` passes locally",
+    "- [ ] `npm run lint` passes locally",
+    "- [ ] No new raw `throw new Error(...)` in changed files",
+    "- [ ] Coverage gate (`coverage-summary`, #415/#437) not regressed",
+].join("\n")
+
 function init(projectInfo) {
     _projectInfo = projectInfo
 }
@@ -1122,7 +1157,203 @@ async function handle_create_github_issue(args = {}) {
     }
 }
 
+// ── Pull request workflow ────────────────────────────────────────────────────
+
+function resolvePrChangeType(args) {
+    const requested = typeof args.change_type === "string" ? args.change_type.trim().toLowerCase() : ""
+    if (PR_TEMPLATES[requested]) return requested
+
+    const text = `${args.title || ""}\n${args.summary || args.body || ""}`.toLowerCase()
+    if (/\b(fix|bug|regress|broken|crash|incorrect)\b/.test(text)) return "fix"
+    if (/\b(feat|feature|add\s+support|new\s+(hook|api|capability))\b/.test(text)) return "feature"
+    return "chore"
+}
+
+// Compose a PR body in the shape of the matching .github/PULL_REQUEST_TEMPLATE
+// file. Pre-structured markdown (already has `##` headings) is passed through
+// untouched; otherwise the structured per-type fields are laid out in the
+// template's section order. The shared footer checklist is always appended.
+function buildPrBody(args) {
+    const changeType = resolvePrChangeType(args)
+    const rawBody = stripExistingFooter(args.body)
+    const closesLine =
+        args.closes_issue != null && `${args.closes_issue}`.trim()
+            ? `Closes #${`${args.closes_issue}`.replace(/^#/, "").trim()}`
+            : ""
+
+    let content
+    if (rawBody && hasMarkdownHeadings(rawBody)) {
+        content = rawBody
+    } else {
+        const sections = []
+        if (changeType === "fix") {
+            appendSection(sections, "Root cause", firstNonEmpty(args.root_cause, args.summary, rawBody))
+            appendSection(sections, "Repro", args.repro || args.steps_to_reproduce)
+            appendSection(sections, "Fix", firstNonEmpty(args.fix, args.proposed_fix))
+            appendSection(sections, "Regression test", args.regression_test)
+            appendSection(sections, "Affected error codes", firstNonEmpty(args.affected_error_codes, "none"))
+        } else if (changeType === "feature") {
+            appendSection(sections, "What", firstNonEmpty(args.what, args.summary, rawBody))
+            appendSection(sections, "Why", firstNonEmpty(args.why, args.motivation))
+            appendSection(
+                sections,
+                "New error codes",
+                firstNonEmpty(args.new_error_codes, "No new error codes")
+            )
+            appendSection(sections, "Test coverage", args.coverage_delta || args.test_coverage)
+        } else {
+            appendSection(
+                sections,
+                "What triggered this",
+                firstNonEmpty(args.change_trigger, args.summary, rawBody)
+            )
+            appendSection(sections, "Change", firstNonEmpty(args.change, args.summary, rawBody))
+            appendSection(
+                sections,
+                "No behaviour change",
+                args.no_behaviour_change === true || args.no_behaviour_change === "true"
+                    ? "- [x] Confirmed: no runtime behaviour change — output, public API, and error codes are unchanged"
+                    : "- [ ] Confirmed: no runtime behaviour change — output, public API, and error codes are unchanged"
+            )
+        }
+        content = sections.join("\n\n").trim()
+    }
+
+    const body = [closesLine, content, "---", PR_FOOTER_CHECKLIST].filter(Boolean).join("\n\n").trim()
+
+    return { change_type: changeType, body }
+}
+
+async function handle_create_github_pr(args = {}) {
+    const { title } = args
+    if (!title || typeof title !== "string" || title.trim() === "") {
+        return { ok: false, error: "title is required and must be a non-empty string." }
+    }
+    if (
+        !firstNonEmpty(args.body, args.summary, args.root_cause, args.what, args.change, args.change_trigger)
+    ) {
+        return {
+            ok: false,
+            error: "body or a structured field (summary / root_cause / what / change / change_trigger) is required.",
+        }
+    }
+
+    const root = getProjectRoot(args)
+    const head = firstNonEmpty(args.head, runGit(root, "git rev-parse --abbrev-ref HEAD")) || ""
+    if (!head || head === "HEAD") {
+        return {
+            ok: false,
+            error: "Could not resolve the head branch. Pass head explicitly (you may be in a detached HEAD).",
+        }
+    }
+    const base = firstNonEmpty(args.base) || "main"
+    if (head === base) {
+        return { ok: false, error: `head and base are the same branch (${head}).` }
+    }
+
+    const { change_type: changeType, body } = buildPrBody(args)
+    const draft = args.draft !== false
+    const dryRun = args.dry_run !== false
+
+    const remoteHead = runGit(root, `git rev-parse --verify --quiet origin/${head}`)
+    const commits = runGit(root, `git log --oneline origin/${base}..${head} 2>/dev/null`) || ""
+    const tokenResult = getToken()
+
+    const preview = {
+        type: "pull_request",
+        repo: `${GITHUB_OWNER}/${GITHUB_REPO}`,
+        title: title.trim(),
+        head,
+        base,
+        draft,
+        change_type: changeType,
+        suggested_template: PR_TEMPLATES[changeType],
+        body,
+        head_pushed: Boolean(remoteHead),
+        commits_ahead_of_base: commits ? commits.split("\n") : [],
+    }
+
+    if (dryRun) {
+        return {
+            ok: true,
+            dry_run: true,
+            preview,
+            token_source: tokenResult.ok ? tokenResult.source : "none",
+            auth_warning: tokenResult.ok ? null : tokenResult.error,
+            push_warning: remoteHead
+                ? null
+                : `origin/${head} not found — push the branch before publishing: git push -u origin ${head}`,
+            instructions:
+                "Show the rendered PR preview (title, head → base, change type, body) to the developer. Ask whether to edit, cancel, or publish. Publish only after explicit approval with dry_run:false.",
+            next_action:
+                "Wait for explicit developer approval before calling create_github_pr with dry_run:false.",
+        }
+    }
+
+    if (!remoteHead) {
+        return {
+            ok: false,
+            blocked: true,
+            error: `origin/${head} does not exist. Push the branch first: git push -u origin ${head}`,
+            preview,
+        }
+    }
+
+    if (!tokenResult.ok) {
+        return { ok: false, error: tokenResult.error, preview }
+    }
+
+    try {
+        const res = await githubRequest(
+            "POST",
+            `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls`,
+            tokenResult.token,
+            { title: title.trim(), head, base, body, draft }
+        )
+
+        if (res.status === 201) {
+            return {
+                ok: true,
+                message: `PR #${res.body.number} created successfully.`,
+                number: res.body.number,
+                url: res.body.html_url,
+                head,
+                base,
+                draft: res.body.draft,
+                change_type: changeType,
+                token_source: tokenResult.source,
+            }
+        }
+
+        const apiMessage = res.body && res.body.message ? res.body.message : JSON.stringify(res.body)
+        const fallbackDir = ensureFallbackDir(root)
+        const fallbackPath = path.join(
+            fallbackDir,
+            `${new Date().toISOString().replace(/[:.]/g, "-")}-pr-${slugify(title)}.md`
+        )
+        fs.writeFileSync(
+            fallbackPath,
+            [`# ${title.trim()}`, "", `Base: ${base} · Head: ${head}`, "", "## Body", "", body, ""].join(
+                "\n"
+            ),
+            "utf8"
+        )
+        return {
+            ok: false,
+            error: `GitHub API returned HTTP ${res.status}: ${apiMessage}`,
+            fallback: { markdown_path: fallbackPath },
+        }
+    } catch (err) {
+        return { ok: false, error: `Network error while calling GitHub API: ${err.message}` }
+    }
+}
+
 module.exports = {
     init,
     handle_create_github_issue,
+    handle_create_github_pr,
+    ISSUE_TEMPLATES,
+    PR_TEMPLATES,
+    PR_FOOTER_CHECKLIST,
+    DEFAULT_LABELS,
 }

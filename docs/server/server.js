@@ -1,17 +1,48 @@
 import express from 'express'
 import path from 'path'
 import expressStaticGzip from 'express-static-gzip'
-import { mountAnthropicAI } from './aiAnthropic.js'
 import legacyDocUrls from './legacyDocUrls.js'
 
 // Server middlewares are added here.
 
+// No Content-Security-Policy on purpose: the SSR shell ships inline bootstrap
+// scripts and styles, so a policy would need 'unsafe-inline' and protect
+// almost nothing, while still being flagged by scanners. A real fix is
+// nonce-based inline scripts in the catalyst renderer, tracked separately.
+const PERMISSIONS_POLICY = [
+    'accelerometer=()',
+    'camera=()',
+    'geolocation=()',
+    'gyroscope=()',
+    'magnetometer=()',
+    'microphone=()',
+    'payment=()',
+    'usb=()',
+].join(', ')
+
+// The docs are public and fully same-origin (assets, search, pages), so no
+// cross-origin caller needs access. Pin CORS to the site itself and to
+// read-only methods instead of a wildcard. If a proxy in front of the app
+// also injects `Access-Control-Allow-Origin: *`, that rule has to be removed
+// there: this header cannot override a value added after the app responds.
+const SITE_ORIGIN = (
+    process.env.SITE_URL || 'https://catalyst.1mg.com'
+).replace(/\/$/, '')
+
+export function securityHeaders(req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+    res.vary('Origin')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+    res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
+    next()
+}
+
 export function addMiddlewares(app) {
-    // catalyst-ai only knows about openai and gemini. These routes claim
-    // /ai/anthropic/* first — catalyst-core runs addMiddlewares before it
-    // mounts the catalyst-ai router, and Express matches in registration
-    // order, so the other providers are unaffected. See server/aiAnthropic.js.
-    mountAnthropicAI(app)
+    app.disable('x-powered-by')
+    app.use(securityHeaders)
 
     // Mount prefixes the old docs platform served under. None of them is a
     // real path in this app; each is only ever stripped off the front.
@@ -162,6 +193,12 @@ export function addMiddlewares(app) {
         express.static(path.join(__dirname, '../public/docs-assets'), {
             maxAge: '1d',
         })
+    )
+    // Older versions keep the same layout under /v/<major>/. Misses fall
+    // through to the router, which owns /v/<major>/content/... pages.
+    app.use(
+        '/v',
+        express.static(path.join(__dirname, '../public/v'), { maxAge: '1d' })
     )
 
     // Browsers request /favicon.ico regardless of the <link rel="icon">, and the

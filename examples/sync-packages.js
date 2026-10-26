@@ -11,7 +11,7 @@
  * What it does:
  *   1. Clears node_modules/<name>  (stale copy)
  *   2. Copies packages/<name>/     into node_modules/<name>/
- *      Skips: node_modules, .git
+ *      Skips: node_modules, .git, .build, .swiftpm (SwiftPM output)
  *
  * No build step — these packages ship src directly (no dist).
  * Mirrors the copy-into-node_modules pattern of sync-core.js.
@@ -37,9 +37,13 @@ function rimraf(dir) {
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// SwiftPM output (e.g. from `swift test` in a plugin folder) contains sockets and symlinks that cannot be copied.
+const SKIP_NESTED = new Set(['.build', '.swiftpm']);
+
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (SKIP_NESTED.has(entry.name)) continue;
     const s = path.join(src, entry.name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     const d = path.join(dest, entry.name); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
     entry.isDirectory() ? copyDir(s, d) : fs.copyFileSync(s, d);
@@ -62,7 +66,7 @@ function syncPackage(shortName) {
   rimraf(targetDir);
   fs.mkdirSync(targetDir, { recursive: true });
 
-  const SKIP = new Set(['node_modules', '.git']);
+  const SKIP = new Set(['node_modules', '.git', '.build', '.swiftpm']);
   for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
     if (SKIP.has(entry.name)) continue;
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry.name comes from fs.readdirSync(srcDir), i.e. actual filenames already on disk in the local repo, not request input.
@@ -74,15 +78,18 @@ function syncPackage(shortName) {
 
   ok(`${packageName} → ${path.relative(REPO_ROOT, targetDir)}`);
 
-  // For ai, remind dev to wire up the android module (useNativeAI) in settings.gradle.kts
+  // For ai, point at the android module (useNativeAI). No manual
+  // settings.gradle.kts edit needed: androidProject/settings.gradle.kts
+  // auto-includes :catalyst-ai when node_modules/catalyst-ai/android exists
+  // (this sync's target). Set `ai.enabled: true` in the app config so the
+  // module is bundled into the APK.
   if (shortName === 'ai') {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetDir is derived earlier from the fixed PACKAGE_MAP lookup; 'android' is a hardcoded literal, not request input.
     const androidDir = path.join(targetDir, 'android');
     if (fs.existsSync(androidDir)) {
       console.log(`\x1b[36m  ℹ  Android module at: ${path.relative(REPO_ROOT, androidDir)}\x1b[0m`);
-      console.log(`\x1b[33m  ⚠  Add to settings.gradle.kts:\x1b[0m`);
-      console.log(`       include(":catalyst-ai")`);
-      console.log(`       project(":catalyst-ai").projectDir = File("node_modules/catalyst-ai/android")`);
+      console.log(`\x1b[36m  ℹ  androidProject/settings.gradle.kts auto-includes :catalyst-ai from here.\x1b[0m`);
+      console.log(`\x1b[33m  ⚠  Set "ai": { "enabled": true } in your app config to bundle it into the APK.\x1b[0m`);
     }
   }
 }
