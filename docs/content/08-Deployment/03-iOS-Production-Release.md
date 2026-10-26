@@ -104,14 +104,15 @@ Ephemeral CI machines should not create a new certificate on every run, so CI si
 
 The build imports the certificate into a temporary keychain, adds it to the keychain search list, and installs the profile. When the build ends, also on failure or Ctrl+C, it restores the original search list, deletes the keychain and removes the profile and the decoded files. Inputs that are missing, wrong or do not match the bundle ID fail with [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md).
 
-A GitHub Actions job looks like this:
+A GitHub Actions step looks like this. Apps created with a native platform already have it in `.github/workflows/catalyst-native.yml`; see [Native CI](/content/Deployment/universal-app-deployment#native-ci).
 
 ```yaml
-- run: npx catalyst buildApp:ios --release --build-number ${{ github.run_number }}
+- run: npx catalyst buildApp:ios --release
   env:
-      CATALYST_IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
-      CATALYST_IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
-      CATALYST_IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+      CATALYST_BUILD_NUMBER: ${{ github.run_number }}
+      CATALYST_IOS_P12_BASE64: ${{ secrets.CATALYST_IOS_P12_BASE64 }}
+      CATALYST_IOS_P12_PASSWORD: ${{ secrets.CATALYST_IOS_P12_PASSWORD }}
+      CATALYST_IOS_PROFILE_BASE64: ${{ secrets.CATALYST_IOS_PROFILE_BASE64 }}
 ```
 
 ## 4. Build the IPA

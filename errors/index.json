@@ -670,5 +670,19 @@
         "details": "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
         "suggestedAction": "See the cause above for the underlying error.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-004.md"
+    },
+    "CCA-010": {
+        "category": "CCA",
+        "message": "Invalid --native option",
+        "details": "The --native option must be \"none\", \"android\", \"ios\", \"both\", or \"android,ios\".",
+        "suggestedAction": "Pass a supported --native value, or leave it out to be asked.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-010.md"
+    },
+    "CCA-011": {
+        "category": "CCA",
+        "message": "Invalid app id",
+        "details": "The --app-id value cannot be used as the Android package name or iOS bundle id. It needs at least two dot-separated parts. On Android each part starts with a letter and has only letters, digits and underscores; on iOS only letters, digits, hyphens and dots are allowed.",
+        "suggestedAction": "Pass a reverse-DNS id such as com.yourcompany.myapp.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-011.md"
     }
 }

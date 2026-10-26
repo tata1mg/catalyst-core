@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 96 error codes, then assert the dev
+mistake** for every one of the framework's 98 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 96, one block per code: the mistake, what
+- **`npm run test:error`** — runs all 98, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-96 / 96 codes accounted for: **71 reproduced by a scenario**, **25 in the
+98 / 98 codes accounted for: **73 reproduced by a scenario**, **25 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 96-code ledger
+## The 98-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -91,6 +91,8 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `CCA-007`            | —                                                                            | —              | Failed to extract template files                                        | **LEDGER: not-example-reproducible** |
 | `CCA-008`            | —                                                                            | —              | MCP server setup failed                                                 | **LEDGER: not-example-reproducible** |
 | `CCA-009`            | .gitignore file already exists warning in create-catalyst-app                | cca-cli        | .gitignore already exists                                               | scenario                             |
+| `CCA-010`            | Invalid --native option passed to create-catalyst-app                        | cca-cli        | Invalid --native option                                                 | scenario                             |
+| `CCA-011`            | Invalid --app-id passed to create-catalyst-app                               | cca-cli        | Invalid app id                                                          | scenario                             |
 | `IOS-000`            | iOS build failed in upstream toolchain step                                  | build-native   | iOS build failed in an upstream toolchain step                          | scenario                             |
 | `IOS-001`            | —                                                                            | —              | Could not find an installed iOS Simulator app                           | **LEDGER: not-example-reproducible** |
 | `IOS-002`            | —                                                                            | —              | Full Xcode is not installed or selected                                 | **LEDGER: not-example-reproducible** |
@@ -164,7 +166,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 96, human-readable
+# All 98, human-readable
 npm run test:error
 
 # One code

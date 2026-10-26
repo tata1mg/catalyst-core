@@ -91,6 +91,29 @@ From Catalyst 1.1.1 Xcode does not need to be opened. Before that, `buildApp:ios
 
 See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for signing options, CI variables and troubleshooting.
 
+## Native CI
+
+Apps created with `create-catalyst-app` and a native platform include `.github/workflows/catalyst-native.yml`. It runs on a pushed `v*` tag or by hand from the Actions tab, and has one job per platform you chose:
+
+- `android` on `ubuntu-latest`: Node 22, `npm ci`, JDK 17, the Gradle cache, then `npx catalyst buildApp:android --release`. The AAB is uploaded as the `android-aab` artifact.
+- `ios` on `macos-26` with a pinned Xcode: `npm ci`, then `npx catalyst buildApp:ios --release` with manual signing. The IPA and zipped dSYMs are uploaded as the `ios-ipa` artifact.
+
+Both take the build number from `CATALYST_BUILD_NUMBER`, set to the workflow run number. Nothing is uploaded to Google Play or App Store Connect; download the artifacts and upload them yourself.
+
+Add these repository secrets before the first run. The header of the workflow file lists the same names with the commands to produce them.
+
+| Secret | How to get it |
+|--------|---------------|
+| `CATALYST_ANDROID_KEYSTORE_BASE64` | Run one release build in a terminal to create `credentials/android/upload.jks`, then `base64 < credentials/android/upload.jks` |
+| `CATALYST_ANDROID_STORE_PASSWORD`, `CATALYST_ANDROID_KEY_PASSWORD`, `CATALYST_ANDROID_KEY_ALIAS` | `storePassword`, `keyPassword` and `keyAlias` from `credentials/android/keystore.properties` |
+| `CATALYST_IOS_P12_BASE64` | Export the Apple Distribution certificate with its private key from Keychain Access as a `.p12`, then `base64 < distribution.p12` |
+| `CATALYST_IOS_P12_PASSWORD` | The password chosen for that export |
+| `CATALYST_IOS_PROFILE_BASE64` | `base64 < AppStore.mobileprovision` for the App Store profile of `ios.appBundleId` |
+
+The secrets reach the build through `env:` only, never through the command line. The workflow does not run `catalyst build`, because a release app loads the deployed site. If you turn on `android.buildOptimisation`, add `npm run build` before the Android build step so the bundled assets are current.
+
+To add the workflow to an app created before 1.1.1, scaffold a throwaway app with `npx create-catalyst-app@latest tmp-app --yes --native both` and copy its `.github/workflows/catalyst-native.yml`.
+
 ## What to Validate Before Release
 
 - API host and environment values in `WEBVIEW_CONFIG.release`

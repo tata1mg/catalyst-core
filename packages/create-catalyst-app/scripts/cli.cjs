@@ -21,6 +21,13 @@ const {
     resolveOutputMode,
     getDebugEnvInfo,
 } = require("./errors.cjs")
+const {
+    parseNativeOption,
+    deriveAppId,
+    deriveAppName,
+    validateAppId,
+    applyNativeSetup,
+} = require("./native.cjs")
 const outputMode = resolveOutputMode(process.argv)
 // Colored (red) prefix only applies in default mode — verbose/debug boxes
 // own their coloring internally (see errors.cjs#box).
@@ -57,6 +64,8 @@ const program = new Commander.Command()
             "none"
         )
     )
+    .addOption(new Option("--native <platforms>", "Native platforms to set up: none, android, ios or both"))
+    .addOption(new Option("--app-id <id>", "Android package name and iOS bundle id, e.g. com.example.myapp"))
     .action(async (folderName = null, cmd) => {
         try {
             let config = {
@@ -66,6 +75,7 @@ const program = new Commander.Command()
                 description: null,
                 stateManagement: cmd.stateManagement,
                 mcpSupport: null,
+                nativePlatforms: cmd.native ? parseNativeOption(cmd.native) : null,
             }
 
             if (process.argv.includes("new-route")) {
@@ -93,6 +103,8 @@ const program = new Commander.Command()
                     description: "Default catalyst app",
                     stateManagement: "none",
                     mcpSupport: true,
+                    // Web-only unless --native asks for more.
+                    nativePlatforms: cmd.native ? parseNativeOption(cmd.native) : [],
                 }
             }
 
@@ -128,6 +140,25 @@ const program = new Commander.Command()
                 config.tailWindSupport != null ? config.tailWindSupport : await promptTailwind()
             const stateManagement = config.stateManagement || (await promptStateManagement())
             const mcpSupport = config.mcpSupport != null ? config.mcpSupport : await promptMcp()
+            const nativePlatforms = config.nativePlatforms || (await promptNativePlatforms())
+            let appId = null
+            if (nativePlatforms.length) {
+                appId = cmd.appId ? String(cmd.appId).trim() : null
+                if (appId) {
+                    const problem = validateAppId(appId, nativePlatforms)
+                    if (problem) {
+                        cancelWithError(
+                            createError("CCA-011", { details: problem }),
+                            `"${appId}" is not a valid app id: ${problem}`
+                        )
+                        process.exit(1)
+                    }
+                } else {
+                    appId = cmd.yes
+                        ? deriveAppId(projectName)
+                        : await promptAppId(projectName, nativePlatforms)
+                }
+            }
 
             // Define mapping of options to repository suffixes
             const repositorySuffixes = {
@@ -157,6 +188,16 @@ const program = new Commander.Command()
 
                     extractSubdirectory(packageFilePath)
                     createGitignore(projectName)
+
+                    if (nativePlatforms.length) {
+                        runStep(`Setting up ${nativePlatforms.map(platformLabel).join(" and ")}`, () =>
+                            applyNativeSetup(projectPath, {
+                                platforms: nativePlatforms,
+                                appId,
+                                appName: deriveAppName(projectName),
+                            })
+                        )
+                    }
 
                     // npm's install output is hundreds of lines nobody reads
                     // when it works. Fold it behind a spinner, and print it in
@@ -211,6 +252,23 @@ const program = new Commander.Command()
                         ].join("\n"),
                         `Created ${bold(projectName)}`
                     )
+
+                    if (nativePlatforms.length) {
+                        clack.note(
+                            [
+                                ...nativePlatforms.flatMap((platform) => [
+                                    `${cyan(`npm run setupEmulator:${platform}`.padEnd(32))}${gray(`Set up the ${platformLabel(platform)} toolchain`)}`,
+                                    `${cyan(`npm run buildApp:${platform}`.padEnd(32))}${gray(`Run the app on ${platformLabel(platform)}`)}`,
+                                ]),
+                                "",
+                                gray(`App id: ${appId}`),
+                                gray("Before a release build, set WEBVIEW_CONFIG.release.LOCAL_IP"),
+                                gray("in config/config.json to your production host."),
+                                gray("CI workflow: .github/workflows/catalyst-native.yml"),
+                            ].join("\n"),
+                            "Native apps"
+                        )
+                    }
 
                     if (mcpEntry) {
                         // The one thing from the MCP setup a person has to act
@@ -536,6 +594,38 @@ async function promptMcp() {
     )
 }
 
+const platformLabel = (platform) => (platform === "ios" ? "iOS" : "Android")
+
+async function promptNativePlatforms() {
+    const answer = exitIfCancelled(
+        await clack.select({
+            message: "Native platforms",
+            options: [
+                { value: "none", label: "None", hint: "web only" },
+                { value: "android", label: "Android" },
+                { value: "ios", label: "iOS" },
+                { value: "both", label: "Android and iOS" },
+            ],
+            initialValue: "none",
+        })
+    )
+    return parseNativeOption(answer)
+}
+
+async function promptAppId(projectName, platforms) {
+    const suggested = deriveAppId(projectName)
+    return exitIfCancelled(
+        await clack.text({
+            message: "App id (Android package name / iOS bundle id)",
+            placeholder: suggested,
+            defaultValue: suggested,
+            validate(value) {
+                return validateAppId((value || suggested).trim(), platforms)
+            },
+        })
+    ).trim()
+}
+
 function validateOptions(cmd) {
     // Validate language option
     if (cmd.lang && !["js", "ts"].includes(cmd.lang.toLowerCase())) {
@@ -549,6 +639,10 @@ function validateOptions(cmd) {
 
     if (cmd.yes && typeof cmd.yes !== "boolean") {
         throw createError("CCA-005")
+    }
+
+    if (cmd.native !== undefined && parseNativeOption(cmd.native) === null) {
+        throw createError("CCA-010")
     }
 }
 

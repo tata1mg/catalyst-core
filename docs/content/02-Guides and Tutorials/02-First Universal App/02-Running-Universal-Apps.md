@@ -22,6 +22,8 @@ id: RunUniversalApp
 npx create-catalyst-app@latest
 ```
 
+Pick Android, iOS or both under "Native platforms" and give the app id. This fills in the native part of `config/config.json` and adds a placeholder icon and a CI workflow. See [First Universal App](/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app) for what is generated.
+
 ### 2. Set Up the Emulator or Simulator
 
 ```bash
@@ -45,7 +47,16 @@ A debug build checks whether the dev server is listening on `WEBVIEW_CONFIG.port
 
 ### 4. Set the App Icon
 
-Add `public/icon.png`: a square PNG of at least 1024x1024 pixels. Android uses it as the launcher icon and iOS as a single 1024 AppIcon that Xcode scales. Keep it opaque; the App Store rejects icons with transparency. Per-density icons in `public/android/appIcons` and sized icons in `public/ios/appIcons` take precedence when present.
+Replace the placeholder `public/icon.png` (or add one, for an app created without native platforms): a square PNG of at least 1024x1024 pixels. Android uses it as the launcher icon and iOS as a single 1024 AppIcon that Xcode scales. Keep it opaque; the App Store rejects icons with transparency. Per-density icons in `public/android/appIcons` and sized icons in `public/ios/appIcons` take precedence when present.
+
+### 5. Build for Release
+
+```bash
+npm run buildApp:android -- --release --build-number 1
+npm run buildApp:ios -- --release --build-number 1
+```
+
+A release build uses `WEBVIEW_CONFIG.release` for the production host and fails on a local or private one. [Universal App Deployment](/content/Deployment/universal-app-deployment) covers signing, version numbers and the CI workflow.
 
 ---
 
