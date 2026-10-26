@@ -32,6 +32,11 @@ export const ERROR_CODES = {
     IOS_SIMULATOR_APP_NOT_FOUND: "IOS-001",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
+    ANDROID_RELEASE_PRIVATE_HOST: "ANDROID-002",
+    ANDROID_RELEASE_BUILD_NUMBER_MISSING: "ANDROID-003",
+    ANDROID_INVALID_BUILD_NUMBER: "ANDROID-004",
+    ANDROID_UPLOAD_KEY_MISSING: "ANDROID-005",
+    ANDROID_UPLOAD_KEY_INVALID: "ANDROID-006",
 
     RUNTIME_NATIVE_PERMISSION_DENIED: "RUNTIME-NATIVE-001",
     RUNTIME_NATIVE_PERMISSION_REQUIRED: "RUNTIME-NATIVE-002",
@@ -82,7 +87,8 @@ export const ERROR_DEFINITIONS = {
         category: "PREFLIGHT",
         defaultMessage: "config not found in config folder",
         defaultDetails: "A config object must be exported from the config folder in your project root.",
-        suggestedAction: "Create config/config.json (or config/index.js) exporting the required config object.",
+        suggestedAction:
+            "Create config/config.json (or config/index.js) exporting the required config object.",
     },
     [ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT]: {
         category: "PREFLIGHT",
@@ -137,7 +143,8 @@ export const ERROR_DEFINITIONS = {
         category: "PREFLIGHT",
         defaultMessage: "preServerInit named function should be defined in server/index.js",
         defaultDetails: "server/index.js must export a preServerInit function.",
-        suggestedAction: "Export a preServerInit function from server/index.js, or remove the reference to it.",
+        suggestedAction:
+            "Export a preServerInit function from server/index.js, or remove the reference to it.",
     },
     [ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION]: {
         category: "PREFLIGHT",
@@ -238,15 +245,18 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.IOS_UPSTREAM_ERROR]: {
         category: "IOS",
         defaultMessage: "iOS build failed in an upstream toolchain step",
-        defaultDetails: "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
-        suggestedAction: "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
+        defaultDetails:
+            "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
+        suggestedAction:
+            "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
     },
     [ERROR_CODES.IOS_SIMULATOR_APP_NOT_FOUND]: {
         category: "IOS",
         defaultMessage: "Could not find an installed iOS Simulator app",
         defaultDetails:
             "Neither DeviceHub.app (Xcode 27+, bundle id com.apple.dt.Devices) nor the legacy Simulator.app (bundle id com.apple.iphonesimulator) is installed under Xcode's Contents/Applications. The simulator itself may still boot headlessly via simctl, but catalyst-core cannot open or focus its window.",
-        suggestedAction: "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
+        suggestedAction:
+            "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
     },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",
@@ -261,6 +271,49 @@ export const ERROR_DEFINITIONS = {
             "buildApp:android launched the configured AVD but it did not appear in `adb devices` or did not finish booting (sys.boot_completed=1 and init.svc.bootanim=stopped) within the timeout.",
         suggestedAction:
             "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
+    },
+    // The messages and suggested actions of ANDROID-002..006 are copied into
+    // src/native/utils.js NATIVE_ERRORS (the CJS native subtree can't import
+    // this module); test/native/releaseConfig.test.ts keeps the two equal.
+    [ERROR_CODES.ANDROID_RELEASE_PRIVATE_HOST]: {
+        category: "ANDROID",
+        defaultMessage: "Release build points at a local or private host",
+        defaultDetails:
+            "The release start URL, built from WEBVIEW_CONFIG.release merged over WEBVIEW_CONFIG (useHttps, LOCAL_IP, port), names localhost, a loopback, RFC 1918, link-local or .local address, or this machine's own address. Users' devices cannot reach it, so the store build would open on an error page.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
+    },
+    [ERROR_CODES.ANDROID_RELEASE_BUILD_NUMBER_MISSING]: {
+        category: "ANDROID",
+        defaultMessage: "Release build has no build number",
+        defaultDetails:
+            "Google Play needs a new, higher versionCode for every upload. None was given through --build-number, the CATALYST_BUILD_NUMBER environment variable, or WEBVIEW_CONFIG.android.version.buildNumber.",
+        suggestedAction:
+            "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.android.version.buildNumber.",
+    },
+    [ERROR_CODES.ANDROID_INVALID_BUILD_NUMBER]: {
+        category: "ANDROID",
+        defaultMessage: "Invalid build number",
+        defaultDetails:
+            "The build number becomes the app's versionCode, which must be a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
+        suggestedAction:
+            "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+    },
+    [ERROR_CODES.ANDROID_UPLOAD_KEY_MISSING]: {
+        category: "ANDROID",
+        defaultMessage: "No upload key for the release build",
+        defaultDetails:
+            "A release build signs the app bundle with the app's upload key. None was found at credentials/android/upload.jks, android.signing.storeFile or CATALYST_ANDROID_KEYSTORE_BASE64, and a new key is only created after a yes in an interactive terminal.",
+        suggestedAction:
+            "Run the release build once in a terminal to create credentials/android/upload.jks, or in CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD (plus CATALYST_ANDROID_KEY_ALIAS and CATALYST_ANDROID_KEY_PASSWORD when they differ from the defaults).",
+    },
+    [ERROR_CODES.ANDROID_UPLOAD_KEY_INVALID]: {
+        category: "ANDROID",
+        defaultMessage: "Upload key settings are incomplete or wrong",
+        defaultDetails:
+            "An upload keystore was found but cannot be used: its file is missing, no store password was given, or keytool rejected the password or alias.",
+        suggestedAction:
+            "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
     },
 
     [ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED]: {
@@ -369,8 +422,10 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_CALLBACK]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Invalid callback interface",
-        defaultDetails: "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
-        suggestedAction: "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
+        defaultDetails:
+            "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
+        suggestedAction:
+            "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED]: {
         category: "RUNTIME-NATIVE",
@@ -382,13 +437,15 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_THREW]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "A registered bridge callback handler threw",
-        defaultDetails: "The JS handler registered for this native callback interface threw an error while processing the callback.",
+        defaultDetails:
+            "The JS handler registered for this native callback interface threw an error while processing the callback.",
         suggestedAction: "Fix the error thrown inside the registered handler (see the cause above).",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Invalid bridge callback registration",
-        defaultDetails: "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
+        defaultDetails:
+            "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
         suggestedAction: "Pass a function as the callback and a valid interface name from NATIVE_CALLBACKS.",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INIT_FAILED]: {
@@ -403,7 +460,8 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "AI provider request failed",
         defaultDetails:
             "This is a wrapper around a non-2xx response or thrown error from the upstream AI provider (OpenAI/Gemini). See the printed upstream status/message for the actual cause — catalyst-ai does not reinterpret it.",
-        suggestedAction: "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
+        suggestedAction:
+            "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
     },
     [ERROR_CODES.AI_DISABLED]: {
         category: "AI",
@@ -414,31 +472,37 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED]: {
         category: "AI",
         defaultMessage: "AI provider not configured",
-        defaultDetails: "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
+        defaultDetails:
+            "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
         suggestedAction: "Add the provider's apiKey to AI_CONFIG.providers, or use a configured provider.",
     },
     [ERROR_CODES.AI_INVALID_REQUEST_BODY]: {
         category: "AI",
         defaultMessage: "Invalid AI request body",
-        defaultDetails: "The request body is missing a non-empty messages array, or no model could be resolved.",
+        defaultDetails:
+            "The request body is missing a non-empty messages array, or no model could be resolved.",
         suggestedAction: "Pass a non-empty messages array, and either a model or a provider defaultModel.",
     },
     [ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE]: {
         category: "AI",
         defaultMessage: "Native AI bridge unavailable",
-        defaultDetails: "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
-        suggestedAction: "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
+        defaultDetails:
+            "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
+        suggestedAction:
+            "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
     },
     [ERROR_CODES.AI_NATIVE_STREAM_NOT_READY]: {
         category: "AI",
         defaultMessage: "Native AI stream not ready",
-        defaultDetails: "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
+        defaultDetails:
+            "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
         suggestedAction: "Wait for modelReady to become true before calling generate().",
     },
     [ERROR_CODES.AI_NATIVE_REQUEST_FAILED]: {
         category: "AI",
         defaultMessage: "Native AI request failed",
-        defaultDetails: "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
+        defaultDetails:
+            "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
         suggestedAction: "See the cause above for the native-reported status/message.",
     },
     [ERROR_CODES.AI_NATIVE_CALLBACK_ERROR]: {
@@ -451,7 +515,8 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE]: {
         category: "AI",
         defaultMessage: "Web AI worker unavailable",
-        defaultDetails: "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
+        defaultDetails:
+            "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
         suggestedAction: "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
     },
     [ERROR_CODES.AI_WEB_WORKER_CRASHED]: {
@@ -459,7 +524,8 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "Web AI worker crashed",
         defaultDetails:
             "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
-        suggestedAction: "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
+        suggestedAction:
+            "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
     },
 
     [ERROR_CODES.RUNTIME_WEB_RENDER_FAILED]: {

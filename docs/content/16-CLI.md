@@ -69,9 +69,17 @@ production-style run.
 | Command | Purpose |
 |---------|---------|
 | `npm run buildApp:android` | Build and run the Android debug app |
+| `npm run buildApp:android -- --release --build-number <n>` | Build the signed Android App Bundle for Google Play |
 | `npm run buildApp:ios` | Build and run the iOS app using the configured build type |
 
-For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. Release behavior is driven by the configured `buildType`, not by a separate built-in `:release` command.
+For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. `buildApp:android` builds a release when given `--release` or when `WEBVIEW_CONFIG.android.buildType` is `release`.
+
+| Option | Effect |
+|--------|--------|
+| `--release` | Build the signed store release, using `WEBVIEW_CONFIG.release` over the base config |
+| `--build-number <n>` | The store build number (Android `versionCode`). Also read from `CATALYST_BUILD_NUMBER` |
+
+The flags can go before or after the command. Android release signing reads `CATALYST_ANDROID_KEYSTORE_BASE64`, `CATALYST_ANDROID_STORE_PASSWORD`, `CATALYST_ANDROID_KEY_PASSWORD` and `CATALYST_ANDROID_KEY_ALIAS` in CI; see [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) for the full flow.
 
 ## Production Web Flow
 

@@ -272,6 +272,41 @@
         "suggestedAction": "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-001.md"
     },
+    "ANDROID-002": {
+        "category": "ANDROID",
+        "message": "Release build points at a local or private host",
+        "details": "The release start URL, built from WEBVIEW_CONFIG.release merged over WEBVIEW_CONFIG (useHttps, LOCAL_IP, port), names localhost, a loopback, RFC 1918, link-local or .local address, or this machine's own address. Users' devices cannot reach it, so the store build would open on an error page.",
+        "suggestedAction": "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-002.md"
+    },
+    "ANDROID-003": {
+        "category": "ANDROID",
+        "message": "Release build has no build number",
+        "details": "Google Play needs a new, higher versionCode for every upload. None was given through --build-number, the CATALYST_BUILD_NUMBER environment variable, or WEBVIEW_CONFIG.android.version.buildNumber.",
+        "suggestedAction": "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.android.version.buildNumber.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-003.md"
+    },
+    "ANDROID-004": {
+        "category": "ANDROID",
+        "message": "Invalid build number",
+        "details": "The build number becomes the app's versionCode, which must be a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
+        "suggestedAction": "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-004.md"
+    },
+    "ANDROID-005": {
+        "category": "ANDROID",
+        "message": "No upload key for the release build",
+        "details": "A release build signs the app bundle with the app's upload key. None was found at credentials/android/upload.jks, android.signing.storeFile or CATALYST_ANDROID_KEYSTORE_BASE64, and a new key is only created after a yes in an interactive terminal.",
+        "suggestedAction": "Run the release build once in a terminal to create credentials/android/upload.jks, or in CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD (plus CATALYST_ANDROID_KEY_ALIAS and CATALYST_ANDROID_KEY_PASSWORD when they differ from the defaults).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-005.md"
+    },
+    "ANDROID-006": {
+        "category": "ANDROID",
+        "message": "Upload key settings are incomplete or wrong",
+        "details": "An upload keystore was found but cannot be used: its file is missing, no store password was given, or keytool rejected the password or alias.",
+        "suggestedAction": "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-006.md"
+    },
     "RUNTIME-NATIVE-001": {
         "category": "RUNTIME-NATIVE",
         "message": "Permission denied",

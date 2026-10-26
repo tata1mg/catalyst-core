@@ -116,13 +116,13 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: 'Requires WEBVIEW_CONFIG.android.buildType="release". keystoreConfig must be present with real passwords (not placeholder values).',
+            detail: "WEBVIEW_CONFIG.release holds the production LOCAL_IP/port/useHttps/apiBaseUrl (deep-merged over WEBVIEW_CONFIG). A LAN or localhost start URL fails with ANDROID-002. A build number is required (--build-number, CATALYST_BUILD_NUMBER or android.version.buildNumber).",
         },
         {
             step: 2,
             cmd: null,
-            label: "Pre-check: keystore fields",
-            detail: "Required keystoreConfig fields: keyAlias, storePassword, keyPassword, organizationInfo (companyName, city, state, countryCode).",
+            label: "Pre-check: upload key",
+            detail: "The upload key lives in credentials/android/upload.jks + keystore.properties (created after a terminal confirm on the first release build). In CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD.",
         },
         {
             step: 3,
@@ -132,9 +132,9 @@ const MASTER_FLOWS = {
         },
         {
             step: 4,
-            cmd: "npm run buildApp:android",
+            cmd: "npx catalyst buildApp:android --release --build-number <n>",
             label: "Android release build",
-            detail: "Skips emulator validation. Runs Gradle release build. Calls buildAndroidAAB() — renames project, creates/verifies keystore, signs AAB. Output goes to ./deployment/.",
+            detail: "Skips emulator validation. Calls buildAndroidAAB() — renames project, generates the release webview config and signs the AAB with the upload key. Output goes to ./build-output/.",
         },
         {
             step: 5,
@@ -304,7 +304,8 @@ const MASTER_DIAGRAMS = {
             "splashScreen — duration, minDuration, backgroundColor, image size; optional animated public/splashscreen.html (1.0.2+)",
             "notifications.enabled — push notification permission prompt",
             "android.buildOptimisation — enables build caching",
-            "android.keystoreConfig — signing for release builds",
+            "release — production overrides merged over WEBVIEW_CONFIG for release builds",
+            "android.version — { major, minor, patch, buildNumber } for release builds",
             "ios.appBundleId — bundle identifier for App Store",
         ],
     },
@@ -510,7 +511,6 @@ function getProjectContext(root) {
         hasIos: !!wv.ios,
         androidBuildType: (wv.android?.buildType || "debug").toLowerCase(),
         iosBuildType: (wv.ios?.buildType || "debug").toLowerCase(),
-        hasKeystore: !!wv.android?.keystoreConfig,
         hasGoogleSignIn: !!wv.googleSignIn?.enabled,
         hasNotifications: !!wv.notifications?.enabled,
         hasEcosystem: fileExists("ecosystem.config.js"),
@@ -606,9 +606,9 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
         flow_key = isRelease ? "android_release" : "android_debug"
 
         if (isRelease) {
-            if (!ctx.hasKeystore) {
+            if (!ctx.wv.release) {
                 warnings.push(
-                    "WEBVIEW_CONFIG.android.keystoreConfig missing — release build will fail at AAB signing step. Add keystoreConfig with keyAlias, storePassword, keyPassword, organizationInfo."
+                    "WEBVIEW_CONFIG.release missing — the release build uses the base LOCAL_IP and fails (ANDROID-002) if it is a LAN or localhost address. Add a release block with the production host."
                 )
             }
         } else {

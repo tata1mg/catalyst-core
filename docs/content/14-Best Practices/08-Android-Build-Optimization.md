@@ -45,9 +45,9 @@ Be conservative. Over-caching low-value assets increases package size and can ma
 
 ## Release Checklist
 
-- set `WEBVIEW_CONFIG.android.buildType` to `release`
-- provide a valid `keystoreConfig` for signing
-- run `catalyst build` before the Android release build
+- add the production host to `WEBVIEW_CONFIG.release`
+- back up the upload key in `credentials/android/`, or set the `CATALYST_ANDROID_*` signing variables in CI
+- run `catalyst build` before the Android release build (`buildApp:android --release --build-number <n>`)
 - verify AAB size impact after changing cache patterns
 - test cold start performance on a real device, not just an emulator
 

@@ -5,6 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
 const { ensureLocalProperties } = require("../utils.js")
+const { signingGradleEnv } = require("./signing.js")
 
 // adb answers in milliseconds when healthy. A wedged adb server accepts the
 // connection and never replies, so without a bound the build sat on
@@ -18,8 +19,20 @@ const DEFAULT_DEPLOYMENT_PATH = "./deployment"
 const DEFAULT_OLD_PROJECT_NAME = "androidProject"
 const DEFAULT_OVERWRITE_EXISTING = true
 
+/**
+ * Version and application id as Gradle project properties, passed through
+ * the environment (ORG_GRADLE_PROJECT_*) like the signing values.
+ */
+function versionGradleEnv({ applicationId, version } = {}) {
+    const env = {}
+    if (applicationId) env.ORG_GRADLE_PROJECT_catalystApplicationId = applicationId
+    if (version?.buildNumber) env.ORG_GRADLE_PROJECT_catalystVersionCode = String(version.buildNumber)
+    if (version?.versionName) env.ORG_GRADLE_PROJECT_catalystVersionName = version.versionName
+    return env
+}
+
 function createBuildPhase(ctx) {
-    const { configPath, pwd, progress, ANDROID_PACKAGE } = ctx
+    const { configPath: defaultConfigPath, pwd, progress, ANDROID_PACKAGE } = ctx
 
     async function detectPhysicalDevice(ADB_PATH) {
         try {
@@ -343,7 +356,13 @@ function createBuildPhase(ctx) {
         return { type: "emulator", name: androidConfig.emulatorName }
     }
 
-    async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
+    async function buildApp(
+        ADB_PATH,
+        androidConfig,
+        buildOptimisation,
+        targetDevice = null,
+        { configPath = defaultConfigPath, applicationId, version } = {}
+    ) {
         progress.status("building and installing app")
         try {
             // Gradle needs the SDK location in local.properties. Only
@@ -355,7 +374,7 @@ function createBuildPhase(ctx) {
             // error output entirely. --console=rich emits ANSI redraws, which
             // are meaningless on a pipe; plain gives one line per task.
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --console=plain`
+            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PcatalystBuildType=debug -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} -PcatalystBuildType=debug --console=plain`
 
             if (targetDevice && targetDevice.type === "physical") {
                 buildCommand = buildCommand.replace(
@@ -371,7 +390,10 @@ function createBuildPhase(ctx) {
                 "sh",
                 ["-c", buildCommand],
                 { "BUILD SUCCESSFUL": "" },
-                { onLine: (line) => progress.status(gradleTask(line)) }
+                {
+                    onLine: (line) => progress.status(gradleTask(line)),
+                    env: { ...process.env, ...versionGradleEnv({ applicationId, version }) },
+                }
             )
         } catch (error) {
             // Re-wrapping with a new Error dropped `output`, and with it the
@@ -381,7 +403,12 @@ function createBuildPhase(ctx) {
         }
     }
 
-    async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
+    async function launchApp(
+        ADB_PATH,
+        buildType = "debug",
+        targetDevice = null,
+        applicationId = ANDROID_PACKAGE
+    ) {
         if (!targetDevice) {
             progress.log("No target device specified, skipping launch", "warning")
             return
@@ -395,7 +422,7 @@ function createBuildPhase(ctx) {
 
         try {
             progress.status("launching app on emulator")
-            const packageName = `${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""}`
+            const packageName = `${applicationId}${buildType === "debug" ? ".debug" : ""}`
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
             const launchCommand = `${ADB_PATH} shell monkey -p ${packageName} 1`
             await ctx.runInteractiveCommand("sh", ["-c", launchCommand], {})
@@ -403,6 +430,22 @@ function createBuildPhase(ctx) {
             progress.log(`Warning: Could not auto-launch app: ${error.message}`, "warning")
             progress.log("App was installed successfully, but auto-launch failed", "info")
         }
+    }
+
+    function aabNames(androidConfig) {
+        const newProjectName =
+            androidConfig.newProjectName ||
+            androidConfig.appName ||
+            androidConfig.packageName?.split(".").pop() ||
+            "catalystapp"
+        const outputPath = androidConfig.outputPath || `${process.cwd()}/build-output`
+        return { newProjectName, outputPath }
+    }
+
+    /** Where releases before 1.1.1 left a copy of their (per-build) keystore. */
+    function legacyKeystorePath(androidConfig) {
+        const { newProjectName, outputPath } = aabNames(androidConfig)
+        return path.join(outputPath, `${newProjectName}-keystore.jks`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - outputPath and the name come from the app's own config.
     }
 
     async function createAABConfig(androidConfig) {
@@ -417,33 +460,12 @@ function createBuildPhase(ctx) {
                     ? androidConfig.overwriteExisting
                     : DEFAULT_OVERWRITE_EXISTING,
 
-            newProjectName:
-                androidConfig.newProjectName ||
-                androidConfig.appName ||
-                androidConfig.packageName?.split(".").pop() ||
-                "catalystapp",
+            newProjectName: aabNames(androidConfig).newProjectName,
 
             packageName: androidConfig.packageName || null,
 
             createSignedAAB: true,
-            outputPath: androidConfig.outputPath || `${process.cwd()}/build-output`,
-        }
-
-        if (androidConfig.keystoreConfig) {
-            aabConfig.keystoreConfig = androidConfig.keystoreConfig
-        } else if (androidConfig.keystore) {
-            aabConfig.keystoreConfig = {
-                keyAlias: androidConfig.keystore.alias || "release",
-                storePassword: androidConfig.keystore.storePassword,
-                keyPassword: androidConfig.keystore.keyPassword,
-                validityYears: 25,
-                organizationInfo: {
-                    companyName: androidConfig.keystore.organizationName || "YourCompany",
-                    city: androidConfig.keystore.city || "YourCity",
-                    state: androidConfig.keystore.state || "YourState",
-                    countryCode: androidConfig.keystore.countryCode || "US",
-                },
-            }
+            outputPath: aabNames(androidConfig).outputPath,
         }
 
         progress.log(`AAB Configuration:`, "info")
@@ -533,35 +555,40 @@ function createBuildPhase(ctx) {
         }
     }
 
-    async function buildSignedAAB(androidConfig) {
+    /**
+     * Build the signed release bundle. The webview config is generated in
+     * the temp_build_<pkg> copy that Gradle then bundles, from the resolved
+     * release config and with -PcatalystBuildType=release, so the release
+     * branch of generateWebViewConfig actually runs. Signing and version
+     * values reach Gradle through the environment, never argv.
+     */
+    async function buildSignedAAB(
+        androidConfig,
+        { configPath = defaultConfigPath, signing, version, applicationId, buildOptimisation = false } = {}
+    ) {
         progress.log("Building signed AAB for release...", "info")
 
         try {
+            if (!signing) throw new Error("No upload key resolved for the release build")
             // Same as buildApp: gradle needs local.properties on a fresh machine.
             if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
 
-            progress.log("Generating webview configuration for release...", "info")
-            try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-                const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-                await ctx.runInteractiveCommand(
-                    "sh",
-                    ["-c", generateConfigCommand],
-                    { "BUILD SUCCESSFUL": "" },
-                    { onLine: (line) => progress.status(gradleTask(line)) }
-                )
-                progress.log("Webview config generated successfully", "success")
-            } catch (configError) {
-                progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
-                throw new Error("Webview config generation is required for release builds")
-            }
-
             const aabConfig = await createAABConfig(androidConfig)
+            aabConfig.gradle = {
+                configPath,
+                buildOptimisation,
+                env: {
+                    ...process.env,
+                    ...versionGradleEnv({ applicationId, version }),
+                    ...signingGradleEnv(signing),
+                },
+            }
             // buildAndroidAAB shells out to `./gradlew bundleRelease` and prints
             // its own progress lines, so it owns the screen for its duration.
-            await withStreamedOutput(() => buildAndroidAAB(aabConfig))
+            const result = await withStreamedOutput(() => buildAndroidAAB(aabConfig))
 
             progress.log("Signed AAB build completed successfully!", "success")
+            return result
         } catch (error) {
             error.stage = "Building the signed AAB"
             throw error
@@ -578,6 +605,7 @@ function createBuildPhase(ctx) {
         buildApp,
         launchApp,
         createAABConfig,
+        legacyKeystorePath,
         moveApkToOutputPath,
         buildSignedAAB,
     }

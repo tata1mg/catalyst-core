@@ -12,6 +12,7 @@ const { resolvePluginConfig, resolveInternalPluginsRoot } = require("../internal
 const createConfigPhase = require("./config.js")
 const createAssetsPhase = require("./assets.js")
 const createBuildPhase = require("./build.js")
+const { resolveAndroidSigning } = require("./signing.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -21,13 +22,20 @@ const ANDROID_PACKAGE = "io.yourname.androidproject"
 const steps = {
     config: "Initialize configuration",
     tools: "Validate Android tools",
+    signing: "Resolve upload key",
     emulator: "Check and start emulator",
     copyAssets: "Copy build assets",
     build: "Build and install application",
     aab: "Build signed AAB",
 }
 
-function createAndroidBuild(config) {
+/**
+ * @param {object} config - { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } from config.json
+ * @param {object} [options]
+ * @param {boolean} [options.release] - `--release`: build the signed AAB whatever android.buildType says
+ * @param {string} [options.buildNumber] - `--build-number`
+ */
+function createAndroidBuild(config, { release: releaseFlag = false, buildNumber } = {}) {
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
     const configPath = `${process.cwd()}/config/config.json`
@@ -63,6 +71,7 @@ function createAndroidBuild(config) {
         handleEmulatorSetup,
         buildApp,
         launchApp,
+        legacyKeystorePath,
         moveApkToOutputPath,
         buildSignedAAB,
     } = createBuildPhase(ctx)
@@ -100,18 +109,38 @@ function createAndroidBuild(config) {
     async function buildAndroidApp() {
         let androidConfig = null
         let targetDevice = null
+        let resolved = null
+        let signing = null
 
         try {
             progress.start("config")
-            const { WEBVIEW_CONFIG: wvConfig, BUILD_OUTPUT_PATH: bop } = await initializeConfig()
+            resolved = await initializeConfig({ release: releaseFlag, buildNumber })
+            const { WEBVIEW_CONFIG: wvConfig, BUILD_OUTPUT_PATH: bop, version, applicationId } = resolved
             androidConfig = wvConfig.android
             const buildType = androidConfig.buildType || "debug"
             const buildOptimisation = !!androidConfig.buildOptimisation || false
+            progress.log(
+                `Version ${version.versionName || "(template default)"} (${version.buildNumber}), ${applicationId}`,
+                "info"
+            )
             progress.complete("config")
 
             progress.start("tools")
             const { ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig)
             progress.complete("tools")
+
+            if (buildType === "release") {
+                progress.start("signing")
+                signing = await resolveAndroidSigning({
+                    appRoot: process.cwd(),
+                    androidConfig,
+                    log: (message, type) => progress.log(message, type),
+                    legacyKeystorePath: legacyKeystorePath(androidConfig),
+                    commonName: androidConfig.appName,
+                })
+                progress.log(`Upload key: ${signing.source} (alias ${signing.keyAlias})`, "info")
+                progress.complete("signing")
+            }
 
             if (buildType !== "release") {
                 progress.start("emulator")
@@ -171,16 +200,21 @@ function createAndroidBuild(config) {
             syncAIPackageIfEnabled(wvConfig, progress)
             progress.complete("copyAssets")
 
+            const gradleOptions = { configPath: resolved.resolvedConfigPath, applicationId, version }
             let movedApkPath = null
             if (buildType === "release") {
                 progress.start("aab")
-                await buildSignedAAB(androidConfig)
+                const aab = await buildSignedAAB(androidConfig, {
+                    ...gradleOptions,
+                    signing,
+                    buildOptimisation,
+                })
                 progress.complete("aab")
-                movedApkPath = await moveApkToOutputPath(buildType, bop, androidConfig.appName)
+                movedApkPath = aab?.finalAabPath || null
             } else {
                 progress.start("build")
-                await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice)
-                await launchApp(ADB_PATH, buildType, targetDevice)
+                await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice, gradleOptions)
+                await launchApp(ADB_PATH, buildType, targetDevice, applicationId)
                 progress.complete("build")
                 movedApkPath = await moveApkToOutputPath(buildType, bop, androidConfig.appName)
             }
@@ -191,23 +225,29 @@ function createAndroidBuild(config) {
                 targetDevice?.type === "physical"
                     ? targetDevice.model
                     : `${androidConfig.emulatorName} emulator`
-            const summaryItems = [{ text: `device     ${deviceName}`, color: "gray" }]
+            const summaryItems =
+                buildType === "release" ? [] : [{ text: `device     ${deviceName}`, color: "gray" }]
             if (movedApkPath) {
                 summaryItems.push({
                     text: `artifact   ${displayPath(movedApkPath, process.cwd())}`,
                     color: "gray",
                 })
             }
-            if (buildType === "release") {
-                summaryItems.push({ text: `output     Signed AAB in build-output/`, color: "gray" })
-            }
+            summaryItems.push({
+                text: `version    ${version.versionName || "default"} (${version.buildNumber})`,
+                color: "gray",
+            })
             summaryItems.push({
                 text: `build      ${buildType}${buildOptimisation ? ", optimised" : ""}`,
                 color: "gray",
             })
 
             progress.printTreeContent("Build", summaryItems)
-            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
+            if (buildType === "release") {
+                progress.summary("Built the signed AAB", "Upload it to Google Play")
+            } else {
+                progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
+            }
         } catch (error) {
             // Mark the step, then show what actually broke. The old handler
             // printed a generic "check your SDK" checklist here, which is
@@ -220,12 +260,17 @@ function createAndroidBuild(config) {
             )
 
             throw error
+        } finally {
+            // The decoded CI keystore and the resolved config are temp files.
+            signing?.cleanup()
+            resolved?.cleanup()
         }
     }
 
     async function buildAndroidForTesting() {
         try {
-            const { WEBVIEW_CONFIG: wvConfig } = await initializeConfig()
+            const { WEBVIEW_CONFIG: wvConfig, cleanup } = await initializeConfig()
+            cleanup()
             const androidConfig = wvConfig.android
             const buildOptimisation = !!androidConfig.buildOptimisation || false
 

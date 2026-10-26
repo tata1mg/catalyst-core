@@ -170,7 +170,8 @@ public enum ConfigConstants {
 
             if (WEBVIEW_CONFIG && typeof WEBVIEW_CONFIG === "object") {
                 for (const [key, value] of Object.entries(WEBVIEW_CONFIG)) {
-                    if (key === "ios" || key === "android") continue
+                    // `release` is the override block resolveNativeConfig merges for release builds.
+                    if (key === "ios" || key === "android" || key === "release") continue
                     if (key === "notifications")
                         progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
                     configContent += "\n" + generateSwiftProperty(key, value)

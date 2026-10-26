@@ -2,7 +2,17 @@
 
 const fs = require("fs")
 const os = require("os")
-const { detectAndroidSdk, listAvds, expandHome, ANDROID_SDK_HINT } = require("../utils.js")
+const {
+    detectAndroidSdk,
+    listAvds,
+    expandHome,
+    ANDROID_SDK_HINT,
+    resolveNativeConfig,
+    assertReleaseHost,
+    resolveAppVersion,
+} = require("../utils.js")
+
+const TEMPLATE_APPLICATION_ID = "io.yourname.androidproject"
 
 /** An error carrying the one action that fixes it, shown as the diagnostic's hint. */
 function withHint(message, hint) {
@@ -14,29 +24,67 @@ const tilde = (dir) => (dir.startsWith(os.homedir()) ? `~${dir.slice(os.homedir(
 function createConfigPhase(ctx) {
     const { configPath, progress } = ctx
 
-    async function initializeConfig() {
+    /**
+     * Read config.json and resolve what this build uses: release or debug
+     * (`--release` or android.buildType), the release override block merged
+     * in, the start-URL guard, and the version. The resolved config is
+     * written to a temp file for Gradle; call `cleanup()` when done.
+     */
+    async function initializeConfig({ release: releaseFlag = false, buildNumber } = {}) {
         const configFile = fs.readFileSync(configPath, "utf8")
         const config = JSON.parse(configFile)
-        const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
+        const { WEBVIEW_CONFIG: baseConfig, BUILD_OUTPUT_PATH } = config
 
-        if (!WEBVIEW_CONFIG || Object.keys(WEBVIEW_CONFIG).length === 0) {
+        if (!baseConfig || Object.keys(baseConfig).length === 0) {
             throw new Error("WebView Config missing in " + configPath)
         }
 
-        if (!WEBVIEW_CONFIG.android) {
+        if (!baseConfig.android) {
             throw withHint(
                 "Android config missing in WebView Config",
                 "Run catalyst setupEmulator:android to create it, or add WEBVIEW_CONFIG.android to config/config.json."
             )
         }
 
-        const buildType = WEBVIEW_CONFIG.android.buildType || "debug"
-
-        if (buildType === "release") {
-            progress.log("Release build detected - AAB will be generated", "info")
+        const release = releaseFlag || baseConfig.android.buildType === "release"
+        const log = (message, type) => progress.log(message, type)
+        // `--release` wins over android.buildType, in the file Gradle reads too.
+        const buildType = release ? "release" : baseConfig.android.buildType || "debug"
+        const prepared = {
+            ...config,
+            WEBVIEW_CONFIG: { ...baseConfig, android: { ...baseConfig.android, buildType } },
         }
+        const resolved = resolveNativeConfig("android", { release, config: prepared, log })
 
-        return { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
+        try {
+            const { WEBVIEW_CONFIG } = resolved
+            WEBVIEW_CONFIG.android = { ...WEBVIEW_CONFIG.android, buildType }
+
+            if (release) {
+                progress.log("Release build - a signed AAB will be generated", "info")
+                const start = assertReleaseHost("android", WEBVIEW_CONFIG, {
+                    allowPrivateHost: resolved.allowPrivateHost,
+                    log,
+                })
+                progress.log(`Release start URL: ${start.url}`, "info")
+            }
+
+            const version = resolveAppVersion("android", { WEBVIEW_CONFIG, release, buildNumber })
+            const applicationId = WEBVIEW_CONFIG.android.packageName || TEMPLATE_APPLICATION_ID
+
+            return {
+                WEBVIEW_CONFIG,
+                BUILD_OUTPUT_PATH,
+                release,
+                version,
+                applicationId,
+                resolvedConfigPath: resolved.configPath,
+                cleanup: resolved.cleanup,
+            }
+        } catch (error) {
+            resolved.cleanup()
+            throw error
+        }
     }
 
     function validateAndroidTools(androidConfig) {

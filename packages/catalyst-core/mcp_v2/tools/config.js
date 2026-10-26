@@ -283,13 +283,14 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                     value: a.buildType || "debug (default)",
                 })
             }
-            // release keystore check
-            if (a.buildType === "release" && !a.keystore && !a.keystoreConfig) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.keystore",
-                    severity: "error",
+            // Release signing uses credentials/android/upload.jks or CATALYST_ANDROID_* (1.1.1+);
+            // passwords in config.json are no longer used and should not be committed.
+            const keystoreBlocks = [a.keystore, a.keystoreConfig].filter(Boolean)
+            if (keystoreBlocks.some((block) => block.storePassword || block.keyPassword)) {
+                warnings.push({
+                    field: "WEBVIEW_CONFIG.android.keystoreConfig",
                     message:
-                        'android.buildType is "release" but no keystore or keystoreConfig provided. Release build cannot sign the APK.',
+                        "Keystore passwords in config.json are no longer used for signing. Keep the upload key in credentials/android/ (created by the first release build) or CATALYST_ANDROID_* CI variables, and delete the passwords.",
                 })
             }
             if (a.cachePattern !== undefined && typeof a.cachePattern !== "string") {

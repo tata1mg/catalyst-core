@@ -29,6 +29,69 @@ export const buildNativeScenarios = [
         },
         expect: { inOutput: ["ANDROID-000"], exitNonZero: true },
     },
+    // ANDROID-002..004 fire while the release config is resolved, before any
+    // Android tooling is touched, so they reproduce on a runner without the SDK.
+    // android.buildType "release" stands in for --release (scenarios run the
+    // script without extra arguments).
+    {
+        code: "ANDROID-002",
+        title: "Release build points at a LAN address",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = { port: 3005, LOCAL_IP: "192.168.1.10", android: { buildType: "release" } }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["ANDROID-002"], exitNonZero: true },
+    },
+    {
+        code: "ANDROID-003",
+        title: "Release build without a build number",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                android: { buildType: "release" },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["ANDROID-003"], exitNonZero: true },
+    },
+    {
+        code: "ANDROID-004",
+        title: "Release build number of 0",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                port: 3005,
+                android: { buildType: "release", version: { major: 1, buildNumber: 0 } },
+                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["ANDROID-004"], exitNonZero: true },
+    },
     {
         code: "IOS-000",
         title: "iOS build failed in upstream toolchain step",

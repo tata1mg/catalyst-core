@@ -70,6 +70,12 @@ export const LEDGER = {
     // way ANDROID-000 is, and CI runners here don't have the Android SDK/an AVD
     // available to drive a real (or realistically stalled) boot.
     "ANDROID-001": "not-example-reproducible",
+    // ANDROID-005 (no upload key) and ANDROID-006 (unusable upload key) are
+    // raised after the Android tools are validated, so they need a real SDK
+    // with adb on the runner. Covered by test/native/androidSigning.test.ts in
+    // catalyst-core.
+    "ANDROID-005": "not-example-reproducible",
+    "ANDROID-006": "not-example-reproducible",
     // ── IOS ─────────────────────────────────────────────────────────────────
     // IOS-001 (no Simulator/DeviceHub app installed) requires the actual
     // absence of Xcode's Simulator.app/DeviceHub.app on the host — not

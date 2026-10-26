@@ -63,6 +63,8 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 | `WEBVIEW_CONFIG.appInfo` | Yes | Build identifier used by native tooling |
 | `WEBVIEW_CONFIG.useHttps` | No | Defaults to `false` |
 | `WEBVIEW_CONFIG.profiler.enabled` | No | Enables the debug-only Catalyst Profiler; defaults to `false` |
+| `WEBVIEW_CONFIG.release` | Yes for store builds | Production overrides, deep-merged over `WEBVIEW_CONFIG` for release builds only. Usually sets `LOCAL_IP`, `port`, `useHttps` and `apiBaseUrl` |
+| `WEBVIEW_CONFIG.release.allowPrivateHost` | No | `true` lets a release start URL use a private or local host (internal apps). Defaults to `false` |
 
 ### Android fields
 
@@ -70,9 +72,13 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 |-----|----------|-------|
 | `WEBVIEW_CONFIG.android.sdkPath` | Yes | Absolute path to the Android SDK |
 | `WEBVIEW_CONFIG.android.emulatorName` | Yes for debug | Required for emulator-based debug builds |
-| `WEBVIEW_CONFIG.android.buildType` | No | `debug` or `release` |
-| `WEBVIEW_CONFIG.android.keystoreConfig` | Yes for release | Needed to sign release output |
-| `WEBVIEW_CONFIG.android.buildOptimisation` | No | Enables Android build optimisation |
+| `WEBVIEW_CONFIG.android.buildType` | No | `debug` or `release`. `buildApp:android --release` also builds release |
+| `WEBVIEW_CONFIG.android.packageName` | Yes for release | Application id for release and debug builds (debug adds `.debug`) |
+| `WEBVIEW_CONFIG.android.version` | No | `{ major, minor, patch, buildNumber }`, the same shape as `ios.version`. Without it the version name comes from `package.json` |
+| `WEBVIEW_CONFIG.android.signing.storeFile` | No | Upload keystore path, relative to the app. Defaults to `credentials/android/upload.jks` |
+| `WEBVIEW_CONFIG.android.signing.keyAlias` | No | Upload key alias. Defaults to `upload` |
+| `WEBVIEW_CONFIG.android.keystoreConfig.organizationInfo` | No | Certificate details used when Catalyst creates the upload key. Passwords here are no longer used |
+| `WEBVIEW_CONFIG.android.buildOptimisation` | No | Enables Android build optimisation, in release builds too |
 
 ### iOS fields
 
@@ -132,5 +138,6 @@ When `splashScreen` is set and `public/splashscreen.html` exists, the app shows 
 - Missing required top-level config keys cause startup failures.
 - Using `CLIENT_ENV_KEYS` is outdated. The current key is `CLIENT_ENV_VARIABLES`.
 - iOS build types are case-sensitive: use `Debug` or `Release`.
-- `LOCAL_IP` should be a reachable LAN IP for emulator or device builds.
+- `LOCAL_IP` should be a reachable LAN IP for emulator or device builds. Put the production host in `WEBVIEW_CONFIG.release`.
+- A release build fails when its start URL points at a local or private host, or when it has no build number. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md).
 - `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT`, and `ANALYZE_BUNDLE` are no longer required or read, so you can delete them or leave them in place.
