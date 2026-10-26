@@ -1392,7 +1392,7 @@ jobs:
                       sleep 2
                   done
                   status=0
-                  for path in / /content/Introduction/why-catalyst /errors; do
+                  for path in / /content/introduction/why-catalyst /errors; do
                       code=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://localhost:3005$path") || code=000
                       echo "$path -> $code"
                       if [ "$code" != "200" ] || grep -q "Internal Server Error" /tmp/page.html; then
