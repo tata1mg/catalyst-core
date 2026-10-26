@@ -76,6 +76,17 @@ export const LEDGER = {
     // catalyst-core.
     "ANDROID-005": "not-example-reproducible",
     "ANDROID-006": "not-example-reproducible",
+    // ANDROID-007..009 come from setupEmulator:android's toolchain setup
+    // (JDK, SDK downloads/licences, cmdline-tools checksum). Which of them
+    // fires depends on what the runner already has installed (GitHub's
+    // ubuntu image ships a JDK and an SDK), so no config mistake reproduces
+    // them deterministically. ANDROID-010 (bad public/icon.png) is raised
+    // while assets are copied, after the SDK is validated. All four are
+    // covered by test/native/androidToolchain.test.ts and appIcon.test.ts.
+    "ANDROID-007": "not-example-reproducible",
+    "ANDROID-008": "not-example-reproducible",
+    "ANDROID-009": "not-example-reproducible",
+    "ANDROID-010": "not-example-reproducible",
     // ── IOS ─────────────────────────────────────────────────────────────────
     // IOS-001 (no Simulator/DeviceHub app installed) requires the actual
     // absence of Xcode's Simulator.app/DeviceHub.app on the host — not
@@ -83,6 +94,16 @@ export const LEDGER = {
     // are Linux (no Xcode at all) so this can never fire in this environment
     // either way.
     "IOS-001": "not-example-reproducible",
+    // IOS-002..004 (no full Xcode, Xcode licence/first launch pending, no
+    // simulator runtime) and IOS-005/006 (bad or transparent public/icon.png,
+    // checked during the Xcode build) need macOS with Xcode; the runners here
+    // are Linux. Covered by test/native/iosToolchain.test.ts and
+    // appIcon.test.ts in catalyst-core.
+    "IOS-002": "not-example-reproducible",
+    "IOS-003": "not-example-reproducible",
+    "IOS-004": "not-example-reproducible",
+    "IOS-005": "not-example-reproducible",
+    "IOS-006": "not-example-reproducible",
 }
 
 export default scenarios

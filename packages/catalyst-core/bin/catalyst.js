@@ -85,6 +85,12 @@ function printHelp() {
     lines.push(
         `${GUTTER}  ${"--build-number <n>".padEnd(width)}${paint("dim", "buildApp: the store build number")}`
     )
+    lines.push(
+        `${GUTTER}  ${"--yes".padEnd(width)}${paint("dim", "setupEmulator: download and save without asking")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--accept-licenses".padEnd(width)}${paint("dim", "setupEmulator:android: accept the SDK licences")}`
+    )
     lines.push(`${GUTTER}  ${"-h, --help".padEnd(width)}${paint("dim", "Show this help")}`)
     lines.push(`${GUTTER}  ${"-v, --version".padEnd(width)}${paint("dim", "Print the version")}`)
     console.log(`${lines.join("\n")}\n`)
@@ -126,7 +132,7 @@ if (args[0] === "--version" || args[0] === "-v") {
 // Native build flags, with how many values each takes. They are pulled out
 // before dispatch wherever they appear, so `--build-number build` can't be read
 // as the build command and a flag before the command isn't handed to node.
-const nativeFlags = { "--release": 0, "--build-number": 1 }
+const nativeFlags = { "--release": 0, "--build-number": 1, "--yes": 0, "--accept-licenses": 0 }
 const forwardedFlags = []
 const commandArgs = []
 for (let i = 0; i < args.length; i++) {

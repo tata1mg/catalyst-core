@@ -1,17 +1,37 @@
-const { exec, execFile, execSync } = require("child_process")
+const { execFile, spawn } = require("child_process")
 const fs = require("fs")
+const os = require("os")
+const path = require("path")
+
+/** Lower is better: the Wi-Fi/Ethernet a phone on the same network can reach. */
+function interfaceRank(name) {
+    if (name === "en0") return 0
+    if (/^(en\d+|wlan\d+|wl\w+)$/.test(name)) return 1
+    if (/^(eth\d+|enp\w+|eno\w+)$/.test(name)) return 2
+    return 3
+}
 
 /**
- * Get local IP address on macOS using ifconfig
+ * This machine's LAN address: the first non-internal IPv4, preferring en0 and
+ * Wi-Fi/Ethernet over VPN tunnels and VM bridges. "localhost" when there is none.
+ *
+ * @param {ReturnType<typeof os.networkInterfaces>} [interfaces]
  */
-function getLocalIPAddress() {
-    try {
-        const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`
-        return execSync(command).toString().trim()
-    } catch (error) {
+function getLocalIPAddress(interfaces = os.networkInterfaces()) {
+    const candidates = []
+    for (const [name, entries] of Object.entries(interfaces || {})) {
+        for (const entry of entries || []) {
+            // `family` is the number 4 on Node 18.0-18.3.
+            const v4 = entry.family === "IPv4" || entry.family === 4
+            if (v4 && !entry.internal) candidates.push({ name, address: entry.address })
+        }
+    }
+    candidates.sort((a, b) => interfaceRank(a.name) - interfaceRank(b.name))
+    if (!candidates.length) {
         console.warn("Could not get local IP, using localhost")
         return "localhost"
     }
+    return candidates[0].address
 }
 
 /**
@@ -36,17 +56,24 @@ async function isServerRunning(port) {
 }
 
 /**
- * Start server in background using npm start
+ * Start `npm start` detached, with its output in a log file. It has to outlive
+ * this process, so it gets no pipe back to it: a pipe closes when the CLI
+ * exits and the server's next log line would then fail on it.
+ *
+ * @returns {string} the log file
  */
-function startServerBackground() {
-    const serverProcess = exec("npm start", {
+function startServerBackground(port) {
+    const logFile = path.join(os.tmpdir(), `catalyst-dev-server-${port || "default"}.log`)
+    const out = fs.openSync(logFile, "a")
+    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed command with an argv array.
+    const serverProcess = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["start"], {
         detached: true,
-        stdio: "ignore",
+        stdio: ["ignore", out, out],
     })
-
-    if (serverProcess.pid) {
-        serverProcess.unref() // Allow parent to exit
-    }
+    serverProcess.on("error", () => {})
+    serverProcess.unref()
+    fs.closeSync(out)
+    return logFile
 }
 
 /**
@@ -149,8 +176,8 @@ async function setupServer(configPath, log = () => {}) {
     const running = await isServerRunning(port)
 
     if (!running) {
-        log(`Starting server at ${serverURL}`)
-        startServerBackground()
+        const logFile = startServerBackground(port)
+        log(`Starting server at ${serverURL} (output in ${logFile})`)
         // Give it a moment to start
         await new Promise((resolve) => setTimeout(resolve, 3000))
     } else {
@@ -164,4 +191,39 @@ async function setupServer(configPath, log = () => {}) {
     }
 }
 
-module.exports = { setupServer }
+/**
+ * Whether a build should make sure the dev server is up: debug builds of a
+ * configured platform with a configured port. Release builds load a remote
+ * host and never need it.
+ */
+function shouldEnsureDevServer(platform, webviewConfig, { release = false } = {}) {
+    const platformConfig = webviewConfig?.[platform]
+    if (release || !platformConfig || !webviewConfig.port) return false
+    return String(platformConfig.buildType || "debug").toLowerCase() !== "release"
+}
+
+/**
+ * For buildApp in debug: run setupServer (LAN address into the config, server
+ * started in the background) only when nothing is listening on the port yet.
+ *
+ * @returns {Promise<{ started: boolean, port: number }>}
+ */
+async function ensureDevServer(configPath, log = () => {}) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"))
+    const port = config.WEBVIEW_CONFIG?.port || 3005
+    if (await isServerRunning(port)) {
+        log(`Dev server already running on port ${port}`)
+        return { started: false, port }
+    }
+    const result = await setupServer(configPath, log)
+    return { started: true, ...result }
+}
+
+module.exports = {
+    setupServer,
+    ensureDevServer,
+    shouldEnsureDevServer,
+    getLocalIPAddress,
+    isServerRunning,
+    startServerBackground,
+}

@@ -68,6 +68,8 @@ production-style run.
 
 | Command | Purpose |
 |---------|---------|
+| `npm run setupEmulator:android` | Install JDK, Android SDK packages and an emulator if missing, then boot it |
+| `npm run setupEmulator:ios` | Check Xcode, install an iOS runtime and a simulator if missing, then boot it |
 | `npm run buildApp:android` | Build and run the Android debug app |
 | `npm run buildApp:android -- --release --build-number <n>` | Build the signed Android App Bundle for Google Play |
 | `npm run buildApp:ios` | Build and run the iOS app using the configured build type |
@@ -78,6 +80,10 @@ For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. 
 |--------|--------|
 | `--release` | Build the signed store release, using `WEBVIEW_CONFIG.release` over the base config |
 | `--build-number <n>` | The store build number (Android `versionCode`). Also read from `CATALYST_BUILD_NUMBER` |
+| `--yes` | `setupEmulator`: download missing SDK pieces, create the emulator or simulator, and save the config without asking |
+| `--accept-licenses` | `setupEmulator:android`: accept the Android SDK licences without the interactive review (for CI) |
+
+A debug `buildApp` starts the dev server in the background when nothing is listening on `WEBVIEW_CONFIG.port`, so `npm run buildApp:android` or `npm run buildApp:ios` is enough on its own.
 
 The flags can go before or after the command. Android release signing reads `CATALYST_ANDROID_KEYSTORE_BASE64`, `CATALYST_ANDROID_STORE_PASSWORD`, `CATALYST_ANDROID_KEY_PASSWORD` and `CATALYST_ANDROID_KEY_ALIAS` in CI; see [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) for the full flow.
 

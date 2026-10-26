@@ -258,6 +258,41 @@
         "suggestedAction": "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-001.md"
     },
+    "IOS-002": {
+        "category": "IOS",
+        "message": "Full Xcode is not installed or selected",
+        "details": "setupEmulator:ios and buildApp:ios need Xcode.app, not only the Command Line Tools. xcode-select -p does not point inside an Xcode app bundle, so there is no simulator, iOS SDK or app-building xcodebuild.",
+        "suggestedAction": "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-002.md"
+    },
+    "IOS-003": {
+        "category": "IOS",
+        "message": "Xcode setup is not finished",
+        "details": "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password, so they only run after a yes in an interactive terminal.",
+        "suggestedAction": "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-003.md"
+    },
+    "IOS-004": {
+        "category": "IOS",
+        "message": "No iOS simulator runtime installed",
+        "details": "Xcode has no available iOS simulator runtime, so there is no simulator to create or boot. The runtime is a download of several gigabytes and is only fetched after a yes in an interactive terminal or with --yes.",
+        "suggestedAction": "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-004.md"
+    },
+    "IOS-005": {
+        "category": "IOS",
+        "message": "App icon is not usable",
+        "details": "public/icon.png becomes the app's single 1024x1024 universal AppIcon, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        "suggestedAction": "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-005.md"
+    },
+    "IOS-006": {
+        "category": "IOS",
+        "message": "App icon has transparency",
+        "details": "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
+        "suggestedAction": "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-006.md"
+    },
     "ANDROID-000": {
         "category": "ANDROID",
         "message": "Android build failed in an upstream toolchain step",
@@ -306,6 +341,34 @@
         "details": "An upload keystore was found but cannot be used: its file is missing, no store password was given, or keytool rejected the password or alias.",
         "suggestedAction": "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-006.md"
+    },
+    "ANDROID-007": {
+        "category": "ANDROID",
+        "message": "Java 17 or newer not found",
+        "details": "Gradle and the Android SDK tools need JDK 17 or newer. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime, and installing one with Homebrew needs a yes in an interactive terminal on macOS.",
+        "suggestedAction": "Install JDK 17 or newer (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst setupEmulator:android in a terminal to install it.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md"
+    },
+    "ANDROID-008": {
+        "category": "ANDROID",
+        "message": "Android SDK setup needs your confirmation",
+        "details": "setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept. Downloads only happen after a yes in an interactive terminal or with --yes, and licences are only accepted interactively or with --accept-licenses.",
+        "suggestedAction": "Run catalyst setupEmulator:android in a terminal, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences (for CI).",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-008.md"
+    },
+    "ANDROID-009": {
+        "category": "ANDROID",
+        "message": "Could not install the Android command-line tools",
+        "details": "The pinned Android command-line tools archive could not be downloaded, did not match its published SHA-256, or could not be unpacked into <sdk>/cmdline-tools/latest.",
+        "suggestedAction": "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-009.md"
+    },
+    "ANDROID-010": {
+        "category": "ANDROID",
+        "message": "App icon is not usable",
+        "details": "public/icon.png becomes the Android launcher icon when public/android/appIcons has no per-density icons, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        "suggestedAction": "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-010.md"
     },
     "RUNTIME-NATIVE-001": {
         "category": "RUNTIME-NATIVE",

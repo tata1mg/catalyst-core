@@ -1,16 +1,19 @@
 import { execSync } from "child_process"
 import fs from "fs"
-import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
+import { runCommand, validateAndCompleteConfig, parseNativeArgs } from "./utils.js"
+import { ensureXcodeReady, ensureIosRuntime, chooseSimulator, simctlJson } from "./iosToolchain.js"
 import TerminalProgress from "./terminalProgress.js"
+import { buildFailure } from "../cli/diagnostic.js"
 
 const configPath = `${process.env.PWD}/config/config.json`
 const { setupServer } = require("./setupServer.js")
-
-const ITEMS_PER_PAGE = 10
+const flags = parseNativeArgs(process.argv.slice(2))
 
 const steps = {
     platform: "Check platform compatibility",
+    xcode: "Check Xcode",
     config: "Initialize configuration",
+    runtime: "Check iOS simulator runtime",
     simulator: "Configure iOS simulator",
     launch: "Launch iOS simulator",
     saveConfig: "Save configuration",
@@ -18,6 +21,8 @@ const steps = {
 }
 
 const progress = new TerminalProgress(steps, "catalyst setupEmulator", { subject: "ios" })
+const log = (message, type = "info") => progress.log(message, type)
+
 async function initializeConfig() {
     const configFile = fs.readFileSync(configPath, "utf8")
     const config = JSON.parse(configFile)
@@ -68,12 +73,22 @@ async function setupIOSEnvironment() {
         }
         progress.complete("platform")
 
+        progress.start("xcode")
+        const developerDir = await ensureXcodeReady({ log })
+        progress.log(`Using ${developerDir}`, "info")
+        progress.complete("xcode")
+
         progress.start("config")
         const { WEBVIEW_CONFIG } = await initializeConfig()
         progress.complete("config")
 
+        progress.start("runtime")
+        const runtime = await ensureIosRuntime({ yes: flags.yes, log })
+        progress.log(`Runtime ${runtime.name}`, "info")
+        progress.complete("runtime")
+
         progress.start("simulator")
-        await configureSimulator(WEBVIEW_CONFIG)
+        await configureSimulator(WEBVIEW_CONFIG, runtime)
         progress.complete("simulator")
 
         progress.start("launch")
@@ -97,153 +112,41 @@ async function setupIOSEnvironment() {
         progress.summary("Ready", "Run catalyst buildApp:ios to install the app")
         process.exit(0)
     } catch (error) {
+        // A coded error (ANDROID-007, IOS-003, ...) gets the full diagnostic:
+        // code, hint and doc link. Anything else keeps the one-line failure.
+        const coded = /^[A-Z]+-\d{3}$/.test(String(error?.code || ""))
         if (progress.currentStep) {
-            progress.fail(progress.currentStep.id, error.message)
+            progress.fail(progress.currentStep.id, coded ? undefined : error.message)
         }
-        progress.hint(error.hint)
+        if (coded) process.stderr.write(buildFailure({ error, stage: "iOS setup" }))
+        else progress.hint(error.hint)
         process.exit(1)
     }
 }
 
-async function displayPaginatedList(items, startIndex) {
-    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, items.length)
-
-    for (let i = startIndex; i < endIndex; i++) {
-        console.log(`${i + 1}. ${items[i]}`)
-    }
-
-    if (endIndex < items.length) {
-        console.log(`\nShowing ${startIndex + 1}-${endIndex} of ${items.length} items`)
-        console.log('Type "more" to see more items, or enter your selection: ')
-        return true
-    }
-
-    return false
-}
-
-async function getRuntime() {
-    const runtimesOutput = execSync("xcrun simctl list runtimes -j").toString()
-    const parsedRuntimes = JSON.parse(runtimesOutput).runtimes
-
-    const availableRuntime = parsedRuntimes.find(
-        (runtime) =>
-            runtime.isAvailable ||
-            runtime.availability === "(available)" ||
-            runtime.availability === "available"
-    )
-
-    if (!availableRuntime) {
-        const runningSimulators = execSync("xcrun simctl list devices booted").toString()
-        if (runningSimulators.includes("(Booted)") && parsedRuntimes.length > 0) {
-            progress.status(`runtime ${parsedRuntimes[0].name}`)
-            return parsedRuntimes[0]
-        }
-
-        progress.log("No available iOS runtime found. Install one through Xcode.", "error")
-        process.exit(1)
-    }
-
-    progress.status(`runtime ${availableRuntime.name}`)
-    return availableRuntime
-}
-
-async function configureSimulator(config) {
-    // If a simulator is already configured, skip the interactive picker
+async function configureSimulator(config, runtime) {
+    // If a simulator is already configured, skip the picker
     if (config.ios.simulatorName) {
         progress.log(`Using configured simulator: ${config.ios.simulatorName}`)
         return
     }
 
     progress.pause()
-
-    // Get the current runtime first
-    const runtime = await getRuntime()
-
-    // Get simulators specifically for this runtime
-    const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString())
-    const runtimeSimulators = simulatorsJson.devices[runtime.identifier] || []
-
-    // Filter for available simulators only
-    const availableSimulators = runtimeSimulators
-        .filter((sim) => sim.availability === "(available)" || sim.isAvailable)
-        .map((sim) => `${sim.name} (${sim.udid})`)
-
-    if (availableSimulators.length === 0) {
-        progress.log(`No available simulators found for runtime: ${runtime.name}`, "error")
+    let choice
+    try {
+        choice = await chooseSimulator({
+            runtime,
+            devicesJson: simctlJson(["list", "devices"]),
+            deviceTypesJson: simctlJson(["list", "devicetypes"]),
+            yes: flags.yes,
+        })
+    } finally {
         progress.resume()
-        process.exit(1)
-        return
     }
-
-    let startIndex = 0
-    console.log(`\nAvailable simulators for ${runtime.name} (or type 'new' to create a new one):`)
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-        const hasMore = await displayPaginatedList(availableSimulators, startIndex)
-        const simulatorChoice = await promptUser(hasMore ? "" : "\nEnter selection: ")
-
-        if (simulatorChoice.toLowerCase() === "more" && hasMore) {
-            startIndex += ITEMS_PER_PAGE
-            continue
-        }
-
-        if (simulatorChoice.toLowerCase() === "new") {
-            const deviceTypes = JSON.parse(
-                execSync("xcrun simctl list devicetypes --json").toString()
-            ).devicetypes
-            const simulatorName = await promptUser("Enter a name for the new simulator: ")
-
-            // Use iPhone 15 Pro as default device type
-            const defaultDevice =
-                deviceTypes.find((dt) => dt.name.includes("iPhone 15 Pro")) || deviceTypes[0]
-
-            try {
-                runCommand(
-                    `xcrun simctl create "${simulatorName}" "${defaultDevice.identifier}" "${runtime.identifier}"`
-                )
-                console.log(`Simulator "${simulatorName}" created successfully.`)
-                config.ios.simulatorName = simulatorName
-            } catch (error) {
-                console.log(`Failed to create simulator "${simulatorName}". Error: ${error.message}`)
-                process.exit(1)
-            }
-            break
-        } else {
-            const index = parseInt(simulatorChoice) - 1
-            if (index >= 0 && index < availableSimulators.length) {
-                const selectedSimulator = availableSimulators[index]
-                // Extract only the simulator name without ID and state
-                const simulatorName = selectedSimulator.split(" (")[0]
-                config.ios.simulatorName = simulatorName
-                break
-            } else {
-                console.log("Invalid selection. Please try again.")
-            }
-        }
-    }
-
-    progress.resume()
+    if (choice.created) progress.log(`Created simulator "${choice.name}"`, "success")
+    config.ios.simulatorName = choice.name
     await saveConfig({ WEBVIEW_CONFIG: config })
 }
-
-// async function createDefaultSimulator(config, runtime) {
-//     const deviceTypes = JSON.parse(execSync("xcrun simctl list devicetypes --json").toString()).devicetypes
-//     const defaultDevice = deviceTypes.find((dt) => dt.name.includes("iPhone 15 Pro")) || deviceTypes[0]
-//     const simulatorName = `Default ${defaultDevice.name.split(" (")[0]}`
-
-//     try {
-//         runCommand(
-//             `xcrun simctl create "${simulatorName}" "${defaultDevice.identifier}" "${runtime.identifier}"`
-//         )
-//         console.log(`Default simulator "${simulatorName}" created successfully.`)
-//         config.ios.simulatorName = simulatorName
-//         await saveConfig({ WEBVIEW_CONFIG: config })
-//     } catch (error) {
-//         console.log(`Failed to create default simulator. Error: ${error.message}`)
-//         process.exit(1)
-//     }
-// }
 
 // Xcode 27 replaced the standalone Simulator.app (com.apple.iphonesimulator)
 // with DeviceHub.app (com.apple.dt.Devices); older Xcode installs still ship

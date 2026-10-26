@@ -3,6 +3,7 @@
 const fs = require("fs")
 const path = require("path")
 const crypto = require("crypto")
+const { checkAppIcon } = require("../appIcon.js")
 
 const GOOGLE_SERVICES_FILENAME = "GoogleService-Info.plist"
 const NOTIFICATION_ICONS = [
@@ -563,12 +564,45 @@ module.exports = function createAssetsPhase(ctx) {
         }
     }
 
-    async function copyAppIcon() {
+    /**
+     * The single public/icon.png as a one-entry universal 1024 AppIcon, which
+     * Xcode scales to every size. Leftover sized images are removed so the
+     * set holds only what Contents.json lists.
+     */
+    function applySingleAppIcon(iconPath, iconSetDir, { release }) {
+        checkAppIcon(iconPath, {
+            platform: "ios",
+            release,
+            log: (message, type) => progress.log(message, type),
+        })
+        fs.mkdirSync(iconSetDir, { recursive: true })
+        for (const file of fs.readdirSync(iconSetDir)) {
+            if (file !== "Contents.json") fs.rmSync(path.join(iconSetDir, file), { force: true }) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - iconSetDir is the template's own asset folder; file comes from readdirSync on it.
+        }
+        fs.copyFileSync(iconPath, `${iconSetDir}/icon.png`)
+        const contents = {
+            images: [{ filename: "icon.png", idiom: "universal", platform: "ios", size: "1024x1024" }],
+            info: { author: "xcode", version: 1 },
+        }
+        fs.writeFileSync(`${iconSetDir}/Contents.json`, JSON.stringify(contents, null, 2))
+        progress.log("Applied the app icon from public/icon.png", "success")
+    }
+
+    /**
+     * App icons, first match wins: the sized files in public/ios/appIcons,
+     * then the single public/icon.png. With neither, the template's icon stays.
+     *
+     * @param {object} [options]
+     * @param {boolean} [options.release] - an icon with alpha fails a release (ITMS-90717)
+     */
+    async function copyAppIcon({ release = false } = {}) {
+        const publicDir = `${process.cwd()}/public/ios/appIcons`
+        const singleIconPath = `${process.cwd()}/public/icon.png`
+        const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
+        const iconSetDir = `${assetsDir}/AppIcon.appiconset`
         try {
-            const publicDir = `${process.cwd()}/public/ios/appIcons`
-            const assetsDir = `${PROJECT_DIR}/${PROJECT_NAME}/Assets.xcassets`
-            const iconSetDir = `${assetsDir}/AppIcon.appiconset`
             if (!fs.existsSync(publicDir)) {
+                if (fs.existsSync(singleIconPath)) applySingleAppIcon(singleIconPath, iconSetDir, { release })
                 return
             }
             const iconSizes = [
@@ -604,6 +638,13 @@ module.exports = function createAssetsPhase(ctx) {
             }
             const allImages = findImagesRecursively(publicDir, imageExtensions)
             const foundIcons = []
+            const hasSizedIcon = iconSizes.some(({ size, scale }) =>
+                allImages.some((imgPath) => path.parse(imgPath).name === `icon-${size}-${scale}`)
+            )
+            if (!hasSizedIcon && fs.existsSync(singleIconPath)) {
+                applySingleAppIcon(singleIconPath, iconSetDir, { release })
+                return
+            }
             if (!fs.existsSync(iconSetDir)) fs.mkdirSync(iconSetDir, { recursive: true })
             const contentsPath = `${iconSetDir}/Contents.json`
             let contents
@@ -614,6 +655,9 @@ module.exports = function createAssetsPhase(ctx) {
             }
             if (!contents || !Array.isArray(contents.images))
                 contents = { images: [], info: { author: "xcode", version: 1 } }
+            // Drop a single icon.png left by an earlier build; the sized set replaces it.
+            contents.images = contents.images.filter((img) => img.filename !== "icon.png")
+            fs.rmSync(`${iconSetDir}/icon.png`, { force: true })
             for (const { size, idiom, scale } of iconSizes) {
                 const expectedName = `icon-${size}-${scale}`
                 let foundImage = null
@@ -649,6 +693,8 @@ module.exports = function createAssetsPhase(ctx) {
                 progress.log("Example: icon-20x20-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png", "info")
             }
         } catch (error) {
+            // An unusable public/icon.png is the user's to fix, not a warning to scroll past.
+            if (/^IOS-\d{3}$/.test(error?.code)) throw error
             progress.log(`Warning: Error copying app icons: ${error.message}`, "warning")
         }
     }

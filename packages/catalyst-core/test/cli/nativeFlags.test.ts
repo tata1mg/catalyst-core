@@ -18,7 +18,7 @@ beforeAll(() => {
     fs.mkdirSync(path.join(root, "dist", "native"), { recursive: true })
     fs.copyFileSync(binSource, path.join(root, "bin", "catalyst.js"))
     fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", version: "0.0.0" }))
-    for (const name of ["buildAppAndroid", "buildAppIos"]) {
+    for (const name of ["buildAppAndroid", "buildAppIos", "androidSetup", "setupEmulatorIos"]) {
         fs.writeFileSync(
             path.join(root, "dist", "native", `${name}.js`),
             `console.log(JSON.stringify({ script: ${JSON.stringify(name)}, args: process.argv.slice(2) }))\n`
@@ -59,6 +59,16 @@ describe("native build flags", () => {
     it("keeps flags given before the command away from node", () => {
         expect(run(["--release", "buildApp:android", "--verbose"])).toEqual([
             { script: "buildAppAndroid", args: ["--release", "--verbose"] },
+        ])
+    })
+
+    it("forwards setup's --yes and --accept-licenses wherever they appear", () => {
+        expect(run(["--yes", "setupEmulator:android", "--accept-licenses"])).toEqual([
+            { script: "androidSetup", args: ["--yes", "--accept-licenses"] },
+        ])
+        expect(run(["setupEmulator", "--yes"])).toEqual([
+            { script: "setupEmulatorIos", args: ["--yes"] },
+            { script: "androidSetup", args: ["--yes"] },
         ])
     })
 

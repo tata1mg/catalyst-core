@@ -9,12 +9,37 @@ const {
 const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
 const { buildFailure } = require("../cli/diagnostic.js")
 const { loadAppConfig } = require("../cli/appConfig.js")
+const { ensureDevServer, shouldEnsureDevServer } = require("./setupServer.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
+let { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
 async function main() {
-    const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
+    let build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
+
+    // One-command dev: a debug build starts the dev server when nothing is
+    // serving on the port. setupServer rewrites the config's addresses, and the
+    // build bakes them in when it is created, so it is created again after.
+    if (shouldEnsureDevServer("ios", WEBVIEW_CONFIG)) {
+        const { progress } = build
+        try {
+            progress.start("server")
+            const server = await ensureDevServer(
+                path.join(process.cwd(), "config", "config.json"),
+                (message, type) => progress.log(message, type)
+            )
+            progress.complete("server")
+            if (server.started) {
+                ;({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig())
+                build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }, { progress })
+            }
+        } catch (error) {
+            progress.fail("server")
+            process.stderr.write(buildFailure({ error, stage: "Starting the dev server", code: "IOS-000" }))
+            process.exit(1)
+        }
+    }
+
     const {
         progress,
         generateConfigConstants,

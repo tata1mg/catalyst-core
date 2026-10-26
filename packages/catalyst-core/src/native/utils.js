@@ -217,7 +217,7 @@ function expandHome(dir) {
 
 /** The hint for a missing or wrong SDK path, naming the one field to set. */
 const ANDROID_SDK_HINT =
-    'Install Android Studio, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
+    'Run catalyst setupEmulator:android to install it, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
 
 /**
  * Write the SDK location gradle reads. `setupEmulator:android` used to be the
@@ -351,6 +351,59 @@ function handlePrompts(child, buffer, promptResponses) {
         }
     }
     return buffer
+}
+
+/**
+ * Run a command on the user's own terminal: inherited stdio, so they see its
+ * progress and can answer it (a sudo password, a licence). The spinner is
+ * stood down for the duration. Only for steps a person has agreed to.
+ *
+ * @param {string} command
+ * @param {string[]} args
+ * @param {object} [options]
+ * @param {NodeJS.ProcessEnv} [options.env]
+ * @param {string} [options.cwd]
+ */
+async function runInheritedCommand(command, args, { env, cwd } = {}) {
+    return withSpinnersPaused(
+        () =>
+            new Promise((resolve, reject) => {
+                // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed setup commands with argv arrays, run after the user agreed.
+                const child = spawn(command, args, {
+                    stdio: "inherit",
+                    ...(env ? { env } : {}),
+                    ...(cwd ? { cwd } : {}),
+                })
+                child.on("error", (error) =>
+                    reject(
+                        error.code === "ENOENT"
+                            ? new Error(`Command not found: ${command}`, { cause: error })
+                            : error
+                    )
+                )
+                child.on("close", (code) => {
+                    if (code === 0) resolve()
+                    else reject(Object.assign(new Error(`${command} exited with code ${code}`), { code }))
+                })
+            })
+    )
+}
+
+/** True when a person can answer a question on this terminal. */
+function isInteractiveTerminal() {
+    return Boolean(process.stdin.isTTY)
+}
+
+/**
+ * A yes/no question. Enter takes the default. Without a terminal it returns
+ * false, so callers decide (usually a coded error naming the flag to pass).
+ */
+async function confirm(question, { defaultYes = true, prompt = promptUser, isTTY } = {}) {
+    if (!(isTTY ?? isInteractiveTerminal())) return false
+    const answer = await prompt(`${question.replace(/[?\s]+$/, "")}? ${defaultYes ? "[Y/n]" : "[y/N]"}`, {
+        defaultValue: defaultYes ? "y" : "n",
+    })
+    return /^y(es)?$/i.test(String(answer || "").trim())
 }
 
 async function runSdkManagerCommand(sdkManagerPath, args) {
@@ -513,6 +566,42 @@ const NATIVE_ERRORS = {
         message: "Upload key settings are incomplete or wrong",
         hint: "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
     },
+    "ANDROID-007": {
+        message: "Java 17 or newer not found",
+        hint: "Install JDK 17 or newer (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst setupEmulator:android in a terminal to install it.",
+    },
+    "ANDROID-008": {
+        message: "Android SDK setup needs your confirmation",
+        hint: "Run catalyst setupEmulator:android in a terminal, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences (for CI).",
+    },
+    "ANDROID-009": {
+        message: "Could not install the Android command-line tools",
+        hint: "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+    },
+    "ANDROID-010": {
+        message: "App icon is not usable",
+        hint: "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+    },
+    "IOS-002": {
+        message: "Full Xcode is not installed or selected",
+        hint: "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+    },
+    "IOS-003": {
+        message: "Xcode setup is not finished",
+        hint: "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+    },
+    "IOS-004": {
+        message: "No iOS simulator runtime installed",
+        hint: "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+    },
+    "IOS-005": {
+        message: "App icon is not usable",
+        hint: "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+    },
+    "IOS-006": {
+        message: "App icon has transparency",
+        hint: "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
 }
 
 // Per-platform codes for the shared release checks. iOS adds its own codes
@@ -544,15 +633,19 @@ function releaseErrorCode(platform, kind) {
 }
 
 /**
- * The native flags the CLI forwards: `--release` and `--build-number <n>`
- * (or `--build-number=<n>`). bin/catalyst.js keeps them out of command
- * dispatch; this reads them back in the platform script.
+ * The native flags the CLI forwards: `--release`, `--build-number <n>` (or
+ * `--build-number=<n>`), and setup's `--yes` (allow downloads and config
+ * writes without asking) and `--accept-licenses` (accept the Android SDK
+ * licences). bin/catalyst.js keeps them out of command dispatch; this reads
+ * them back in the platform script.
  */
 function parseNativeArgs(argv = process.argv.slice(2)) {
-    const result = { release: false, buildNumber: undefined }
+    const result = { release: false, buildNumber: undefined, yes: false, acceptLicenses: false }
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i]
         if (arg === "--release") result.release = true
+        else if (arg === "--yes") result.yes = true
+        else if (arg === "--accept-licenses") result.acceptLicenses = true
         else if (arg === "--build-number") result.buildNumber = argv[++i]
         else if (arg.startsWith("--build-number=")) result.buildNumber = arg.slice("--build-number=".length)
     }
@@ -822,6 +915,9 @@ export {
     ANDROID_SDK_HINT,
     runSdkManagerCommand,
     runInteractiveCommand,
+    runInheritedCommand,
+    isInteractiveTerminal,
+    confirm,
     validateAndCompleteConfig,
     redactSecrets,
     redactError,

@@ -113,7 +113,7 @@ function createConfigPhase(ctx) {
         if (!fs.existsSync(ADB_PATH)) {
             throw withHint(
                 `adb not found at ${ADB_PATH}`,
-                "Install Android SDK Platform-Tools from Android Studio's SDK Manager."
+                "Run catalyst setupEmulator:android to install the Android SDK packages."
             )
         }
 
@@ -141,7 +141,7 @@ function createConfigPhase(ctx) {
                 if (!first) {
                     throw withHint(
                         "No Android emulator found",
-                        "Create one in Android Studio's Device Manager, or set WEBVIEW_CONFIG.android.emulatorName."
+                        "Run catalyst setupEmulator:android to create one, or set WEBVIEW_CONFIG.android.emulatorName."
                     )
                 }
                 androidConfig.emulatorName = first

@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 80 error codes, then assert the dev
+mistake** for every one of the framework's 89 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 80, one block per code: the mistake, what
+- **`npm run test:error`** — runs all 89, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-80 / 80 codes accounted for: **65 reproduced by a scenario**, **15 in the
+89 / 89 codes accounted for: **65 reproduced by a scenario**, **24 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 80-code ledger
+## The 89-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -76,6 +76,10 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `ANDROID-004`        | Release build number of 0                                                    | build-native   | Invalid build number                                                    | scenario                             |
 | `ANDROID-005`        | —                                                                            | —              | No upload key for the release build                                     | **LEDGER: not-example-reproducible** |
 | `ANDROID-006`        | —                                                                            | —              | Upload key settings are incomplete or wrong                             | **LEDGER: not-example-reproducible** |
+| `ANDROID-007`        | —                                                                            | —              | Java 17 or newer not found                                              | **LEDGER: not-example-reproducible** |
+| `ANDROID-008`        | —                                                                            | —              | Android SDK setup needs your confirmation                               | **LEDGER: not-example-reproducible** |
+| `ANDROID-009`        | —                                                                            | —              | Could not install the Android command-line tools                        | **LEDGER: not-example-reproducible** |
+| `ANDROID-010`        | —                                                                            | —              | App icon is not usable                                                  | **LEDGER: not-example-reproducible** |
 | `BUNDLE-000`         | Syntax error in a source file during production build                        | build          | Build failed in an upstream bundler step                                | scenario                             |
 | `CCA-000`            | —                                                                            | —              | An upstream command failed                                              | **LEDGER: not-example-reproducible** |
 | `CCA-001`            | Invalid project name provided to create-catalyst-app                         | cca-cli        | Invalid project name                                                    | scenario                             |
@@ -89,6 +93,11 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `CCA-009`            | .gitignore file already exists warning in create-catalyst-app                | cca-cli        | .gitignore already exists                                               | scenario                             |
 | `IOS-000`            | iOS build failed in upstream toolchain step                                  | build-native   | iOS build failed in an upstream toolchain step                          | scenario                             |
 | `IOS-001`            | —                                                                            | —              | Could not find an installed iOS Simulator app                           | **LEDGER: not-example-reproducible** |
+| `IOS-002`            | —                                                                            | —              | Full Xcode is not installed or selected                                 | **LEDGER: not-example-reproducible** |
+| `IOS-003`            | —                                                                            | —              | Xcode setup is not finished                                             | **LEDGER: not-example-reproducible** |
+| `IOS-004`            | —                                                                            | —              | No iOS simulator runtime installed                                      | **LEDGER: not-example-reproducible** |
+| `IOS-005`            | —                                                                            | —              | App icon is not usable                                                  | **LEDGER: not-example-reproducible** |
+| `IOS-006`            | —                                                                            | —              | App icon has transparency                                               | **LEDGER: not-example-reproducible** |
 | `PREFLIGHT-001`      | config/config.json deleted                                                   | cli (halts)    | config not found in config folder                                       | scenario                             |
 | `PREFLIGHT-002`      | config/config.json is a JSON string                                          | cli (halts)    | config export is not an object                                          | scenario                             |
 | `PREFLIGHT-003`      | Removed a required key from config/config.json                               | cli (halts)    | required key missing inside config.json                                 | scenario                             |
@@ -148,7 +157,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 80, human-readable
+# All 89, human-readable
 npm run test:error
 
 # One code

@@ -46,15 +46,27 @@ const NO_LOCAL = new Set<string>()
 
 describe("parseNativeArgs", () => {
     it("reads --release and both --build-number forms", () => {
-        expect(parseNativeArgs(["--release", "--build-number", "7"])).toEqual({
+        expect(parseNativeArgs(["--release", "--build-number", "7"])).toMatchObject({
             release: true,
             buildNumber: "7",
         })
-        expect(parseNativeArgs(["--build-number=12", "--verbose"])).toEqual({
+        expect(parseNativeArgs(["--build-number=12", "--verbose"])).toMatchObject({
             release: false,
             buildNumber: "12",
         })
-        expect(parseNativeArgs([])).toEqual({ release: false, buildNumber: undefined })
+        expect(parseNativeArgs([])).toEqual({
+            release: false,
+            buildNumber: undefined,
+            yes: false,
+            acceptLicenses: false,
+        })
+    })
+
+    it("reads setup's --yes and --accept-licenses", () => {
+        expect(parseNativeArgs(["--yes", "--accept-licenses"])).toMatchObject({
+            yes: true,
+            acceptLicenses: true,
+        })
     })
 })
 

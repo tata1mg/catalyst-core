@@ -1,19 +1,32 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runCommand, validateAndCompleteConfig, expandHome, ANDROID_SDK_HINT } from "./utils.js"
+import {
+    runCommand,
+    expandHome,
+    detectAndroidSdk,
+    parseNativeArgs,
+    promptUser,
+    confirm,
+    isInteractiveTerminal,
+    ANDROID_SDK_HINT,
+} from "./utils.js"
+import { applyJavaHome, defaultSdkPath, ensureAndroidSdk, ensureJava } from "./androidToolchain.js"
 import TerminalProgress from "./terminalProgress.js"
+import { buildFailure } from "../cli/diagnostic.js"
 import { setupServer } from "./setupServer.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
 const configPath = `${process.env.PWD}/config/config.json`
+const flags = parseNativeArgs(process.argv.slice(2))
 
 // Sentence case, verb first: these read as a sequence of actions, not as
 // headings.
 const steps = {
-    java: "Check Java environment",
+    java: "Check Java (JDK 17+)",
     config: "Initialize configuration",
+    sdk: "Set up the Android SDK",
     androidTools: "Validate Android tools",
     emulator: "Configure Android emulator",
     properties: "Update local.properties",
@@ -22,112 +35,17 @@ const steps = {
 }
 
 const progress = new TerminalProgress(steps, "catalyst setupEmulator", { subject: "android" })
+const log = (message, type = "info") => progress.log(message, type)
 
-async function checkJavaInstallation() {
-    try {
-        runCommand("java -version")
-        runCommand("javac -version")
-        return true
-    } catch (error) {
-        progress.log("Java installation not found or not properly configured", "error")
-        return false
-    }
-}
-
-async function installJava() {
-    progress.log("Installing Java (Zulu JDK 17)...")
-    try {
-        try {
-            runCommand("brew --version")
-        } catch (error) {
-            throw new Error("Homebrew is required but not installed. Please install Homebrew first.")
-        }
-
-        const javaHome = "/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home"
-
-        // Try installing Java
-        try {
-            await runCommand("brew install --cask zulu@17")
-        } catch (error) {
-            if (error.message.includes("already installed")) {
-                progress.log("Attempting to reinstall Java...", "info")
-                try {
-                    await runCommand("brew reinstall --cask zulu@17")
-                } catch (reinstallError) {
-                    throw new Error(
-                        `Failed to reinstall Java: ${reinstallError.message}. Please run 'brew reinstall --cask zulu@17' manually.`
-                    )
-                }
-            } else {
-                throw error
-            }
-        }
-
-        // Verify Java installation
-        if (!fs.existsSync(javaHome)) {
-            throw new Error(
-                `Java installation not found at ${javaHome}. Please verify the installation manually.`
-            )
-        }
-
-        // Set up environment variables
-        const homeDir = process.env.HOME
-        const shellProfile = `${homeDir}/.zshrc`
-        const exportCommand = `\n# Java Configuration\nexport JAVA_HOME=${javaHome}\nexport PATH=$JAVA_HOME/bin:$PATH\n`
-
-        try {
-            fs.appendFileSync(shellProfile, exportCommand)
-        } catch (error) {
-            throw new Error(
-                `Failed to update ${shellProfile}: ${error.message}. Please add the following lines manually:\n${exportCommand}`
-            )
-        }
-
-        // Set for current process
-        process.env.JAVA_HOME = javaHome
-        process.env.PATH = `${javaHome}/bin:${process.env.PATH}`
-
-        // Verify Java configuration
-        try {
-            const javaVersion = runCommand("java -version")
-            progress.log("Installed Java 17 (Zulu)", "info")
-            progress.log(`Java Version: ${javaVersion}`, "info")
-            progress.log(`IMPORTANT: Please run the following commands to complete setup:`, "warning")
-            progress.log(`1. source ${shellProfile}`, "note")
-            progress.log(`2. echo $JAVA_HOME`, "note")
-            return true
-        } catch (error) {
-            throw new Error(
-                `Java installation verified but environment not configured. Please run:\n1. source ${shellProfile}\n2. echo $JAVA_HOME`
-            )
-        }
-    } catch (error) {
-        progress.log(error.message, "error")
-        progress.log("Manual Setup Instructions:", "note")
-        progress.log("1. Run: brew reinstall --cask zulu@17", "note")
-        progress.log("2. Add to ~/.zshrc:", "note")
-        progress.log(
-            "   export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home",
-            "note"
-        )
-        progress.log("   export PATH=$JAVA_HOME/bin:$PATH", "note")
-        progress.log("3. Run: source ~/.zshrc", "note")
-        throw error
-    }
-}
-
+/**
+ * JDK 17+ for this process and every tool it starts (Gradle, sdkmanager,
+ * avdmanager). JAVA_HOME is set here only; no shell profile is edited.
+ */
 async function validateJavaEnvironment() {
     progress.start("java")
-    const hasJava = await checkJavaInstallation()
-
-    if (!hasJava) {
-        progress.log("Java installation required. Starting installation process...")
-        const javaInstalled = await installJava()
-        if (!javaInstalled) {
-            progress.fail("java", "Failed to set up Java environment")
-            throw new Error("Failed to set up Java environment")
-        }
-    }
+    const java = await ensureJava({ log })
+    applyJavaHome(java)
+    progress.log(`Java ${java.version} from ${java.source} (${java.home})`, "info")
     progress.complete("java")
 }
 
@@ -145,27 +63,36 @@ async function initializeConfig() {
         WEBVIEW_CONFIG.android = {}
     }
 
-    return { WEBVIEW_CONFIG }
+    return { config, WEBVIEW_CONFIG }
 }
 
-async function saveConfig(newConfig) {
-    try {
-        const existingConfigFile = fs.readFileSync(configPath, "utf8")
-        const existingConfig = JSON.parse(existingConfigFile)
-
-        const updatedConfig = {
-            ...existingConfig,
-            WEBVIEW_CONFIG: {
-                ...existingConfig.WEBVIEW_CONFIG,
-                android: newConfig.WEBVIEW_CONFIG.android,
-            },
-        }
-
-        fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2))
-    } catch (error) {
-        progress.log("Failed to save configuration: " + error.message, "error")
-        process.exit(1)
+/**
+ * Write what setup worked out (port, buildType, sdkPath, emulatorName) into
+ * config/config.json, after a terminal confirm or --yes. Without either the
+ * values are used for this run only and the user is told how to keep them.
+ */
+async function saveAndroidConfig(changes) {
+    const keys = Object.keys(changes)
+    if (!keys.length) return false
+    const summary = keys.map((key) => `${key}=${changes[key]}`).join(", ")
+    const ok =
+        flags.yes ||
+        (await confirm(`Save ${keys.join(", ")} to config/config.json`, { isTTY: isInteractiveTerminal() }))
+    if (!ok) {
+        progress.log(`Not saved to config/config.json (pass --yes to save): ${summary}`, "note")
+        return false
     }
+    const existing = JSON.parse(fs.readFileSync(configPath, "utf8"))
+    const webview = existing.WEBVIEW_CONFIG || {}
+    const { port, ...android } = changes
+    existing.WEBVIEW_CONFIG = {
+        ...webview,
+        ...(port !== undefined ? { port } : {}),
+        android: { ...(webview.android || {}), ...android },
+    }
+    fs.writeFileSync(configPath, JSON.stringify(existing, null, 2))
+    progress.log(`Saved ${keys.join(", ")} to config/config.json`, "note")
+    return true
 }
 
 function validateAndroidTools(androidConfig) {
@@ -253,31 +180,56 @@ async function setupAndroidEnvironment() {
         await validateJavaEnvironment()
 
         progress.start("config")
-        await initializeConfig()
-        const config = await validateAndCompleteConfig("android", configPath)
+        const { config, WEBVIEW_CONFIG } = await initializeConfig()
+        const fileAndroid = WEBVIEW_CONFIG.android
+        const changes = {}
+        let port = WEBVIEW_CONFIG.port
+        if (!port) {
+            port = config.NODE_SERVER_PORT
+                ? String(config.NODE_SERVER_PORT)
+                : await promptUser("Port the app is served on", { defaultValue: "3005" })
+            changes.port = port
+        }
+        const buildType = fileAndroid.buildType || "debug"
+        if (!fileAndroid.buildType) changes.buildType = buildType
         progress.complete("config")
 
+        progress.start("sdk")
+        const sdkPath = expandHome(fileAndroid.sdkPath) || detectAndroidSdk() || defaultSdkPath()
+        const sdk = await ensureAndroidSdk({
+            sdkPath,
+            emulatorName: fileAndroid.emulatorName,
+            yes: flags.yes,
+            acceptLicenses: flags.acceptLicenses,
+            log,
+        })
+        if (sdk.installed.length) progress.log(`Installed ${sdk.installed.join(", ")}`, "success")
+        if (sdk.createdAvd) progress.log(`Created the "${sdk.emulatorName}" emulator`, "success")
+        if (!fileAndroid.sdkPath) changes.sdkPath = sdkPath
+        if (fileAndroid.emulatorName !== sdk.emulatorName) changes.emulatorName = sdk.emulatorName
+        progress.complete("sdk")
+
+        const androidConfig = { ...fileAndroid, buildType, sdkPath, emulatorName: sdk.emulatorName }
+
+        progress.start("saveConfig")
+        await saveAndroidConfig(changes)
+        progress.complete("saveConfig")
+
         progress.start("androidTools")
-        const { EMULATOR_PATH, ADB_PATH } = validateAndroidTools(config.android)
+        const { EMULATOR_PATH, ADB_PATH } = validateAndroidTools(androidConfig)
         progress.complete("androidTools")
 
         progress.start("emulator")
         const emulatorRunning = await checkEmulator(ADB_PATH)
         if (!emulatorRunning) {
             progress.log("No emulator running, attempting to start one...")
-            await startEmulator(EMULATOR_PATH, config.android)
+            await startEmulator(EMULATOR_PATH, androidConfig)
         } else {
             progress.log("Emulator already running", "info")
         }
         progress.complete("emulator")
 
-        if (config.android?.sdkPath) {
-            await updateLocalProperties(expandHome(config.android.sdkPath))
-        }
-
-        progress.start("saveConfig")
-        await saveConfig({ WEBVIEW_CONFIG: config })
-        progress.complete("saveConfig")
+        await updateLocalProperties(sdkPath)
 
         progress.start("setupServer")
         await setupServer(configPath, (message) => progress.log(message, "info"))
@@ -285,23 +237,24 @@ async function setupAndroidEnvironment() {
 
         // What was configured, not what the keys mean -- the explanation
         // belongs in the docs, not in every successful run's transcript.
-        // validateAndCompleteConfig returns { port, android: {...} } -- flat,
-        // not nested under WEBVIEW_CONFIG.
-        const androidCfg = config.android || {}
         progress.printTreeContent("Config  config/config.json", [
-            { text: `port           ${config.port ?? ""}`, color: "gray" },
-            { text: `buildType      ${androidCfg.buildType ?? ""}`, color: "gray" },
-            { text: `sdkPath        ${androidCfg.sdkPath ?? ""}`, color: "gray" },
-            { text: `emulatorName   ${androidCfg.emulatorName ?? ""}`, color: "gray" },
+            { text: `port           ${port ?? ""}`, color: "gray" },
+            { text: `buildType      ${buildType}`, color: "gray" },
+            { text: `sdkPath        ${sdkPath}`, color: "gray" },
+            { text: `emulatorName   ${sdk.emulatorName}`, color: "gray" },
         ])
 
         progress.summary("Ready", "Run catalyst buildApp:android to install the app")
         process.exit(0)
     } catch (error) {
+        // A coded error (ANDROID-007, IOS-003, ...) gets the full diagnostic:
+        // code, hint and doc link. Anything else keeps the one-line failure.
+        const coded = /^[A-Z]+-\d{3}$/.test(String(error?.code || ""))
         if (progress.currentStep) {
-            progress.fail(progress.currentStep.id, error.message)
+            progress.fail(progress.currentStep.id, coded ? undefined : error.message)
         }
-        progress.hint(error.hint)
+        if (coded) process.stderr.write(buildFailure({ error, stage: "Android setup" }))
+        else progress.hint(error.hint)
         process.exit(1)
     }
 }

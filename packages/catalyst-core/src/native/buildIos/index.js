@@ -22,7 +22,12 @@ const MANAGED_BASELINE_SUFFIX = ".catalyst-base"
 const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
 const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
-function createIosBuild(config) {
+/**
+ * @param {object} config - { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } from config.json
+ * @param {object} [options]
+ * @param {object} [options.progress] - an existing TerminalProgress to continue, when the build is re-created after the config changed
+ */
+function createIosBuild(config, { progress: existingProgress } = {}) {
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
     const iosConfig = WEBVIEW_CONFIG.ios
@@ -41,6 +46,7 @@ function createIosBuild(config) {
     const IPHONE_MODEL = iosConfig.simulatorName
 
     const steps = {
+        server: "Start dev server",
         config: "Generate build configuration",
         deviceDetection: "Detect physical device",
         launchSimulator: "Launch iOS simulator",
@@ -52,7 +58,7 @@ function createIosBuild(config) {
         launch: "Launch application",
     }
 
-    const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "ios" })
+    const progress = existingProgress || new TerminalProgress(steps, "catalyst buildApp", { subject: "ios" })
 
     // ─── Low-level helpers shared across modules ──────────────────────────────
 

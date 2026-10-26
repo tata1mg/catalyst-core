@@ -13,6 +13,8 @@ const createConfigPhase = require("./config.js")
 const createAssetsPhase = require("./assets.js")
 const createBuildPhase = require("./build.js")
 const { resolveAndroidSigning } = require("./signing.js")
+const { resolveJavaHome, applyJavaHome } = require("../androidToolchain.js")
+const { ensureDevServer, shouldEnsureDevServer } = require("../setupServer.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
@@ -20,6 +22,7 @@ const pwd = path.join(catalystCorePath, "dist/native")
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
 const steps = {
+    server: "Start dev server",
     config: "Initialize configuration",
     tools: "Validate Android tools",
     signing: "Resolve upload key",
@@ -113,6 +116,16 @@ function createAndroidBuild(config, { release: releaseFlag = false, buildNumber 
         let signing = null
 
         try {
+            // One-command dev: a debug build starts the dev server (and points
+            // the config at this machine's LAN address) when nothing is serving
+            // on the configured port. Done before the config is read, because
+            // setupServer rewrites it.
+            if (shouldEnsureDevServer("android", WEBVIEW_CONFIG, { release: releaseFlag })) {
+                progress.start("server")
+                await ensureDevServer(configPath, (message, type) => progress.log(message, type))
+                progress.complete("server")
+            }
+
             progress.start("config")
             resolved = await initializeConfig({ release: releaseFlag, buildNumber })
             const { WEBVIEW_CONFIG: wvConfig, BUILD_OUTPUT_PATH: bop, version, applicationId } = resolved
@@ -126,6 +139,18 @@ function createAndroidBuild(config, { release: releaseFlag = false, buildNumber 
             progress.complete("config")
 
             progress.start("tools")
+            // Gradle and keytool get JDK 17+ through this process's
+            // environment; no shell profile is involved.
+            const java = resolveJavaHome()
+            if (java) {
+                applyJavaHome(java)
+                progress.log(`Java ${java.version} from ${java.source}`, "info")
+            } else {
+                progress.log(
+                    "No JDK 17+ found in JAVA_HOME, java_home or Android Studio; Gradle will use the java on PATH. Run catalyst setupEmulator:android to set one up.",
+                    "warning"
+                )
+            }
             const { ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig)
             progress.complete("tools")
 
@@ -186,7 +211,7 @@ function createAndroidBuild(config, { release: releaseFlag = false, buildNumber 
             await copySplashscreenAssets()
             await copyOfflinePage()
             await copySplashHtml()
-            await copyIconAssets()
+            await copyIconAssets(androidConfig)
             await configureAppName(androidConfig)
             const pluginConfig = resolvePluginConfig(wvConfig)
             composeAndroidPlugins({

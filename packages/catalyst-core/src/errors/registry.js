@@ -30,6 +30,11 @@ export const ERROR_CODES = {
     BUNDLE_UPSTREAM_ERROR: "BUNDLE-000",
     IOS_UPSTREAM_ERROR: "IOS-000",
     IOS_SIMULATOR_APP_NOT_FOUND: "IOS-001",
+    IOS_XCODE_NOT_INSTALLED: "IOS-002",
+    IOS_XCODE_SETUP_PENDING: "IOS-003",
+    IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
+    IOS_APP_ICON_INVALID: "IOS-005",
+    IOS_APP_ICON_HAS_ALPHA: "IOS-006",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
     ANDROID_RELEASE_PRIVATE_HOST: "ANDROID-002",
@@ -37,6 +42,10 @@ export const ERROR_CODES = {
     ANDROID_INVALID_BUILD_NUMBER: "ANDROID-004",
     ANDROID_UPLOAD_KEY_MISSING: "ANDROID-005",
     ANDROID_UPLOAD_KEY_INVALID: "ANDROID-006",
+    ANDROID_JDK_NOT_FOUND: "ANDROID-007",
+    ANDROID_SDK_SETUP_NEEDS_CONSENT: "ANDROID-008",
+    ANDROID_CMDLINE_TOOLS_INSTALL_FAILED: "ANDROID-009",
+    ANDROID_APP_ICON_INVALID: "ANDROID-010",
 
     RUNTIME_NATIVE_PERMISSION_DENIED: "RUNTIME-NATIVE-001",
     RUNTIME_NATIVE_PERMISSION_REQUIRED: "RUNTIME-NATIVE-002",
@@ -258,6 +267,49 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
     },
+    // The messages and suggested actions of IOS-002..006 are copied into
+    // src/native/utils.js NATIVE_ERRORS; test/native/releaseConfig.test.ts
+    // keeps the two equal.
+    [ERROR_CODES.IOS_XCODE_NOT_INSTALLED]: {
+        category: "IOS",
+        defaultMessage: "Full Xcode is not installed or selected",
+        defaultDetails:
+            "setupEmulator:ios and buildApp:ios need Xcode.app, not only the Command Line Tools. xcode-select -p does not point inside an Xcode app bundle, so there is no simulator, iOS SDK or app-building xcodebuild.",
+        suggestedAction:
+            "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+    },
+    [ERROR_CODES.IOS_XCODE_SETUP_PENDING]: {
+        category: "IOS",
+        defaultMessage: "Xcode setup is not finished",
+        defaultDetails:
+            "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password, so they only run after a yes in an interactive terminal.",
+        suggestedAction:
+            "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+    },
+    [ERROR_CODES.IOS_SIMULATOR_RUNTIME_MISSING]: {
+        category: "IOS",
+        defaultMessage: "No iOS simulator runtime installed",
+        defaultDetails:
+            "Xcode has no available iOS simulator runtime, so there is no simulator to create or boot. The runtime is a download of several gigabytes and is only fetched after a yes in an interactive terminal or with --yes.",
+        suggestedAction:
+            "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+    },
+    [ERROR_CODES.IOS_APP_ICON_INVALID]: {
+        category: "IOS",
+        defaultMessage: "App icon is not usable",
+        defaultDetails:
+            "public/icon.png becomes the app's single 1024x1024 universal AppIcon, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        suggestedAction:
+            "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+    },
+    [ERROR_CODES.IOS_APP_ICON_HAS_ALPHA]: {
+        category: "IOS",
+        defaultMessage: "App icon has transparency",
+        defaultDetails:
+            "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
+        suggestedAction:
+            "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",
         defaultMessage: "Android build failed in an upstream toolchain step",
@@ -314,6 +366,39 @@ export const ERROR_DEFINITIONS = {
             "An upload keystore was found but cannot be used: its file is missing, no store password was given, or keytool rejected the password or alias.",
         suggestedAction:
             "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
+    },
+    // ANDROID-007..010 are copied into src/native/utils.js NATIVE_ERRORS too.
+    [ERROR_CODES.ANDROID_JDK_NOT_FOUND]: {
+        category: "ANDROID",
+        defaultMessage: "Java 17 or newer not found",
+        defaultDetails:
+            "Gradle and the Android SDK tools need JDK 17 or newer. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime, and installing one with Homebrew needs a yes in an interactive terminal on macOS.",
+        suggestedAction:
+            "Install JDK 17 or newer (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst setupEmulator:android in a terminal to install it.",
+    },
+    [ERROR_CODES.ANDROID_SDK_SETUP_NEEDS_CONSENT]: {
+        category: "ANDROID",
+        defaultMessage: "Android SDK setup needs your confirmation",
+        defaultDetails:
+            "setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept. Downloads only happen after a yes in an interactive terminal or with --yes, and licences are only accepted interactively or with --accept-licenses.",
+        suggestedAction:
+            "Run catalyst setupEmulator:android in a terminal, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences (for CI).",
+    },
+    [ERROR_CODES.ANDROID_CMDLINE_TOOLS_INSTALL_FAILED]: {
+        category: "ANDROID",
+        defaultMessage: "Could not install the Android command-line tools",
+        defaultDetails:
+            "The pinned Android command-line tools archive could not be downloaded, did not match its published SHA-256, or could not be unpacked into <sdk>/cmdline-tools/latest.",
+        suggestedAction:
+            "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+    },
+    [ERROR_CODES.ANDROID_APP_ICON_INVALID]: {
+        category: "ANDROID",
+        defaultMessage: "App icon is not usable",
+        defaultDetails:
+            "public/icon.png becomes the Android launcher icon when public/android/appIcons has no per-density icons, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        suggestedAction:
+            "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
     },
 
     [ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED]: {
