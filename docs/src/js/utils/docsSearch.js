@@ -1,4 +1,8 @@
 import manifest from '../generated/docsManifest.json'
+import versions from '../generated/versions.json'
+
+const LATEST = versions.find((version) => version.latest)?.label
+const latestPages = manifest.filter((page) => page.version === LATEST)
 
 /**
  * Words that carry no signal in a docs query. Only stripped in relaxed mode —
@@ -61,12 +65,22 @@ const countOccurrences = (haystack, term) => {
  * instead of demanding all of them. Natural-language questions such as "how
  * does server fetcher work" return nothing at all under strict matching, which
  * would leave the assistant ungrounded.
+ *
+ * Only the latest docs version is searched by default, so results never point
+ * at stale pages. Pass `version` (a label from versions.json) to search another.
  */
-const searchDocs = (query, { limit = 10, relaxed = false } = {}) => {
+const searchDocs = (
+    query,
+    { limit = 10, relaxed = false, version } = {}
+) => {
     const terms = relaxed ? relaxedTerms(query) : tokenize(query)
     if (!terms.length) return []
 
-    return manifest
+    const pages = version
+        ? manifest.filter((page) => page.version === version)
+        : latestPages
+
+    return pages
         .map((page) => {
             const title = page.title.toLowerCase()
             const body = page.searchText.toLowerCase()

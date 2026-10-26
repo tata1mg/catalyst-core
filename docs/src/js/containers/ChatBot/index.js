@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAI } from 'catalyst-core/hooks'
+import { Link } from 'react-router'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import searchDocs from '../../utils/docsSearch'
@@ -104,15 +105,54 @@ const CloseIcon = () => (
  * links), so they get parsed; user turns stay literal text so a stray `#` or
  * `*` in a question is never interpreted as formatting.
  *
- * Links open in a new tab: the sources point back into this same docs site,
- * and navigating in place would lose the conversation in the panel.
+ * Links to this docs site navigate client-side, so the panel (and the
+ * conversation in it) stays mounted. Cmd/Ctrl/Shift-click still opens a new
+ * tab, as react-router's Link leaves modified clicks to the browser. External
+ * links always open in a new tab.
  */
+const isSiteHref = (href) => {
+    if (!href) return false
+    if (href.startsWith('/') && !href.startsWith('//')) return true
+    if (typeof window === 'undefined') return false
+    try {
+        return new URL(href).origin === window.location.origin
+    } catch {
+        return false
+    }
+}
+
+const toSitePath = (href) => {
+    if (href.startsWith('/')) return href
+    const url = new URL(href)
+    return `${url.pathname}${url.search}${url.hash}`
+}
+
+const DocLink = ({ href, children, ...rest }) => {
+    if (isSiteHref(href)) {
+        return (
+            <Link to={toSitePath(href)} {...rest}>
+                {children}
+            </Link>
+        )
+    }
+    return (
+        <a
+            href={href}
+            {...rest}
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            {children}
+        </a>
+    )
+}
+
 const MarkdownLink = (props) => {
     // react-markdown hands components the mdast `node`, which is not a valid
     // DOM attribute and must not be spread onto the anchor.
-    const anchorProps = { ...props }
-    delete anchorProps.node
-    return <a {...anchorProps} target="_blank" rel="noopener noreferrer" />
+    const linkProps = { ...props }
+    delete linkProps.node
+    return <DocLink {...linkProps} />
 }
 
 const MARKDOWN_COMPONENTS = { a: MarkdownLink }
@@ -139,13 +179,9 @@ const Sources = ({ sources }) => {
             <ul>
                 {sources.map((source) => (
                     <li key={source.url}>
-                        <a
-                            href={encodeURI(source.url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
+                        <DocLink href={encodeURI(source.url)}>
                             {source.title}
-                        </a>
+                        </DocLink>
                     </li>
                 ))}
             </ul>
