@@ -1,0 +1,19 @@
+.github/workflows/node.js.yml
+  s_6b6732c881d884::t_c84550e9b3da81 1395
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3702b1111724f78aefff9c0039cc458f7e1cc978",
+  "prompts": {},
+  "sessions": {
+    "s_6b6732c881d884": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2e0da09-0c93-4d11-8b12-6d4d148c9b96",
+        "model": "claude-haiku-5-5"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    }
+  }
+}

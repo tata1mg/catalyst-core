@@ -1,0 +1,39 @@
+packages/catalyst-core/test/native/androidToolchain.test.ts
+  b5146ae36c857cb1 1-175,177-245,247-264,266-270,272-276,278-291,293-299,301,303-318,320-327,329-335,337-340,342-346,348-362,364-373,375-379,381-393,395-412,414-418
+packages/catalyst-core/test/native/iosToolchain.test.ts
+  b5146ae36c857cb1 1-35,37-129,131-187,189-193,195-255
+packages/catalyst-core/src/native/iosToolchain.js
+  b5146ae36c857cb1 1-176,178-233
+packages/catalyst-core/test/native/setupServer.test.ts
+  b5146ae36c857cb1 1-48
+packages/catalyst-core/src/native/androidToolchain.js
+  b5146ae36c857cb1 1-11,13-273,276-339,341-353,355-361,366,368,371,373-475
+packages/catalyst-core/test/native/appIcon.test.ts
+  b5146ae36c857cb1 1-77,79-124
+"docs/content/02-Guides and Tutorials/04-Android-Emulator-Setup.md"
+  b5146ae36c857cb1 9,15-17,21,23-25,27,29-34,36,38,40,42,44-46,48-49,51,55,57,65-66,76,81,84,87,89,97-100
+packages/catalyst-core/src/native/appIcon.js
+  b5146ae36c857cb1 1,3-69,74,76-79,81-84,86-87,89-95
+"docs/content/02-Guides and Tutorials/05-iOS-Emulator-Setup.md"
+  b5146ae36c857cb1 7,9,15-16,18,20-22,26,29,32-37,41,43,46,49,53,62,79,81-83,85,87,91,97,100-101,110-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "bc08d542e6ec09ef7e63ccf35f1b5608ee6d2279",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1612,
+      "total_deletions": 84,
+      "accepted_lines": 1681,
+      "overriden_lines": 35
+    }
+  }
+}
