@@ -1,0 +1,38 @@
+docs/src/js/containers/Releases/ReleasePage.js
+  e23ffccc9cf31239 1,10,57-125,192-193
+docs/src/js/containers/Releases/Releases.scss
+  e23ffccc9cf31239 69-114,116-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "413fdcd63ec075d84efa4a48812a24dcd1423719",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 104,
+      "total_deletions": 0,
+      "accepted_lines": 300,
+      "overriden_lines": 1
+    },
+    "e23ffccc9cf31239": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ba08a0d-6fde-474b-869f-e63ac8f15969",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 163,
+      "total_deletions": 2,
+      "accepted_lines": 162,
+      "overriden_lines": 1
+    }
+  }
+}
