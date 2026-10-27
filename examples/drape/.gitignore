@@ -1,0 +1,10 @@
+node_modules
+build
+logs
+.DS_Store
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.playwright-mcp/
+# Playwright screenshots written to repo root by the MCP tool
+*-after-fix.png
+page-*.png

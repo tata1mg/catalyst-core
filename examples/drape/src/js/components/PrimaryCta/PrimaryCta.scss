@@ -1,0 +1,22 @@
+.cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    width: 100%;
+    height: 56px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-text-primary);
+    color: var(--color-text-on-dark);
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: var(--transition-tap);
+}
+
+.cta:active {
+    transform: scale(0.97);
+}

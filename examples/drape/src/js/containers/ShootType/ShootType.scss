@@ -1,0 +1,268 @@
+// Shoot Type — frame WuXtu in design/drape.pen
+// Spec: docs/SHOOT-TYPE-IDEAS.md (Variation A: Location Plate Grid)
+
+.body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding: var(--space-4) var(--page-padding) 0 var(--page-padding);
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.sectionTitle {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.sectionTitleSmall {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--color-text-primary);
+}
+
+.cardGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: var(--space-10);
+    background-color: var(--color-surface);
+    border: var(--stroke-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition:
+        border-color var(--transition-state),
+        border-width var(--transition-state),
+        padding var(--transition-state),
+        transform var(--motion-tap) var(--ease-standard);
+}
+
+.card:active {
+    transform: scale(0.98);
+}
+
+.cardSelected {
+    border: var(--stroke-emphasis) solid var(--color-accent);
+    padding: calc(var(--space-10) - 1px);
+}
+
+.cardCheck {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background-color: var(--color-accent);
+    color: var(--color-text-on-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: badgeIn var(--motion-state) var(--ease-decelerate);
+    transform-origin: center;
+}
+
+@keyframes badgeIn {
+    from {
+        opacity: 0;
+        transform: scale(0);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.cardTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.cardThumb {
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    background-color: var(--color-surface-soft);
+}
+
+.cardName {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.cardDescriptor {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+}
+
+.segmented {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    height: 44px;
+    background-color: var(--color-canvas);
+    border-radius: var(--radius-lg);
+    // Contain the indicator/segment z-index ladder so .segment z-index: 1
+    // doesn't paint above the sticky .continueArea below.
+    isolation: isolate;
+}
+
+.segment {
+    position: relative;
+    z-index: 1;
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-state);
+}
+
+.segmentActive {
+    color: var(--color-text-on-dark);
+}
+
+// The dark "active" pill is a single overlay sliding between segments.
+// It tracks the active index via a CSS custom property set on the container.
+.segmentIndicator {
+    position: absolute;
+    top: var(--space-4);
+    bottom: var(--space-4);
+    left: var(--space-4);
+    width: calc((100% - var(--space-4) * 2) / 3);
+    background-color: var(--color-text-primary);
+    border-radius: 20px;
+    transform: translateX(calc(var(--segment-active-index, 0) * 100%));
+    transition: transform var(--motion-state) var(--ease-standard);
+    z-index: 0;
+}
+
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 var(--space-8);
+    background-color: var(--color-surface);
+    border: var(--stroke-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.stepperButton {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 20px;
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-tap);
+}
+
+.stepperButton:active {
+    transform: scale(0.92);
+}
+
+.stepperButtonDark {
+    background-color: var(--color-text-primary);
+    color: var(--color-text-on-dark);
+}
+
+.stepperValueWrap {
+    position: relative;
+    width: 64px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.stepperValue {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    line-height: 1;
+}
+
+.stepperValueEnter {
+    animation: stepperEnter var(--motion-quick) var(--ease-decelerate);
+}
+
+.stepperValueEnterDown {
+    animation: stepperEnterDown var(--motion-quick) var(--ease-decelerate);
+}
+
+@keyframes stepperEnter {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes stepperEnterDown {
+    from {
+        opacity: 0;
+        transform: translateY(-16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.helperCaption {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+
+.continueArea {
+    padding: var(--space-12) var(--page-padding);
+    flex-shrink: 0;
+}
+
+// On mobile the TabBar floats fixed at the bottom; reserve enough space
+// below the CTA that scrolling all the way down doesn't hide it behind
+// the floating pill.
+@media (max-width: 599px) {
+    .continueArea {
+        margin-bottom: var(--tab-bar-height);
+    }
+}
