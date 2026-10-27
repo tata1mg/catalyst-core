@@ -3,7 +3,7 @@
  */
 export const renderStart = ({
     inlineCss,
-    inlineCssIsCritical,
+    inlineCssIsUsed,
     cssLinks,
     deferredRouteInlineCss,
     jsScripts,
@@ -23,7 +23,7 @@ export const renderStart = ({
 
     return {
         inlineCss,
-        inlineCssIsCritical,
+        inlineCssIsUsed,
         cssLinks,
         deferredRouteInlineCss,
         jsScripts,

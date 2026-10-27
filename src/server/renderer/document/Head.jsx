@@ -4,14 +4,14 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
 
 /**
  * Head component — inlines critical CSS as <style> and renders JS as <script type="module">.
- * By default all route CSS is inlined. Routes with generated first-fold CSS (inlineCssIsCritical)
+ * By default all route CSS is inlined. Routes with generated first-fold CSS (inlineCssIsUsed)
  * inline only that and load the full route CSS through non-blocking cssLinks right after it.
  * Route-cached deferred CSS is inlined here on repeat visits; new deferred CSS still appends after body.
  */
 export function Head(props) {
     const {
         inlineCss,
-        inlineCssIsCritical,
+        inlineCssIsUsed,
         cssLinks,
         deferredRouteInlineCss,
         jsScripts,
@@ -40,12 +40,12 @@ export function Head(props) {
             {/* Inline critical CSS — prevents FOUC/CLS */}
             {inlineCss && (
                 <style
-                    data-catalyst-css={inlineCssIsCritical ? "critical" : ""}
+                    data-catalyst-css={inlineCssIsUsed ? "used" : ""}
                     dangerouslySetInnerHTML={{ __html: inlineCss }}
                 />
             )}
 
-            {/* Full route CSS, non-blocking, when only first-fold CSS is inlined */}
+            {/* Full route CSS, non-blocking, when only used CSS is inlined */}
             {cssLinks}
 
             {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
@@ -64,7 +64,7 @@ export function Head(props) {
 Head.propTypes = {
     isBot: PropTypes.bool,
     inlineCss: PropTypes.string,
-    inlineCssIsCritical: PropTypes.bool,
+    inlineCssIsUsed: PropTypes.bool,
     cssLinks: PropTypes.array,
     deferredRouteInlineCss: PropTypes.string,
     jsScripts: PropTypes.array,

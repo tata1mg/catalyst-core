@@ -21,9 +21,9 @@ import {
     registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
-    getCriticalCssForRoute,
     generateCssLinkElements,
 } from "./extract.js"
+import { isUsedCssRoute, getLearnedUsedCss, learnUsedCss, createTokenCollector } from "./usedCss.js"
 import path from "path"
 import crypto from "node:crypto"
 import { Transform } from "node:stream"
@@ -155,15 +155,19 @@ const _renderMarkUp = async (
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
     const cachedDeferredCssPaths = getCachedDeferredCssPathsForRoute(deferredRouteKey)
 
-    // Routes with generated first-fold CSS (`catalyst critical-css`) inline only that and load the
-    // full route CSS as non-blocking stylesheets. Everything else (and bots) inlines all route CSS.
-    const criticalCss = !isBot && chunkExtractor ? getCriticalCssForRoute(deferredRouteKey, buildDir) : null
+    // Routes with `inlineUsedCss: true` inline only the rules their rendered HTML uses (learned per
+    // route, see usedCss.js) and load the full route CSS as non-blocking, cacheable stylesheets.
+    // A route's first render in this process, other routes and bots inline all route CSS.
+    const routeCssPaths = [...criticalAssets.css, ...cachedDeferredCssPaths]
+    const usedCssRoute = !isBot && !!chunkExtractor && isUsedCssRoute(allMatches)
+    const usedCss = usedCssRoute ? getLearnedUsedCss(deferredRouteKey, routeCssPaths, buildDir) : null
+    const tokens = usedCssRoute ? createTokenCollector() : null
     let inlineCss, deferredRouteInlineCss, cssLinks
-    if (criticalCss) {
-        inlineCss = criticalCss
+    if (usedCss !== null) {
+        inlineCss = usedCss
         deferredRouteInlineCss = ""
         cssLinks = generateCssLinkElements(
-            [...criticalAssets.css, ...cachedDeferredCssPaths].map((p) => chunkExtractor.toCssUrl(p)),
+            routeCssPaths.map((p) => chunkExtractor.toCssUrl(p)),
             nonce
         )
     } else {
@@ -179,7 +183,7 @@ const _renderMarkUp = async (
     // Build Head props
     const shellStart = renderStart({
         inlineCss,
-        inlineCssIsCritical: !!criticalCss,
+        inlineCssIsUsed: usedCss !== null,
         cssLinks,
         deferredRouteInlineCss,
         jsScripts,
@@ -205,7 +209,7 @@ const _renderMarkUp = async (
                 <Head
                     isBot={finalProps.isBot}
                     inlineCss={finalProps.inlineCss}
-                    inlineCssIsCritical={finalProps.inlineCssIsCritical}
+                    inlineCssIsUsed={finalProps.inlineCssIsUsed}
                     cssLinks={finalProps.cssLinks}
                     deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
                     jsScripts={finalProps.jsScripts}
@@ -241,6 +245,7 @@ const _renderMarkUp = async (
             // (see issue #320).
             const tail = new Transform({
                 transform(chunk, _enc, cb) {
+                    if (tokens) tokens.push(chunk.toString())
                     cb(null, chunk)
                 },
                 flush(cb) {
@@ -270,12 +275,31 @@ const _renderMarkUp = async (
                     )
                     if (newCssPaths.length) {
                         // First SSR of a route after a deploy: CSS discovered during render. Later SSRs
-                        // carry it in <head> (inlined, or as a link on critical-CSS routes).
+                        // carry it in <head> (inlined, or as a link on used-CSS routes).
                         this.push(
-                            criticalCss
+                            usedCss !== null
                                 ? generateCssLinkStrings(newCssPaths.map((p) => chunkExtractor.toCssUrl(p)))
                                 : `<style data-catalyst-css>${readCssFromDisk(newCssPaths, buildDir)}</style>`
                         )
+                    }
+                    if (tokens) {
+                        tokens.end()
+                        const { lateCss } = learnUsedCss(
+                            deferredRouteKey,
+                            [...routeCssPaths, ...newCssPaths],
+                            buildDir,
+                            tokens,
+                            usedCss !== null
+                        )
+                        if (lateCss) {
+                            // Rules this route had not used before. Move them ahead of the route stylesheets so
+                            // the full files, once applied, keep the original cascade order.
+                            this.push(
+                                `<style data-catalyst-css="late">${lateCss}</style><script${nonceAttr}>` +
+                                    `(function(s,l){s=document.currentScript.previousElementSibling;` +
+                                    `l=document.querySelector('link[data-catalyst-css]');l&&l.parentNode.insertBefore(s,l)})()</script>`
+                            )
+                        }
                     }
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js, nonce))

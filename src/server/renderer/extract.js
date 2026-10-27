@@ -122,42 +122,11 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
     return chunks.join("\n")
 }
 
-// ── Critical (first-fold) CSS ──────────────────────────────────────────
-
-// <build>/critical-css/manifest.json is written by `catalyst critical-css`. Read once per process;
-// restart the server after (re)generating it.
-let _criticalCssManifest
-const getCriticalCssManifest = (buildDir) => {
-    if (_criticalCssManifest === undefined) {
-        try {
-            _criticalCssManifest = JSON.parse(
-                fs.readFileSync(path.join(buildDir, "critical-css", "manifest.json"), "utf8")
-            )
-        } catch {
-            _criticalCssManifest = null
-        }
-    }
-    return _criticalCssManifest
-}
+// ── Full route CSS as non-blocking stylesheets ─────────────────────────
 
 /**
- * Generated first-fold CSS for a route, or null when the route has none (or it is over budget, or
- * CRITICAL_CSS_DISABLE is set) — callers then keep inlining the full route CSS.
- * @param {string|null} routeKey - Matched route pattern, see getDeferredRouteKey.
- * @param {string} buildDir - Build output directory on disk.
- */
-export const getCriticalCssForRoute = (routeKey, buildDir) => {
-    if (!routeKey || String(process.env.CRITICAL_CSS_DISABLE) === "true") return null
-    const entry = getCriticalCssManifest(buildDir)?.routes?.[routeKey]
-    if (!entry?.file || entry.overBudget) return null
-    const maxBytes = Number(process.env.CRITICAL_CSS_MAX_BYTES) || 0
-    if (maxBytes && entry.bytes > maxBytes) return null
-    return readCssFromDisk([path.join(buildDir, "critical-css", entry.file)], buildDir) || null
-}
-
-/**
- * Non-render-blocking stylesheets for the full route CSS, used together with inline critical CSS.
- * The links sit in <head> right after the critical <style>, so cascade order matches the inlined
+ * Non-render-blocking stylesheets for the full route CSS, used together with inline used CSS.
+ * The links sit in <head> right after the inline <style>, so cascade order matches the inlined
  * version and stylesheets Vite injects later still come after them. media="print" keeps them off the
  * render-blocking path; a nonce-able inline script switches them all to media="all" once every one has loaded
  * (no inline event handlers, so it works under a nonce-based CSP). <noscript> covers no-JS clients.
