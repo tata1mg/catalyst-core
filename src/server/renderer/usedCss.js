@@ -226,6 +226,6 @@ export const learnUsedCss = (routeKey, cssPaths, buildDir, tokens, headHadLearne
     return { lateCss: late.map((p) => serialise(p.units, p.indexes, text)).join("") }
 }
 
-/** Opt-in per route: `inlineUsedCss: true` on the matched route; off when USED_CSS_DISABLE is true. */
+/** On when config.json has INLINE_USED_CSS_ENABLE: true and the matched route sets `inlineUsedCss: true`. */
 export const isUsedCssRoute = (allMatches = []) =>
-    String(process.env.USED_CSS_DISABLE) !== "true" && !!allMatches?.[allMatches.length - 1]?.route?.inlineUsedCss
+    String(process.env.INLINE_USED_CSS_ENABLE) === "true" && !!allMatches?.[allMatches.length - 1]?.route?.inlineUsedCss
