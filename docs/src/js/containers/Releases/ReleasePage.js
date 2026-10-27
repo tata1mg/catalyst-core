@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router'
 import { MDXProvider } from '@mdx-js/react'
 import CopyButton from '../../components/CopyButton'
@@ -7,6 +7,7 @@ import ReleaseVideo from './ReleaseVideo'
 import { storyComponents } from './storyComponents'
 import {
     LATEST_RELEASE,
+    RELEASES,
     formatDate,
     githubReleaseUrl,
     npmUrl,
@@ -52,6 +53,75 @@ const Arrow = ({ flip }) => (
         />
     </svg>
 )
+
+/**
+ * The breadcrumb's version, opening a list of every release. A <details> of
+ * plain links, so it works before hydration and crawlers see every release.
+ * Mount it with key={url}: the remount on navigation closes it.
+ */
+const VersionSwitcher = ({ current }) => {
+    const ref = useRef(null)
+
+    useEffect(() => {
+        const close = (event) => {
+            const details = ref.current
+            if (!details?.open) return
+            if (event.type === 'keydown') {
+                if (event.key !== 'Escape') return
+                details.open = false
+                details.querySelector('summary').focus()
+            } else if (!details.contains(event.target)) {
+                details.open = false
+            }
+        }
+        document.addEventListener('pointerdown', close)
+        document.addEventListener('keydown', close)
+        return () => {
+            document.removeEventListener('pointerdown', close)
+            document.removeEventListener('keydown', close)
+        }
+    }, [])
+
+    return (
+        <details ref={ref} className={styles.switcher}>
+            <summary aria-label={`Version ${current.version}, switch release`}>
+                v{current.version}
+                <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path
+                        d="M3 4.5l3 3 3-3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                </svg>
+            </summary>
+            <ul className={styles.switcherMenu}>
+                {RELEASES.map((page) => (
+                    <li key={page.url}>
+                        <Link
+                            to={page.url}
+                            aria-current={
+                                page.release.version === current.version
+                                    ? 'page'
+                                    : undefined
+                            }
+                        >
+                            <span>v{page.release.version}</span>
+                            {page === LATEST_RELEASE && (
+                                <span className={styles.badge}>Latest</span>
+                            )}
+                            <time dateTime={page.release.date}>
+                                {formatDate(page.release.date)}
+                            </time>
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </details>
+    )
+}
 
 /** Header for a release with a story: version line, headline, annotated film. */
 const StoryHero = ({ meta, latest }) => {
@@ -119,7 +189,8 @@ const ReleasePage = ({ meta, Content }) => {
                     aria-label="Breadcrumbs"
                 >
                     <Link to="/releases">Releases</Link>
-                    <span> › {release.version}</span>
+                    <span aria-hidden="true"> › </span>
+                    <VersionSwitcher key={meta.url} current={release} />
                 </nav>
 
                 {release.story ? (

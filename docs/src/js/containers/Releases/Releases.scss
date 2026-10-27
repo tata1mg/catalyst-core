@@ -66,6 +66,96 @@
 
 /* ── Release page ───────────────────────────────────────────────────── */
 
+/* Version switcher in the breadcrumbs. */
+.switcher {
+    position: relative;
+    display: inline-block;
+
+    summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px 2px 8px;
+        border: 1px solid var(--hub-border);
+        border-radius: var(--radius-full);
+        color: var(--hub-text);
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+
+        &::-webkit-details-marker {
+            display: none;
+        }
+
+        &:hover {
+            border-color: var(--hub-border-strong);
+            background: var(--hub-card-background);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--hub-focus-ring);
+            outline-offset: 2px;
+        }
+
+        svg {
+            width: 12px;
+            height: 12px;
+            color: var(--hub-text-muted);
+            transition: transform 0.15s ease;
+        }
+    }
+
+    &[open] summary svg {
+        transform: rotate(180deg);
+    }
+}
+
+.switcher .switcherMenu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 50;
+    min-width: 260px;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--hub-background);
+    border: 1px solid var(--hub-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--hub-shadow-2);
+
+    a {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        color: var(--hub-text);
+        font-variant-numeric: tabular-nums;
+
+        > span:first-child {
+            font-family: var(--font-mono);
+        }
+
+        time {
+            margin-left: auto;
+            color: var(--hub-text-muted);
+        }
+
+        &:hover {
+            color: var(--hub-text);
+            background: var(--hub-card-background);
+        }
+
+        &[aria-current='page'] {
+            color: var(--hub-primary);
+            background: var(--hub-primary-softer);
+        }
+    }
+}
+
 .header {
     margin: 8px 0 28px;
 }
