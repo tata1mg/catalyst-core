@@ -36,8 +36,8 @@ RUN npm install -g npm@12.0.2
 # http-cache-semantics 4.2.0 (no patched release; not gated).
 RUN npm install -g --prefix /tmp/npmpatch \
         tar@7.5.22 \
-        undici@6.28.1 \
-        ip-address@10.7.1 \
+        undici@6.29.1 \
+        ip-address@10.7.4 \
         brace-expansion@5.0.12 \
         postcss-selector-parser@7.1.6 && \
     for pkg in tar undici ip-address brace-expansion postcss-selector-parser; do \
