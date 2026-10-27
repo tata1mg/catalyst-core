@@ -296,6 +296,26 @@ const tracedAppServerSideFunction = withObservability(
     (args) => App.serverSideFunction(args),
     "App.serverSideFunction"
 )
+
+/**
+ * Waits for every deferred promise, including ones deferred while waiting, then closes `deferred`
+ * in the same tick as the last check so nothing can slip in unawaited.
+ * failFast rejects with the first rejection (like Promise.all) and leaves `deferred` open;
+ * otherwise waits for all to settle.
+ */
+const waitForDeferred = async (deferred, failFast) => {
+    for (let waited = 0; waited < deferred.promises.length; ) {
+        const batch = deferred.promises.slice(waited)
+        waited = deferred.promises.length
+        await (failFast ? Promise.all(batch) : Promise.allSettled(batch))
+    }
+    deferred.closed = true
+}
+const tracedWaitForDeferred = withObservability(
+    SSR_SERVICE,
+    (deferred) => waitForDeferred(deferred, true),
+    "App.serverSideFunction.deferred"
+)
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
 const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
@@ -306,6 +326,14 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  *   2. App.serverSideFunction (app-level server hook)
  *   3. serverDataFetcher (route-level data fetching)
  *   4. renderMarkUp → renderToPipeableStream (stream to client)
+ *
+ * serverSideFunction also receives `defer(...promises)` (opt-in). It can be called any number of
+ * times, with any number of promises. Deferred work runs alongside step 3 instead of before it, and
+ * all of it settles before step 4. A rejection takes the same path as a rejected serverSideFunction;
+ * onAppServerSideSuccess runs once all deferred work has succeeded (route fetchers may still be running).
+ * Only defer work the route fetchers don't depend on (no store state, cookies or req fields they read),
+ * and call defer before serverSideFunction resolves or from inside work that is already deferred.
+ * Apps that never call `defer` keep the sequential flow.
  *
  * res.headersSent is checked after each async step: if a user hook
  * (onRouteMatch, onFetcherSuccess, etc.) has already sent a response
@@ -331,17 +359,45 @@ async function _handler(req, res) {
 
         if (res.headersSent) return
 
+        // Work handed to defer(); closed once everything in it has settled and render can start
+        const deferred = { promises: [], closed: false }
+        const defer = (...works) => {
+            for (const work of works) {
+                const promise = Promise.resolve(work)
+                promise.catch(() => {}) // awaited below; this only avoids an unhandled rejection if we bail out early
+                if (!deferred.closed) {
+                    deferred.promises.push(promise)
+                } else {
+                    console.error(
+                        "defer() called after App.serverSideFunction and its deferred work finished; this work is not awaited before render"
+                    )
+                }
+            }
+        }
+        const fetchRouteData = () =>
+            tracedServerDataFetcher({ routes: cachedRoutes, req, res, url: req.originalUrl }, { store })
+        let routeDataPromise = null
+
         try {
-            await tracedAppServerSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res, defer })
+
+            if (deferred.promises.length) {
+                if (!res.headersSent) {
+                    routeDataPromise = fetchRouteData()
+                    routeDataPromise.catch(() => {}) // its error is handled where it is awaited below
+                }
+                // Same outcome as serverSideFunction awaiting this work itself
+                await tracedWaitForDeferred(deferred)
+            } else {
+                deferred.closed = true
+            }
+
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) return
 
             try {
-                fetcherData = await tracedServerDataFetcher(
-                    { routes: cachedRoutes, req, res, url: req.originalUrl },
-                    { store }
-                )
+                fetcherData = await (routeDataPromise || fetchRouteData())
 
                 if (res.headersSent) return
 
@@ -410,6 +466,14 @@ async function _handler(req, res) {
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
+
+            if (deferred.promises.length) {
+                await Promise.all([waitForDeferred(deferred, false), routeDataPromise?.catch(() => {})])
+
+                if (res.headersSent) return
+            } else {
+                deferred.closed = true
+            }
 
             const chunkExtractor = collectAssets(req, allMatches)
             await tracedRenderMarkUp(
