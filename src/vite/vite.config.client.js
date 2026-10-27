@@ -70,7 +70,11 @@ const clientConfig = defineConfig({
                     if (!/[\\/]node_modules[\\/]/.test(id)) {
                         return undefined
                     }
-                    if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+                    if (
+                        /[\\/]node_modules[\\/](react|react-dom|scheduler|react-fast-compare|react-side-effect|react-helmet-async)[\\/]/.test(
+                            id
+                        )
+                    ) {
                         return "vendor-react"
                     }
                     if (/[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history)[\\/]/.test(id)) {
