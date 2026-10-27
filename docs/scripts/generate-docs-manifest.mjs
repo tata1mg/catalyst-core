@@ -14,6 +14,9 @@
  *   src/js/generated/docsRoutes.jsx     — one explicit route per page
  *                                         (ssr + offline) for the router
  *
+ * release-pages.json adds one /releases/<version> announcement page per entry,
+ * built from that version's section of the catalyst-core changelog.
+ *
  * Modes:
  *   node scripts/generate-docs-manifest.mjs           # generate both files
  *   node scripts/generate-docs-manifest.mjs --check <urls.txt>
@@ -52,6 +55,9 @@ const VERSIONS_FILE = path.resolve(
     process.env.DOCS_VERSIONS || 'versions.json'
 )
 const CHANGELOG = path.resolve(REPO_ROOT, 'packages/catalyst-core/changelog.md')
+const RELEASES_FILE = path.join(APP_ROOT, 'release-pages.json')
+const RELEASE_STORIES_DIR = path.join(APP_ROOT, 'release-stories')
+const RELEASES_BASE = '/releases'
 
 const readVersions = () => JSON.parse(fs.readFileSync(VERSIONS_FILE, 'utf8'))
 
@@ -185,27 +191,118 @@ const firstHeading = (markdown) => {
     return null
 }
 
+const CHANGELOG_SOURCE = path
+    .relative(REPO_ROOT, CHANGELOG)
+    .split(path.sep)
+    .join('/')
+
 /** The package changelog, rendered as the last page in the latest partition. */
-const releasePage = (version) => {
+const changelogPage = (version) => {
     const raw = fs.readFileSync(CHANGELOG, 'utf8')
     const plain = stripMarkdown(raw)
     return {
-        url: `${ROUTE_BASE}/releases`,
-        sourcePath: path
-            .relative(REPO_ROOT, CHANGELOG)
-            .split(path.sep)
-            .join('/'),
+        url: `${ROUTE_BASE}/changelog`,
+        sourcePath: CHANGELOG_SOURCE,
         absPath: CHANGELOG,
-        title: 'Releases',
-        sidebarLabel: 'Releases',
+        title: 'Changelog',
+        sidebarLabel: 'Changelog',
         description: plain.slice(0, 160),
         categories: [],
         orderKey: [Number.MAX_SAFE_INTEGER],
         toc: extractToc(raw),
-        searchText: `Releases ${plain}`.slice(0, 5000),
+        searchText: `Changelog ${plain}`.slice(0, 5000),
         isMdx: false,
         version,
     }
+}
+
+/**
+ * One changelog section (`## [x.y.z] - date` up to the next `## [`), minus
+ * its own heading, with every heading raised one level so the section's
+ * `###` become the page's `##` (the TOC reads depth 2 and 3).
+ */
+const changelogSection = (raw, release) => {
+    const lines = raw.split('\n')
+    const heading = `## [${release}]`
+    const start = lines.findIndex((line) => line.startsWith(heading))
+    if (start === -1) {
+        throw new Error(
+            `release-pages.json lists ${release}, but ${CHANGELOG_SOURCE} has no "${heading}" section`
+        )
+    }
+    const rest = lines.slice(start + 1)
+    const end = rest.findIndex((line) => line.startsWith('## ['))
+    let inFence = false
+    return rest
+        .slice(0, end === -1 ? rest.length : end)
+        .map((line) => {
+            if (/^\s*(```|~~~)/.test(line)) inFence = !inFence
+            return !inFence && /^#{3,6}\s/.test(line) ? line.slice(1) : line
+        })
+        .join('\n')
+        .trim()
+}
+
+/**
+ * A release's page body. With release-stories/<version>.mdx, that story
+ * (written with the components in containers/Releases/storyComponents.js)
+ * comes first and the changelog section follows inside <FullNotes>.
+ * Without one, the page is the changelog section alone.
+ */
+const releaseBody = (changelog, version) => {
+    const section = changelogSection(changelog, version)
+    const storyPath = path.join(RELEASE_STORIES_DIR, `${version}.mdx`)
+    if (!fs.existsSync(storyPath)) return { raw: section, story: false }
+    const story = fs.readFileSync(storyPath, 'utf8').trim()
+    return {
+        raw: `${story}\n\n<FullNotes>\n\n${section}\n\n</FullNotes>\n`,
+        story: true,
+    }
+}
+
+/**
+ * Release announcement pages, one per release-pages.json entry (newest first),
+ * each built from its changelog section. They live outside the docs
+ * sequence: own URL base, own prev/next, never in the sidebar.
+ */
+const releasePages = (version) => {
+    const releases = JSON.parse(fs.readFileSync(RELEASES_FILE, 'utf8'))
+    const changelog = fs.readFileSync(CHANGELOG, 'utf8')
+    const pages = releases.map((release) => {
+        const { raw, story } = releaseBody(changelog, release.version)
+        const title = `Catalyst ${release.version}`
+        return {
+            url: `${RELEASES_BASE}/${release.version}`,
+            // Unique per release: canonical lookup is keyed by sourcePath.
+            sourcePath: `${CHANGELOG_SOURCE}#${release.version}`,
+            raw,
+            kind: 'release',
+            release: { ...release, story },
+            title,
+            sidebarLabel: title,
+            description: release.summary,
+            categories: ['Releases'],
+            toc: extractToc(raw),
+            searchText:
+                `${title} release ${release.headline} ${stripMarkdown(raw)}`.slice(
+                    0,
+                    5000
+                ),
+            isMdx: false,
+            version,
+        }
+    })
+    // Newest first, so "previous" reads as the older release.
+    return pages.map((page, index) => ({
+        ...page,
+        prev: pages[index + 1]
+            ? { url: pages[index + 1].url, title: pages[index + 1].title }
+            : null,
+        next:
+            index > 0
+                ? { url: pages[index - 1].url, title: pages[index - 1].title }
+                : null,
+    }))
 }
 
 const buildPages = (contentRoot, urlBase, version) => {
@@ -248,7 +345,7 @@ const buildPages = (contentRoot, urlBase, version) => {
         }
     })
 
-    if (version.latest) pages.push(releasePage(version))
+    if (version.latest) pages.push(changelogPage(version))
 
     pages.sort((a, b) => compareOrderKeys(a.orderKey, b.orderKey))
 
@@ -332,9 +429,9 @@ const copyAssets = (contentRoot, staticRoot, imgOut, assetsOut) => {
 const compileDoc = async (page) => {
     const compiled = await compile(
         {
-            path: page.absPath,
+            path: page.absPath ?? CHANGELOG,
             value: normalizeAdmonitionTitles(
-                fs.readFileSync(page.absPath, 'utf8')
+                page.raw ?? fs.readFileSync(page.absPath, 'utf8')
             ),
         },
         {
@@ -387,10 +484,12 @@ const emit = async (pages, versions) => {
     }
 
     // Internal-only bookkeeping; the manifest keeps the shape the app reads.
-    const manifest = pages.map(({ orderKey, absPath, version, ...page }) => ({
-        ...page,
-        version: version.label,
-    }))
+    const manifest = pages.map(
+        ({ orderKey, absPath, raw, version, ...page }) => ({
+            ...page,
+            version: version.label,
+        })
+    )
     fs.writeFileSync(
         path.join(OUT_DIR, 'docsManifest.json'),
         JSON.stringify(manifest, null, 2)
@@ -420,11 +519,13 @@ const emit = async (pages, versions) => {
     // old versions are cold traffic and need not sit in the main bundle.
     const routeEntries = pages
         .map((page, index) => {
+            const make =
+                page.kind === 'release' ? 'makeReleasePage' : 'makeDocPage'
             return `    {
         path: ${JSON.stringify(page.url)},
         end: true,
         offline: true,
-        component: makeDocPage(${index}, Doc${index}),
+        component: ${make}(${index}, Doc${index}),
     },`
         })
         .join('\n')
@@ -432,6 +533,7 @@ const emit = async (pages, versions) => {
     const routesFile = `// AUTO-GENERATED by scripts/generate-docs-manifest.mjs — do not edit.
 import React from "react"
 import DocPage from "../components/docs/DocPage"
+import ReleasePage from "../containers/Releases/ReleasePage"
 import manifest from "./docsManifest.json"
 ${importLines}
 
@@ -441,6 +543,17 @@ const makeDocPage = (manifestIndex, Content) => {
     Page.displayName = "DocPage_" + manifestIndex
     Page.setMetaData = () => [
         <title key="title">{meta.title + " | Catalyst"}</title>,
+        <meta key="description" name="description" content={meta.description} />,
+    ]
+    return Page
+}
+
+const makeReleasePage = (manifestIndex, Content) => {
+    const meta = manifest[manifestIndex]
+    const Page = () => <ReleasePage meta={meta} Content={Content} />
+    Page.displayName = "ReleasePage_" + manifestIndex
+    Page.setMetaData = () => [
+        <title key="title">{"What's new in " + meta.title}</title>,
         <meta key="description" name="description" content={meta.description} />,
     ]
     return Page
@@ -471,7 +584,7 @@ const emitSeoFiles = (pages) => {
     ).replace(/\/$/, '')
     // Companion surfaces (/app, /try, /showcase) are noindexed and deliberately
     // left out of the sitemap.
-    const staticUrls = ['/']
+    const staticUrls = ['/', RELEASES_BASE]
     const allUrls = [...staticUrls, ...pages.map((page) => page.url)]
 
     const sitemap = [
@@ -540,6 +653,9 @@ const main = async () => {
                 version
             )
         ),
+        // After every docs page, so each version's first manifest entry is
+        // still its first docs page (the navbar version links use that).
+        ...releasePages(latestOf(versions)),
     ]
 
     const latestBySource = new Map(

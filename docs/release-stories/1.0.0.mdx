@@ -1,0 +1,105 @@
+<Kicker>
+1.0 freezes the public API. Upgrading from 0.3 starts with one install and a few import lines.
+</Kicker>
+
+<Section eyebrow="01 / Try it" title="One install and one import line.">
+
+<Snippets>
+
+<Snippet label="Terminal" note="React Router is now yours">
+
+```bash
+npm install catalyst-core@1.0.0 \
+  react-router@^7.18.2
+```
+
+</Snippet>
+
+<Snippet label="Home.js" note="Split mixed imports">
+
+```jsx
+// before
+import { split, Link } from "catalyst-core"
+
+// after
+import { split } from "catalyst-core"
+import { Link } from "react-router"
+```
+
+</Snippet>
+
+</Snippets>
+
+Full guide: [upgrading from 0.3.x to 1.0.0](/content/Migration/0.0.1-beta.4#upgrading-from-03x-to-100).
+
+</Section>
+
+<Section eyebrow="02 / What's new" title="Stable, at last.">
+
+<Features>
+
+<Feature title="The API, frozen" image="/img/releases/1.0.0/api.jpg" by="mayansharma" pr="446">
+
+The root entry exports exactly eight names: `RouterDataProvider`, `useCurrentRouteData`, `useRouterData`, `MetaTag`, `split`, `hydrationReady`, `Head` and `Body`. A removed name fails at build time instead of resolving to `undefined`.
+
+</Feature>
+
+<Feature title="Native hooks, one contract" image="/img/releases/1.0.0/hooks.jpg" by="mayansharma" pr="447">
+
+Every native hook uses the same keys: `loading`, `data`, `error`, and `execute` where a hook wraps one operation. The change is additive, and the older names stay as aliases until 2.0.
+
+</Feature>
+
+<Feature title="Every failure has a code" code="RUNTIME-NATIVE-001" by="mayankmahavar1mg" pr="381">
+
+Build, native and runtime errors come from one registry. Each carries a code, a suggested action and a docs link, and hook errors are `CatalystError` values you can compare against `ERROR_CODES`.
+
+</Feature>
+
+</Features>
+
+</Section>
+
+<Section eyebrow="03 / Goodbye, hello">
+
+<Farewell from="export * from 'react-router'" to="react-router@^7.18.2" by="mayansharma" pr="446">
+
+`catalyst-core` no longer re-exports React Router. It is a peer dependency, so import router names from `react-router` directly. The server checks the installed version at startup and exits with a clear error if it is missing or out of range.
+
+</Farewell>
+
+</Section>
+
+<Section eyebrow="04 / Also fixed" title="Ready for production.">
+
+<Fixes>
+
+<Fix by="mayankmahavar1mg" pr="490">The server merges `config.json` into `process.env` instead of replacing it.</Fix>
+
+<Fix by="mayankmahavar1mg" pr="491">`buildApp:android` no longer hangs after the emulator boots.</Fix>
+
+<Fix by="mayankmahavar1mg" pr="486">iOS builds find DeviceHub.app on Xcode 27.</Fix>
+
+<Fix by="mayankmahavar1mg" pr="488">iOS builds default `cachePattern` to an empty list when it is not set.</Fix>
+
+<Fix by="mayankmahavar1mg" pr="489">The MCP server finds the installed `catalyst-core` package instead of the app that uses it.</Fix>
+
+<Fix by="mayansharma" pr="476">The webpack-era config keys are no longer required or read. Remove them from `config/config.json`.</Fix>
+
+<Fix by="mayansharma" pr="445">The app's module aliases win everywhere, so one import resolves the same way across a build.</Fix>
+
+</Fixes>
+
+</Section>
+
+<Tip title="Compare codes, not messages.">
+
+1. Import `ERROR_CODES` from `catalyst-core/errors`.
+2. Check `error.code === ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED` instead of matching message text, and send people to `error.docUrl`.
+
+</Tip>
+
+<Thanks
+  release="1.0.0"
+  people={["mayansharma", "mayankmahavar1mg"]}
+/>

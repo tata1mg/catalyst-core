@@ -34,7 +34,7 @@ const resolveDocFileLink = (href, fromSourcePath, bySourcePath) => {
     return resolved ? resolved.url + (hash ? `#${hash}` : '') : null
 }
 
-const buildComponents = (meta) => {
+export const buildComponents = (meta) => {
     const sourceDir = meta.sourcePath.split('/').slice(0, -1).join('/')
     const bySourcePath = new Map(
         manifest

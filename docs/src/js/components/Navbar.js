@@ -179,6 +179,9 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                 <a href="/#features" onClick={closeMenu}>
                     Features
                 </a>
+                <Link to="/releases" onClick={closeMenu}>
+                    Releases
+                </Link>
                 <div className={`hub-dropdown ${communityOpen ? 'open' : ''}`}>
                     <button
                         onClick={() => setCommunityOpen(!communityOpen)}

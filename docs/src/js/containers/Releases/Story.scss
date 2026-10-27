@@ -1,0 +1,514 @@
+/* Story layout for releases with release-stories/<version>.mdx: a centred
+   hero, the film with handwritten-style notes beside it, then numbered
+   sections. Content rules sit under .body so they beat .markdown-body. */
+
+.column {
+    max-width: 1240px;
+    margin: 0 auto;
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+
+.hero {
+    max-width: 860px;
+    margin: 28px auto 40px;
+    text-align: center;
+}
+
+.versionLine {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 18px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--hub-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.headline {
+    margin: 0;
+    font-size: clamp(2.4rem, 6.2vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+
+    span {
+        display: block;
+        color: var(--hub-primary);
+    }
+}
+
+.lead {
+    max-width: 620px;
+    margin: 20px auto 0;
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--hub-text-muted);
+    text-wrap: pretty;
+}
+
+/* ── Film with notes ────────────────────────────────────────────────── */
+
+.stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 880px) minmax(0, 1fr);
+    gap: 28px;
+    align-items: center;
+
+    > :not(.note) {
+        grid-column: 2;
+    }
+}
+
+.note {
+    margin: 0;
+    max-width: 210px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    color: var(--hub-text-muted);
+
+    code {
+        padding: 0.1em 0.35em;
+        border-radius: var(--radius-xs);
+        background: var(--hub-primary-soft);
+        color: var(--hub-primary);
+        font-size: 0.95em;
+    }
+}
+
+.noteLeft {
+    grid-column: 1;
+    justify-self: end;
+    text-align: right;
+    transform: rotate(-2deg);
+}
+
+.noteRight {
+    grid-column: 3;
+    justify-self: start;
+    transform: rotate(2deg);
+}
+
+.arrow {
+    display: block;
+    width: 92px;
+    margin: 10px 0 0 auto;
+    color: var(--hub-primary);
+}
+
+.arrowFlip {
+    margin: 0 auto 10px 0;
+    transform: scale(-1, -1);
+}
+
+.actions,
+.narrow {
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 1180px) {
+    .stage {
+        grid-template-columns: minmax(0, 1fr);
+
+        > :not(.note) {
+            grid-column: 1;
+        }
+    }
+
+    .note {
+        display: none;
+    }
+}
+
+/* ── Body sections ──────────────────────────────────────────────────── */
+
+.body {
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+
+    .kicker {
+        max-width: 620px;
+        margin: 56px auto 0;
+        text-align: center;
+        font-size: 1.35rem;
+        font-weight: 600;
+        line-height: 1.45;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+    }
+
+    .section {
+        margin-top: 80px;
+    }
+
+    .eyebrow {
+        margin: 0 0 10px;
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--hub-primary);
+    }
+
+    .title {
+        margin: 0 0 22px;
+        padding: 0;
+        border: 0;
+        font-size: clamp(1.6rem, 3.6vw, 2.25rem);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+    }
+
+    /* Try it */
+    .snippets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .snippet {
+        margin: 0;
+        min-width: 0;
+        border: 1px solid var(--hub-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--code-bg);
+
+        figcaption {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--hub-border);
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--hub-text);
+        }
+
+        :global(.doc-codeblock) {
+            margin: 0;
+
+            pre {
+                border: 0;
+                border-radius: 0;
+            }
+        }
+    }
+
+    .snippetNote {
+        color: var(--hub-text-muted);
+    }
+
+    /* Feature cards */
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .feature {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--hub-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--hub-background);
+        box-shadow: var(--hub-shadow-1);
+    }
+
+    .featureImage {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: 0;
+        border-bottom: 1px solid var(--hub-border);
+    }
+
+    .featureCode {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 4 / 3;
+        border-bottom: 1px solid var(--hub-border);
+        background: #15131f;
+
+        code {
+            padding: 0;
+            border: 0;
+            background: none;
+            color: #b9b0ff;
+            font-family: var(--font-mono);
+            font-size: 1.35rem;
+            letter-spacing: 0.02em;
+        }
+    }
+
+    .featureBody {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 12px;
+        padding: 18px 20px 20px;
+
+        h3 {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-size: var(--text-xl);
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        p {
+            margin: 0;
+            font-size: var(--text-base);
+            line-height: 1.6;
+        }
+
+        .byline {
+            margin-top: auto;
+            padding-top: 4px;
+        }
+    }
+
+    .tag {
+        padding: 2px 8px;
+        border-radius: var(--radius-full);
+        background: var(--hub-primary-soft);
+        color: var(--hub-primary);
+        font-size: var(--text-2xs);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    /* Signature: avatar, handle, PR */
+    .byline {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+
+        a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--hub-text-muted);
+            text-decoration: none;
+
+            &:hover {
+                color: var(--hub-primary);
+            }
+        }
+
+        img {
+            width: 22px;
+            height: 22px;
+            border-radius: var(--radius-full);
+        }
+    }
+
+    /* Goodbye, hello */
+    .farewell {
+        padding: 28px;
+        border: 1px dashed var(--hub-border-strong);
+        border-radius: var(--radius-xl);
+        background: var(--hub-card-background);
+
+        p {
+            margin: 0 0 16px;
+        }
+    }
+
+    .farewell .farewellLine {
+        margin-bottom: 18px;
+        font-size: clamp(1.35rem, 3.2vw, 2rem);
+        font-weight: 800;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+
+        code {
+            padding: 0.05em 0.3em;
+            font-size: 0.82em;
+        }
+    }
+
+    .goodbye {
+        color: var(--hub-text-muted);
+
+        code {
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+        }
+    }
+
+    .hello code {
+        background: var(--hub-primary-soft);
+        color: var(--hub-primary);
+    }
+
+    /* Also fixed */
+    .fixes {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border-top: 1px solid var(--hub-border);
+
+        li {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 24px;
+            margin: 0;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--hub-border);
+            line-height: 1.55;
+        }
+
+        .byline {
+            flex-shrink: 0;
+        }
+    }
+
+    /* Tip */
+    .tip {
+        margin-top: 80px;
+        padding: 32px;
+        border: 1px solid var(--hub-primary-soft);
+        border-radius: var(--radius-xl);
+        background: var(--hub-primary-softer);
+
+        ol {
+            display: grid;
+            gap: 16px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            counter-reset: step;
+        }
+
+        li {
+            position: relative;
+            min-height: 36px;
+            margin: 0;
+            padding-left: 52px;
+            line-height: 1.6;
+            counter-increment: step;
+
+            &::before {
+                content: counter(step);
+                position: absolute;
+                top: -3px;
+                left: 0;
+                display: grid;
+                place-items: center;
+                width: 36px;
+                height: 36px;
+                border-radius: var(--radius-full);
+                background: var(--hub-primary);
+                color: var(--hub-on-primary);
+                font-weight: 700;
+            }
+        }
+    }
+
+    /* Thanks */
+    .thanks {
+        margin-top: 88px;
+        text-align: center;
+
+        > p {
+            margin: 0;
+            color: var(--hub-text-muted);
+        }
+    }
+
+    .people {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px 28px;
+        margin: 28px 0;
+        padding: 0;
+        list-style: none;
+
+        li {
+            margin: 0;
+        }
+
+        a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--hub-text-muted);
+            text-decoration: none;
+
+            &:hover {
+                color: var(--hub-primary);
+            }
+        }
+
+        img {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-full);
+            box-shadow: var(--hub-shadow-2);
+        }
+    }
+
+    .thanks .community {
+        font-size: var(--text-md);
+    }
+
+    /* Full notes */
+    .fullNotes {
+        margin-top: 72px;
+        padding-top: 20px;
+        border-top: 1px solid var(--hub-border);
+
+        summary {
+            cursor: pointer;
+            font-size: var(--text-xl);
+            font-weight: 700;
+        }
+    }
+
+    .fullNotesBody {
+        margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+        .fixes li {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .tip,
+        .farewell {
+            padding: 22px;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .noteLeft,
+    .noteRight {
+        transform: none;
+    }
+}
