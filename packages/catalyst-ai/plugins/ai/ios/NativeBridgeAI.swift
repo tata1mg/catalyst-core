@@ -216,12 +216,13 @@ final class NativeBridgeAI: NativeAIEngine {
         onLog("Downloading model: \(entry.filename) from HuggingFace (~\(entry.sizeHint / 1_000_000)MB)")
         onProgress("download", 0, 0, entry.sizeHint, "starting")
 
+        // The partial and its ETag stay on disk across failures and launches so the next attempt resumes.
         let partial = directory.appendingPathComponent("\(entry.filename).tmp")
-        try? FileManager.default.removeItem(at: partial)
 
         var throttle = ProgressThrottle()
-        let downloader = ModelDownloader(destination: partial) { [onLog, onProgress] loaded, total in
-            let percent = total > 0 ? Int(loaded * 100 / total) : 0
+        let downloader = ModelDownloader(partial: partial, onLog: onLog) { [onLog, onProgress] loaded, total in
+            let total = total > 0 ? total : entry.sizeHint
+            let percent = Int(min(100, loaded * 100 / max(total, 1)))
             guard throttle.shouldEmit(percent: percent) else { return }
             let detail = "\(loaded / 1_000_000)MB / \(total / 1_000_000)MB"
             onProgress("download", percent, loaded, total, detail)
@@ -232,81 +233,16 @@ final class NativeBridgeAI: NativeAIEngine {
             throw NativeAIError(message: "Model download failed: invalid URL")
         }
         do {
-            try await downloader.download(from: url)
-            let size = (try? FileManager.default.attributesOfItem(atPath: partial.path)[.size] as? Int64) ?? 0
-            if size == 0 { throw NativeAIError(message: "Downloaded file is empty") }
+            let size = try await downloader.download(from: url)
             try? FileManager.default.removeItem(at: modelFile)
             try FileManager.default.moveItem(at: partial, to: modelFile)
+            try? FileManager.default.removeItem(at: partial.appendingPathExtension("etag"))
             onLog("Download complete: \(size / 1_000_000)MB saved to \(modelFile.path)")
             onProgress("download", 100, size, size, "complete")
         } catch {
-            try? FileManager.default.removeItem(at: partial)
+            if (error as? ModelDownloadError)?.discardPartial == true { downloader.discardPartial() }
             throw NativeAIError(message: "Model download failed: \(error.localizedDescription)")
         }
         return modelFile.path
-    }
-}
-
-/// URLSession download with progress. Downloading to disk (not iterating bytes) keeps a ~2GB model off the heap.
-private final class ModelDownloader: NSObject, URLSessionDownloadDelegate {
-    private let destination: URL
-    private let onBytes: (_ loaded: Int64, _ total: Int64) -> Void
-    private var continuation: CheckedContinuation<Void, Error>?
-    private var session: URLSession?
-    private var movedFile = false
-
-    init(destination: URL, onBytes: @escaping (_ loaded: Int64, _ total: Int64) -> Void) {
-        self.destination = destination
-        self.onBytes = onBytes
-    }
-
-    func download(from url: URL) async throws {
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                self.continuation = continuation
-                // timeoutIntervalForRequest is the idle limit (no bytes for 60 s fails the transfer, so a stalled
-                // download cannot hold initialisation); the resource limit bounds even a slow-but-moving one.
-                let configuration = URLSessionConfiguration.default
-                configuration.timeoutIntervalForRequest = 60
-                configuration.timeoutIntervalForResource = 4 * 60 * 60
-                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
-                self.session = session
-                session.downloadTask(with: url).resume()
-            }
-        } onCancel: {
-            self.session?.invalidateAndCancel()
-        }
-    }
-
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
-                    totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        onBytes(totalBytesWritten, totalBytesExpectedToWrite)
-    }
-
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        // `location` is deleted when this returns, so the move has to happen here.
-        if let http = downloadTask.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            return // reported through didCompleteWithError below
-        }
-        do {
-            try? FileManager.default.removeItem(at: destination)
-            try FileManager.default.moveItem(at: location, to: destination)
-            movedFile = true
-        } catch {
-            movedFile = false
-        }
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        defer { session.finishTasksAndInvalidate(); continuation = nil }
-        if let error = error {
-            continuation?.resume(throwing: error)
-        } else if let http = task.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            continuation?.resume(throwing: NativeAIError(message: "HTTP \(http.statusCode)"))
-        } else if !movedFile {
-            continuation?.resume(throwing: NativeAIError(message: "could not store the downloaded file"))
-        } else {
-            continuation?.resume()
-        }
     }
 }
