@@ -104,7 +104,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             severity: "error",
             message: "WEBVIEW_CONFIG object is required. Missing this will prevent native builds.",
         })
-        return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+    return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
     } else {
         passed.push({ field: "WEBVIEW_CONFIG", note: "block present" })
     }
@@ -491,7 +491,101 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         })
     }
 
+    _checkRouting(config, wc, platform, issues, warnings, passed)
+
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+}
+
+const ROUTING_OBJECTIVES = ["balanced", "cost", "latency", "speed", "order"]
+const ROUTING_POLICIES = ["allow", "ask", "deny"]
+const ROUTING_MODALITIES = ["text", "image", "audio"]
+
+// AI_CONFIG.routing drives useAI({ provider: "auto" }). Mistakes here do not crash: the browser drops bad entries
+// with a console warning, so the app silently routes differently than the config says. Catch them up front.
+function _checkRouting(config, wc, platform, issues, warnings, passed) {
+    const routing = config.AI_CONFIG && config.AI_CONFIG.routing
+    if (routing === undefined) return
+    const err = (field, message) => issues.push({ field, severity: "error", message })
+    const warn = (field, message) => warnings.push({ field, message })
+    if (!routing || typeof routing !== "object" || Array.isArray(routing)) {
+        return err("AI_CONFIG.routing", "AI_CONFIG.routing must be an object with policy, onDevice and cloud.")
+    }
+    const before = issues.length
+    const policy = routing.policy || {}
+    if (policy.objective !== undefined && !ROUTING_OBJECTIVES.includes(policy.objective)) {
+        err("AI_CONFIG.routing.policy.objective", `Unknown objective "${policy.objective}". Use ${ROUTING_OBJECTIVES.join(", ")}.`)
+    }
+    for (const key of ["cloud", "cloudMedia"]) {
+        if (policy[key] !== undefined && !ROUTING_POLICIES.includes(policy[key])) {
+            err(`AI_CONFIG.routing.policy.${key}`, `"${policy[key]}" is not valid. Use allow, ask or deny.`)
+        }
+    }
+    if (policy.cloudMedia === "allow" || (policy.cloud === "allow" && policy.cloudMedia === undefined)) {
+        warn("AI_CONFIG.routing.policy", "Cloud is allowed for image/audio: photos and voice can leave the device without asking. Keep cloudMedia at ask or deny for sensitive apps.")
+    }
+    for (const key of ["maxLatencyMs", "minTps", "maxCostUsd"]) {
+        const v = policy.constraints && policy.constraints[key]
+        if (v !== undefined && !(typeof v === "number" && v >= 0)) err(`AI_CONFIG.routing.policy.constraints.${key}`, `${key} must be a non-negative number.`)
+    }
+
+    const candidates = []
+    const collect = (list, group, where, platformKey) => {
+        if (list === undefined) return
+        if (!Array.isArray(list)) return err(where, `${where} must be an array of models.`)
+        list.forEach((m, i) => {
+            const at = `${where}[${i}]`
+            if (!m || typeof m !== "object" || typeof m.id !== "string" || !m.id) return err(at, `Each model needs a string "id".`)
+            if (m.modalities !== undefined && (!Array.isArray(m.modalities) || m.modalities.some((x) => !ROUTING_MODALITIES.includes(x)))) {
+                err(`${at}.modalities`, `modalities must be a subset of ${ROUTING_MODALITIES.join(", ")}.`)
+            }
+            for (const key of ["ttftMs", "tps", "loadMs"]) {
+                if (m[key] !== undefined && !(typeof m[key] === "number" && m[key] >= 0)) err(`${at}.${key}`, `${key} must be a non-negative number.`)
+            }
+            if (group === "cloud") {
+                const providers = (config.AI_CONFIG && config.AI_CONFIG.providers) || {}
+                if (typeof m.provider !== "string") err(`${at}.provider`, `Cloud models need a "provider".`)
+                else if (!providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
+            } else if (m.engine !== undefined && !["auto", "litert", "foundation-models"].includes(m.engine)) {
+                err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert or foundation-models.`)
+            } else if (m.engine === "foundation-models" && platformKey === "android") {
+                warn(`${at}.engine`, "foundation-models is iOS-only; this Android entry will never run.")
+            }
+            candidates.push({ id: m.id, group, where: at })
+        })
+    }
+    const onDevice = routing.onDevice || {}
+    for (const key of Object.keys(onDevice)) {
+        if (!["ios", "android", "web"].includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ios, android or web.`)
+        else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key)
+    }
+    collect(routing.cloud, "cloud", "AI_CONFIG.routing.cloud", "cloud")
+
+    const seen = new Map()
+    for (const c of candidates) {
+        // The same id on two platforms is fine (one model, per-platform numbers); twice on one list is not.
+        const key = c.where.replace(/\[\d+\]$/, "") + "|" + c.id
+        if (seen.has(key)) err(c.where, `Duplicate id "${c.id}" in the same list. Only the first is used.`)
+        seen.set(key, true)
+    }
+    if (!candidates.length) warn("AI_CONFIG.routing", 'routing has no models, so provider "auto" has nothing to route to.')
+
+    for (const c of candidates) {
+        if (["cost", "latency", "tps"].includes(c.id)) warn(c.where, `Model id "${c.id}" collides with the order metric "${c.id}"; in policy.order it is read as the metric. Rename the model.`)
+    }
+    if (policy.order !== undefined) {
+        if (!Array.isArray(policy.order) || policy.order.some((x) => typeof x !== "string")) {
+            err("AI_CONFIG.routing.policy.order", 'order must be an array of model ids, the groups "onDevice"/"cloud", and/or the metrics "cost", "latency", "tps".')
+        } else {
+            const known = new Set(["onDevice", "cloud", "cost", "latency", "tps", ...candidates.map((c) => c.id)])
+            for (const entry of policy.order) {
+                if (!known.has(entry)) warn("AI_CONFIG.routing.policy.order", `"${entry}" matches no model id, group or metric (cost, latency, tps), so it is ignored.`)
+            }
+        }
+    }
+    if (candidates.some((c) => c.group === "onDevice") && !(wc.ai && wc.ai.enabled)) {
+        warn("WEBVIEW_CONFIG.ai.enabled", "routing lists on-device models but WEBVIEW_CONFIG.ai.enabled is not true: the native AI module is not built into the app, so only web and cloud models can run.")
+    }
+    if (issues.length === before) passed.push({ field: "AI_CONFIG.routing", note: `${candidates.length} model(s), valid` })
 }
 
 function _buildResult({ root, configPath, platform, issues, warnings, passed }) {
