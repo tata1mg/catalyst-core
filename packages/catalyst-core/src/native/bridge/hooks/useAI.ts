@@ -1,8 +1,9 @@
 /* global __CATALYST_PACKAGES__ */
 
-import { useCallback, useRef, useState } from "react"
-import { allowCloudMedia, mergeRouting, resolveMode, resolveNativeEngine, resolveRoute } from "./aiProviders.js"
-import type { Modality, RouteDecision, RouteSignals } from "./aiProviders.js"
+import { useEffect, useRef, useState } from "react"
+import { allowCloudMedia, resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { chooseCandidate, normalizeRouting, recordObserved } from "./aiRouter.js"
+import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
 function getBrowserConfig() {
     try {
@@ -31,6 +32,30 @@ function modalitiesOf(messages: any): Modality[] {
         for (const part of m.content) if (part?.type === "image" || part?.type === "audio") set.add(part.type)
     }
     return [...set]
+}
+
+function detectPlatform(): Platform {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : ""
+    if (/iPhone|iPad|iPod/.test(ua)) return "ios"
+    if (/Android/.test(ua)) return "android"
+    return "web"
+}
+
+// Observed ttft/tps per candidate, kept per device so routing improves with use. Best-effort: no storage, no memory.
+const OBSERVED_KEY = "catalyst.ai.routing.observed"
+function loadObserved(): Record<string, Observed> {
+    try {
+        return JSON.parse(localStorage.getItem(OBSERVED_KEY) || "{}") || {}
+    } catch (_) {
+        return {}
+    }
+}
+function saveObserved(all: Record<string, Observed>) {
+    try {
+        localStorage.setItem(OBSERVED_KEY, JSON.stringify(all))
+    } catch (_) {
+        // ignore
+    }
 }
 
 function isNativeAIAvailable() {
@@ -73,20 +98,61 @@ export function useAI(options: any = {}) {
     const resolvedProvider = provider || config?.provider
     const auto = resolvedProvider === "auto"
     const mode = auto ? "cloud" : resolveMode(resolvedProvider)
-    const [routed, setRouted] = useState<RouteDecision | null>(null)
-    const routedMode = useRef<"local" | "native" | "cloud" | null>(null)
 
-    // allowMedia: image/audio go to a cloud provider only when the caller picked cloud explicitly. When native or web
-    // was requested but is unavailable, the cloud hook is only a fallback and must refuse media.
-    const cloudResult = _pkg ? _pkg.useCloudAI({ ...options, allowMedia: auto ? routedMode.current === "cloud" : allowCloudMedia(mode) }) : emptyHook()
-    const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
+    // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
+    // nothing downloads) until a call is routed to it.
+    const [selected, setSelected] = useState<Candidate | null>(null)
+    const [route, setRoute] = useState<RouteDecision | null>(null)
+    const pending = useRef<{ args: any; id: string } | null>(null)
+    const loadedId = useRef<string | null>(null)
+    const observed = useRef<Record<string, Observed> | null>(null)
+    const lastMetrics = useRef<any>(null)
+
+    const nativeSel = auto && selected?.mode === "native" ? selected : null
+    const webSel = auto && selected?.mode === "local" ? selected : null
+    const cloudSel = auto && selected?.mode === "cloud" ? selected : null
+
+    // allowMedia: image/audio go to a cloud provider only when the caller picked cloud explicitly (or auto routing
+    // chose a cloud model under a policy that allowed it). A cloud hook that is only a fallback must refuse media.
+    const cloudResult = _pkg
+        ? _pkg.useCloudAI({
+              ...options,
+              ...(cloudSel && { provider: cloudSel.provider, model: cloudSel.model ?? options.model }),
+              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
+          })
+        : emptyHook()
+    const webResult = _pkg ? _pkg.useWebAI({ ...options, ...(webSel?.model && { model: webSel.model }) }) : emptyHook()
     const nativeResult = _pkg
         ? _pkg.useNativeAI({
               ...options,
-              enabled: mode === "native" || auto,
-              engine: resolveNativeEngine(resolvedProvider, options.engine, config),
+              enabled: auto ? !!nativeSel : mode === "native",
+              engine: auto ? nativeSel?.engine : resolveNativeEngine(resolvedProvider, options.engine, config),
+              ...(nativeSel?.model !== undefined && { model: nativeSel.model }),
+              ...(nativeSel?.modelPath !== undefined && { modelPath: nativeSel.modelPath }),
           })
         : emptyHook()
+
+    const active: any = webSel ? webResult : nativeSel ? nativeResult : cloudResult
+
+    // Run a call that was waiting for its model to be configured/initialised.
+    const ready = nativeSel ? !!nativeResult.modelReady : true
+    useEffect(() => {
+        const p = pending.current
+        if (!p || selected?.id !== p.id || !ready) return
+        pending.current = null
+        loadedId.current = selected.target === "onDevice" ? selected.id : loadedId.current
+        active.generate(p.args)
+    })
+
+    // Feed each finished call's metrics (the same ones useAI reports) back into the router.
+    const metrics = active?.metrics
+    useEffect(() => {
+        if (!auto || !selected || !metrics || metrics === lastMetrics.current) return
+        lastMetrics.current = metrics
+        observed.current = observed.current || loadObserved()
+        observed.current[selected.id] = recordObserved(observed.current[selected.id], metrics) as Observed
+        saveObserved(observed.current)
+    }, [metrics])
 
     if (typeof window === "undefined") return emptyHook()
 
@@ -96,30 +162,34 @@ export function useAI(options: any = {}) {
     }
 
     if (auto) {
-        const pick = (m: "local" | "native" | "cloud" | null) =>
-            m === "local" ? webResult : m === "native" ? nativeResult : cloudResult
-        const active: any = pick(routedMode.current)
-        const routing = mergeRouting(getRoutingConfig(), options.routing)
-        const all = { text: true, image: true, audio: true }
-        // Routing runs per call: the same hook can take text on-device and send nothing out, then refuse a photo.
-        const generate = async (args: any, consent: { cloud?: boolean; download?: boolean } = {}) => {
-            const online = typeof navigator === "undefined" || navigator.onLine !== false
-            const signals: RouteSignals = {
-                native: !!isNativeAIAvailable(),
+        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
+        const generate = async (args: any, consent: Consent = {}) => {
+            const platform = detectPlatform()
+            const { policy, candidates } = normalizeRouting(getRoutingConfig(), platform, options.routing)
+            const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && _pkg.PRICING?.[c.model] ? { ...c, price: _pkg.PRICING[c.model] } : c))
+            const signals: Signals = {
+                platform,
+                nativeAvailable: !!isNativeAIAvailable(),
                 webgpu: typeof navigator !== "undefined" && !!(navigator as any).gpu,
-                online,
-                webModelCached: !!webResult.modelReady,
-                caps: { native: all, local: all, cloud: all },
-                cloudConfigured: true,
+                online: typeof navigator === "undefined" || navigator.onLine !== false,
+                webModelLoaded: !!webResult.modelReady,
+                loadedId: loadedId.current,
             }
-            const decision = resolveRoute(modalitiesOf(args?.messages), signals, routing, consent)
-            routedMode.current = decision.action === "run" ? decision.mode : null
-            setRouted(decision)
-            if (decision.action !== "run") return
-            const target: any = pick(decision.mode)
-            return target.generate(args)
+            observed.current = observed.current || loadObserved()
+            const decision = chooseCandidate(modalitiesOf(args?.messages), priced, signals, policy, observed.current, consent)
+            setRoute(decision)
+            if (decision.action !== "run" || !decision.candidate) return
+            const chosen = decision.candidate
+            const same = selected?.id === chosen.id
+            if (same && (chosen.mode !== "native" || nativeResult.modelReady)) {
+                loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
+                return active.generate(args)
+            }
+            // The hooks are configured from `selected`; switch it and run once the new model is ready.
+            pending.current = { args, id: chosen.id }
+            setSelected(chosen)
         }
-        return { ...active, generate, route: routed, generateWithConsent: generate }
+        return { ...active, generate, route, generateWithConsent: generate }
     }
 
     if (mode === "local") return webResult

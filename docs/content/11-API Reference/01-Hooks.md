@@ -723,6 +723,23 @@ Generate text through one of three providers, chosen with the `provider` option 
 | `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
 
+#### Auto routing (`provider: "auto"`)
+
+With `provider: "auto"`, every `generate` call picks a model from the candidates in `AI_CONFIG.routing` (config.json): on-device models per platform (`ios`, `android`, `web`, several allowed each) and cloud provider models. A call is decided in order: **availability** (bridge, WebGPU, network, modalities the model accepts), **privacy** (may this call leave the device?), then **preference**, a score over estimated cost, latency and tokens/sec.
+
+| `routing` key | Meaning |
+|---|---|
+| `policy.objective` | `balanced` (default), `cost`, `latency` or `speed`; `policy.weights` overrides the weights |
+| `policy.constraints` | Hard limits: `maxLatencyMs`, `minTps`, `maxCostUsd` (per estimated call) |
+| `policy.cloud` / `policy.cloudMedia` | `allow`, `ask` or `deny`. Defaults: `ask` for text, `deny` for image/audio |
+| `policy.autoDownload` | Let the in-browser model start its large download without asking (default `false`) |
+| `onDevice.<platform>[]` | `id`, `engine`/`model`/`modelPath`, `modalities`, and priors `ttftMs`, `tps`, `loadMs` |
+| `cloud[]` | `id`, `provider`, `model`, `modalities`, priors `ttftMs`, `tps`, optional `price: { input, output }` (USD per 1M tokens; defaults to the built-in table) |
+
+The numbers in config are starting estimates. The metrics `useAI` reports for each finished call (time to first token, tokens/sec) are averaged per model on the device and take over from the config values after a few calls. A model that is not currently loaded pays its `loadMs`, so the router does not flip between on-device models for small gains.
+
+The result has `route`: `{ action, candidate, reason, estimate, scores, skipped }`. When `action` is `"ask"`, nothing ran: confirm with the user, then call `generateWithConsent(args, { cloud: true })` or `{ download: true }`. Pass `routing` to `useAI` to override `policy` for one hook.
+
 Requires `catalyst-ai` to be installed in the app.
 
 #### Import
@@ -735,7 +752,7 @@ import { useAI } from "catalyst-core/hooks";
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, or `"transformers"`. Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
+| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, `"transformers"`, or `"auto"` (routes each call, see below). Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
 | `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native. |
 | `genConfig` | `object` | Default generation config, merged with any per-call `genConfig` passed to `generate()`. See below. |
 | `systemPrompt` | `string` | System prompt prepended to every generation. |
