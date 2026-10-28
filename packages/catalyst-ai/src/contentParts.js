@@ -110,3 +110,32 @@ export function buildNativeBody(messages, genConfig, { conversationId } = {}) {
     if (conversationId) body.conversationId = conversationId
     return body
 }
+
+// ---- Web engine (Transformers.js) ------------------------------------------------------------------------------
+// Only Gemma 4 takes image/audio in the browser today (spike 0.3). One image and one audio clip per request is what
+// was verified; more is refused instead of silently dropped.
+
+export function supportsWebMedia(model) {
+    return typeof model === "string" && /gemma-?4/i.test(model)
+}
+
+/**
+ * -> { messages, images, audios }. `messages` use the chat-template shape ({type:"image"|"audio"} placeholders);
+ * the media itself travels beside them as data URLs, in order, for the worker to decode.
+ */
+export function toWebTemplate(messages) {
+    const images = []
+    const audios = []
+    const mapped = normalizeMessages(messages).map((message) => ({
+        role: message.role,
+        content: message.parts.map((part) => {
+            if (part.type === "text") return { type: "text", text: part.text }
+            const url = `data:${part.mimeType};base64,${part.base64}`
+            ;(part.type === "image" ? images : audios).push(url)
+            return { type: part.type }
+        }),
+    }))
+    if (images.length > 1) throw inputError("too-many", "The web engine accepts one image per request", { modality: "image", limit: 1 })
+    if (audios.length > 1) throw inputError("too-many", "The web engine accepts one audio clip per request", { modality: "audio", limit: 1 })
+    return { messages: mapped, images, audios }
+}
