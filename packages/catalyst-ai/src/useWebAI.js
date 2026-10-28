@@ -3,7 +3,7 @@ import { assertEngineSupports, getModalities, supportsWebMedia, toWebTemplate } 
 import { prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
-import { aggregateWebSessionMetrics } from "./metrics.js"
+import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
@@ -111,7 +111,7 @@ export function useWebAI({
             outputAccRef.current = ""
             if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
 
-            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
+            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null, cloudEquivalent: null }
 
             let worker = reuseWorker ? workerRef.current : null
             if (!worker) {
@@ -168,6 +168,11 @@ export function useWebAI({
                         metricsAcc.tps = msg.tps
                         metricsAcc.totalTokens = msg.totalTokens
                         metricsAcc.genMs = msg.genMs
+                        // Only the media path reports its input token count; the text pipeline leaves this null.
+                        metricsAcc.cloudEquivalent = estimateCloudEquivalent({
+                            inputTokens: typeof msg.promptTokens === "number" ? msg.promptTokens : null,
+                            outputTokens: msg.totalTokens,
+                        })
                         setMetrics({ ...metricsAcc })
                         historyRef.current.push({ ...metricsAcc })
                         if (sessionMode === "stateful") {
