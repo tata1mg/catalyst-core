@@ -1,4 +1,6 @@
 export { useAI } from "./useAI.js"
+export { useVision, VisionError } from "./useVision.js"
+export type { UseVisionOptions, UseVisionResult, VisionStatus, VisionConsent, Schema, ImageSource } from "./useVision.js"
 export { useGoogleSignIn } from "./useGoogleSignIn.js"
 export { useCamera, requestCameraPermission, useCameraPermission } from "./useCamera.js"
 export { useIntent } from "./useIntent.js"

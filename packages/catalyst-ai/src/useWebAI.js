@@ -37,10 +37,20 @@ export function useWebAI({
         [JSON.stringify(defaultGenConfig), JSON.stringify(genConfigProp)]
     )
 
-    const [output, setOutput] = useState("")
+    const [output, setOutputState] = useState("")
     const [streaming, setStreaming] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setErrorState] = useState(null)
+    // What the latest generate() call produced, so callers can await a result instead of watching state.
+    const outcomeRef = useRef({ output: "", error: null })
+    const setOutput = useCallback((value) => {
+        outcomeRef.current.output = value
+        setOutputState(value)
+    }, [])
+    const setError = useCallback((value) => {
+        outcomeRef.current.error = value
+        setErrorState(value)
+    }, [])
     const [modelReady, setModelReady] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(null)
     const [metrics, setMetrics] = useState(null)
@@ -48,6 +58,7 @@ export function useWebAI({
     const workerRef = useRef(null)
     const workerModelRef = useRef(null)
     const busyRef = useRef(false)
+    const settleRef = useRef(null)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
@@ -63,7 +74,14 @@ export function useWebAI({
     const formatPromptRef = useRef(formatPrompt)
     formatPromptRef.current = formatPrompt
 
-    const generate = useCallback(
+    // Ends the pending generate() promise (done, error, crash, cancel or reset).
+    const settle = useCallback(() => {
+        const resolve = settleRef.current
+        settleRef.current = null
+        if (resolve) resolve()
+    }, [])
+
+    const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const resolvedModel = callModel || modelProp
             if (!resolvedModel) {
@@ -191,6 +209,7 @@ export function useWebAI({
                             worker.terminate()
                             workerRef.current = null
                         }
+                        settle()
                         break
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
@@ -200,6 +219,7 @@ export function useWebAI({
                         busyRef.current = false
                         worker.terminate()
                         workerRef.current = null
+                        settle()
                         break
                 }
             }
@@ -215,6 +235,7 @@ export function useWebAI({
                 busyRef.current = false
                 worker.terminate()
                 workerRef.current = null
+                settle()
             }
 
             worker.postMessage({
@@ -225,8 +246,30 @@ export function useWebAI({
                 genConfig,
                 formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
             })
+            return true
         },
         [modelProp, hookGenConfig, sessionMode]
+    )
+
+    /**
+     * Starts a generation and resolves when it has finished with `{ output, error }`: the final text, or the error
+     * that ended it (both empty when it was cancelled). The hook state updates as before.
+     */
+    const generate = useCallback(
+        async (args) => {
+            const outcome = { output: "", error: null }
+            outcomeRef.current = outcome
+            settle() // a superseded call must not hang
+            const settled = new Promise((resolve) => { settleRef.current = resolve })
+            const started = await run(args)
+            if (!started) {
+                settleRef.current = null // refused before any worker started: the error is already recorded
+                return outcome
+            }
+            await settled
+            return outcome
+        },
+        [run, settle]
     )
 
     const cancel = useCallback(() => {
@@ -235,7 +278,8 @@ export function useWebAI({
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         busyRef.current = false
         setStreaming(false)
-    }, [])
+        settle()
+    }, [settle])
 
     const reset = useCallback(() => {
         cancelledRef.current = true
@@ -251,7 +295,8 @@ export function useWebAI({
         setDownloadProgress(null)
         setStreaming(false)
         setLoading(false)
-    }, [])
+        settle()
+    }, [settle])
 
     return {
         output,
