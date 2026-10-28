@@ -118,6 +118,30 @@ describe("chooseCandidate: metrics", () => {
     })
 })
 
+describe("default order", () => {
+    const open = { cloud: "allow", cloudMedia: "allow" }
+    it("objective \"order\" takes the first available candidate in the configured order", () => {
+        const d = pick(["text"], sig(), { ...open, objective: "order", order: ["gemini", "onDevice"] })
+        expect(d.candidate?.id).toBe("gemini")
+        expect(d.reason).toMatch(/configured order/)
+    })
+    it("skips unavailable entries and falls to the next in order", () => {
+        const d = pick(["image"], sig({ nativeAvailable: false }), { ...open, objective: "order", order: ["apple-fm", "gemini", "gemma-web"] })
+        expect(d.candidate?.id).toBe("gemini")
+    })
+    it("unlisted candidates follow in config order; groups expand in config order", () => {
+        const d = pick(["text"], sig(), { ...open, objective: "order", order: ["cloud"] })
+        expect(d.candidate?.id).toBe("gemini")
+        expect(pick(["text"], sig(), { ...open, objective: "order", order: ["gpt-mini"] }).candidate?.id).toBe("gpt-mini")
+    })
+    it("default order is on-device before cloud and breaks score ties", () => {
+        expect(pick(["text"], sig(), { ...open, objective: "order" }).candidate?.target).toBe("onDevice")
+        const c = { cloud: [{ id: "c", provider: "p", ttftMs: 1000, tps: 20 }], onDevice: { web: [{ id: "w", ttftMs: 1000, tps: 20, loadMs: 0 }] } }
+        const flipped = pick(["text"], sig({ platform: "web", loadedId: "w" }), { cloud: "allow", order: ["cloud", "onDevice"] }, {}, {}, c)
+        expect(flipped.candidate?.id).toBe("c")
+    })
+})
+
 describe("recordObserved", () => {
     it("averages, ignores empty metrics, counts samples", () => {
         const a = recordObserved(undefined, { ttftMs: 1000, tps: 10 })!

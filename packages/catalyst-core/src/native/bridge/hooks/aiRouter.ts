@@ -12,7 +12,7 @@ export type Platform = "ios" | "android" | "web"
 export type Target = "onDevice" | "cloud"
 export type Modality = "text" | "image" | "audio"
 export type CloudPolicy = "allow" | "ask" | "deny"
-export type Objective = "balanced" | "cost" | "latency" | "speed"
+export type Objective = "balanced" | "cost" | "latency" | "speed" | "order"
 
 export interface Price {
     /** USD per 1M tokens. */
@@ -44,6 +44,11 @@ export interface Candidate {
 }
 
 export interface Policy {
+    /**
+     * Default priority: candidate ids and/or the groups "onDevice" and "cloud", highest first. Candidates it does not
+     * name follow in config order. It breaks score ties and, with objective "order", is the whole decision.
+     */
+    order: string[]
     objective: Objective
     weights: { cost: number; latency: number; tps: number }
     constraints: { maxLatencyMs?: number; minTps?: number; maxCostUsd?: number }
@@ -100,7 +105,10 @@ export interface RouteDecision {
     skipped: Skipped[]
 }
 
+export const DEFAULT_ORDER = ["onDevice", "cloud"]
+
 const OBJECTIVES: Record<Objective, Policy["weights"]> = {
+    order: { cost: 0, latency: 0, tps: 0 },
     balanced: { cost: 0.4, latency: 0.4, tps: 0.2 },
     cost: { cost: 0.8, latency: 0.15, tps: 0.05 },
     latency: { cost: 0.1, latency: 0.7, tps: 0.2 },
@@ -177,6 +185,7 @@ export function normalizeRouting(
     }
     const c = base.constraints || {}
     const policy: Policy = {
+        order: Array.isArray(base.order) && base.order.every((x: unknown) => typeof x === "string") ? base.order : DEFAULT_ORDER,
         objective,
         weights,
         constraints: { maxLatencyMs: num(c.maxLatencyMs), minTps: num(c.minTps), maxCostUsd: num(c.maxCostUsd) },
@@ -240,6 +249,15 @@ function scoreAll(rows: { c: Candidate; e: Estimate }[], policy: Policy) {
         .sort((a, b) => a.score - b.score)
 }
 
+/** Position of each candidate in the default order: named ids/groups first, the rest in config order. */
+export function rankCandidates(candidates: Candidate[], order: string[]): Map<string, number> {
+    const rank = new Map<string, number>()
+    const add = (c: Candidate) => { if (!rank.has(c.id)) rank.set(c.id, rank.size) }
+    for (const entry of order) for (const c of candidates) if (c.id === entry || c.target === entry) add(c)
+    for (const c of candidates) add(c)
+    return rank
+}
+
 export function chooseCandidate(
     modalities: Modality[],
     candidates: Candidate[],
@@ -278,13 +296,16 @@ export function chooseCandidate(
     }
 
     if (viable.length) {
+        const rank = rankCandidates(candidates, policy.order)
+        const byRank = (a: string, b: string) => (rank.get(a) as number) - (rank.get(b) as number)
         const scores = scoreAll(viable, policy)
-        // Within a hair of each other, stay on the device: no data leaves and nothing is billed.
+        // Within a hair of each other the default order decides (on-device first unless the config says otherwise).
         const top = scores[0].score
-        const near = scores.filter((s) => s.score - top < 0.02)
-        const pick = near.find((s) => viable.find((v) => v.c.id === s.id)!.c.target === "onDevice") || scores[0]
+        const near = scores.filter((s) => s.score - top < 0.02).sort((a, b) => byRank(a.id, b.id))
+        const pick = policy.objective === "order" ? [...scores].sort((a, b) => byRank(a.id, b.id))[0] : near[0]
         const chosen = viable.find((v) => v.c.id === pick.id)!
-        return { action: "run", candidate: chosen.c, reason: `best ${policy.objective} score among ${viable.length} available`, estimate: chosen.e, scores, skipped }
+        const reason = policy.objective === "order" ? "first available in the configured order" : `best ${policy.objective} score among ${viable.length} available`
+        return { action: "run", candidate: chosen.c, reason, estimate: chosen.e, scores, skipped }
     }
     // Nothing can run. Never silently send data out or start a big download: say what would unblock the call.
     if (askCloud.length) return { action: "ask", candidate: askCloud[0], reason: "only the cloud can serve this call and it needs consent", scores: [], skipped }

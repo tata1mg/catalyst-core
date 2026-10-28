@@ -5,6 +5,8 @@ const {
     makeProjectHelpers,
     versionOlderThan,
     catalystGeneration,
+    inspectWebBridgeInit,
+    WEBBRIDGE_INIT_SNIPPET,
     VITE_RUNTIME_VERSION,
 } = require("../lib/helpers")
 
@@ -265,6 +267,20 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk:
                         "Catalyst 0.3.x uses its Vite split hydration contract; loadableReady belongs to the legacy webpack runtime.",
                     reason: "Replace loadableReady with hydrationReady from catalyst-core",
+                }
+            const bridge = inspectWebBridgeInit(root)
+            if (bridge.state === "missing-init" || bridge.state === "missing-import" || bridge.state === "misplaced")
+                return {
+                    status: "gap",
+                    native_risk:
+                        "Without WebBridge.init() in the client entry, window.WebBridge is never set and every native hook silently runs with isNative=false inside the Android/iOS WebView.",
+                    reason:
+                        bridge.state === "missing-init"
+                            ? `${bridge.entry} never calls WebBridge.init() but native hooks are used (${bridge.hookFiles[0]})`
+                            : bridge.state === "missing-import"
+                              ? `${bridge.entry} calls WebBridge.init() without importing WebBridge from catalyst-core/WebBridge`
+                              : `${bridge.entry} calls WebBridge.init() before hydrationReady(); it must run inside hydrationReady().then(...) just before hydrateRoot`,
+                    fix: WEBBRIDGE_INIT_SNIPPET,
                 }
             return { status: "completed" }
         },

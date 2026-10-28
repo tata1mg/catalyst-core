@@ -211,7 +211,55 @@ function makeProjectHelpers(root) {
     return { fileExists, readJson, readText, grepSrc }
 }
 
+const CLIENT_ENTRY_CANDIDATES = ["client/index.js", "client/index.jsx", "client/index.ts", "client/index.tsx"]
+
+// Hooks that talk to the native bridge need WebBridge.init() in the client entry: it sets window.WebBridge and
+// isNative. Without it they run with isNative=false inside the WebView and fail silently. useAI alone is exempt
+// (it also runs on cloud/in-browser engines), so an import of only useAI does not count as native use.
+const HOOKS_IMPORT = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']catalyst-core\/hooks["']|import\s+(?!type\b)[\w$]+\s*(?:,\s*\{[^}]*\})?\s*from\s*["']catalyst-core\/hooks["']|require\(\s*["']catalyst-core\/hooks["']\s*\)/g
+
+function usesNativeHooks(source) {
+    for (const m of source.matchAll(HOOKS_IMPORT)) {
+        if (m[1] === undefined) return true // default/namespace import or require: cannot tell which hooks
+        const names = m[1].split(",").map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)
+        if (names.some((n) => n !== "useAI")) return true
+    }
+    return false
+}
+
+/**
+ * Is WebBridge.init() in place where native hooks need it?
+ *   state: "no-hooks" | "no-entry" | "ok" | "missing-init" | "missing-import" | "misplaced"
+ * "misplaced" = init runs before hydrationReady(): at module scope it can break hydration with
+ * "Cannot read properties of null (reading 'useContext')". It belongs inside hydrationReady().then(...) just
+ * before hydrateRoot.
+ */
+function inspectWebBridgeInit(root) {
+    const { grepSrc, readText } = makeProjectHelpers(root)
+    const hookFiles = grepSrc(/catalyst-core\/hooks/).filter((f) => usesNativeHooks(readText(f) || ""))
+    const entry = CLIENT_ENTRY_CANDIDATES.find((f) => readText(f) !== null && readText(f) !== undefined)
+    const base = { hookFiles, entry: entry || null }
+    if (!entry) return { ...base, state: hookFiles.length ? "no-entry" : "no-hooks" }
+    const src = readText(entry) || ""
+    const initAt = src.search(/WebBridge\s*\.\s*init\s*\(/)
+    if (initAt === -1) return { ...base, state: hookFiles.length ? "missing-init" : "no-hooks" }
+    if (!/import[^;]*\bWebBridge\b[^;]*from|require\([^)]*WebBridge/.test(src)) return { ...base, state: "missing-import" }
+    const readyAt = src.search(/hydrationReady\s*\(/)
+    if (readyAt !== -1 && initAt < readyAt) return { ...base, state: "misplaced" }
+    return { ...base, state: "ok" }
+}
+
+const WEBBRIDGE_INIT_SNIPPET = `window.addEventListener("load", () => {
+    hydrationReady().then(() => {
+        // ...store / router / Application as before...
+        WebBridge.init()   // inside hydrationReady, just before hydrateRoot
+        hydrateRoot(document.getElementById("app"), Application)
+    })
+})`
+
 module.exports = {
+    inspectWebBridgeInit,
+    WEBBRIDGE_INIT_SNIPPET,
     findCatalystRoot,
     makeProjectHelpers,
     versionOlderThan,

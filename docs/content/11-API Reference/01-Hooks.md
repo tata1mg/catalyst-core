@@ -729,7 +729,8 @@ With `provider: "auto"`, every `generate` call picks a model from the candidates
 
 | `routing` key | Meaning |
 |---|---|
-| `policy.objective` | `balanced` (default), `cost`, `latency` or `speed`; `policy.weights` overrides the weights |
+| `policy.objective` | `balanced` (default), `cost`, `latency`, `speed` or `order`; `policy.weights` overrides the weights |
+| `policy.order` | Default priority: candidate `id`s and/or the groups `onDevice` and `cloud`, highest first. Default `["onDevice", "cloud"]`. It breaks score ties; with `objective: "order"` the first available candidate wins and metrics are ignored |
 | `policy.constraints` | Hard limits: `maxLatencyMs`, `minTps`, `maxCostUsd` (per estimated call) |
 | `policy.cloud` / `policy.cloudMedia` | `allow`, `ask` or `deny`. Defaults: `ask` for text, `deny` for image/audio |
 | `policy.autoDownload` | Let the in-browser model start its large download without asking (default `false`) |
