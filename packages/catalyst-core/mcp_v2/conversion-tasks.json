@@ -123,13 +123,13 @@
             "file: client/index.js must exist",
             "file: client/styles.js must exist",
             "pattern: client/index.js must import WebBridge from 'catalyst-core/WebBridge'",
-            "pattern: client/index.js must call WebBridge.init()",
+            "pattern: client/index.js must call WebBridge.init() inside hydrationReady().then(...), before hydrateRoot (not at module scope)",
             "pattern: client/index.js must use hydrateRoot from 'react-dom/client' (not ReactDOM.render or hydrate)",
             "pattern: client/index.js must import clientRouter from 'catalyst-core/router/ClientRouter'",
             "pattern: RouterProvider comes from @tata1mg/router on 0.2.x, catalyst-core on 0.3.x, or react-router/dom on 1.0.0+",
             "pattern: 0.2.x waits for loadableReady; 0.3.x+ waits for hydrationReady"
         ],
-        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x, import RouterProvider and hydrationReady from catalyst-core. On 1.0.0+, import hydrationReady from catalyst-core and RouterProvider from react-router/dom (not react-router: only the /dom export passes flushSync to the router). Then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
+        "fix_guide": "Use hydrateRoot and call WebBridge.init() inside the hydrationReady().then(...) callback, just before hydrateRoot. Do NOT call it at module scope or before hydrationReady: that can throw \"Cannot read properties of null (reading 'useContext')\" during hydration, and if it is missing every native hook silently runs with isNative=false in the WebView. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x, import RouterProvider and hydrationReady from catalyst-core. On 1.0.0+, import hydrationReady from catalyst-core and RouterProvider from react-router/dom (not react-router: only the /dom export passes flushSync to the router). Then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
         "verify_hint": "Open the app in browser. Open DevTools Console — there should be no 'hydrateRoot' mismatch warnings (if there are, server HTML and client render differ). Open DevTools Elements — the #app or #root div should have React content inside it (not empty). Click an interactive element — if nothing responds, hydration failed. Also confirm global styles are applied (CSS loads).",
         "depends_on": ["T6_APP_SHELL"]
     },
