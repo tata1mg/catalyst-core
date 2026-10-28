@@ -131,6 +131,9 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
  * render-blocking path; a nonce-able inline script switches them all to media="all" once every one has loaded
  * (no inline event handlers, so it works under a nonce-based CSP). <noscript> covers no-JS clients.
  * Vite's preload helper skips CSS that already has a <link rel="stylesheet">, so nothing downloads twice.
+ * crossorigin matches the CORS mode Vite's helper uses for CSS: with a CDN that sends
+ * Access-Control-Allow-Origin only for requests that carry Origin (and no Vary: Origin), a no-cors
+ * copy in the HTTP cache makes every later CORS request for that file fail.
  * @param {string[]} cssUrls
  * @param {string} [nonce]
  */
@@ -143,6 +146,7 @@ export const generateCssLinkElements = (cssUrls = [], nonce) => {
             rel: "stylesheet",
             href: url,
             media: "print",
+            crossOrigin: "",
             "data-catalyst-css": "",
         })
     )
@@ -162,7 +166,7 @@ export const generateCssLinkElements = (cssUrls = [], nonce) => {
         React.createElement("noscript", {
             key: "css-noscript",
             dangerouslySetInnerHTML: {
-                __html: urls.map((url) => `<link rel="stylesheet" href="${url}" data-catalyst-css>`).join(""),
+                __html: urls.map((url) => `<link rel="stylesheet" href="${url}" crossorigin data-catalyst-css>`).join(""),
             },
         }),
     ]
@@ -188,10 +192,11 @@ export const generateScriptElements = (jsUrls = [], nonce) =>
 // ── HTML strings (for streaming injection after body via res.write) ────
 
 /**
- * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
+ * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body). crossorigin: see
+ * generateCssLinkElements.
  */
 export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}" data-catalyst-css>`).join("")
+    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}" crossorigin data-catalyst-css>`).join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
