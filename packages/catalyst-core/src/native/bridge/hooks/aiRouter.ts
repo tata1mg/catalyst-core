@@ -45,8 +45,11 @@ export interface Candidate {
 
 export interface Policy {
     /**
-     * Default priority: candidate ids and/or the groups "onDevice" and "cloud", highest first. Candidates it does not
-     * name follow in config order. It breaks score ties and, with objective "order", is the whole decision.
+     * Default priority, applied left to right as sort keys. An entry is a candidate id or a group ("onDevice",
+     * "cloud"), which puts those candidates first, or a metric: "cost" (cheapest first), "latency" (quickest
+     * first), "tps" (most tokens/sec first), which sorts by the estimate. A later entry only matters where earlier
+     * ones tie, and candidates still tied follow config order. It breaks score ties and, with objective "order",
+     * is the whole decision.
      */
     order: string[]
     objective: Objective
@@ -106,6 +109,7 @@ export interface RouteDecision {
 }
 
 export const DEFAULT_ORDER = ["onDevice", "cloud"]
+export const ORDER_METRICS = ["cost", "latency", "tps"]
 
 const OBJECTIVES: Record<Objective, Policy["weights"]> = {
     order: { cost: 0, latency: 0, tps: 0 },
@@ -297,12 +301,22 @@ export function chooseCandidate(
 
     if (viable.length) {
         const rank = rankCandidates(candidates, policy.order)
-        const byRank = (a: string, b: string) => (rank.get(a) as number) - (rank.get(b) as number)
+        const est = new Map(viable.map((v) => [v.c.id, v]))
+        const byOrder = (a: string, b: string) => {
+            for (const key of policy.order) {
+                const x = est.get(a)!, y = est.get(b)!
+                const d = ORDER_METRICS.includes(key)
+                    ? key === "cost" ? x.e.costUsd - y.e.costUsd : key === "latency" ? x.e.latencyMs - y.e.latencyMs : y.e.tps - x.e.tps
+                    : Number(x.c.id !== key && x.c.target !== key) - Number(y.c.id !== key && y.c.target !== key)
+                if (d !== 0) return d
+            }
+            return (rank.get(a) as number) - (rank.get(b) as number)
+        }
         const scores = scoreAll(viable, policy)
         // Within a hair of each other the default order decides (on-device first unless the config says otherwise).
         const top = scores[0].score
-        const near = scores.filter((s) => s.score - top < 0.02).sort((a, b) => byRank(a.id, b.id))
-        const pick = policy.objective === "order" ? [...scores].sort((a, b) => byRank(a.id, b.id))[0] : near[0]
+        const near = scores.filter((s) => s.score - top < 0.02).sort((a, b) => byOrder(a.id, b.id))
+        const pick = policy.objective === "order" ? [...scores].sort((a, b) => byOrder(a.id, b.id))[0] : near[0]
         const chosen = viable.find((v) => v.c.id === pick.id)!
         const reason = policy.objective === "order" ? "first available in the configured order" : `best ${policy.objective} score among ${viable.length} available`
         return { action: "run", candidate: chosen.c, reason, estimate: chosen.e, scores, skipped }

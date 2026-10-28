@@ -142,6 +142,32 @@ describe("default order", () => {
     })
 })
 
+describe("default order by metric", () => {
+    const open = { cloud: "allow", cloudMedia: "allow", objective: "order" }
+    const cloudOnly = sig({ nativeAvailable: false, webgpu: false })
+    it("\"cost\" puts the cheapest candidate first", () => {
+        expect(pick(["text"], cloudOnly, { ...open, order: ["cost"] }).candidate?.id).toBe("gpt-mini")
+    })
+    it("\"tps\" and \"latency\" sort by speed", () => {
+        expect(pick(["text"], cloudOnly, { ...open, order: ["tps"] }).candidate?.id).toBe("gemini")
+        expect(pick(["text"], cloudOnly, { ...open, order: ["latency"] }).candidate?.id).toBe("gemini") // ~2.8s vs ~3.4s
+    })
+    it("applies left to right: group first, then the metric within it", () => {
+        const d = pick(["text"], sig({ loadedId: "gemma-e2b" }), { ...open, order: ["onDevice", "tps"] })
+        expect(d.candidate?.id).toBe("apple-fm") // fastest of the on-device models
+        expect(pick(["text"], sig({ loadedId: "gemma-e2b" }), { ...open, order: ["cloud", "cost"] }).candidate?.id).toBe("gpt-mini")
+    })
+    it("a later key only matters where earlier ones tie", () => {
+        // on-device models all cost 0, so "cost" ties and "latency" decides among them
+        const d = pick(["text"], sig({ loadedId: "apple-fm" }), { ...open, order: ["cost", "latency"] })
+        expect(d.candidate?.id).toBe("apple-fm")
+    })
+    it("breaks near-ties for a scored objective", () => {
+        const c = { cloud: [{ id: "a", provider: "p", ttftMs: 1000, tps: 20, price: { input: 5, output: 5 } }, { id: "b", provider: "p", ttftMs: 1000, tps: 20, price: { input: 1, output: 1 } }] }
+        expect(pick(["text"], cloudOnly, { cloud: "allow", order: ["cost"] }, {}, {}, c).candidate?.id).toBe("b")
+    })
+})
+
 describe("recordObserved", () => {
     it("averages, ignores empty metrics, counts samples", () => {
         const a = recordObserved(undefined, { ttftMs: 1000, tps: 10 })!

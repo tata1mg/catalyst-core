@@ -163,6 +163,12 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(w).toHaveLength(1)
         expect(w[0].message).toContain("nope")
     })
+    it("accepts metrics in order and warns when a model id collides with one", () => {
+        const ok = run({ ...good, routing: { ...good.routing, policy: { order: ["onDevice", "cost", "latency", "tps"] } } })
+        expect(ok.warnings.filter((x) => x.field === "AI_CONFIG.routing.policy.order")).toEqual([])
+        const clash = run({ providers, routing: { onDevice: { ios: [{ id: "cost" }] } } })
+        expect(clash.warnings.some((x) => x.message.includes("collides"))).toBe(true)
+    })
     it("warns when cloud is allowed for media", () => {
         const r = run({ ...good, routing: { ...good.routing, policy: { cloud: "allow" } } })
         expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.policy")).toBe(true)

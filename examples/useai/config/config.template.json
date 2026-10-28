@@ -28,7 +28,7 @@
     "routing": {
       "policy": {
         "objective": "balanced",
-        "order": ["onDevice", "cloud"],
+        "order": ["onDevice", "cost", "latency"],
         "constraints": { "maxLatencyMs": 15000 },
         "cloud": "ask",
         "cloudMedia": "deny"

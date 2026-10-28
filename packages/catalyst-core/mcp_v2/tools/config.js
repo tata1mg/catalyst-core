@@ -583,13 +583,16 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     }
     if (!candidates.length) warn("AI_CONFIG.routing", 'routing has no models, so provider "auto" has nothing to route to.')
 
+    for (const c of candidates) {
+        if (["cost", "latency", "tps"].includes(c.id)) warn(c.where, `Model id "${c.id}" collides with the order metric "${c.id}"; in policy.order it is read as the metric. Rename the model.`)
+    }
     if (policy.order !== undefined) {
         if (!Array.isArray(policy.order) || policy.order.some((x) => typeof x !== "string")) {
-            err("AI_CONFIG.routing.policy.order", 'order must be an array of model ids and/or the groups "onDevice" and "cloud".')
+            err("AI_CONFIG.routing.policy.order", 'order must be an array of model ids, the groups "onDevice"/"cloud", and/or the metrics "cost", "latency", "tps".')
         } else {
-            const known = new Set(["onDevice", "cloud", ...candidates.map((c) => c.id)])
+            const known = new Set(["onDevice", "cloud", "cost", "latency", "tps", ...candidates.map((c) => c.id)])
             for (const entry of policy.order) {
-                if (!known.has(entry)) warn("AI_CONFIG.routing.policy.order", `"${entry}" matches no model id or group, so it is ignored.`)
+                if (!known.has(entry)) warn("AI_CONFIG.routing.policy.order", `"${entry}" matches no model id, group or metric (cost, latency, tps), so it is ignored.`)
             }
         }
     }
