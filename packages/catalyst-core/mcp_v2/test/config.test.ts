@@ -187,3 +187,53 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(fields).toContain("AI_CONFIG.routing.onDevice.web[0].tps")
     })
 })
+
+describe("check_config: WebBridge.init() in the client entry (#529)", () => {
+    const entry = (body: string) => `import WebBridge from "catalyst-core/WebBridge"\n${body}`
+    const inside = entry(`window.addEventListener("load", () => { hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) }) })`)
+    function project(files: Record<string, string>): string {
+        const root = makeProject({ enabled: false }, {}, false)
+        for (const [rel, body] of Object.entries(files)) {
+            fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+            fs.writeFileSync(path.join(root, rel), body)
+        }
+        return root
+    }
+    const bridge = (files: Record<string, string>) => {
+        const r = handle_check_config({ project_path: project(files) })
+        return { warn: r.warnings.find((w) => w.field.includes("WebBridge")), ok: r.passed.find((p) => p.field.includes("WebBridge")) }
+    }
+    const hooks = { "src/js/Page.js": `import { useCamera } from "catalyst-core/hooks"\n` }
+
+    it("passes when init is inside hydrationReady", () => {
+        const r = bridge({ ...hooks, "client/index.js": inside })
+        expect(r.warn).toBeUndefined()
+        expect(r.ok).toBeDefined()
+    })
+    it("warns when native hooks are used and init is missing, with the snippet", () => {
+        const r = bridge({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => hydrateRoot(el, app))`) })
+        expect(r.warn?.message).toContain("never calls WebBridge.init()")
+        expect(r.warn?.message).toContain("hydrationReady().then")
+    })
+    it("warns when no client entry exists", () => {
+        expect(bridge(hooks).warn?.message).toContain("no client entry")
+    })
+    it("warns when init runs before hydrationReady (module scope)", () => {
+        const r = bridge({ ...hooks, "client/index.js": entry(`WebBridge.init()\nhydrationReady().then(() => hydrateRoot(el, app))`) })
+        expect(r.warn?.message).toContain("before hydrationReady()")
+        expect(r.warn?.message).toContain("useContext")
+    })
+    it("warns when WebBridge is not imported", () => {
+        const r = bridge({ ...hooks, "client/index.js": `hydrationReady().then(() => { WebBridge.init() })` })
+        expect(r.warn?.message).toContain("does not import WebBridge")
+    })
+    it("stays quiet without native hooks, and when only useAI is imported", () => {
+        expect(bridge({ "client/index.js": entry(`hydrateRoot(el, app)`) }).warn).toBeUndefined()
+        const onlyAI = { "src/a.js": `import { useAI } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
+        expect(bridge(onlyAI).warn).toBeUndefined()
+    })
+    it("counts useAI alongside another hook as native use", () => {
+        const mixed = { "src/a.js": `import { useAI, useCamera } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
+        expect(bridge(mixed).warn).toBeDefined()
+    })
+})
