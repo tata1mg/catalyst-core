@@ -24,6 +24,31 @@
     "browser": {
       "provider": "transformers",
       "model": "onnx-community/Qwen2.5-0.5B-Instruct"
+    },
+    "routing": {
+      "policy": {
+        "objective": "balanced",
+        "order": ["onDevice", "cost", "latency"],
+        "constraints": { "maxLatencyMs": 15000 },
+        "cloud": "ask",
+        "cloudMedia": "deny"
+      },
+      "onDevice": {
+        "ios": [
+          { "id": "gemma-e2b", "engine": "litert", "modalities": ["text", "image", "audio"], "ttftMs": 900, "tps": 25, "loadMs": 3000 },
+          { "id": "apple-fm", "engine": "foundation-models", "modalities": ["text"], "ttftMs": 400, "tps": 40, "loadMs": 0 }
+        ],
+        "android": [
+          { "id": "gemma-e2b", "engine": "litert", "modalities": ["text", "image", "audio"], "ttftMs": 1200, "tps": 18, "loadMs": 4000 }
+        ],
+        "web": [
+          { "id": "gemma-web", "model": "onnx-community/gemma-4-E2B-it-ONNX", "modalities": ["text", "image", "audio"], "ttftMs": 2000, "tps": 9, "loadMs": 260000 }
+        ]
+      },
+      "cloud": [
+        { "id": "gemini-flash", "provider": "gemini", "model": "gemini-3.5-flash", "modalities": ["text", "image", "audio"], "ttftMs": 700, "tps": 120 },
+        { "id": "gpt-mini", "provider": "openai", "model": "gpt-4o-mini", "modalities": ["text", "image"], "ttftMs": 600, "tps": 90 }
+      ]
     }
   },
   "WEBVIEW_CONFIG": {
