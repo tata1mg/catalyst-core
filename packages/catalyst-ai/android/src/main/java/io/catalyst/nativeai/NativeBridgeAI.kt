@@ -49,9 +49,9 @@ class NativeBridgeAI(
             sizeHint = 2_588_147_712L
         ),
         "qwen3-0.6B" to ModelEntry(
-            url = "https://huggingface.co/litert-community/Qwen3-0.6B-it-litert-lm/resolve/main/Qwen3-0.6B-it-int4.litertlm",
-            filename = "Qwen3-0.6B-it-int4.litertlm",
-            sizeHint = 474_000_000L
+            url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm",
+            filename = "qwen3_0_6b_mixed_int4.litertlm",
+            sizeHint = 497_516_544L
         ),
     )
 
