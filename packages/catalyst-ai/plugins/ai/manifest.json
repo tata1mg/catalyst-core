@@ -10,7 +10,9 @@
     ],
     "commands": [
         "initAI",
-        "clearConversation"
+        "clearConversation",
+        "pauseDownload",
+        "resumeDownload"
     ],
     "ios": {
         "className": "CatalystAIPlugin",

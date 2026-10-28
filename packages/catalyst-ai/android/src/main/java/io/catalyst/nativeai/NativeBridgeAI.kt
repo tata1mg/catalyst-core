@@ -162,7 +162,7 @@ class NativeBridgeAI(
             ?: throw Exception("Unknown model '$modelKey'. Available: ${MODEL_REGISTRY.keys.joinToString()}")
         log("Model registry lookup: $modelKey")
         progress("lookup", 0, 0, 0, modelKey)
-        return downloadModel(entry)
+        return downloadModel(entry, DownloadPolicy.from(options.optJSONObject("download")))
     }
 
     private fun ensureEngine(modelPath: String) {
@@ -204,7 +204,7 @@ class NativeBridgeAI(
         }
     }
 
-    private fun downloadModel(entry: ModelEntry): String {
+    private fun downloadModel(entry: ModelEntry, policy: DownloadPolicy): String {
         val modelsDir = File(context.filesDir, "ai_models").also { it.mkdirs() }
         val modelFile = File(modelsDir, entry.filename)
 
@@ -222,11 +222,15 @@ class NativeBridgeAI(
         val etagFile = File(modelsDir, "${entry.filename}.tmp.etag")
         var lastPct = -1
         var lastEmitMs = System.currentTimeMillis()
+        var knownTotal = entry.sizeHint
         val downloader = ResumableDownloader(
             userAgent = "CatalystCore/1.0 LiteRT-LM",
+            policy = policy,
+            gate = DownloadGate.shared,
             log = { log(it) },
             onBytes = { loaded, announced ->
                 val total = if (announced > 0) announced else entry.sizeHint
+                knownTotal = total
                 val pct = if (total > 0) minOf(100, ((loaded * 100) / total).toInt()) else -1
                 val now = System.currentTimeMillis()
                 if (pct != lastPct || now - lastEmitMs >= 200) {
@@ -239,8 +243,21 @@ class NativeBridgeAI(
                 }
             },
         )
+        // Weak link, dropped connection or a pause from the page: wait, then resume from the partial.
+        fun partialSize() = if (tempFile.exists()) tempFile.length() else 0L
+        val resilient = ResilientDownload(policy, DownloadGate.shared, ::partialSize, log = { log(it) }) { status ->
+            val loaded = partialSize()
+            val pct = minOf(100, ((loaded * 100) / maxOf(knownTotal, 1)).toInt())
+            when (status) {
+                is DownloadStatus.Paused -> progress(
+                    "paused", pct, loaded, knownTotal,
+                    status.retryInSec?.let { "${status.reason.wire}, retrying in ${it}s" } ?: status.reason.wire,
+                )
+                DownloadStatus.Resuming -> progress("download", pct, loaded, knownTotal, "resuming")
+            }
+        }
         try {
-            val size = downloader.download(entry.url, tempFile, etagFile)
+            val size = resilient.run { downloader.download(entry.url, tempFile, etagFile) }
             modelFile.delete()
             if (!tempFile.renameTo(modelFile)) throw Exception("could not move the model into place")
             etagFile.delete()

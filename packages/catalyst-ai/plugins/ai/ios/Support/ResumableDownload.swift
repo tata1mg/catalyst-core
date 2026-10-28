@@ -76,7 +76,18 @@ struct ModelDownloadError: LocalizedError {
     let message: String
     /// True when keeping the partial cannot help (client error, corrupt size); false for network trouble and 5xx.
     let discardPartial: Bool
+    /// True when trying again later can succeed (5xx, a connection that ended early); false for disk errors and the like.
+    var transient: Bool = false
     var errorDescription: String? { message }
+}
+
+/// The transfer was stopped on purpose (the page paused it, or the link was too slow). The partial is kept.
+struct DownloadInterrupted: Error, Equatable {
+    enum Kind: Equatable {
+        case paused(PauseReason)
+        case weak(bytesPerSec: Double)
+    }
+    let kind: Kind
 }
 
 /// Streams to disk through a FileHandle, so a ~2 GB model never sits on the heap, and resumes a kept partial.
@@ -84,6 +95,8 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private let partial: URL
     private let etagFile: URL
     private let configuration: URLSessionConfiguration
+    private let policy: DownloadPolicy
+    private let gate: DownloadGate?
     private let onBytes: (_ loaded: Int64, _ total: Int64) -> Void
     private let onLog: (String) -> Void
 
@@ -97,24 +110,37 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private var restartNeeded = false
     private var alreadyComplete = false
     private var failure: Error?
+    private var interruption: DownloadInterrupted.Kind?
+    private var window: ThroughputWindow
+    private var currentTask: URLSessionDataTask?
 
-    /// idle limit (no bytes for 60 s fails the transfer, so a stalled download cannot hold initialisation); the
-    /// resource limit bounds even a slow-but-moving one.
-    static func defaultConfiguration() -> URLSessionConfiguration {
+    /// The request timeout is the idle limit: no bytes for `windowSec` fails the transfer (a stalled link has no
+    /// callbacks to measure, so this is what catches it). The resource limit bounds even a slow-but-moving one.
+    static func defaultConfiguration(policy: DownloadPolicy = .default) -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForRequest = policy.windowSec
         configuration.timeoutIntervalForResource = 4 * 60 * 60
         return configuration
     }
 
-    init(partial: URL, configuration: URLSessionConfiguration = ModelDownloader.defaultConfiguration(),
+    init(partial: URL, configuration: URLSessionConfiguration? = nil,
+         policy: DownloadPolicy = .default, gate: DownloadGate? = nil,
          onLog: @escaping (String) -> Void = { _ in },
          onBytes: @escaping (_ loaded: Int64, _ total: Int64) -> Void) {
         self.partial = partial
         self.etagFile = partial.appendingPathExtension("etag")
-        self.configuration = configuration
+        self.configuration = configuration ?? ModelDownloader.defaultConfiguration(policy: policy)
+        self.policy = policy
+        self.gate = gate
+        self.window = ThroughputWindow(minBytesPerSec: policy.minBytesPerSec, windowSec: policy.windowSec)
         self.onLog = onLog
         self.onBytes = onBytes
+    }
+
+    /// Stop the transfer in flight and report why. The partial file and its ETag stay for the next attempt.
+    func interrupt(_ kind: DownloadInterrupted.Kind) {
+        if interruption == nil { interruption = kind }
+        currentTask?.cancel()
     }
 
     /// Downloads into `partial` and returns its final size, verified against what the server announced.
@@ -129,6 +155,10 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             restartNeeded = false
             alreadyComplete = false
             failure = nil
+            interruption = nil
+            window = ThroughputWindow(minBytesPerSec: policy.minBytesPerSec, windowSec: policy.windowSec)
+            // A pause that arrived between attempts is honoured before any bytes are requested.
+            if let reason = gate?.pausedReason { throw DownloadInterrupted(kind: .paused(reason)) }
             if let resume { onLog("Resuming download at \(resume.offset / 1_000_000)MB") }
 
             try await withTaskCancellationHandler {
@@ -149,7 +179,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
         if size == 0 { throw ModelDownloadError(message: "Downloaded file is empty", discardPartial: true) }
         if total > 0 && size != total {
             // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
-            throw ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total)
+            throw ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total, transient: size < total)
         }
         return size
     }
@@ -175,7 +205,11 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             }
             let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
             self.session = session
-            session.dataTask(with: request).resume()
+            let task = session.dataTask(with: request)
+            self.currentTask = task
+            // A pause from the page interrupts the transfer in flight instead of waiting for it to end.
+            self.gate?.setPauseHandler { [weak self] reason in self?.interrupt(.paused(reason)) }
+            task.resume()
         }
     }
 
@@ -210,7 +244,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             completionHandler(.cancel)
         case .fail(let status):
             let client = (400..<500).contains(status)
-            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client)
+            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client, transient: status >= 500 || status == 429)
             completionHandler(.cancel)
         }
     }
@@ -220,6 +254,9 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             try handle?.write(contentsOf: data)
             written += Int64(data.count)
             onBytes(offset + written, total)
+            if case .weak(let rate) = window.record(bytes: Int64(data.count)) {
+                interrupt(.weak(bytesPerSec: rate))
+            }
         } catch {
             failure = ModelDownloadError(message: "Could not write the model: \(error.localizedDescription)", discardPartial: false)
             dataTask.cancel()
@@ -229,11 +266,14 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         try? handle?.close()
         handle = nil
+        gate?.setPauseHandler(nil)
+        currentTask = nil
         session.finishTasksAndInvalidate()
         let continuation = self.continuation
         self.continuation = nil
-        // A deliberate cancel (.complete, .restart, a recorded failure) is not a transport error.
+        // A deliberate cancel (.complete, .restart, a pause, a weak link, a recorded failure) is not a transport error.
         if let failure { continuation?.resume(throwing: failure) }
+        else if let interruption { continuation?.resume(throwing: DownloadInterrupted(kind: interruption)) }
         else if restartNeeded || alreadyComplete { continuation?.resume() }
         else if let error { continuation?.resume(throwing: error) }
         else { continuation?.resume() }

@@ -23,6 +23,8 @@ struct AIOptions {
     let modelKey: String
     let systemPrompt: String
     let attachmentComponents: [String: Any]
+    /// How a model download copes with a weak or lost connection (`download` in the options JSON).
+    let downloadPolicy: DownloadPolicy
 
     /// Malformed or missing JSON yields defaults, like Kotlin's `try { JSONObject(...) } catch { JSONObject() }`.
     init(optionsRaw: String?) {
@@ -36,5 +38,6 @@ struct AIOptions {
         modelKey = (object["model"] as? String) ?? Self.defaultModelKey
         systemPrompt = ((object["systemPrompt"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         attachmentComponents = object["attachmentComponents"] as? [String: Any] ?? [:]
+        downloadPolicy = DownloadPolicy(object: object["download"] as? [String: Any])
     }
 }

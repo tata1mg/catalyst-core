@@ -1,6 +1,7 @@
 package io.catalyst.nativeai
 
 import java.io.File
+import java.io.IOException
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -74,15 +75,21 @@ internal object ResumeRules {
 }
 
 /** [discardPartial]: true when keeping the partial cannot help (client error, corrupt size); false for network trouble and 5xx. */
-internal class DownloadException(message: String, val discardPartial: Boolean) : Exception(message)
+internal class DownloadException(message: String, val discardPartial: Boolean, val transient: Boolean = false) : Exception(message)
 
 internal class ResumableDownloader(
     private val userAgent: String,
     private val connectTimeoutMs: Int = 30_000,
+    // The read timeout is the idle limit: no bytes for this long fails the transfer (a stalled link delivers no chunks
+    // to measure). With a policy it follows the policy's window.
     private val readTimeoutMs: Int = 60_000,
+    private val policy: DownloadPolicy? = null,
+    private val gate: DownloadGate? = null,
     private val log: (String) -> Unit = {},
     private val onBytes: (loaded: Long, total: Long) -> Unit = { _, _ -> },
 ) {
+    @Volatile private var interruption: DownloadInterrupted.Kind? = null
+
     private sealed class Attempt {
         data class Done(val total: Long) : Attempt()
         object Restart : Attempt()
@@ -96,6 +103,9 @@ internal class ResumableDownloader(
         var total = -1L
         var restarted = false
         for (attempt in 0..1) {
+            interruption = null
+            // A pause that arrived between attempts is honoured before any bytes are requested.
+            gate?.pausedReason?.let { throw DownloadInterrupted(DownloadInterrupted.Kind.Paused(it)) }
             val resume = ResumeRules.plan(if (partial.exists()) partial.length() else 0L, readETag(etagFile))
             if (resume == null) discard(partial, etagFile)
             if (resume != null) log("Resuming download at ${resume.offset / 1_000_000}MB")
@@ -118,7 +128,7 @@ internal class ResumableDownloader(
         if (size == 0L) throw DownloadException("Downloaded file is empty", discardPartial = true)
         // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
         if (total > 0 && size != total) {
-            throw DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total)
+            throw DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total, transient = size < total)
         }
         return size
     }
@@ -134,7 +144,7 @@ internal class ResumableDownloader(
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = connectTimeoutMs
-            readTimeout = readTimeoutMs
+            readTimeout = policy?.let { (it.windowSec * 1000).toInt() } ?: readTimeoutMs
             setRequestProperty("User-Agent", userAgent)
             // Ranges address the bytes on the wire; never let a transfer encoding change what they mean.
             setRequestProperty("Accept-Encoding", "identity")
@@ -143,6 +153,11 @@ internal class ResumableDownloader(
                 setRequestProperty("If-Range", resume.etag)
             }
             instanceFollowRedirects = true
+        }
+        // A pause from the page interrupts the transfer in flight: closing the connection ends the blocked read.
+        gate?.setPauseHandler { reason ->
+            if (interruption == null) interruption = DownloadInterrupted.Kind.Paused(reason)
+            conn.disconnect()
         }
         try {
             conn.connect()
@@ -162,25 +177,43 @@ internal class ResumableDownloader(
                 ResumeRules.Outcome.Complete -> return Attempt.Done(offset)
                 ResumeRules.Outcome.Restart -> return Attempt.Restart
                 is ResumeRules.Outcome.Fail ->
-                    throw DownloadException("HTTP ${outcome.status} from model server", discardPartial = outcome.status in 400..499)
+                    throw DownloadException(
+                        "HTTP ${outcome.status} from model server",
+                        discardPartial = outcome.status in 400..499,
+                        transient = outcome.status >= 500 || outcome.status == 429,
+                    )
             }
 
             if (ResumeRules.isStrong(etag)) etagFile.writeText(etag!!) else etagFile.delete()
             var loaded = base
+            val window = policy?.let { ThroughputWindow(it.minBytesPerSec, it.windowSec) }
             conn.inputStream.use { input ->
                 FileOutputStream(partial, append).use { output ->
                     val buf = ByteArray(128 * 1024)
                     while (true) {
-                        val n = input.read(buf)
+                        val n = try {
+                            input.read(buf)
+                        } catch (e: IOException) {
+                            // A pause closed the connection under the read: report why, not a socket error.
+                            interruption?.let { throw DownloadInterrupted(it) }
+                            throw e
+                        }
                         if (n == -1) break
-                        output.write(buf, 0, n)
+                        try {
+                            output.write(buf, 0, n)
+                        } catch (e: IOException) {
+                            throw DownloadException("Could not write the model: ${e.message}", discardPartial = false)
+                        }
                         loaded += n
                         onBytes(loaded, total)
+                        val verdict = window?.record(n.toLong())
+                        if (verdict is ThroughputWindow.Verdict.Weak) throw DownloadInterrupted(DownloadInterrupted.Kind.Weak(verdict.bytesPerSec))
                     }
                 }
             }
             return Attempt.Done(total)
         } finally {
+            gate?.setPauseHandler(null)
             conn.disconnect()
         }
     }

@@ -150,7 +150,7 @@ final class NativeBridgeAI: NativeAIEngine {
         }
         onLog("Model registry lookup: \(options.modelKey)")
         onProgress("lookup", 0, 0, 0, options.modelKey)
-        return try await downloadModel(entry)
+        return try await downloadModel(entry, policy: options.downloadPolicy)
     }
 
     private func ensureEngine(modelPath: String) async throws {
@@ -203,7 +203,7 @@ final class NativeBridgeAI: NativeAIEngine {
         }
     }
 
-    private func downloadModel(_ entry: ModelEntry) async throws -> String {
+    private func downloadModel(_ entry: ModelEntry, policy: DownloadPolicy) async throws -> String {
         let directory = try Self.modelsDirectory()
         let modelFile = directory.appendingPathComponent(entry.filename)
 
@@ -220,20 +220,38 @@ final class NativeBridgeAI: NativeAIEngine {
         let partial = directory.appendingPathComponent("\(entry.filename).tmp")
 
         var throttle = ProgressThrottle()
-        let downloader = ModelDownloader(partial: partial, onLog: onLog) { [onLog, onProgress] loaded, total in
+        let known = KnownTotal(entry.sizeHint)
+        let downloader = ModelDownloader(partial: partial, policy: policy, gate: .shared, onLog: onLog) { [onLog, onProgress] loaded, total in
             let total = total > 0 ? total : entry.sizeHint
+            known.value = total
             let percent = Int(min(100, loaded * 100 / max(total, 1)))
             guard throttle.shouldEmit(percent: percent) else { return }
             let detail = "\(loaded / 1_000_000)MB / \(total / 1_000_000)MB"
             onProgress("download", percent, loaded, total, detail)
             onLog("Download: \(percent)% (\(detail))")
         }
+        func partialSize() -> Int64 {
+            ((try? FileManager.default.attributesOfItem(atPath: partial.path)[.size]) as? Int64) ?? 0
+        }
+        // Weak link, dropped connection or a pause from the page: wait, then resume from the partial.
+        let resilient = ResilientDownload(policy: policy, gate: .shared, partialSize: partialSize, onLog: onLog) { [onProgress] status in
+            let loaded = partialSize()
+            let total = known.value
+            let percent = Int(min(100, loaded * 100 / max(total, 1)))
+            switch status {
+            case .paused(let reason, let retry):
+                let detail = retry.map { "\(reason.rawValue), retrying in \($0)s" } ?? reason.rawValue
+                onProgress("paused", percent, loaded, total, detail)
+            case .resuming:
+                onProgress("download", percent, loaded, total, "resuming")
+            }
+        }
 
         guard let url = URL(string: entry.url) else {
             throw NativeAIError(message: "Model download failed: invalid URL")
         }
         do {
-            let size = try await downloader.download(from: url)
+            let size = try await resilient.run { try await downloader.download(from: url) }
             try? FileManager.default.removeItem(at: modelFile)
             try FileManager.default.moveItem(at: partial, to: modelFile)
             try? FileManager.default.removeItem(at: partial.appendingPathExtension("etag"))
@@ -245,4 +263,10 @@ final class NativeBridgeAI: NativeAIEngine {
         }
         return modelFile.path
     }
+}
+
+/// The total the server announced, shared with the status callback of an in-flight download.
+private final class KnownTotal {
+    var value: Int64
+    init(_ value: Int64) { self.value = value }
 }

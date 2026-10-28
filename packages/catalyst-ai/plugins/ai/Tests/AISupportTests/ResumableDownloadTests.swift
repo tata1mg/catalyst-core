@@ -53,13 +53,20 @@ private final class FakeServer: URLProtocol {
         var wrongContentRangeStart = false
         /// Content-Length to announce on a 200 when it differs from the bytes actually sent.
         var declaredLength: Int?
+        /// Deliver the body in chunks of this size, `chunkDelay` apart (a slow or steady link).
+        var chunkSize: Int?
+        var chunkDelay: TimeInterval = 0
+        /// The first N requests are served at the slow chunk rate; later ones at full speed.
+        var slowRequests = 0
     }
     static var config = Config()
     static var requests: [URLRequest] = []
+    static var slowRemaining = 0
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func stopLoading() {}
+    private var stopped = false
+    override func stopLoading() { stopped = true }
 
     override func startLoading() {
         let c = FakeServer.config
@@ -71,6 +78,18 @@ private final class FakeServer: URLProtocol {
             h["Content-Length"] = String(status == 200 ? (c.declaredLength ?? body.count) : body.count)
             let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: h)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            if let chunk = c.chunkSize, FakeServer.slowRemaining > 0 {
+                FakeServer.slowRemaining -= 1
+                func send(from index: Int) {
+                    guard !self.stopped else { return }
+                    if index >= body.count { self.client?.urlProtocolDidFinishLoading(self); return }
+                    let end = min(index + chunk, body.count)
+                    self.client?.urlProtocol(self, didLoad: body.subdata(in: index..<end))
+                    DispatchQueue.global().asyncAfter(deadline: .now() + c.chunkDelay) { send(from: end) }
+                }
+                send(from: 0)
+                return
+            }
             if let drop = c.dropAfter, drop < body.count {
                 client?.urlProtocol(self, didLoad: body.prefix(drop))
                 // A real connection drops some time after its last bytes arrive, not in the same instant.
@@ -113,6 +132,7 @@ final class ModelDownloaderTests: XCTestCase {
         partial = dir.appendingPathComponent("m.litertlm.tmp")
         FakeServer.config = .init(body: Data((0..<5000).map { UInt8($0 % 251) }))
         FakeServer.requests = []
+        FakeServer.slowRemaining = 0
     }
 
     override func tearDown() {
@@ -120,10 +140,11 @@ final class ModelDownloaderTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeDownloader(progress: @escaping (Int64, Int64) -> Void = { _, _ in }) -> ModelDownloader {
+    private func makeDownloader(policy: DownloadPolicy = .default, gate: DownloadGate? = nil,
+                                progress: @escaping (Int64, Int64) -> Void = { _, _ in }) -> ModelDownloader {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FakeServer.self]
-        return ModelDownloader(partial: partial, configuration: configuration, onBytes: progress)
+        return ModelDownloader(partial: partial, configuration: configuration, policy: policy, gate: gate, onBytes: progress)
     }
 
     private var etagFile: URL { partial.appendingPathExtension("etag") }
@@ -247,5 +268,113 @@ final class ModelDownloaderTests: XCTestCase {
             if let error = error as? ModelDownloadError { XCTAssertFalse(error.discardPartial) }
         }
         XCTAssertEqual(onDisk().count, 3000, "what arrived is kept so the next attempt can continue")
+    }
+
+    // MARK: - Pause, weak link, and the whole recovery chain
+
+    private func slowServer(chunk: Int = 500, delay: TimeInterval = 0.05, requests: Int = 1) {
+        FakeServer.config.chunkSize = chunk
+        FakeServer.config.chunkDelay = delay
+        FakeServer.slowRemaining = requests
+    }
+
+    func testAPauseFromThePageStopsTheTransferAndKeepsThePartial() async throws {
+        slowServer()
+        let gate = DownloadGate()
+        let downloader = makeDownloader(gate: gate)
+        Task { try? await Task.sleep(nanoseconds: 180_000_000); gate.pause(.offline) }
+        do {
+            _ = try await downloader.download(from: url)
+            XCTFail("the pause should have interrupted the transfer")
+        } catch let interrupted as DownloadInterrupted {
+            XCTAssertEqual(interrupted.kind, .paused(.offline))
+        }
+        let kept = onDisk().count
+        XCTAssertGreaterThan(kept, 0)
+        XCTAssertLessThan(kept, 5000, "stopped part-way, not after the whole body")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: etagFile.path))
+
+        // Back online: the same downloader resumes with a Range request and finishes.
+        gate.resume()
+        FakeServer.requests = []
+        let size = try await downloader.download(from: url)
+        XCTAssertEqual(size, 5000)
+        XCTAssertEqual(onDisk(), FakeServer.config.body)
+        XCTAssertEqual(header(0, "Range"), "bytes=\(kept)-")
+    }
+
+    func testAPauseThatArrivedBetweenAttemptsIsHonouredBeforeAnyRequest() async {
+        let gate = DownloadGate()
+        gate.pause(.offline)
+        do {
+            _ = try await makeDownloader(gate: gate).download(from: url)
+            XCTFail()
+        } catch let interrupted as DownloadInterrupted {
+            XCTAssertEqual(interrupted.kind, .paused(.offline))
+        } catch { XCTFail("\(error)") }
+        XCTAssertTrue(FakeServer.requests.isEmpty, "no bytes may be requested while paused")
+    }
+
+    func testASlowLinkIsInterruptedAsWeakAndKeepsItsBytes() async throws {
+        slowServer(chunk: 100, delay: 0.05) // about 2 KB/s
+        var policy = DownloadPolicy()
+        policy.minBytesPerSec = 100_000
+        policy.windowSec = 0.3
+        do {
+            _ = try await makeDownloader(policy: policy).download(from: url)
+            XCTFail("a crawl below the minimum must be flagged")
+        } catch let interrupted as DownloadInterrupted {
+            guard case .weak(let rate) = interrupted.kind else { return XCTFail("expected weak, got \(interrupted.kind)") }
+            XCTAssertLessThan(rate, 100_000)
+        }
+        XCTAssertGreaterThan(onDisk().count, 0)
+        XCTAssertLessThan(onDisk().count, 5000)
+    }
+
+    func testAFastLinkIsNeverFlaggedWeak() async throws {
+        var policy = DownloadPolicy()
+        policy.minBytesPerSec = 1_000
+        policy.windowSec = 0.2
+        slowServer(chunk: 1000, delay: 0.05) // about 20 KB/s, well above the 1 KB/s minimum
+        let size = try await makeDownloader(policy: policy).download(from: url)
+        XCTAssertEqual(size, 5000)
+    }
+
+    func testTheWholeChainWeakLinkThenWaitThenResumeThenFinish() async throws {
+        slowServer(chunk: 100, delay: 0.05, requests: 1) // first request crawls, the next is full speed
+        var policy = DownloadPolicy()
+        policy.minBytesPerSec = 100_000
+        policy.windowSec = 0.3
+        policy.resumeDelaySec = 0.05
+        policy.maxDelaySec = 0.1
+        let gate = DownloadGate()
+        let downloader = makeDownloader(policy: policy, gate: gate)
+        var events: [DownloadStatus] = []
+        let resilient = ResilientDownload(policy: policy, gate: gate, partialSize: { Int64(self.onDisk().count) }, emit: { events.append($0) })
+        let size = try await resilient.run { try await downloader.download(from: self.url) }
+        XCTAssertEqual(size, 5000)
+        XCTAssertEqual(onDisk(), FakeServer.config.body, "the pieces from both attempts line up")
+        XCTAssertEqual(FakeServer.requests.count, 2)
+        XCTAssertNotNil(header(1, "Range"), "the second attempt resumed instead of starting over")
+        guard case .paused(let reason, _)? = events.first else { return XCTFail("expected a paused event") }
+        XCTAssertEqual(reason, .weak)
+        XCTAssertEqual(events.last, .resuming)
+    }
+
+    func testWhileOfflineNothingIsRequestedUntilTheNetworkReturns() async throws {
+        let gate = DownloadGate()
+        gate.pause(.offline)
+        var policy = DownloadPolicy()
+        policy.heldRetrySec = 30
+        let downloader = makeDownloader(policy: policy, gate: gate)
+        let resilient = ResilientDownload(policy: policy, gate: gate, partialSize: { Int64(self.onDisk().count) }, emit: { _ in })
+        Task {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            XCTAssertTrue(FakeServer.requests.isEmpty, "still offline: no request yet")
+            gate.resume()
+        }
+        let size = try await resilient.run { try await downloader.download(from: self.url) }
+        XCTAssertEqual(size, 5000)
+        XCTAssertEqual(FakeServer.requests.count, 1)
     }
 }

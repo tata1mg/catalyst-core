@@ -62,6 +62,15 @@ final class CatalystAIBridge: AIBridge {
         engine?.clearConversation()
     }
 
+    /// Anything but a known reason is treated as offline, the case the page reports.
+    func pauseDownload(reason: String?) {
+        DownloadGate.shared.pause(reason.flatMap(PauseReason.init(rawValue:)) ?? .offline)
+    }
+
+    func resumeDownload() {
+        DownloadGate.shared.resume()
+    }
+
     // MARK: - Private
 
     /// Every event goes to the callbacks attached *now*: initialisation can outlive the WebView that started it
