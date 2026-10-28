@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
 import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
+import { useNativeDownloadControl } from "./nativeDownloadControl.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const isKnownCode = (code) => Object.values(ERROR_CODES).includes(code)
@@ -46,6 +47,10 @@ export function useNativeAI({
     engine,
     model,
     modelPath,
+    // useNetworkStatus() of the page: offline pauses the model download, back online resumes it.
+    network,
+    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries.
+    download,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
@@ -150,6 +155,7 @@ export function useNativeAI({
             ...(engine !== undefined && { engine }),
             ...(model !== undefined && { model }),
             ...(modelPath !== undefined && { modelPath }),
+            ...(download !== undefined && { download }),
         })
 
         return () => {
@@ -345,6 +351,9 @@ export function useNativeAI({
         setLoading(false)
     }, [])
 
+    useNativeDownloadControl({ active: enabled && !modelReady, network })
+    const downloadPaused = nativeDownloadProgress?.phase === "paused"
+
     return {
         output,
         streaming,
@@ -353,6 +362,9 @@ export function useNativeAI({
         modelReady,
         downloadProgress: null,
         nativeDownloadProgress,
+        // True while the model download waits for the connection; the reason is "offline", "weak" or "error".
+        downloadPaused,
+        downloadPauseReason: downloadPaused ? String(nativeDownloadProgress.detail || "").split(",")[0] || null : null,
         nativeLogs,
         metrics,
         isLocal: false,

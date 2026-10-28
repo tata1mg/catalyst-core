@@ -84,6 +84,36 @@ import { useCurrentRouteData } from "catalyst-core";
 | `refetch` | `function` | A function to re-run the `clientFetcher`. |
 | `clear` | `function` | A function to clear the cached data for the current route. |
 
+#### Model downloads on a weak or lost connection
+
+The first on-device use downloads a model of about 2.6 GB. That download no longer starts over when the connection drops or the device goes offline:
+
+- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced.
+- **`useAI` follows `useNetworkStatus`.** When the device goes offline the download pauses; when it is back, it resumes. This works alongside your own `useNetworkStatus()` calls: they share one native subscription.
+- **A weak link pauses too.** If the speed stays under a minimum for a sustained window, the download stops, waits and tries again (the wait doubles up to a cap). A connection that resets or times out is retried the same way. It gives up only after several attempts in a row that moved no bytes; the partial stays on disk for the next launch.
+- **A safety net** retries on a timer even if the page never hears that the network returned (for example while the WebView was suspended).
+
+The hook result tells you what is happening: `downloadPaused` is `true` while it waits and `downloadPauseReason` is `"offline"`, `"weak"` or `"error"`. `nativeDownloadProgress.phase` is `"paused"` during the wait and `"download"` again once it resumes.
+
+Tune it in `config/config.json`; every key is optional and out-of-range values are clamped:
+
+```json
+"AI_CONFIG": {
+  "browser": {
+    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8 }
+  }
+}
+```
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `minBytesPerSec` | `50000` | Below this speed, sustained for `windowSec`, the link counts as weak |
+| `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
+| `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
+| `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
+
+Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.
+
 #### Requirements
 
 This hook only works inside the `RouterDataProvider` tree. If the app is not wrapped in `RouterDataProvider`, the hook returns `undefined`.

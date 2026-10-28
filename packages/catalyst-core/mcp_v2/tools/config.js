@@ -473,6 +473,47 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                 message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
             })
         }
+        // AI_CONFIG.browser.download tunes the model download on a weak or lost connection. The runtime clamps bad
+        // values silently, so a typo would just run on the defaults; catch it here.
+        if (browser.download !== undefined) {
+            const dl = browser.download
+            if (!dl || typeof dl !== "object" || Array.isArray(dl)) {
+                issues.push({
+                    field: "AI_CONFIG.browser.download",
+                    severity: "error",
+                    message: "AI_CONFIG.browser.download must be an object: { minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries }.",
+                })
+            } else {
+                const limits = {
+                    minBytesPerSec: [0, 50_000_000],
+                    windowSec: [5, 300],
+                    resumeDelaySec: [1, 600],
+                    maxIdleRetries: [1, 50],
+                }
+                for (const key of Object.keys(dl)) {
+                    if (!(key in limits)) {
+                        warnings.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            message: `Unknown key "${key}", ignored. Use ${Object.keys(limits).join(", ")}.`,
+                        })
+                        continue
+                    }
+                    const [lo, hi] = limits[key]
+                    if (typeof dl[key] !== "number" || !Number.isFinite(dl[key])) {
+                        issues.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            severity: "error",
+                            message: `${key} must be a number, got ${typeof dl[key]}. The default is used instead.`,
+                        })
+                    } else if (dl[key] < lo || dl[key] > hi) {
+                        warnings.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            message: `${key}=${dl[key]} is outside ${lo}-${hi} and will be clamped.`,
+                        })
+                    }
+                }
+            }
+        }
         if (browser.provider === "foundation-models" && platform === "android") {
             warnings.push({
                 field: "AI_CONFIG.browser.provider",
