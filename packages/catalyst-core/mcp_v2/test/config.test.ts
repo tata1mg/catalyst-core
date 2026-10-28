@@ -109,3 +109,81 @@ describe("check_config: splash screen", () => {
         expect(findings(r).some((f) => f.field === "WEBVIEW_CONFIG.splashScreen.minDuration")).toBe(false)
     })
 })
+
+describe("check_config: AI_CONFIG.routing", () => {
+    const providers = { gemini: { apiKey: "k" } }
+    const good = {
+        providers,
+        routing: {
+            policy: { objective: "balanced", order: ["onDevice", "cloud"], cloud: "ask", cloudMedia: "deny" },
+            onDevice: { ios: [{ id: "gemma", engine: "litert", modalities: ["text", "image"], ttftMs: 900, tps: 20 }] },
+            cloud: [{ id: "flash", provider: "gemini", model: "gemini-3.5-flash", modalities: ["text"] }],
+        },
+    }
+    const run = (aiConfig: unknown, ai: unknown = { enabled: true }) =>
+        handle_check_config({ project_path: makeProject(ai, aiConfig, true) })
+    const routingFields = (r: ReturnType<typeof handle_check_config>) =>
+        [...r.issues, ...r.warnings].filter((f) => f.field.includes("routing"))
+
+    it("passes a valid routing block", () => {
+        const r = run(good)
+        expect(routingFields(r)).toEqual([])
+        expect(r.passed.some((p) => p.field === "AI_CONFIG.routing")).toBe(true)
+    })
+    it("does nothing when routing is absent", () => {
+        expect(routingFields(run({ providers }))).toEqual([])
+    })
+    it("rejects an unknown objective and bad policy values", () => {
+        const r = run({ ...good, routing: { ...good.routing, policy: { objective: "fastest", cloud: "maybe" } } })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.policy.objective")
+        expect(fields).toContain("AI_CONFIG.routing.policy.cloud")
+    })
+    it("flags a cloud model whose provider is not configured", () => {
+        const r = run({ ...good, providers: {} })
+        expect(r.issues.some((i) => i.field === "AI_CONFIG.routing.cloud[0].provider")).toBe(true)
+    })
+    it("flags bad modalities, missing ids and duplicate ids in one list", () => {
+        const r = run({
+            providers,
+            routing: { onDevice: { ios: [{ id: "a", modalities: ["video"] }, { modalities: ["text"] }, { id: "b" }, { id: "b" }] } },
+        })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[0].modalities")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[1]")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[3]")
+    })
+    it("allows the same id on different platforms", () => {
+        const r = run({ providers, routing: { onDevice: { ios: [{ id: "gemma" }], android: [{ id: "gemma" }] } } })
+        expect(r.issues.filter((i) => i.field.includes("routing"))).toEqual([])
+    })
+    it("warns about an order entry that matches nothing, but accepts ids and groups", () => {
+        const r = run({ ...good, routing: { ...good.routing, policy: { order: ["flash", "onDevice", "nope"] } } })
+        const w = r.warnings.filter((x) => x.field === "AI_CONFIG.routing.policy.order")
+        expect(w).toHaveLength(1)
+        expect(w[0].message).toContain("nope")
+    })
+    it("accepts metrics in order and warns when a model id collides with one", () => {
+        const ok = run({ ...good, routing: { ...good.routing, policy: { order: ["onDevice", "cost", "latency", "tps"] } } })
+        expect(ok.warnings.filter((x) => x.field === "AI_CONFIG.routing.policy.order")).toEqual([])
+        const clash = run({ providers, routing: { onDevice: { ios: [{ id: "cost" }] } } })
+        expect(clash.warnings.some((x) => x.message.includes("collides"))).toBe(true)
+    })
+    it("warns when cloud is allowed for media", () => {
+        const r = run({ ...good, routing: { ...good.routing, policy: { cloud: "allow" } } })
+        expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.policy")).toBe(true)
+    })
+    it("warns that on-device models need WEBVIEW_CONFIG.ai.enabled, and that foundation-models is iOS-only", () => {
+        const r = run(good, { enabled: false })
+        expect(r.warnings.some((x) => x.field === "WEBVIEW_CONFIG.ai.enabled")).toBe(true)
+        const a = run({ providers, routing: { onDevice: { android: [{ id: "fm", engine: "foundation-models" }] } } })
+        expect(a.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.android[0].engine")).toBe(true)
+    })
+    it("rejects a non-object routing block and negative numbers", () => {
+        expect(run({ providers, routing: [] }).issues.some((i) => i.field === "AI_CONFIG.routing")).toBe(true)
+        const r = run({ providers, routing: { policy: { constraints: { maxLatencyMs: -1 } }, onDevice: { web: [{ id: "w", tps: -5 }] } } })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.policy.constraints.maxLatencyMs")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.web[0].tps")
+    })
+})
