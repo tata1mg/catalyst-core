@@ -1,0 +1,30 @@
+packages/catalyst-ai/src/index.js
+  s_2d3d67526032e9::t_51fd217f5b30ed 6
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_2d3d67526032e9::t_a348081fda35b6 1-293
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_2d3d67526032e9::t_51fd217f5b30ed 3-6,37-60,102-124,128-131,135-156,165-172,174-186,188-190,192
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_2d3d67526032e9::t_14b23419d4b1ce 97
+  s_2d3d67526032e9::t_69dccec06b1095 2,4-96,98-118,121-129
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_28a08e61ebda5d 726-742,755
+examples/useai/config/config.template.json
+  s_2d3d67526032e9::t_1d2be418dd6712 27-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c099a3aabb8eab4ffb1abd362dafc2007518e6d3",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
