@@ -34,3 +34,4 @@ export function resolveNativeEngine(
 export function allowCloudMedia(mode: "local" | "native" | "cloud"): boolean {
     return mode === "cloud"
 }
+
