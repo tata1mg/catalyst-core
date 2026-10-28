@@ -1,0 +1,19 @@
+.nvmrc
+  s_d812b980254404::t_96025d51b6e296 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7d567ef19377a0f8c1f66fdde198a80813ceb9bd",
+  "prompts": {},
+  "sessions": {
+    "s_d812b980254404": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c1d7791-38fe-49e4-bd67-e7e0ddbd9332",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
