@@ -735,7 +735,7 @@ With `provider: "auto"`, every `generate` call picks a model from the candidates
 | `policy.constraints` | Hard limits: `maxLatencyMs`, `minTps`, `maxCostUsd` (per estimated call) |
 | `policy.cloud` / `policy.cloudMedia` | `allow`, `ask` or `deny`. Defaults: `ask` for text, `deny` for image/audio |
 | `policy.autoDownload` | Let the in-browser model start its large download without asking (default `false`) |
-| `onDevice.<platform>[]` | `id`, `engine`/`model`/`modelPath`, `modalities`, and priors `ttftMs`, `tps`, `loadMs` |
+| `onDevice.<platform>[]` | `id`, `engine`/`model`/`modelPath`, `modalities`, and priors `ttftMs`, `tps`, `loadMs`. Platforms are `ios`, `android` (the native apps) and `web` (plain browsers). **One list is used per page:** inside a native app only `ios` / `android` is read, because the native module owns the on-device model there and no in-browser model is ever loaded; in a browser (including a phone's) only `web` is read |
 | `cloud[]` | `id`, `provider`, `model`, `modalities`, priors `ttftMs`, `tps`, optional `price: { input, output }` (USD per 1M tokens; defaults to the built-in table) |
 
 The numbers in config are starting estimates. The metrics `useAI` reports for each finished call (time to first token, tokens/sec) are averaged per model on the device and take over from the config values after a few calls. A model that is not currently loaded pays its `loadMs`, so the router does not flip between on-device models for small gains.

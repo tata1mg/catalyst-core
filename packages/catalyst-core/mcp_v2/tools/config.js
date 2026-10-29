@@ -597,7 +597,16 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
         }
     }
     if (candidates.some((c) => c.group === "onDevice") && !(wc.ai && wc.ai.enabled)) {
-        warn("WEBVIEW_CONFIG.ai.enabled", "routing lists on-device models but WEBVIEW_CONFIG.ai.enabled is not true: the native AI module is not built into the app, so only web and cloud models can run.")
+        warn("WEBVIEW_CONFIG.ai.enabled", "routing lists on-device models but WEBVIEW_CONFIG.ai.enabled is not true: the native AI module is not built into the app, so the app has no on-device model at all (in-browser models are only used in a plain browser, never inside the app) and only cloud models can run there.")
+    }
+    // A native app (WebView build) only ever uses onDevice.ios / onDevice.android; onDevice.web is for plain browsers.
+    const hasNativeModels = candidates.some((c) => c.group === "onDevice" && /\.(ios|android)\[/.test(c.where))
+    const hasWebModels = candidates.some((c) => c.group === "onDevice" && /\.web\[/.test(c.where))
+    if (wc.ai && wc.ai.enabled && hasWebModels && !hasNativeModels) {
+        warn(
+            "AI_CONFIG.routing.onDevice",
+            "routing lists only in-browser (web) models, but this is a native app build: inside the app the native module owns the on-device model and web models are never used. Add onDevice.ios and/or onDevice.android entries, or the app can only route to the cloud."
+        )
     }
     if (issues.length === before) passed.push({ field: "AI_CONFIG.routing", note: `${candidates.length} model(s), valid` })
 }

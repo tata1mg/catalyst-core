@@ -89,6 +89,13 @@ const buttonClass = "flex-1 font-mono text-[10px] font-semibold px-2 py-2 rounde
 
 export default function CameraAI() {
     const [engine, setEngine] = useState("auto");
+    // Inside the native app the on-device model is the native one; the in-browser engine is for plain browsers only.
+    const [inNativeApp, setInNativeApp] = useState(false);
+    useEffect(() => {
+        const native = !!(window.NativeBridge || window.webkit?.messageHandlers?.NativeBridge);
+        setInNativeApp(native);
+        if (native) setEngine((current) => (current === "web" ? "auto" : current));
+    }, []);
     const [preview, setPreview] = useState(null);
     const [source, setSource] = useState(null);
     const [elapsedMs, setElapsedMs] = useState(null);
@@ -169,7 +176,9 @@ export default function CameraAI() {
                             className="w-full bg-[#0A0C13] border border-white/10 rounded-lg text-white text-[12px] px-2 py-1.5 mb-2"
                             data-testid="engine"
                         >
-                            {Object.entries(ENGINES).map(([key, e]) => <option key={key} value={key}>{e.label}</option>)}
+                            {Object.entries(ENGINES)
+                                .filter(([key]) => !(inNativeApp && key === "web"))
+                                .map(([key, e]) => <option key={key} value={key}>{e.label}</option>)}
                         </select>
                         <div className="text-[12px] text-neutral-400 leading-relaxed">{ENGINES[engine].note}</div>
                     </div>
