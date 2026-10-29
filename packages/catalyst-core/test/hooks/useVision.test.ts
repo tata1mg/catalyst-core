@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, renderHook } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const ai = { generate: vi.fn(), cancel: vi.fn(), output: "", route: null as any }
 vi.mock("../../src/native/bridge/hooks/useAI.js", () => ({ useAI: vi.fn(() => ai) }))
@@ -12,6 +12,8 @@ const schema = { type: "object", required: ["total"], properties: { total: { typ
 const PNG = "data:image/png;base64,iVBORw0KGgo="
 const ok = (output: string, route?: any) => ({ output, error: null, ...(route && { route }) })
 const run = { action: "run", candidate: { id: "gemma" }, reason: "r", scores: [], skipped: [] }
+
+afterEach(() => cleanup()) // no vitest globals here, so no automatic cleanup
 
 beforeEach(() => {
     ai.generate.mockReset()
@@ -148,6 +150,7 @@ describe("useVision", () => {
         const { result, unmount } = renderHook(() => useVision({ schema }))
         let pending!: Promise<any>
         act(() => { pending = result.current.scan(PNG) })
+        await waitFor(() => expect(ai.generate).toHaveBeenCalled()) // the image is converted first; unmount while generate is in flight
         unmount()
         await act(async () => { release(ok('{"total": 1}', run)); await pending })
         expect(errors).not.toHaveBeenCalled()
