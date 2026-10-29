@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // WebBridge keeps one handler per callback name. Every useNetworkStatus instance must still hear about the network,
 // and one unmounting must not silence the others (useAI now holds an instance alongside the app's own).
-import { act, renderHook } from "@testing-library/react"
+import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const getStatus = vi.fn()
@@ -27,6 +27,9 @@ beforeEach(() => {
     getStatus.mockReset()
 })
 afterEach(() => {
+    // This package runs vitest without globals, so Testing Library does not clean up by itself; mounted hooks from an
+    // earlier test would otherwise keep the shared native subscription alive.
+    cleanup()
     delete (window as any).WebBridge
 })
 
