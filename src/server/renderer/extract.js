@@ -101,6 +101,47 @@ export const generateModulePreloadLinkElements = (
     })
 
 /**
+ * `Link` header values (one per URL) preloading JS for Early Hints (103) and the CDN-learned
+ * `Link` header. `as=script` + the same crossorigin/integrity as the `<script type="module">`
+ * and `modulepreload` tags keeps the hinted response reusable, so it is not downloaded twice.
+ * Chrome only honours `preload`/`preconnect` in a 103, hence not `modulepreload`.
+ * @param {string[]} jsUrls
+ * @param {"high"|"low"} [fetchPriority]
+ * @param {Record<string, {integrity?: string, crossOrigin?: string}>} [integrityManifest]
+ * @returns {string[]}
+ */
+export const generateLinkHeader = (jsUrls = [], fetchPriority, integrityManifest = {}) =>
+    [...new Set(jsUrls)].map((url) => {
+        const integrityData = integrityManifest[url]
+        const parts = [`<${url}>`, "rel=preload", "as=script"]
+        parts.push(
+            integrityData?.crossOrigin === "use-credentials" ? "crossorigin=use-credentials" : "crossorigin"
+        )
+        if (integrityData?.integrity) parts.push(`integrity="${integrityData.integrity}"`)
+        if (fetchPriority) parts.push(`fetchpriority=${fetchPriority}`)
+        return parts.join("; ")
+    })
+
+/**
+ * `Link` header values for app-supplied preconnect/preload entries — third-party origins, fonts,
+ * a static LCP image. Never hardcoded here: the app declares them via EARLY_HINTS_LINKS or the
+ * getEarlyHintLinks hook (see handler.jsx), and this only formats them.
+ * @param {{url: string, rel: "preconnect"|"preload", as?: string, type?: string, crossorigin?: boolean, fetchPriority?: "high"|"low"}[]} links
+ * @returns {string[]}
+ */
+export const generateCustomLinkHeader = (links = []) =>
+    links
+        .filter((link) => link?.url && (link.rel === "preload" || link.rel === "preconnect"))
+        .map((link) => {
+            const parts = [`<${link.url}>`, `rel=${link.rel}`]
+            if (link.as) parts.push(`as=${link.as}`)
+            if (link.type) parts.push(`type="${link.type}"`)
+            if (link.crossorigin) parts.push("crossorigin")
+            if (link.fetchPriority) parts.push(`fetchpriority=${link.fetchPriority}`)
+            return parts.join("; ")
+        })
+
+/**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
  * @param {string} basePath  - Build output directory on disk.
