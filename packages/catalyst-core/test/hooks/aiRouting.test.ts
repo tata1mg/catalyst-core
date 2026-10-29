@@ -25,11 +25,17 @@ const pick = (mods: any[], s: Signals, o: any = null, consent = {}, observed = {
 }
 
 describe("normalizeRouting", () => {
-    it("takes the platform's models plus web and cloud, nothing from other platforms", () => {
-        const ids = setup("ios").candidates.map((c) => c.id)
-        expect(ids).toEqual(["gemma-e2b", "gemma-e4b", "apple-fm", "gemma-web", "gemini", "gpt-mini"])
-        expect(setup("android").candidates.map((c) => c.id)).toContain("gemma-android")
+    it("takes that target's on-device models plus cloud, nothing from the other targets", () => {
+        expect(setup("ios").candidates.map((c) => c.id)).toEqual(["gemma-e2b", "gemma-e4b", "apple-fm", "gemini", "gpt-mini"])
+        expect(setup("android").candidates.map((c) => c.id)).toEqual(["gemma-android", "gemini", "gpt-mini"])
         expect(setup("web").candidates.map((c) => c.id)).toEqual(["gemma-web", "gemini", "gpt-mini"])
+    })
+    it("a native app never gets the in-browser models: the native module owns the on-device model there", () => {
+        for (const platform of ["ios", "android"] as const) {
+            const ids = setup(platform).candidates.map((c) => c.id)
+            expect(ids).not.toContain("gemma-web")
+            expect(setup(platform).candidates.some((c) => c.mode === "local")).toBe(false)
+        }
     })
     it("drops bad entries with a warning instead of throwing", () => {
         const warnings: string[] = []
@@ -52,8 +58,20 @@ describe("chooseCandidate: availability and privacy", () => {
         expect(d.candidate?.id).toBe("gemma-e2b")
         expect(d.skipped.find((s) => s.id === "apple-fm")?.why).toBe("no audio support")
     })
-    it("skips native models when the bridge is missing", () => {
-        expect(pick(["text"], sig({ nativeAvailable: false })).candidate?.id).toBe("gemma-web")
+    it("with the native module missing, an app does not fall back to a web model", () => {
+        // an iOS build without the AI plugin: no on-device model can run, and the browser one is not an option here
+        const d = pick(["text"], sig({ nativeAvailable: false }))
+        expect(d.candidate?.mode).not.toBe("local")
+        expect(d).toMatchObject({ action: "ask", candidate: { target: "cloud" } }) // cloud, and only with consent
+        expect(d.skipped.map((s) => s.id)).not.toContain("gemma-web")
+        expect(d.skipped.find((s) => s.id === "gemma-e2b")?.why).toBe("native bridge unavailable")
+        const denied = pick(["text"], sig({ nativeAvailable: false }), { cloud: "deny" })
+        expect(denied).toMatchObject({ action: "deny", candidate: null })
+    })
+    it("a plain browser (even on a phone) uses the web models", () => {
+        const d = pick(["text"], sig({ platform: "web", nativeAvailable: false }))
+        expect(d.candidate?.id).toBe("gemma-web")
+        expect(d.skipped.map((s) => s.id)).not.toContain("gemma-e2b")
     })
     it("never goes to cloud for media by default, even offline-capable otherwise", () => {
         const d = pick(["image"], sig({ nativeAvailable: false, webgpu: false }))
@@ -71,7 +89,7 @@ describe("chooseCandidate: availability and privacy", () => {
         expect(pick(["text"], { ...s, online: false }, { cloud: "allow" }).action).toBe("deny")
     })
     it("asks for download consent before the web model", () => {
-        const s = sig({ nativeAvailable: false, webModelLoaded: false })
+        const s = sig({ platform: "web", nativeAvailable: false, webModelLoaded: false })
         expect(pick(["text"], s, { cloud: "deny" })).toMatchObject({ action: "ask", candidate: { id: "gemma-web" } })
         expect(pick(["text"], s, { cloud: "deny" }, { download: true }).action).toBe("run")
         expect(pick(["text"], s, { cloud: "deny", autoDownload: true }).action).toBe("run")
@@ -87,7 +105,7 @@ describe("chooseCandidate: metrics", () => {
         expect(pick(["text"], sig({ loadedId: "gemma-e2b" }), { ...open, objective: "speed", weights: { cost: 0, latency: 0, tps: 1 } }).candidate?.id).toBe("gemini")
     })
     it("a latency limit rules out slow candidates", () => {
-        const d = pick(["text"], sig({ nativeAvailable: false }), { ...open, constraints: { maxLatencyMs: 5000 } })
+        const d = pick(["text"], sig({ platform: "web", nativeAvailable: false }), { ...open, constraints: { maxLatencyMs: 5000 } })
         expect(d.candidate?.target).toBe("cloud")
         expect(d.skipped.find((s) => s.id === "gemma-web")?.why).toMatch(/latency/)
     })
