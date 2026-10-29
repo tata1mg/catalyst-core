@@ -23,7 +23,8 @@
     },
     "browser": {
       "provider": "transformers",
-      "model": "onnx-community/Qwen2.5-0.5B-Instruct"
+      "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+      "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8 }
     }
   },
   "WEBVIEW_CONFIG": {
