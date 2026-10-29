@@ -870,6 +870,20 @@ const { generate } = useAI({ provider: "auto" });
 const { output, error, route } = await generate({ messages });
 ```
 
+#### In-browser model downloads (`provider: "transformers"` or `"auto"` in a browser)
+
+The first use of an in-browser model downloads hundreds of megabytes to several gigabytes. That download now survives a bad connection:
+
+- **It does not fail when the connection drops.** The worker's download pauses, waits, and asks only for the rest of the file (`Range: bytes=N-`), then carries on. Transformers.js never sees the interruption.
+- **`useAI` follows `useNetworkStatus`.** Offline pauses the download; back online resumes it at once. A connection that resets, times out, or stays below `minBytesPerSec` for `windowSec` is retried with growing backoff, and the download gives up only after several attempts in a row that moved no bytes.
+- **A page reload resumes too.** Partial files are kept in the browser's origin-private storage (OPFS), so closing the tab or reloading picks up from the same byte instead of starting again. Storage is freed when a file completes.
+- **A file that changes upstream is never spliced.** The response's `ETag` is checked on every resume (Hugging Face's CDN ignores `If-Range`); a different or missing one restarts that file, and if it changes during a single uninterrupted download the load fails with a clear error.
+- **Only large files are persisted** (8 MB and up, with a strong ETag and byte-range support). Small files and servers without ranges use the normal fetch. Where OPFS is unavailable the download is simply not resumable.
+
+`downloadPaused` and `downloadPauseReason` (`"offline"`, `"weak"`, `"error"`) on the hook result tell you when a file is waiting. The same `AI_CONFIG.browser.download` settings as the native download apply (`minBytesPerSec`, `windowSec`, `resumeDelaySec`, `maxIdleRetries`).
+
+Inside a native WebView build, the on-device model is the native one: the native module downloads and runs it, and the web engine is not used there.
+
 ### `useVision`
 
 Read an image into typed data. Give it a schema, hand it a photo, and get back an object that has been checked against that schema.

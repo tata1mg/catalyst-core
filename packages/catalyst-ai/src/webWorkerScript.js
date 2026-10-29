@@ -1,10 +1,49 @@
 // Source of the in-browser inference worker, kept in its own file so it can be loaded as a Blob by useWebAI and
 // exercised directly by a plain HTML test page (no React, no bundler).
 
+import { createOpfsStorage, createResumableFetch } from "./resumableFetch.js"
+
 export const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
 
 export const WORKER_SCRIPT = `
 const TRANSFORMERS_CDN = "${TRANSFORMERS_CDN}";
+
+// Resumable downloads (see resumableFetch.js): the two functions are embedded as source because this is a Blob script.
+${createOpfsStorage.toString()}
+${createResumableFetch.toString()}
+
+let resumable = null;
+let downloadPolicy = {};
+let pageOnline = typeof navigator === "undefined" || navigator.onLine !== false;
+
+// Point Transformers.js at a fetch that pauses, waits and resumes with Range instead of failing a multi-gigabyte
+// download. Anything that cannot be made resumable (no OPFS, small files) just goes through the normal fetch.
+async function installResumableFetch(env) {
+    try {
+        if (!resumable) {
+            const storage = await createOpfsStorage();
+            if (!storage) {
+                self.postMessage({ type: "log", msg: "[worker] origin-private storage unavailable: downloads are not resumable" });
+                return;
+            }
+            resumable = createResumableFetch({
+                storage,
+                policy: downloadPolicy,
+                online: pageOnline,
+                fetch: (...args) => fetch(...args),
+                onStatus: (status) => self.postMessage(Object.assign({ type: "download_status" }, status)),
+                log: (msg) => self.postMessage({ type: "log", msg: "[worker] " + msg }),
+            });
+        }
+        env.fetch = resumable.fetch;
+        self.postMessage({ type: "log", msg: "[worker] resumable downloads on" });
+    } catch (err) {
+        self.postMessage({ type: "log", msg: "[worker] resumable downloads disabled: " + err.message });
+    }
+}
+
+self.addEventListener("online", () => { pageOnline = true; if (resumable) resumable.setOnline(true); });
+self.addEventListener("offline", () => { pageOnline = false; if (resumable) resumable.setOnline(false); });
 let pipe = null;
 let TextStreamer = null;
 let loadedModel = null;
@@ -37,6 +76,7 @@ async function loadGemma(model) {
     self.postMessage({ type: "log", msg: "[worker] importing transformers from CDN..." });
     const mod = await import(TRANSFORMERS_CDN);
     mod.env.allowLocalModels = false;
+    await installResumableFetch(mod.env);
     TextStreamer = mod.TextStreamer;
     if (!self.isSecureContext) {
         throw new Error("WebGPU is only available on secure origins (https:// or localhost), and this page is served from " + self.location.origin + ". Open it via https or http://localhost to use image and audio input in the browser.");
@@ -82,6 +122,7 @@ async function loadPipeline(model) {
     self.postMessage({ type: "log", msg: "[worker] importing transformers from CDN..." });
     const mod = await import(TRANSFORMERS_CDN);
     mod.env.allowLocalModels = false;
+    await installResumableFetch(mod.env);
     TextStreamer = mod.TextStreamer;
 
     const backends = [
@@ -158,6 +199,18 @@ async function generateWithMedia(model, messages, genConfig, media) {
 
 self.onmessage = async (e) => {
     const { type, model, messages, genConfig, formatPrompt, media } = e.data;
+    // These arrive while a model is still loading (the handler below is awaiting), so they must not queue behind it.
+    if (type === "configure") {
+        downloadPolicy = e.data.policy || {};
+        if (typeof e.data.online === "boolean") pageOnline = e.data.online;
+        if (resumable) resumable.setOnline(pageOnline);
+        return;
+    }
+    if (type === "network") {
+        pageOnline = !!e.data.online;
+        if (resumable) resumable.setOnline(pageOnline);
+        return;
+    }
     if (type !== "generate") return;
 
     try {
