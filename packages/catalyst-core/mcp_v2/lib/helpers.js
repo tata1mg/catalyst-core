@@ -214,15 +214,15 @@ function makeProjectHelpers(root) {
 const CLIENT_ENTRY_CANDIDATES = ["client/index.js", "client/index.jsx", "client/index.ts", "client/index.tsx"]
 
 // Hooks that talk to the native bridge need WebBridge.init() in the client entry: it sets window.WebBridge and
-// isNative. Without it they run with isNative=false inside the WebView and fail silently. useAI alone is exempt
-// (it also runs on cloud/in-browser engines), so an import of only useAI does not count as native use.
+// isNative. Without it they run with isNative=false inside the WebView and fail silently. useAI and useVision are exempt
+// (they also run on cloud/in-browser engines), so importing only those does not count as native use.
 const HOOKS_IMPORT = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']catalyst-core\/hooks["']|import\s+(?!type\b)[\w$]+\s*(?:,\s*\{[^}]*\})?\s*from\s*["']catalyst-core\/hooks["']|require\(\s*["']catalyst-core\/hooks["']\s*\)/g
 
 function usesNativeHooks(source) {
     for (const m of source.matchAll(HOOKS_IMPORT)) {
         if (m[1] === undefined) return true // default/namespace import or require: cannot tell which hooks
         const names = m[1].split(",").map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)
-        if (names.some((n) => n !== "useAI")) return true
+        if (names.some((n) => n !== "useAI" && n !== "useVision")) return true
     }
     return false
 }

@@ -232,6 +232,10 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
         const onlyAI = { "src/a.js": `import { useAI } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
         expect(bridge(onlyAI).warn).toBeUndefined()
     })
+    it("does not count useVision either, alone or with useAI", () => {
+        const only = { "src/a.js": `import { useVision, useAI } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
+        expect(bridge(only).warn).toBeUndefined()
+    })
     it("counts useAI alongside another hook as native use", () => {
         const mixed = { "src/a.js": `import { useAI, useCamera } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
         expect(bridge(mixed).warn).toBeDefined()

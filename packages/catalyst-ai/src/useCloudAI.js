@@ -83,10 +83,20 @@ export function useCloudAI({
     const sessionModeRef = useRef(sessionMode)
     sessionModeRef.current = sessionMode
 
-    const [output, setOutput] = useState("")
+    const [output, setOutputState] = useState("")
     const [streaming, setStreaming] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setErrorState] = useState(null)
+    // What the latest generate() call produced, so callers can await a result instead of watching state.
+    const outcomeRef = useRef({ output: "", error: null })
+    const setOutput = useCallback((value) => {
+        outcomeRef.current.output = value
+        setOutputState(value)
+    }, [])
+    const setError = useCallback((value) => {
+        outcomeRef.current.error = value
+        setErrorState(value)
+    }, [])
     const [metrics, setMetrics] = useState(null)
 
     const abortControllerRef = useRef(null)
@@ -96,7 +106,7 @@ export function useCloudAI({
     const activeGenerationRef = useRef(0)
     const historyRef = useRef([])
 
-    const generate = useCallback(
+    const run = useCallback(
         async ({ messages: rawMessages, genConfig: callGenConfig = {} }) => {
             // Explicit-consent gate, then shrink/convert media on the device. The server validates again and
             // decides which provider endpoints take which modality.
@@ -294,6 +304,20 @@ export function useCloudAI({
             }
         },
         [basePath, mergedGenConfig]
+    )
+
+    /**
+     * Starts a generation and resolves when it has finished with `{ output, error }`: the final text, or the error
+     * that ended it (both empty when it was cancelled or superseded). The hook state updates as before.
+     */
+    const generate = useCallback(
+        async (args) => {
+            const outcome = { output: "", error: null }
+            outcomeRef.current = outcome
+            await run(args)
+            return outcome
+        },
+        [run]
     )
 
     const cancel = useCallback(() => {
