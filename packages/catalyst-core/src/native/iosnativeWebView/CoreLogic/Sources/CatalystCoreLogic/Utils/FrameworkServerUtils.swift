@@ -554,10 +554,11 @@ public class FrameworkServerUtils {
             logger.warning("⚠️ Failed to load TLS identity - falling back to HTTP server")
         }
 
-        // Bind to localhost only for security
-        _ = NWEndpoint.Host("127.0.0.1")
+        // Accept connections on the loopback interface only, so nothing on the network can reach the listener.
+        // The interface restriction (rather than requiredLocalEndpoint pinned to 127.0.0.1) keeps both
+        // "localhost" resolutions working: 127.0.0.1 and ::1.
+        parameters.requiredInterfaceType = .loopback
         let port = NWEndpoint.Port(integerLiteral: serverPort)
-        // parameters.requiredLocalEndpoint = .hostPort(host: host, port: port)
 
         let newListener = try NWListener(using: parameters, on: port)
         listener = newListener

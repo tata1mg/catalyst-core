@@ -357,4 +357,49 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         let (afterResponse, _) = try await makeRequest(url: servedURL)
         XCTAssertEqual(afterResponse.statusCode, 404)
     }
+
+    // MARK: - Listener binding (#521)
+
+    /// First IPv4 address on a non-loopback interface that is up, e.g. the Wi-Fi address.
+    private static func nonLoopbackIPv4() -> String? {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0, let first = head else { return nil }
+        defer { freeifaddrs(head) }
+        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let entry = ptr.pointee
+            guard let sa = entry.ifa_addr, sa.pointee.sa_family == sa_family_t(AF_INET),
+                  Int32(entry.ifa_flags) & IFF_UP != 0, Int32(entry.ifa_flags) & IFF_LOOPBACK == 0 else { continue }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            if getnameinfo(sa, socklen_t(sa.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                return String(cString: host)
+            }
+        }
+        return nil
+    }
+
+    private static func canConnect(toIPv4 ip: String, port: UInt16) -> Bool {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd != -1 else { return false }
+        defer { close(fd) }
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        addr.sin_addr.s_addr = inet_addr(ip)
+        return withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+            }
+        }
+    }
+
+    func testListenerAcceptsLoopbackButNotTheNetworkAddress() throws {
+        try requireRunningServer()
+        let port = frameworkServer.getServerPort()
+        XCTAssertTrue(Self.canConnect(toIPv4: "127.0.0.1", port: port), "loopback must be reachable")
+
+        guard let lan = Self.nonLoopbackIPv4() else {
+            throw XCTSkip("no non-loopback IPv4 interface on this machine to prove the negative case")
+        }
+        XCTAssertFalse(Self.canConnect(toIPv4: lan, port: port), "listener must not accept connections on \(lan)")
+    }
 }

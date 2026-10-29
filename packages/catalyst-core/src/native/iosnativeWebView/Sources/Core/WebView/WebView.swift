@@ -217,7 +217,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
-            let pluginBridge = PluginBridge(webView: webView, viewController: hostingController)
+            let pluginBridge = PluginBridge(webView: webView, viewController: hostingController, trustedOrigin: URL(string: parent.urlString))
 
             // Inject WebViewModel for safe area handling
             Task { @MainActor in
