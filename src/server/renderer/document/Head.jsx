@@ -11,6 +11,7 @@ export function Head(props) {
     const {
         inlineCss,
         deferredRouteInlineCss,
+        inlinedCssMarkers,
         jsScripts,
         criticalPreloadLinks,
         deferredPreloadLinks,
@@ -30,7 +31,7 @@ export function Head(props) {
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {!isBot && criticalPreloadLinks}
-            {/* Warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
+            {/* Always-loaded static imports + warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
             {!isBot && deferredPreloadLinks}
             {metaTags && metaTags}
 
@@ -39,6 +40,9 @@ export function Head(props) {
 
             {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
             {deferredRouteInlineCss && <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />}
+
+            {/* Disabled links for the CSS inlined above, so Vite's preload helper does not download it again */}
+            {!isBot && inlinedCssMarkers}
 
             {/* JS modules */}
             {!isBot && jsScripts}
@@ -52,6 +56,7 @@ Head.propTypes = {
     isBot: PropTypes.bool,
     inlineCss: PropTypes.string,
     deferredRouteInlineCss: PropTypes.string,
+    inlinedCssMarkers: PropTypes.array,
     jsScripts: PropTypes.array,
     criticalPreloadLinks: PropTypes.array,
     deferredPreloadLinks: PropTypes.array,
