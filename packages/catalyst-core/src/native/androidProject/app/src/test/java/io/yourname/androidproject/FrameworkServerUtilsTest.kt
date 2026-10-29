@@ -208,6 +208,32 @@ class FrameworkServerUtilsTest {
     // HTTP endpoints (real requests against the real embedded server)
     // ============================================================
 
+    /** First IPv4 address on a non-loopback interface that is up (e.g. the Wi-Fi address), or null. */
+    private fun nonLoopbackIPv4(): String? =
+        java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }
+            .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress }
+            ?.hostAddress
+
+    private fun canConnect(host: String, port: Int): Boolean = try {
+        java.net.Socket().use { it.connect(java.net.InetSocketAddress(host, port), 1000) }
+        true
+    } catch (e: IOException) {
+        false
+    }
+
+    @Test
+    fun `the server accepts loopback connections but not the machine's network address`() {
+        assertTrue(FrameworkServerUtils.startServer(context, webView))
+        val port = FrameworkServerUtils.getServerPort()
+        assertTrue("loopback must be reachable", canConnect("127.0.0.1", port))
+
+        val lan = nonLoopbackIPv4()
+        org.junit.Assume.assumeTrue("no non-loopback IPv4 interface on this machine to prove the negative case", lan != null)
+        assertFalse("server must not accept connections on $lan", canConnect(lan!!, port))
+    }
+
     @Test
     fun `GET status returns 200 with running JSON`() {
         assumeServerStarts {
