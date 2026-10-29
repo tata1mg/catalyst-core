@@ -49,12 +49,19 @@ enum ResumeRules {
         return (start, end, total)
     }
 
-    /// `offset` is where we asked to resume (0 when we sent no Range).
-    static func interpret(status: Int, offset: Int64, contentRange: String?, contentLength: Int64?) -> Outcome {
+    /// `offset` is where we asked to resume (0 when we sent no Range). `expectedETag` is the validator the partial was
+    /// downloaded under, `etag` what this response carries.
+    ///
+    /// `If-Range` is not enough to protect a resume: Hugging Face's CDN ignores it and answers 206 whatever validator
+    /// is sent (checked with curl against the real host), so a file that changed upstream would be spliced onto the
+    /// old bytes. The response's own ETag is compared instead, and a missing or different one restarts.
+    static func interpret(status: Int, offset: Int64, contentRange: String?, contentLength: Int64?,
+                          etag: String? = nil, expectedETag: String? = nil) -> Outcome {
         let range = parseContentRange(contentRange)
         switch status {
         case 206:
             guard offset > 0, let range, range.start == offset, let total = range.total, total > offset else { return .restart }
+            if let expectedETag, etag?.trimmingCharacters(in: .whitespaces) != expectedETag { return .restart }
             return .append(total: total)
         case 200:
             return .truncate(total: contentLength.flatMap { $0 > 0 ? $0 : nil } ?? -1)
@@ -113,6 +120,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private var interruption: DownloadInterrupted.Kind?
     private var window: ThroughputWindow
     private var currentTask: URLSessionDataTask?
+    private var expectedETag: String?
 
     /// The request timeout is the idle limit: no bytes for `windowSec` fails the transfer (a stalled link has no
     /// callbacks to measure, so this is what catches it). The resource limit bounds even a slow-but-moving one.
@@ -196,6 +204,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private func runAttempt(url: URL, resume: ResumeRules.Resume?) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             self.continuation = continuation
+            self.expectedETag = resume?.etag
             var request = URLRequest(url: url)
             // Ranges address the bytes on the wire; never let a transfer encoding change what they mean.
             request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
@@ -223,7 +232,8 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
         }
         let length = http.expectedContentLength > 0 ? http.expectedContentLength : nil
         switch ResumeRules.interpret(status: http.statusCode, offset: offset,
-                                     contentRange: http.value(forHTTPHeaderField: "Content-Range"), contentLength: length) {
+                                     contentRange: http.value(forHTTPHeaderField: "Content-Range"), contentLength: length,
+                                     etag: http.value(forHTTPHeaderField: "ETag"), expectedETag: expectedETag) {
         case .append(let total):
             self.total = total
             guard openHandle(truncate: false) else { return completionHandler(.cancel) }

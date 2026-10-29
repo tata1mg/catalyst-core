@@ -24,6 +24,10 @@ final class ResumeRulesTests: XCTestCase {
     func testInterpret() {
         // 206 continuing exactly where we asked
         XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: "bytes 100-499/500", contentLength: 400), .append(total: 500))
+        // the validator is checked on the response, because some hosts (Hugging Face) ignore If-Range
+        XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: "bytes 100-499/500", contentLength: 400, etag: "\"a\"", expectedETag: "\"a\""), .append(total: 500))
+        XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: "bytes 100-499/500", contentLength: 400, etag: "\"b\"", expectedETag: "\"a\""), .restart)
+        XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: "bytes 100-499/500", contentLength: 400, etag: nil, expectedETag: "\"a\""), .restart)
         // 206 from the wrong place, with no range, or when we asked for nothing
         XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: "bytes 0-499/500", contentLength: 500), .restart)
         XCTAssertEqual(ResumeRules.interpret(status: 206, offset: 100, contentRange: nil, contentLength: 400), .restart)
@@ -48,6 +52,10 @@ private final class FakeServer: URLProtocol {
         var body = Data()
         var etag: String? = "\"v1\""
         var supportsRange = true
+        /// Like Hugging Face's CDN: answer a Range request with 206 whatever If-Range says.
+        var ignoreIfRange = false
+        /// Drop the ETag header from the response (a 206 that cannot be verified).
+        var omitETagOnRange = false
         var dropAfter: Int?
         var forceStatus: Int?
         var wrongContentRangeStart = false
@@ -74,7 +82,7 @@ private final class FakeServer: URLProtocol {
         let url = request.url!
         func respond(_ status: Int, _ headers: [String: String], _ body: Data) {
             var h = headers
-            if let etag = c.etag { h["ETag"] = etag }
+            if let etag = c.etag, !(c.omitETagOnRange && request.value(forHTTPHeaderField: "Range") != nil) { h["ETag"] = etag }
             h["Content-Length"] = String(status == 200 ? (c.declaredLength ?? body.count) : body.count)
             let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: h)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
@@ -107,7 +115,7 @@ private final class FakeServer: URLProtocol {
         if c.supportsRange, let range = request.value(forHTTPHeaderField: "Range"),
            range.hasPrefix("bytes="), let n = Int(range.dropFirst(6).dropLast()) {
             let ifRange = request.value(forHTTPHeaderField: "If-Range")
-            if ifRange == nil || ifRange == c.etag { start = n }
+            if ifRange == nil || ifRange == c.etag || c.ignoreIfRange { start = n }
         }
         if start >= c.body.count && start > 0 {
             return respond(416, ["Content-Range": "bytes */\(c.body.count)"], Data())
@@ -186,6 +194,52 @@ final class ModelDownloaderTests: XCTestCase {
         XCTAssertEqual(size, 4000)
         XCTAssertEqual(onDisk(), FakeServer.config.body)
         XCTAssertEqual(try String(contentsOf: etagFile, encoding: .utf8), "\"v2\"")
+    }
+
+    func testFileChangedUpstream_ServerIgnoresIfRange_IsStillDetectedFromTheResponseETag() async throws {
+        // Hugging Face answers 206 whatever If-Range says, so the validator cannot be left to the server.
+        FakeServer.config.dropAfter = 1800
+        _ = try? await makeDownloader().download(from: url)
+        let oldPartial = onDisk()
+        XCTAssertEqual(oldPartial.count, 1800)
+        FakeServer.config.body = Data((0..<4000).map { UInt8(($0 &* 7) % 253) })
+        FakeServer.config.etag = "\"v2\""
+        FakeServer.config.ignoreIfRange = true
+        FakeServer.config.dropAfter = nil
+        FakeServer.requests = []
+        let size = try await makeDownloader().download(from: url)
+        XCTAssertEqual(size, 4000)
+        XCTAssertEqual(onDisk(), FakeServer.config.body, "the old bytes must not survive in the new file")
+        XCTAssertEqual(FakeServer.requests.count, 2, "a resume attempt, then a clean restart")
+        XCTAssertNotNil(header(0, "Range"))
+        XCTAssertNil(header(1, "Range"))
+        XCTAssertEqual(try String(contentsOf: etagFile, encoding: .utf8), "\"v2\"")
+    }
+
+    func testResumeWhoseResponseHasNoETag_CannotBeVerifiedAndRestarts() async throws {
+        FakeServer.config.dropAfter = 1800
+        _ = try? await makeDownloader().download(from: url)
+        FakeServer.config.omitETagOnRange = true
+        FakeServer.config.dropAfter = nil
+        FakeServer.requests = []
+        let size = try await makeDownloader().download(from: url)
+        XCTAssertEqual(size, 5000)
+        XCTAssertEqual(onDisk(), FakeServer.config.body)
+        XCTAssertEqual(FakeServer.requests.count, 2)
+        XCTAssertNil(header(1, "Range"))
+    }
+
+    func testResumeWithTheSameETagStillAppendsWhenTheServerIgnoresIfRange() async throws {
+        FakeServer.config.dropAfter = 1800
+        _ = try? await makeDownloader().download(from: url)
+        FakeServer.config.ignoreIfRange = true
+        FakeServer.config.dropAfter = nil
+        FakeServer.requests = []
+        let size = try await makeDownloader().download(from: url)
+        XCTAssertEqual(size, 5000)
+        XCTAssertEqual(onDisk(), FakeServer.config.body)
+        XCTAssertEqual(FakeServer.requests.count, 1, "unchanged file: a plain resume, no restart")
+        XCTAssertEqual(header(0, "Range"), "bytes=1800-")
     }
 
     func testServerIgnoresRange_RestartsInPlace() async throws {

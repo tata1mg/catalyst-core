@@ -88,7 +88,7 @@ import { useCurrentRouteData } from "catalyst-core";
 
 The first on-device use downloads a model of about 2.6 GB. That download no longer starts over when the connection drops or the device goes offline:
 
-- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced.
+- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced: the response's `ETag` is checked against the stored one on every resumed response, because some hosts (Hugging Face's CDN among them) ignore `If-Range` and answer `206` regardless.
 - **`useAI` follows `useNetworkStatus`.** When the device goes offline the download pauses; when it is back, it resumes. This works alongside your own `useNetworkStatus()` calls: they share one native subscription.
 - **A weak link pauses too.** If the speed stays under a minimum for a sustained window, the download stops, waits and tries again (the wait doubles up to a cap). A connection that resets or times out is retried the same way. It gives up only after several attempts in a row that moved no bytes; the partial stays on disk for the next launch.
 - **A safety net** retries on a timer even if the page never hears that the network returned (for example while the WebView was suspended).

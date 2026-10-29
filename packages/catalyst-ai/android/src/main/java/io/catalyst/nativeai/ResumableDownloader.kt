@@ -58,14 +58,31 @@ internal object ResumeRules {
         return if (start <= end) ContentRange(start, end, total) else null
     }
 
-    /** [offset] is where we asked to resume (0 when we sent no Range). */
-    fun interpret(status: Int, offset: Long, contentRange: String?, contentLength: Long?): Outcome {
+    /**
+     * [offset] is where we asked to resume (0 when we sent no Range). [expectedETag] is the validator the partial was
+     * downloaded under, [etag] what this response carries.
+     *
+     * `If-Range` is not enough to protect a resume: Hugging Face's CDN ignores it and answers 206 whatever validator
+     * is sent (checked with curl against the real host), so a file that changed upstream would be spliced onto the
+     * old bytes. The response's own ETag is compared instead, and a missing or different one restarts.
+     */
+    fun interpret(
+        status: Int,
+        offset: Long,
+        contentRange: String?,
+        contentLength: Long?,
+        etag: String? = null,
+        expectedETag: String? = null,
+    ): Outcome {
         val range = parseContentRange(contentRange)
         return when (status) {
             206 -> {
                 val total = range?.total
-                if (offset > 0 && range?.start == offset && total != null && total > offset) Outcome.Append(total)
-                else Outcome.Restart
+                when {
+                    !(offset > 0 && range?.start == offset && total != null && total > offset) -> Outcome.Restart
+                    expectedETag != null && etag?.trim() != expectedETag -> Outcome.Restart
+                    else -> Outcome.Append(total)
+                }
             }
             200 -> Outcome.Truncate(if (contentLength != null && contentLength > 0) contentLength else -1L)
             416 -> if (offset > 0 && range?.total == offset) Outcome.Complete else Outcome.Restart
@@ -168,7 +185,7 @@ internal class ResumableDownloader(
             val append: Boolean
             val total: Long
             val base: Long
-            when (val outcome = ResumeRules.interpret(status, offset, conn.getHeaderField("Content-Range"), length)) {
+            when (val outcome = ResumeRules.interpret(status, offset, conn.getHeaderField("Content-Range"), length, etag, resume?.etag)) {
                 is ResumeRules.Outcome.Append -> { append = true; total = outcome.total; base = offset }
                 is ResumeRules.Outcome.Truncate -> {
                     if (offset > 0) log("Server sent the whole file; replacing the partial")
