@@ -1,0 +1,47 @@
+packages/catalyst-core/test/cli/diagnostic.test.ts
+  a3c50edbfc9dfb33 1-5,9-12,23-143,147-202,204-212,217-401,403-419,421-423
+packages/catalyst-core/test/server/logger.test.ts
+  a3c50edbfc9dfb33 1-4,30-33,36-38,43-52,54-55,58-63,66,68-69,71-102,185
+packages/catalyst-core/test/server/otel.test.ts
+  a3c50edbfc9dfb33 1,11-13,15-70,74-81,84,86-93,95,98-100,106-113,119-121,124,126-127,135,145-150,154-162,166-169,193,209-210,212-227,231-245,247-254,257-328,330-383,385-393,395-410,413-431,434-445,448-453,455,457-554
+packages/create-catalyst-app/test/cli-require-esm.test.ts
+  a3c50edbfc9dfb33 1-38
+packages/catalyst-core/test/cli/theme.test.ts
+  a3c50edbfc9dfb33 1-4,6,13-44,49-50,52-84,86-163
+packages/catalyst-core/test/cli/devOutput.test.ts
+  a3c50edbfc9dfb33 6-7,9,17-19,23-26,29,48,50-54,56-61,63-180,308,548-549
+docs/content/20-WebMCP.md
+  a3c50edbfc9dfb33 12-13
+packages/catalyst-core/src/cli/devOutput.js
+  a3c50edbfc9dfb33 180,182
+packages/catalyst-core/test/native/redactSecrets.test.ts
+  a3c50edbfc9dfb33 1-72
+packages/catalyst-core/test/scripts/serve.test.ts
+  a3c50edbfc9dfb33 1-8,10-11,14-26,29-30,37-43,54-56,58-63,65-72,102
+packages/catalyst-core/test/cli/buildErrors.test.ts
+  a3c50edbfc9dfb33 1-35,37-76,78-97,99-104,106-112,114-173
+packages/catalyst-core/test/scripts/build.test.ts
+  a3c50edbfc9dfb33 1,4-8,10,14-21,25-40,42,44,49-58,60-90,97-98,101-102,104-147,274-275
+packages/catalyst-core/test/native/utils.test.ts
+  a3c50edbfc9dfb33 1-71,75-354,356-371,373-405,407-417,419-461,465,467-509,513-515,517-519,523-532
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "f448ef90f6161ada7276185a2ab07e8863a58b11",
+  "prompts": {
+    "a3c50edbfc9dfb33": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52b76398-df2b-4ca8-8e83-7f505d9f58d1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 2174,
+      "total_deletions": 34,
+      "accepted_lines": 2179,
+      "overriden_lines": 63
+    }
+  }
+}

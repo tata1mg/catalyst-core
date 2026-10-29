@@ -1,0 +1,20 @@
+docs/server/server.js
+  s_4be8cf4be4e0fe::t_f74b42f5f6ab2d 44-45
+  s_4be8cf4be4e0fe::t_99a9497c8897a8 8-42,197-202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ee2ef2fe822e70c590c8f39105dcdc4f0b847e95",
+  "prompts": {},
+  "sessions": {
+    "s_4be8cf4be4e0fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ff35b9d-813d-45f1-8d38-a035a44c71e9",
+        "model": "claude-haiku-5-5"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    }
+  }
+}

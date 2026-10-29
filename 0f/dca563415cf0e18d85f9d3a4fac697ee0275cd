@@ -1,0 +1,32 @@
+src/server/renderer/ChunkExtractor.js
+  s_250d5801b1fb56::t_a728d55224fc4f 117-121
+src/server/renderer/render.js
+  s_250d5801b1fb56::t_a1dba32414c87e 6-7,26-27
+src/server/renderer/extract.js
+  s_250d5801b1fb56::t_4f713d5636ac4b 222
+  s_250d5801b1fb56::t_44e1586be2ba5d 125-198
+src/server/renderer/handler.jsx
+  s_250d5801b1fb56::t_86a5265881f5b8 182-183
+  s_250d5801b1fb56::t_6011d513dd59b1 272-278
+  s_250d5801b1fb56::t_c5ac7acde9fa9e 24-25
+  s_250d5801b1fb56::t_49cbb9aaadf737 208-209
+  s_250d5801b1fb56::t_09d0eba55853fc 156-172
+src/server/renderer/document/Head.jsx
+  s_250d5801b1fb56::t_a1dba32414c87e 7-8,14-15,41-49,52-54,67-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0fdca563415cf0e18d85f9d3a4fac697ee0275cd",
+  "prompts": {},
+  "sessions": {
+    "s_250d5801b1fb56": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9235eb1f-704d-4356-b6ec-47bec726c7e2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

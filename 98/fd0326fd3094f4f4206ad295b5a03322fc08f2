@@ -1,0 +1,28 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_2d3d67526032e9::t_69e3329b236a8c 220
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/PluginBridgeOriginPolicyTests.swift
+  s_2d3d67526032e9::t_b559c301d60db4 1-58
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/PluginBridgeOriginPolicy.swift
+  s_2d3d67526032e9::t_b559c301d60db4 1-37
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_2d3d67526032e9::t_69e3329b236a8c 28-31,34-47,52-53,64-65,68,179-191
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/PluginBridgeTests.swift
+  s_2d3d67526032e9::t_69f576d7c6b527 121-165,276-282
+  s_2d3d67526032e9::t_69e3329b236a8c 18,77-120,270-271,274-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98fd0326fd3094f4f4206ad295b5a03322fc08f2",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
