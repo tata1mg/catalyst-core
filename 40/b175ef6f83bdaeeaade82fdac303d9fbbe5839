@@ -1,0 +1,43 @@
+examples/useai/config/config.template.json
+  s_2d3d67526032e9::t_b4dc53c2d7427d 26-27
+packages/catalyst-ai/src/nativeTransport.js
+  s_2d3d67526032e9::t_2ee8dfa3c207b6 83-111
+  s_2d3d67526032e9::t_cda822a4234464 82
+packages/catalyst-core/src/native/bridge/hooks/useNetworkStatus.ts
+  s_2d3d67526032e9::t_2ee8dfa3c207b6 29-47,94,102
+packages/catalyst-ai/src/nativeDownloadControl.js
+  s_2d3d67526032e9::t_2ee8dfa3c207b6 1-47
+packages/catalyst-ai/src/useNativeAI.js
+  s_2d3d67526032e9::t_2ee8dfa3c207b6 4,50-53,158,354-356,365-367
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_2d3d67526032e9::t_b4dc53c2d7427d 476-516
+packages/catalyst-core/test/hooks/useNetworkStatus.test.tsx
+  s_2d3d67526032e9::t_0dfd9e3deceed3 1-90
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_2d3d67526032e9::t_37d05f72cc101e 4,56-58,67-68
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_b4dc53c2d7427d 87-116
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_2d3d67526032e9::t_b4dc53c2d7427d 112-138
+packages/catalyst-ai/test/nativeDownloadControl.test.ts
+  s_2d3d67526032e9::t_1262ab80693638 20-22,28,37,45-46,53,67,72,88,96,104,113,123,132
+  s_2d3d67526032e9::t_0dfd9e3deceed3 1-19,23-27,29-36,38-44,47-52,54-66,68-71,73-87,89-95,97-103,105-112,114-122,124-131,133-136
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2d3d67526032e9::t_1434275cf556c0 1465-1472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40b175ef6f83bdaeeaade82fdac303d9fbbe5839",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

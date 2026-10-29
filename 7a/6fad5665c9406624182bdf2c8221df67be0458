@@ -1,0 +1,19 @@
+examples/useai/src/js/components/AITest/Panel.js
+  s_2d3d67526032e9::t_52a1ae6f7f8f73 87-88,222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7a6fad5665c9406624182bdf2c8221df67be0458",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

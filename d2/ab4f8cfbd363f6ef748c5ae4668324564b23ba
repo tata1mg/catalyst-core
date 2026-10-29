@@ -1,0 +1,19 @@
+packages/catalyst-core/test/hooks/useNetworkStatus.test.ts
+  s_2d3d67526032e9::t_0bc964abe249a4 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2ab4f8cfbd363f6ef748c5ae4668324564b23ba",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
