@@ -4,12 +4,15 @@ import FastRefresh from "../../../vite/FastRefresh.jsx"
 
 /**
  * Head component — inlines critical CSS as <style> and renders JS as <script type="module">.
- * Critical CSS is small (~15-25KB) thanks to natural Vite code-splitting.
+ * By default all route CSS is inlined. Routes with generated first-fold CSS (inlineCssIsUsed)
+ * inline only that and load the full route CSS through non-blocking cssLinks right after it.
  * Route-cached deferred CSS is inlined here on repeat visits; new deferred CSS still appends after body.
  */
 export function Head(props) {
     const {
         inlineCss,
+        inlineCssIsUsed,
+        cssLinks,
         deferredRouteInlineCss,
         jsScripts,
         criticalPreloadLinks,
@@ -35,10 +38,20 @@ export function Head(props) {
             {metaTags && metaTags}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
-            {inlineCss && <style dangerouslySetInnerHTML={{ __html: inlineCss }} />}
+            {inlineCss && (
+                <style
+                    data-catalyst-css={inlineCssIsUsed ? "used" : ""}
+                    dangerouslySetInnerHTML={{ __html: inlineCss }}
+                />
+            )}
+
+            {/* Full route CSS, non-blocking, when only used CSS is inlined */}
+            {cssLinks}
 
             {/* Deferred CSS from prior SSRs on this route — avoids late layout from post-body <style> */}
-            {deferredRouteInlineCss && <style dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />}
+            {deferredRouteInlineCss && (
+                <style data-catalyst-css="" dangerouslySetInnerHTML={{ __html: deferredRouteInlineCss }} />
+            )}
 
             {/* JS modules */}
             {!isBot && jsScripts}
@@ -51,6 +64,8 @@ export function Head(props) {
 Head.propTypes = {
     isBot: PropTypes.bool,
     inlineCss: PropTypes.string,
+    inlineCssIsUsed: PropTypes.bool,
+    cssLinks: PropTypes.array,
     deferredRouteInlineCss: PropTypes.string,
     jsScripts: PropTypes.array,
     criticalPreloadLinks: PropTypes.array,

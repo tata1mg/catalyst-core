@@ -175,6 +175,56 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
     return chunks.join("\n")
 }
 
+// ── Full route CSS as non-blocking stylesheets ─────────────────────────
+
+/**
+ * Non-render-blocking stylesheets for the full route CSS, used together with inline used CSS.
+ * The links sit in <head> right after the inline <style>, so cascade order matches the inlined
+ * version and stylesheets Vite injects later still come after them. media="print" keeps them off the
+ * render-blocking path; a nonce-able inline script switches them all to media="all" once every one has loaded
+ * (no inline event handlers, so it works under a nonce-based CSP). <noscript> covers no-JS clients.
+ * Vite's preload helper skips CSS that already has a <link rel="stylesheet">, so nothing downloads twice.
+ * crossorigin matches the CORS mode Vite's helper uses for CSS: with a CDN that sends
+ * Access-Control-Allow-Origin only for requests that carry Origin (and no Vary: Origin), a no-cors
+ * copy in the HTTP cache makes every later CORS request for that file fail.
+ * @param {string[]} cssUrls
+ * @param {string} [nonce]
+ */
+export const generateCssLinkElements = (cssUrls = [], nonce) => {
+    const urls = [...new Set(cssUrls)]
+    if (!urls.length) return []
+    const links = urls.map((url, i) =>
+        React.createElement("link", {
+            key: `css-${i}`,
+            rel: "stylesheet",
+            href: url,
+            media: "print",
+            crossOrigin: "",
+            "data-catalyst-css": "",
+        })
+    )
+    // Switch all links together once every one has loaded (or failed): one style recalculation instead
+    // of one per file, which otherwise competes with the LCP image paint on slow CPUs.
+    const swap =
+        "(function(){var l=[].slice.call(document.querySelectorAll('link[data-catalyst-css][media=print]')),n=l.length;" +
+        "function d(){if(--n===0)l.forEach(function(k){k.media='all'})}" +
+        "l.forEach(function(k){if(k.sheet)d();else{k.addEventListener('load',d);k.addEventListener('error',d)}})})()"
+    return [
+        ...links,
+        React.createElement("script", {
+            key: "css-swap",
+            ...(nonce ? { nonce } : {}),
+            dangerouslySetInnerHTML: { __html: swap },
+        }),
+        React.createElement("noscript", {
+            key: "css-noscript",
+            dangerouslySetInnerHTML: {
+                __html: urls.map((url) => `<link rel="stylesheet" href="${url}" crossorigin data-catalyst-css>`).join(""),
+            },
+        }),
+    ]
+}
+
 // ── React elements (for SSR rendering inside <Head>) ───────────────────
 
 /**
@@ -203,10 +253,11 @@ export const generateScriptElements = (jsUrls = [], nonce, integrityManifest = {
 // ── HTML strings (for streaming injection after body via res.write) ────
 
 /**
- * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body).
+ * <link rel="stylesheet"> HTML strings for deferred CSS (non-blocking, after body). crossorigin: see
+ * generateCssLinkElements.
  */
 export const generateCssLinkStrings = (cssUrls = []) =>
-    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+    [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}" crossorigin data-catalyst-css>`).join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
