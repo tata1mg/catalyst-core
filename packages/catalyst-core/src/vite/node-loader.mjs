@@ -374,7 +374,10 @@ export async function load(url, context, defaultLoad) {
         return defaultLoad(url, context)
     }
 
-    const isNodeModule = filePath.includes("/node_modules/")
+    // Either separator: this is an OS path. Missing it on Windows sends every
+    // dependency down the app-file path below, and bundling then runs out of
+    // memory before it prints a single line.
+    const isNodeModule = /[\\/]node_modules[\\/]/.test(filePath)
 
     // --- CJS detection and wrapping ---
     // For node_modules: check via package.json "type" field

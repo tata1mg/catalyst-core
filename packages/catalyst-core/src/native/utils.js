@@ -5,9 +5,11 @@ import os from "os"
 import path from "path"
 import theme from "../cli/theme.js"
 import spinnerModule from "../cli/spinner.js"
+import platform from "../cli/platform.js"
 
 const { GUTTER, t } = theme
 const { withSpinnersPaused } = spinnerModule
+const { batchInvocation, isWindows, quoteWindowsArg } = platform
 
 // Retain only the tail of a child's output: it is used for diagnostics, and a
 // long gradle build would otherwise hold every byte it ever printed in memory.
@@ -92,7 +94,7 @@ function runCommand(command, { timeout } = {}) {
 function commandExists(command) {
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Utility checks known local tool names during native setup.
-        execSync(`which ${command}`, { stdio: "ignore" })
+        execSync(`${isWindows() ? "where" : "which"} ${command}`, { stdio: "ignore" })
         return true
     } catch (error) {
         return false
@@ -110,7 +112,10 @@ function isTimeout(error) {
  * later call hangs too. Name the tool and the reset that clears it.
  */
 function toolTimeoutError(command, timeout) {
-    const tool = path.basename(String(command).trim().split(/\s+/)[0].replace(/^"|"$/g, ""))
+    // The first word, which may be a quoted path with spaces in it, named the way
+    // the hints below name it: adb.exe is still adb.
+    const [, quoted, bare] = /^\s*(?:"([^"]+)"|(\S+))/.exec(String(command)) || []
+    const tool = path.basename(quoted ?? bare ?? "").replace(/\.(exe|bat|cmd)$/i, "")
     const seconds = Math.round(timeout / 1000)
     const error = new Error(`${tool} did not respond within ${seconds}s`)
     error.code = "ETOOLTIMEOUT"
@@ -188,12 +193,23 @@ function detectAndroidSdk(env = process.env) {
     return candidates.find((dir) => fs.existsSync(path.join(dir, "platform-tools", adb))) || null
 }
 
+/** Where an SDK keeps the tools the native commands run. */
+function androidTools(sdkPath) {
+    const exe = isWindows() ? ".exe" : ""
+    return {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        adb: path.join(sdkPath, "platform-tools", `adb${exe}`),
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        emulator: path.join(sdkPath, "emulator", `emulator${exe}`),
+    }
+}
+
 /** AVD names known to the SDK's emulator, or [] when it cannot be asked. */
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process, javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
-        const out = execSync(`"${path.join(expandHome(sdkPath), "emulator", "emulator")}" -list-avds`, {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        const out = execSync(`"${androidTools(expandHome(sdkPath)).emulator}" -list-avds`, {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
             timeout: 15000,
@@ -216,8 +232,31 @@ function expandHome(dir) {
 }
 
 /** The hint for a missing or wrong SDK path, naming the one field to set. */
-const ANDROID_SDK_HINT =
-    'Install Android Studio, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
+const ANDROID_SDK_HINT = `Install Android Studio, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "${
+    isWindows() ? "C:/Users/you/AppData/Local/Android/Sdk" : "~/Library/Android/sdk"
+}").`
+
+/**
+ * Put a JDK on PATH for gradle, keytool and java itself. On Windows nothing does:
+ * JAVA_HOME alone leaves `java` unresolved, and Android Studio bundles a JDK that
+ * only its own processes can see.
+ */
+function exposeJavaOnPath(env = process.env) {
+    if (!isWindows()) return
+    const bundled = [env.ProgramFiles, env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, "Programs")]
+        .filter(Boolean)
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+        .map((programs) => path.join(programs, "Android", "Android Studio", "jbr"))
+        .concat(
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+            env.LOCALAPPDATA ? [path.join(env.LOCALAPPDATA, "Programs", "Android Studio", "jbr")] : []
+        )
+    const home = env.JAVA_HOME || (commandExists("java") ? null : bundled.find((dir) => fs.existsSync(dir)))
+    if (!home) return
+    env.JAVA_HOME = home
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - home is a local JDK directory, never remote input.
+    env.PATH = `${path.join(home, "bin")}${path.delimiter}${env.PATH}`
+}
 
 /**
  * Write the SDK location gradle reads. `setupEmulator:android` used to be the
@@ -247,6 +286,7 @@ function ensureLocalProperties(projectDir, sdkPath) {
  * @param {string[]} args
  * @param {object} [promptResponses] - text to answer prompts with
  * @param {object} [options]
+ * @param {string} [options.cwd] - other options go to spawn() as they are
  * @param {(line: string) => void} [options.onLine] - called per output line.
  *   Without it the output is captured silently. Gradle and xcodebuild emit
  *   hundreds of lines that nobody reads on success and that are redundant on
@@ -254,12 +294,12 @@ function ensureLocalProperties(projectDir, sdkPath) {
  *   way. Callers that want progress pass a handler that summarises, rather
  *   than letting the raw stream scroll.
  */
-async function runInteractiveCommand(command, args, promptResponses = {}, { onLine } = {}) {
+async function runInteractiveCommand(command, args, promptResponses = {}, { onLine, ...spawnOptions } = {}) {
     return new Promise((resolve, reject) => {
         // Named `child`, not `process`: the previous name shadowed the global
         // `process` for the whole function body.
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native build commands are fixed internal commands passed with argv arrays.
-        const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
+        const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"], ...spawnOptions })
 
         let promptBuffer = ""
         let outputBuffer = ""
@@ -343,6 +383,39 @@ function handlePrompts(child, buffer, promptResponses) {
         }
     }
     return buffer
+}
+
+// No lasting daemon on Windows, which cannot rename or delete what a process has
+// open. One sitting idle for its usual three hours holds the Android project under
+// node_modules, so `npm install` fails with EBUSY and the signed build cannot remove
+// its temp copy. Every build here starts with a clean, so a warm daemon saves little.
+const GRADLE_WINDOWS_ARGS = ["--no-daemon"]
+
+/**
+ * The Gradle wrapper in a project as a command line for runCommand, for the
+ * one signed build that needs it as a string.
+ */
+function gradleCommandLine(projectDir) {
+    if (!isWindows()) return "./gradlew"
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectDir is the Android project inside this package.
+    return [path.join(projectDir, "gradlew.bat"), ...GRADLE_WINDOWS_ARGS].map(quoteWindowsArg).join(" ")
+}
+
+/**
+ * Run the Gradle wrapper in a project, keeping its output as runInteractiveCommand
+ * does. Arguments are passed as a list, so a path with spaces stays one argument.
+ */
+function runGradle(projectDir, args, { onLine } = {}) {
+    const invocation = isWindows()
+        ? // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectDir is the Android project inside this package.
+          batchInvocation(path.join(projectDir, "gradlew.bat"), [...GRADLE_WINDOWS_ARGS, ...args])
+        : { command: "./gradlew", args, options: {} }
+    return runInteractiveCommand(
+        invocation.command,
+        invocation.args,
+        { "BUILD SUCCESSFUL": "" },
+        { onLine, cwd: projectDir, ...invocation.options }
+    )
 }
 
 async function runSdkManagerCommand(sdkManagerPath, args) {
@@ -482,8 +555,12 @@ export {
     commandExists,
     promptUser,
     detectAndroidSdk,
+    androidTools,
+    exposeJavaOnPath,
     listAvds,
     ensureLocalProperties,
+    gradleCommandLine,
+    runGradle,
     ANDROID_SDK_HINT,
     runSdkManagerCommand,
     runInteractiveCommand,

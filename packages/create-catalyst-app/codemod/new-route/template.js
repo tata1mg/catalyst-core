@@ -37,7 +37,7 @@ const initialState = {
 }
 
 export const appSlice = createSlice({
-    name: ${reducerName}Reducer,
+    name: "${reducerName}Reducer",
     initialState: initialState,
     reducers: {
         reduxTest: (state) => {
@@ -70,7 +70,7 @@ return actionTypesObject
 
 export default createActionTypes
 
-export const ${reducerName}Actions = createActionTypes(${reducerName}Actions, ["REDUX_TEST"])
+export const ${reducerName}Actions = createActionTypes("${reducerName}Actions", ["REDUX_TEST"])
 export const reduxTest = () => {
     return {
         type: ${reducerName}Actions.REDUX_TEST,

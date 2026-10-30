@@ -9,7 +9,7 @@ id: RunUniversalApp
 ## Prerequisites
 
 - Android Studio installed (for Android development)
-- Xcode installed (for iOS development)
+- Xcode installed (for iOS development, macOS only)
 - Node.js and npm installed
 - Android SDK configured (for Android)
 - iOS Simulator set up (for iOS)
@@ -32,6 +32,9 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 
 # For Linux
 ip addr show | grep "inet "
+
+# For Windows
+ipconfig
 ```
 
 ### 3. Update Configuration
@@ -65,9 +68,11 @@ In a new terminal:
 # For Android debug
 npm run buildApp:android
 
-# For iOS
+# For iOS (macOS only)
 npm run buildApp:ios
 ```
+
+On Windows and Linux, `npm run buildApp` skips iOS and builds Android. `npm run buildApp:ios` stops with [IOS-002](/errors/IOS/IOS-002).
 
 ---
 

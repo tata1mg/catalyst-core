@@ -73,6 +73,8 @@ production-style run.
 
 For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. Release behavior is driven by the configured `buildType`, not by a separate built-in `:release` command.
 
+The iOS commands need macOS and Xcode. On Windows and Linux, `catalyst buildApp` and `catalyst setupEmulator` skip iOS and run Android, and `buildApp:ios` and `setupEmulator:ios` exit with [IOS-002](/errors/IOS/IOS-002).
+
 ## Production Web Flow
 
 1. Run `catalyst build`.

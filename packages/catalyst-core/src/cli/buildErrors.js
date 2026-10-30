@@ -20,11 +20,12 @@ const { ANSI } = require("./theme.js")
 // clang. `> Task :app:x FAILED` and `FAILURE:` are gradle's own markers.
 const ERROR_PATTERNS = [
     // Kotlin: e: file:///path/Foo.kt:12:5 Unresolved reference: bar
-    /^e:\s+(?:file:\/\/)?(?<file>[^\s:]+):(?<line>\d+):(?<column>\d+)\s+(?<message>.+)$/,
+    // Any path here may open with a Windows drive: file:///C:/path, C:\path.
+    /^e:\s+(?:file:\/\/)?(?<file>(?:\/?[A-Za-z]:)?[^\s:]+):(?<line>\d+):(?<column>\d+)\s+(?<message>.+)$/,
     // Swift / clang / javac: /path/Foo.swift:12:5: error: cannot find 'bar'
-    /^(?<file>[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*(?:fatal\s+)?error:\s*(?<message>.+)$/i,
+    /^(?<file>(?:[A-Za-z]:)?[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*(?:fatal\s+)?error:\s*(?<message>.+)$/i,
     // javac without a column
-    /^(?<file>[^\s:][^:]*):(?<line>\d+):\s*error:\s*(?<message>.+)$/i,
+    /^(?<file>(?:[A-Za-z]:)?[^\s:][^:]*):(?<line>\d+):\s*error:\s*(?<message>.+)$/i,
     // Gradle/AGP: "> Task :app:compileDebugKotlin FAILED" then a bare message
     /^\s*(?:>\s*)?(?:error|FAILURE):\s*(?<message>.+)$/i,
     // Xcode linker and codesign failures carry no file
@@ -47,11 +48,12 @@ const NOISE = [
 // junk drawer where every toolchain's noise matches every other's.
 const VITE_ERROR_PATTERNS = [
     // [plugin:name] Could not load /path (imported by other/path): ENOENT...
-    /\[(?:vite|plugin)[^\]]*\]\s*(?<message>Could not (?:load|resolve)[^:]*)(?::.*)?$/i,
+    // (a colon before a slash is a Windows drive, still part of the path)
+    /\[(?:vite|plugin)[^\]]*\]\s*(?<message>Could not (?:load|resolve)(?:[^:]|:[\\/])*)(?::.*)?$/i,
     // Failed to resolve import "x" from "y"
     /^(?<message>Failed to resolve (?:import|entry)[^.]*)\.?$/i,
     // file.js:12:3: error: message   (esbuild transform failures)
-    /^(?<file>[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*ERROR:\s*(?<message>.+)$/i,
+    /^(?<file>(?:[A-Za-z]:)?[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*ERROR:\s*(?<message>.+)$/i,
     // Bare "error during build:" is a header, not a message -- see NOISE.
 ]
 
@@ -60,6 +62,11 @@ const VITE_ERROR_PATTERNS = [
 const IMPORTED_BY = /\(imported by ([^)]+)\)/
 
 const MAX_ERRORS = 5
+
+// A file URL's path keeps a slash in front of the drive (/C:/path) and encodes
+// its spaces. Neither is a path the OS can open.
+const DRIVE = /^\/([A-Za-z]:)/
+const fromOutput = (file) => (DRIVE.test(file) ? decodeURI(file.replace(DRIVE, "$1")) : file)
 
 /**
  * @param {string} output - everything the build printed
@@ -89,7 +96,7 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
             seen.add(key)
 
             found.push({
-                file: file || (importedBy ? importedBy[1].trim() : undefined),
+                file: file ? fromOutput(file) : importedBy ? importedBy[1].trim() : undefined,
                 line: lineNo ? Number(lineNo) : undefined,
                 column: column ? Number(column) : undefined,
                 // The "(imported by x)" clause becomes the `file` above, so

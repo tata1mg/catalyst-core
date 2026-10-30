@@ -1,5 +1,6 @@
 import path from "path"
 import { createRequire } from "module"
+import { pathToFileURL } from "url"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
 import { validatePreInitServer, handleError, safeCallNamed } from "../server/utils/validator.js"
 
@@ -57,7 +58,7 @@ if (!isValid) {
 
 let preServerInit
 try {
-    const hooks = await import(path.join(appRoot, "server/index.js"))
+    const hooks = await import(pathToFileURL(path.join(appRoot, "server/index.js")).href)
     preServerInit = hooks.preServerInit
 } catch {
     // No hooks file — preServerInit remains undefined

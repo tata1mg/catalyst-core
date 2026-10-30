@@ -80,7 +80,29 @@ Update your `config/config.json`:
 | `port` | Development server port |
 | `buildType` | `debug` or `release` |
 | `emulatorName` | AVD name (from Virtual Device Manager) |
-| `sdkPath` | Android SDK location |
+| `sdkPath` | Android SDK location. Optional when the SDK is in Android Studio's default location |
+
+### Windows
+
+The SDK is usually at `C:\\Users\\yourname\\AppData\\Local\\Android\\Sdk`. In `config.json`, double the backslashes or use forward slashes:
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "android": {
+      "sdkPath": "C:/Users/yourname/AppData/Local/Android/Sdk"
+    }
+  }
+}
+```
+
+Catalyst uses `JAVA_HOME` if it is set, then any `java` on your `PATH`, then the JDK bundled with Android Studio. With none of those, install JDK 17 with `winget install Microsoft.OpenJDK.17` and open a new terminal.
+
+`npm run setupEmulator:android` leaves the dev server running in the background, with no window of its own. To stop it, find its process with `netstat -ano | findstr :3005` and run `taskkill /PID <pid> /T /F`.
+
+The emulator needs the Windows Hypervisor Platform. If it does not start, run `emulator -accel-check` from the SDK's `emulator` folder. It reports what is missing.
+
+Gradle writes long paths under `node_modules`. If a build fails with a path that is too long, move the app closer to the root of the drive, for example `C:\\dev\\my-app`, or [enable long paths in Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
 
 ---
 

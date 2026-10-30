@@ -1,0 +1,9 @@
+# Every text file is LF in the repo and in every checkout, Windows included.
+# With core.autocrlf (the Git for Windows default) a checkout turned the gradlew
+# and husky shell scripts into CRLF, which no shell can run, and a package packed
+# from that tree shipped them that way.
+* text=auto eol=lf
+
+# cmd.exe needs CRLF: labels in an LF batch file are not found reliably.
+*.bat text eol=crlf
+*.cmd text eol=crlf

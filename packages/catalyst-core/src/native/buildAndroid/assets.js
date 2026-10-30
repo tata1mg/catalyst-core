@@ -11,44 +11,22 @@ function createAssetsPhase(ctx) {
 
         progress.log("Copying build assets to Android project...", "info")
         try {
-            const sourcePath = `${process.cwd()}/build/`
-            const destPath = `${pwd}/androidProject/app/src/main/assets/build/`
+            const sourcePath = path.join(process.cwd(), "build")
+            const destPath = path.join(pwd, "androidProject", "app", "src", "main", "assets", "build")
+            const excludedFiles = new Set(["route-manifest.json.gz", "route-manifest.json.br"])
 
-            ctx.runCommand(`mkdir -p ${destPath}`)
-            ctx.runCommand(`rm -rf ${destPath}/*`)
-
-            const excludePatterns = ["route-manifest.json.gz", "route-manifest.json.br"]
-
-            if (buildOptimisation) {
-                progress.log("Running with build optimization...", "info")
-                const excludeParams = excludePatterns.map((pattern) => `--exclude="${pattern}"`).join(" ")
-                const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`
-                progress.log("Executing rsync command with exclusions...", "info")
-                ctx.runCommand(rsyncCommand)
-
-                for (const pattern of excludePatterns) {
-                    const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`
-                    const count = parseInt(ctx.runCommand(checkCommand).trim(), 10)
-                    if (count > 0) {
-                        progress.log(
-                            `Warning: Found ${count} instances of excluded file ${pattern}`,
-                            "warning"
-                        )
-                        ctx.runCommand(`find ${destPath} -name "${pattern}" -delete`)
-                    }
-                }
-                progress.log(
-                    "Build assets copied with optimization (excluded route-manifest JSON files)",
-                    "success"
-                )
-            } else {
-                progress.log("Running without build optimization...", "info")
-                const exclusions = excludePatterns.map((pattern) => `-not -name "${pattern}"`).join(" ")
-                const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`
-                progress.log(`Executing copy command with exclusions...`, "info")
-                ctx.runCommand(copyCommand)
-                progress.log("Build assets copied successfully!", "success")
-            }
+            fs.rmSync(destPath, { recursive: true, force: true })
+            fs.mkdirSync(destPath, { recursive: true })
+            // The real path: given a link, cpSync would recreate the link, and
+            // the filter would never see the files it is there to leave out.
+            fs.cpSync(fs.realpathSync(sourcePath), destPath, {
+                recursive: true,
+                filter: (source) => !excludedFiles.has(path.basename(source)),
+            })
+            progress.log(
+                "Build assets copied with optimization (excluded route-manifest JSON files)",
+                "success"
+            )
         } catch (error) {
             throw new Error("Error copying build assets: " + error.message)
         }
@@ -132,7 +110,7 @@ function createAssetsPhase(ctx) {
                 return
             }
 
-            ctx.runCommand(`mkdir -p ${destDir}`)
+            fs.mkdirSync(destDir, { recursive: true })
             fs.copyFileSync(sourcePath, destPath)
         } catch (error) {
             progress.log(`Warning: Error copying ${fileName}: ${error.message}`, "warning")

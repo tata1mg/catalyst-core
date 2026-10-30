@@ -5,6 +5,7 @@ var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _theme = require("../cli/theme.js")
+var _projectFiles = require("./projectFiles.js")
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
@@ -263,16 +264,18 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
 
         // Make gradlew executable
         try {
-            ;(0, _utils.runCommand)(`chmod +x ./gradlew`)
+            _fs.default.chmodSync(gradlewPath, 0o755)
         } catch (chmodError) {
             progress.log(`Warning: Could not make gradlew executable: ${chmodError.message}`, "warning")
         }
+
+        const gradlew = (0, _utils.gradleCommandLine)(absoluteProjectPath)
 
         try {
             // Clean previous builds
             progress.log("Cleaning previous builds...", "info")
             try {
-                ;(0, _utils.runCommand)("./gradlew clean")
+                ;(0, _utils.runCommand)(`${gradlew} clean`)
                 progress.log("Clean completed successfully", "success")
             } catch (cleanError) {
                 progress.log(`Warning: Clean failed: ${cleanError.message}`, "warning")
@@ -286,7 +289,7 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             const effectiveKeyPassword = keystoreConfig.storePassword
 
             const bundleCommand = [
-                "./gradlew bundleRelease --console=plain",
+                `${gradlew} bundleRelease --console=plain`,
                 `-Pandroid.injected.signing.store.file="${keystorePath}"`,
                 `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
                 `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,
@@ -322,10 +325,11 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
 
                 if (_fs.default.existsSync(bundleDir)) {
                     try {
-                        const findAabCommand = `find "${bundleDir}" -name "*.aab" -type f`
-                        const foundAabs = (0, _utils.runCommand)(findAabCommand)
-                        if (foundAabs.trim()) {
-                            progress.log(`Found AAB files: ${foundAabs.trim()}`, "info")
+                        const foundAabs = (0, _projectFiles.findFiles)(bundleDir, (name) =>
+                            name.endsWith(".aab")
+                        )
+                        if (foundAabs.length > 0) {
+                            progress.log(`Found AAB files: ${foundAabs.join(", ")}`, "info")
                         } else {
                             progress.log("No AAB files found in bundle directory", "warning")
                         }
@@ -554,16 +558,19 @@ async function diagnoseAndroidProject(projectPath) {
     if (diagnostics.missingFiles.length > 0) {
         progress.log("Searching for missing files in alternate locations...", "info")
         try {
-            const findBuildFiles = `find "${projectPath}" \\( -name "build.gradle" -o -name "build.gradle.kts" -o -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "AndroidManifest.xml" \\) -type f`
-            const foundFiles = (0, _utils.runCommand)(findBuildFiles)
-            if (foundFiles.trim()) {
+            const buildFileNames = new Set([
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                "settings.gradle.kts",
+                "AndroidManifest.xml",
+            ])
+            const foundFiles = (0, _projectFiles.findFiles)(projectPath, (name) => buildFileNames.has(name))
+            if (foundFiles.length > 0) {
                 progress.log("Found build files in unexpected locations:", "info")
-                foundFiles
-                    .trim()
-                    .split("\n")
-                    .forEach((file) => {
-                        progress.log(`  ${file}`, "info")
-                    })
+                foundFiles.forEach((file) => {
+                    progress.log(`  ${file}`, "info")
+                })
             }
         } catch (searchError) {
             progress.log("Could not search for alternative file locations", "warning")
@@ -644,7 +651,10 @@ async function createBackup(projectPaths, androidConfig) {
     const backupPath = `${projectPaths.oldProjectPath}_backup_${Date.now()}`
 
     try {
-        ;(0, _utils.runCommand)(`cp -r "${projectPaths.oldProjectPath}" "${backupPath}"`)
+        _fs.default.cpSync(projectPaths.oldProjectPath, backupPath, {
+            recursive: true,
+            verbatimSymlinks: true,
+        })
         progress.log(`Backup created at: ${backupPath}`, "success")
         return backupPath
     } catch (error) {
@@ -666,7 +676,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
     if (_fs.default.existsSync(tempDir)) {
         progress.log(`Removing existing temp directory: ${tempDir}`, "info")
         try {
-            ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+            ;(0, _projectFiles.removeTree)(tempDir)
         } catch (cleanupError) {
             progress.log(
                 `Warning: Could not remove existing temp directory: ${cleanupError.message}`,
@@ -685,13 +695,12 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         const sourceFiles = _fs.default.readdirSync(oldProjectPath)
         progress.log(`Source directory contents: ${sourceFiles.join(", ")}`, "info")
 
-        // Copy the entire project to the temporary location using rsync for better file preservation
+        // Copy the project to the temporary location
         progress.log(`Copying project to temporary location...`, "info")
         progress.log(`Source: ${oldProjectPath}`, "info")
         progress.log(`Temp destination: ${tempDir}`, "info")
 
-        // Use rsync to preserve all file attributes and handle symlinks properly
-        ;(0, _utils.runCommand)(`rsync -av "${oldProjectPath}/" "${tempDir}/"`)
+        ;(0, _projectFiles.copyProjectWithoutOutputs)(oldProjectPath, tempDir)
         progress.log(`Created temporary copy for building`, "success")
 
         // Only check for gradlew which is absolutely essential for building
@@ -730,7 +739,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         // Clean up on error
         if (_fs.default.existsSync(tempDir)) {
             try {
-                ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+                ;(0, _projectFiles.removeTree)(tempDir)
             } catch (cleanupError) {
                 progress.log(`Warning: Could not cleanup temp directory: ${cleanupError.message}`, "warning")
             }
@@ -740,24 +749,18 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
 
     // Find and rename any subdirectories that contain the old project name within the temp copy
     try {
-        const findCommand = `find "${tempDir}" -type d -name "*${oldProjectName}*"`
-        const result = (0, _utils.runCommand)(findCommand)
+        const dirsToRename = (0, _projectFiles.walkTree)(tempDir).filter(
+            (entry) => entry.isDirectory && entry.name.includes(oldProjectName)
+        )
 
-        if (result.trim()) {
-            const dirsToRename = result
-                .trim()
-                .split("\n")
-                .filter((dir) => dir.trim())
-
-            for (const dir of dirsToRename) {
-                const newDirName = dir.split(oldProjectName).join(newProjectName)
-                if (dir !== newDirName) {
-                    ;(0, _utils.runCommand)(`mv "${dir}" "${newDirName}"`)
-                    progress.log(
-                        `Renamed subdirectory: ${_path.default.basename(dir)} → ${_path.default.basename(newDirName)}`,
-                        "success"
-                    )
-                }
+        for (const dir of dirsToRename) {
+            const newDirName = dir.name.split(oldProjectName).join(newProjectName)
+            if (dir.name !== newDirName) {
+                ;(0, _projectFiles.renameWithRetry)(
+                    dir.path,
+                    _path.default.join(_path.default.dirname(dir.path), newDirName)
+                )
+                progress.log(`Renamed subdirectory: ${dir.name} → ${newDirName}`, "success")
             }
         }
     } catch (error) {
@@ -823,7 +826,7 @@ async function cleanupTempDeployment(tempDeploymentPath) {
 
     try {
         progress.log("Cleaning up temporary deployment files...", "info")
-        ;(0, _utils.runCommand)(`rm -rf "${tempDeploymentPath}"`)
+        ;(0, _projectFiles.removeTree)(tempDeploymentPath)
         progress.log("Temporary files cleaned up successfully", "success")
     } catch (error) {
         progress.log(`Warning: Could not cleanup temporary directory: ${error.message}`, "warning")
@@ -894,7 +897,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                         _fs.default.mkdirSync(newPackageDir, { recursive: true })
 
                         // Move source files
-                        ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                        ;(0, _projectFiles.renameWithRetry)(oldPackagePath, newPackagePath)
                         progress.log(`Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
                     } else {
                         progress.log(
@@ -904,11 +907,10 @@ async function updateFileContents(projectPaths, androidConfig) {
                     }
 
                     // Update package declarations in source files
-                    const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
-                    const sourceFiles = (0, _utils.runCommand)(findCommand)
-                        .trim()
-                        .split("\n")
-                        .filter((f) => f.trim())
+                    const sourceFiles = (0, _projectFiles.findFiles)(
+                        newPackagePath,
+                        (name) => name.endsWith(".kt") || name.endsWith(".java")
+                    )
 
                     let updatedCount = 0
                     for (const file of sourceFiles) {
@@ -927,8 +929,8 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                     // Clean up old empty directories
                     try {
-                        ;(0, _utils.runCommand)(
-                            `find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`
+                        ;(0, _projectFiles.removeEmptyDirectories)(
+                            _path.default.join(newProjectPath, "app", "src", sourceSet, "java")
                         )
                     } catch (err) {
                         // Ignore cleanup errors
@@ -970,75 +972,52 @@ async function updateFileContents(projectPaths, androidConfig) {
         }
 
         // STEP 2: Find and rename files that contain the old project name
-        const findFilesCommand = `find "${newProjectPath}" -type f -name "*${oldProjectName}*"`
-        const fileResult = (0, _utils.runCommand)(findFilesCommand)
+        const filesToRename = (0, _projectFiles.findFiles)(newProjectPath, (name) =>
+            name.includes(oldProjectName)
+        )
 
-        if (fileResult.trim()) {
-            const filesToRename = fileResult
-                .trim()
-                .split("\n")
-                .filter((file) => file.trim())
-
-            for (const file of filesToRename) {
-                const newFileName = file.split(oldProjectName).join(newProjectName)
-                if (file !== newFileName) {
-                    ;(0, _utils.runCommand)(`mv "${file}" "${newFileName}"`)
-                    progress.log(
-                        `Renamed file: ${_path.default.basename(file)} → ${_path.default.basename(newFileName)}`,
-                        "success"
-                    )
-                }
+        for (const file of filesToRename) {
+            const fileName = _path.default.basename(file)
+            const newFileName = fileName.split(oldProjectName).join(newProjectName)
+            if (fileName !== newFileName) {
+                ;(0, _projectFiles.renameWithRetry)(
+                    file,
+                    _path.default.join(_path.default.dirname(file), newFileName)
+                )
+                progress.log(`Renamed file: ${fileName} → ${newFileName}`, "success")
             }
         }
 
         // STEP 3: Update file contents that reference the old project name
         const fileTypes = [
-            "*.gradle",
-            "*.gradle.kts",
-            "*.xml",
-            "*.json",
-            "*.properties",
-            "*.java",
-            "*.kt",
-            "*.kts",
-            "*.js",
-            "*.ts",
-            "*.md",
+            ".gradle",
+            ".xml",
+            ".json",
+            ".properties",
+            ".java",
+            ".kt",
+            ".kts",
+            ".js",
+            ".ts",
+            ".md",
         ]
+        const textFiles = (0, _projectFiles.findFiles)(newProjectPath, (name) =>
+            fileTypes.includes(_path.default.extname(name))
+        )
 
-        for (const fileType of fileTypes) {
+        for (const file of textFiles) {
             try {
-                const findContentCommand = `find "${newProjectPath}" -name "${fileType}" -type f`
-                const files = (0, _utils.runCommand)(findContentCommand)
-
-                if (files.trim()) {
-                    const fileList = files
-                        .trim()
-                        .split("\n")
-                        .filter((file) => file.trim())
-
-                    for (const file of fileList) {
-                        try {
-                            const content = _fs.default.readFileSync(file, "utf8")
-                            if (content.includes(oldProjectName)) {
-                                const updatedContent = content.split(oldProjectName).join(newProjectName)
-                                _fs.default.writeFileSync(file, updatedContent, "utf8")
-                                progress.log(
-                                    `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
-                                    "info"
-                                )
-                            }
-                        } catch (fileError) {
-                            progress.log(
-                                `Warning: Could not update file ${file}: ${fileError.message}`,
-                                "warning"
-                            )
-                        }
-                    }
+                const content = _fs.default.readFileSync(file, "utf8")
+                if (content.includes(oldProjectName)) {
+                    const updatedContent = content.split(oldProjectName).join(newProjectName)
+                    _fs.default.writeFileSync(file, updatedContent, "utf8")
+                    progress.log(
+                        `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
+                        "info"
+                    )
                 }
-            } catch (typeError) {
-                // Continue with other file types if one fails
-                progress.log(`Warning: Error processing ${fileType} files: ${typeError.message}`, "warning")
+            } catch (fileError) {
+                progress.log(`Warning: Could not update file ${file}: ${fileError.message}`, "warning")
             }
         }
 

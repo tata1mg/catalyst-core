@@ -1,13 +1,49 @@
-const { exec, execFile, execSync } = require("child_process")
+const { exec, execFile, execSync, spawn } = require("child_process")
+const dgram = require("dgram")
 const fs = require("fs")
+const os = require("os")
+const { listeningPidFromNetstat } = require("../cli/devOutput.js")
+const { isWindows } = require("../cli/platform.js")
 
 /**
- * Get local IP address on macOS using ifconfig
+ * The address of the interface holding the default route. Windows machines carry
+ * virtual adapters (Hyper-V, WSL, VPNs) whose addresses a phone cannot reach, so
+ * the first one listed is often the wrong one. Connecting a UDP socket sends
+ * nothing: it only makes the OS choose a route.
  */
-function getLocalIPAddress() {
+function defaultRouteAddress() {
+    return new Promise((resolve) => {
+        const socket = dgram.createSocket("udp4")
+        const finish = (address) => {
+            socket.close()
+            resolve(address)
+        }
+        socket.once("error", () => finish(null))
+        socket.connect(53, "8.8.8.8", (error) => finish(error ? null : socket.address().address))
+    })
+}
+
+function firstLanAddress() {
+    for (const entries of Object.values(os.networkInterfaces())) {
+        for (const entry of entries || []) {
+            if (entry.family === "IPv4" && !entry.internal) return entry.address
+        }
+    }
+    return null
+}
+
+/**
+ * Get local IP address: from the routing table on Windows, using ifconfig on macOS
+ */
+async function getLocalIPAddress() {
+    if (isWindows()) {
+        return (await defaultRouteAddress()) || firstLanAddress() || "localhost"
+    }
     try {
         const command = `ifconfig | grep "inet " | grep -v 127.0.0.1 | head -n 1 | awk '{print $2}'`
-        return execSync(command).toString().trim()
+        // An empty answer is not an error to the pipeline: no ifconfig on a Linux
+        // box without net-tools would otherwise write http://:3005 into the config.
+        return execSync(command).toString().trim() || firstLanAddress() || "localhost"
     } catch (error) {
         console.warn("Could not get local IP, using localhost")
         return "localhost"
@@ -25,6 +61,13 @@ async function isServerRunning(port) {
             return
         }
 
+        if (isWindows()) {
+            execFile("netstat", ["-ano"], { windowsHide: true }, (error, stdout) => {
+                resolve(!error && Boolean(listeningPidFromNetstat(stdout, normalizedPort)))
+            })
+            return
+        }
+
         execFile("lsof", ["-i", `:${normalizedPort}`], (error, stdout) => {
             if (error) {
                 resolve(false)
@@ -39,6 +82,15 @@ async function isServerRunning(port) {
  * Start server in background using npm start
  */
 function startServerBackground() {
+    if (isWindows()) {
+        // Through a shell because npm is a .cmd here, and hidden because detached
+        // would otherwise open a console window. exec() would also leave the
+        // server writing to pipes that die with this process.
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true, javascript.lang.security.detect-child-process.detect-child-process - fixed command string with no interpolation.
+        spawn("npm start", { shell: true, detached: true, stdio: "ignore", windowsHide: true }).unref()
+        return
+    }
+
     const serverProcess = exec("npm start", {
         detached: true,
         stdio: "ignore",
@@ -136,7 +188,7 @@ function updateConfigWithLocalIP(configPath, localIP, log = () => {}) {
  */
 async function setupServer(configPath, log = () => {}) {
     // Get local IP
-    const localIP = getLocalIPAddress()
+    const localIP = await getLocalIPAddress()
 
     // Update config with current IP
     const config = updateConfigWithLocalIP(configPath, localIP, log)

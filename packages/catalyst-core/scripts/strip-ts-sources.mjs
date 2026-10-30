@@ -5,8 +5,8 @@
  *
  * The native half of the prepare chain is a raw copy followed by a Babel pass:
  *
- *   cp -r ./src/native ./dist/native
- *   babel src/native --out-dir dist/native --extensions '.js,.jsx,.ts,.tsx' ...
+ *   node scripts/copy-native.cjs
+ *   babel src/native --out-dir dist/native --extensions ".js,.jsx,.ts,.tsx" ...
  *
  * The copy is what carries the non-source files the native toolchain needs
  * (Gradle projects, Xcode projects, plists, and the {"type":"commonjs"}

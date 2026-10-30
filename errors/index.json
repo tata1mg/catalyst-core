@@ -258,6 +258,13 @@
         "suggestedAction": "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-001.md"
     },
+    "IOS-002": {
+        "category": "IOS",
+        "message": "iOS builds need macOS and Xcode",
+        "details": "buildApp:ios and setupEmulator:ios drive Xcode and the iOS Simulator, which only run on macOS. Everything else, including the Android commands, works on this machine.",
+        "suggestedAction": "Build the iOS app on a Mac or a macOS CI runner. Plain catalyst buildApp and catalyst setupEmulator skip iOS on other systems and carry on with Android.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-002.md"
+    },
     "ANDROID-000": {
         "category": "ANDROID",
         "message": "Android build failed in an upstream toolchain step",

@@ -4,6 +4,7 @@ import path from "path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { createRequire } from "module"
+import { pathToFileURL } from "url"
 import type buildErrorsModule from "../../src/cli/buildErrors.js"
 import type themeModule from "../../src/cli/theme.js"
 
@@ -298,6 +299,21 @@ describe("buildFailure", () => {
 })
 
 describe("parseFrames", () => {
+    it("turns a file URL into a path this OS can open, drive and spaces included", () => {
+        const file = path.resolve("some dir", "App.js")
+        const url = pathToFileURL(file).href
+        expect(parseFrames(`Error: x\n    at render (${url}:4:2)\n    at ${url}:5:6`)).toEqual([
+            { fn: "render", file, line: 4, column: 2 },
+            { fn: null, file, line: 5, column: 6 },
+        ])
+    })
+
+    it("reads a Windows path with its drive colon", () => {
+        expect(parseFrames("    at render (C:\\app\\src\\App.js:4:2)")).toEqual([
+            { fn: "render", file: "C:\\app\\src\\App.js", line: 4, column: 2 },
+        ])
+    })
+
     it("parses named and anonymous V8 frames and skips everything else", () => {
         const stack = [
             "TypeError: x is not a function",

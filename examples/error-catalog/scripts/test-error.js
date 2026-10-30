@@ -472,6 +472,10 @@ async function main() {
                 status = "SKIP"
                 detail = "Validator exists, no live call site"
                 skippedCount++
+            } else if (scen.platforms && !scen.platforms.includes(process.platform)) {
+                status = "SKIP"
+                detail = `Not reachable on ${process.platform}`
+                skippedCount++
             } else if (scen.kind === "client" || scen.kind === "mapping") {
                 const passed = vitestAssertionMap.get(code)
                 if (passed === true) {

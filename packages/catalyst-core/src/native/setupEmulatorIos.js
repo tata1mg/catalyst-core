@@ -1,9 +1,12 @@
 import { execSync } from "child_process"
 import fs from "fs"
+import path from "path"
 import { runCommand, promptUser, validateAndCompleteConfig } from "./utils.js"
 import TerminalProgress from "./terminalProgress.js"
+import platform from "../cli/platform.js"
+import { iosRequiresMacError } from "./iosPlatform.js"
 
-const configPath = `${process.env.PWD}/config/config.json`
+const configPath = path.join(platform.appRoot(), "config", "config.json")
 const { setupServer } = require("./setupServer.js")
 
 const ITEMS_PER_PAGE = 10
@@ -63,8 +66,7 @@ async function setupIOSEnvironment() {
     try {
         progress.start("platform")
         if (process.platform !== "darwin") {
-            progress.log("iOS Simulator is only available on macOS.", "error")
-            process.exit(1)
+            throw iosRequiresMacError()
         }
         progress.complete("platform")
 

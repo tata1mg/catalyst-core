@@ -1,13 +1,22 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runCommand, validateAndCompleteConfig, expandHome, ANDROID_SDK_HINT } from "./utils.js"
+import {
+    runCommand,
+    validateAndCompleteConfig,
+    expandHome,
+    androidTools,
+    ensureLocalProperties,
+    exposeJavaOnPath,
+    ANDROID_SDK_HINT,
+} from "./utils.js"
 import TerminalProgress from "./terminalProgress.js"
 import { setupServer } from "./setupServer.js"
+import platform from "../cli/platform.js"
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
-const configPath = `${process.env.PWD}/config/config.json`
+const configPath = path.join(platform.appRoot(), "config", "config.json")
 
 // Sentence case, verb first: these read as a sequence of actions, not as
 // headings.
@@ -35,6 +44,14 @@ async function checkJavaInstallation() {
 }
 
 async function installJava() {
+    // The install below is Homebrew and a shell profile, neither of which exists
+    // here, and a JDK install on Windows wants its own elevation prompt anyway.
+    if (platform.isWindows()) {
+        throw Object.assign(new Error("Java 17 is required"), {
+            hint: "Install it with `winget install Microsoft.OpenJDK.17`, then open a new terminal and retry. Android Studio's bundled JDK is used automatically if you have that instead.",
+        })
+    }
+
     progress.log("Installing Java (Zulu JDK 17)...")
     try {
         try {
@@ -118,6 +135,7 @@ async function installJava() {
 
 async function validateJavaEnvironment() {
     progress.start("java")
+    exposeJavaOnPath()
     const hasJava = await checkJavaInstallation()
 
     if (!hasJava) {
@@ -170,12 +188,12 @@ async function saveConfig(newConfig) {
 
 function validateAndroidTools(androidConfig) {
     const ANDROID_SDK = expandHome(androidConfig.sdkPath)
-    const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
-    const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
 
     if (!ANDROID_SDK) {
         throw Object.assign(new Error("Android SDK not found"), { hint: ANDROID_SDK_HINT })
     }
+
+    const { adb: ADB_PATH, emulator: EMULATOR_PATH } = androidTools(ANDROID_SDK)
 
     if (!fs.existsSync(ANDROID_SDK)) {
         throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`)
@@ -186,7 +204,7 @@ function validateAndroidTools(androidConfig) {
     }
 
     try {
-        runCommand(`${ADB_PATH} version`)
+        runCommand(`"${ADB_PATH}" version`)
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`)
     }
@@ -196,13 +214,13 @@ function validateAndroidTools(androidConfig) {
     }
 
     try {
-        runCommand(`${EMULATOR_PATH} -version`)
+        runCommand(`"${EMULATOR_PATH}" -version`)
     } catch (error) {
         throw new Error(`Emulator is not working properly: ${error.message}`)
     }
 
     try {
-        const avdOutput = runCommand(`${EMULATOR_PATH} -list-avds`)
+        const avdOutput = runCommand(`"${EMULATOR_PATH}" -list-avds`)
         if (!avdOutput.includes(androidConfig.emulatorName)) {
             throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`)
         }
@@ -216,7 +234,7 @@ function validateAndroidTools(androidConfig) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = runCommand(`${ADB_PATH} devices`, { timeout: 15000 })
+        const devices = runCommand(`"${ADB_PATH}" devices`, { timeout: 15000 })
         return devices.includes("emulator")
     } catch (error) {
         progress.log(`Error checking emulator: ${error}`, "error")
@@ -230,6 +248,8 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
     const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
         detached: true,
         stdio: "ignore",
+        // Otherwise detached opens an empty console window next to the emulator.
+        windowsHide: true,
     })
     child.on("error", (error) => {
         progress.log(`Error starting emulator: ${error}`, "error")
@@ -240,7 +260,7 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
 async function updateLocalProperties(sdkPath) {
     progress.start("properties")
     try {
-        runCommand(`cd ${pwd}/androidProject && ./gradlew updateSdkPath -PsdkPath="${sdkPath}"`)
+        ensureLocalProperties(path.join(pwd, "androidProject"), sdkPath)
         progress.complete("properties")
     } catch (error) {
         progress.fail("properties", `Failed to update local.properties: ${error.message}`)

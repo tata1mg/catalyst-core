@@ -12,7 +12,7 @@ This guide gives a clean first-flow for building a Catalyst universal app for We
 
 - Node.js 20+
 - Android Studio + Android SDK
-- Xcode (for iOS on macOS)
+- Xcode (for iOS, macOS only)
 
 ## Step 1: Create App
 

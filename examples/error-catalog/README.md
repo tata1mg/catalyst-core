@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 75 error codes, then assert the dev
+mistake** for every one of the framework's 76 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 75, one block per code: the mistake, what
+- **`npm run test:error`** — runs all 76, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-75 / 75 codes accounted for: **62 reproduced by a scenario**, **13 in the
+76 / 76 codes accounted for: **63 reproduced by a scenario**, **13 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 75-code ledger
+## The 76-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -84,6 +84,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `CCA-009`            | .gitignore file already exists warning in create-catalyst-app                | cca-cli        | .gitignore already exists                                               | scenario                             |
 | `IOS-000`            | iOS build failed in upstream toolchain step                                  | build-native   | iOS build failed in an upstream toolchain step                          | scenario                             |
 | `IOS-001`            | —                                                                            | —              | Could not find an installed iOS Simulator app                           | **LEDGER: not-example-reproducible** |
+| `IOS-002`            | iOS build on a machine that is not a Mac                                     | build-native   | iOS builds need macOS and Xcode                                         | **LEDGER: not-example-reproducible** |
 | `PREFLIGHT-001`      | config/config.json deleted                                                   | cli (halts)    | config not found in config folder                                       | scenario                             |
 | `PREFLIGHT-002`      | config/config.json is a JSON string                                          | cli (halts)    | config export is not an object                                          | scenario                             |
 | `PREFLIGHT-003`      | Removed a required key from config/config.json                               | cli (halts)    | required key missing inside config.json                                 | scenario                             |
@@ -143,7 +144,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 75, human-readable
+# All 76, human-readable
 npm run test:error
 
 # One code

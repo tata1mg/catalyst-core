@@ -149,7 +149,11 @@ function runPlatformCommand(command) {
 }
 
 if (script === "buildApp" || script === "setupEmulator") {
-    for (const platform of ["ios", "android"]) {
+    // Xcode only exists on macOS. Failing on iOS here would mean never reaching
+    // Android, the platform this machine can actually build.
+    const onMac = process.platform === "darwin"
+    if (!onMac) console.log(`\n${GUTTER}${paint("dim", "Skipping iOS: it needs macOS and Xcode.")}`)
+    for (const platform of onMac ? ["ios", "android"] : ["android"]) {
         const result = runPlatformCommand(`${script}:${platform}`)
         if (result.status !== 0 || result.signal) handleProcessResult(result)
     }

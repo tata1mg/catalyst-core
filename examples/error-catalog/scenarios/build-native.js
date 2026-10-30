@@ -34,6 +34,8 @@ export const buildNativeScenarios = [
         title: "iOS build failed in upstream toolchain step",
         tier: "build-native",
         kind: "build-native",
+        // Anywhere else buildApp:ios stops at IOS-002, before any toolchain runs.
+        platforms: ["darwin"],
         break: (appDir) => {
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
@@ -46,6 +48,18 @@ export const buildNativeScenarios = [
             restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["IOS-000"], exitNonZero: true },
+    },
+    {
+        code: "IOS-002",
+        title: "iOS build on a machine that is not a Mac",
+        tier: "build-native",
+        kind: "build-native",
+        platforms: ["linux", "win32"],
+        // Nothing to break: being on this machine is the mistake.
+        break: () => {},
+        restore: () => {},
+        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
+        expect: { inOutput: ["IOS-002", "macOS"], exitNonZero: true },
     },
 ]
 

@@ -1,9 +1,13 @@
 import { execSync, spawn } from "child_process"
+import { EventEmitter } from "node:events"
 import fs from "fs"
 import os from "os"
 import path from "path"
 import readline from "readline"
+import { PassThrough } from "node:stream"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+import { onPlatform } from "../onPlatform"
 
 // utils.js is ESM, so it is imported here the same way redactSecrets.test.ts
 // imports it: one module copy for v8 coverage to merge.
@@ -23,8 +27,12 @@ vi.mock("child_process", async (importOriginal) => {
 
 import {
     ANDROID_SDK_HINT,
+    androidTools,
     commandExists,
     detectAndroidSdk,
+    exposeJavaOnPath,
+    gradleCommandLine,
+    runGradle,
     ensureLocalProperties,
     listAvds,
     promptUser,
@@ -78,7 +86,7 @@ afterEach(() => {
 
 describe("runCommand", () => {
     it("returns the command's stdout with stderr captured, not inherited", () => {
-        expect(runCommand("echo hello")).toBe("hello\n")
+        expect(runCommand("echo hello")).toMatch(/^hello\r?\n$/)
         expect(mockedExec).toHaveBeenCalledWith("echo hello", {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "pipe"],
@@ -114,6 +122,21 @@ describe("runCommand", () => {
         expect(error.code).toBe("ETOOLTIMEOUT")
         expect(error.hint).toContain("adb kill-server && adb start-server")
         expect(console.error).not.toHaveBeenCalled()
+    })
+
+    it("names the tool in a quoted path with spaces, without its .exe", () => {
+        mockedExec.mockImplementationOnce(() => {
+            throw Object.assign(new Error("spawnSync cmd.exe ETIMEDOUT"), { code: "ETIMEDOUT" })
+        })
+
+        let error: any
+        try {
+            runCommand('"C:\\Program Files\\Android\\platform-tools\\adb.exe" devices', { timeout: 10000 })
+        } catch (caught) {
+            error = caught
+        }
+        expect(error.message).toBe("adb did not respond within 10s")
+        expect(error.hint).toContain("adb kill-server")
     })
 
     it("recognises a timeout reported as a SIGTERM kill, with tool-specific hints", () => {
@@ -185,13 +208,19 @@ describe("redactSecrets and redactError", () => {
 describe("commandExists", () => {
     it("asks `which` and reports whether it found the tool", () => {
         mockedExec.mockImplementationOnce(() => "")
-        expect(commandExists("adb")).toBe(true)
+        expect(onPlatform("darwin", () => commandExists("adb"))).toBe(true)
         expect(mockedExec).toHaveBeenLastCalledWith("which adb", { stdio: "ignore" })
 
         mockedExec.mockImplementationOnce(() => {
             throw new Error("not found")
         })
         expect(commandExists("adb")).toBe(false)
+    })
+
+    it("asks `where` on Windows, which has no `which`", () => {
+        mockedExec.mockImplementationOnce(() => "")
+        expect(onPlatform("win32", () => commandExists("adb"))).toBe(true)
+        expect(mockedExec).toHaveBeenLastCalledWith("where adb", { stdio: "ignore" })
     })
 })
 
@@ -241,7 +270,7 @@ describe("listAvds", () => {
 
         expect(listAvds("~/sdk")).toEqual(["Pixel_7_API_34", "Tablet"])
         expect(mockedExec).toHaveBeenLastCalledWith(
-            `"${path.join(home, "sdk", "emulator", "emulator")}" -list-avds`,
+            `"${path.join(home, "sdk", "emulator", process.platform === "win32" ? "emulator.exe" : "emulator")}" -list-avds`,
             { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 }
         )
     })
@@ -254,6 +283,109 @@ describe("listAvds", () => {
             throw new Error("ENOENT")
         })
         expect(listAvds("/no/sdk")).toEqual([])
+    })
+})
+
+describe("androidTools", () => {
+    it("names the executables each platform actually has", () => {
+        const sdk = path.resolve("sdk")
+        expect(onPlatform("darwin", () => androidTools(sdk))).toEqual({
+            adb: path.join(sdk, "platform-tools", "adb"),
+            emulator: path.join(sdk, "emulator", "emulator"),
+        })
+        expect(onPlatform("win32", () => androidTools(sdk))).toEqual({
+            adb: path.join(sdk, "platform-tools", "adb.exe"),
+            emulator: path.join(sdk, "emulator", "emulator.exe"),
+        })
+    })
+})
+
+describe("exposeJavaOnPath", () => {
+    it("leaves other platforms alone", () => {
+        const env: NodeJS.ProcessEnv = { JAVA_HOME: "/jdk", PATH: "/bin" }
+        onPlatform("darwin", () => exposeJavaOnPath(env))
+        expect(env).toEqual({ JAVA_HOME: "/jdk", PATH: "/bin" })
+    })
+
+    it("puts JAVA_HOME's bin on PATH, which Windows does not do for it", () => {
+        const env: NodeJS.ProcessEnv = { JAVA_HOME: "C:\\jdk", PATH: "C:\\Windows" }
+        onPlatform("win32", () => exposeJavaOnPath(env))
+        expect(env.PATH).toBe(`${path.join("C:\\jdk", "bin")}${path.delimiter}C:\\Windows`)
+    })
+
+    it("finds Android Studio's JDK when there is no other", () => {
+        const programs = tempDir()
+        const jbr = path.join(programs, "Android", "Android Studio", "jbr")
+        fs.mkdirSync(jbr, { recursive: true })
+        mockedExec.mockImplementationOnce(() => {
+            throw new Error("not found")
+        })
+        const env: NodeJS.ProcessEnv = { ProgramFiles: programs, PATH: "C:\\Windows" }
+        onPlatform("win32", () => exposeJavaOnPath(env))
+        expect(env.JAVA_HOME).toBe(jbr)
+        expect(env.PATH).toBe(`${path.join(jbr, "bin")}${path.delimiter}C:\\Windows`)
+    })
+
+    it("leaves a java already on PATH in charge", () => {
+        mockedExec.mockImplementationOnce(() => "")
+        const env: NodeJS.ProcessEnv = { ProgramFiles: tempDir(), PATH: "C:\\Windows" }
+        onPlatform("win32", () => exposeJavaOnPath(env))
+        expect(env).toEqual({ ProgramFiles: env.ProgramFiles, PATH: "C:\\Windows" })
+    })
+})
+
+describe("the Gradle wrapper", () => {
+    const project = path.resolve("my app")
+    const fakeChild = () =>
+        Object.assign(new EventEmitter(), {
+            stdout: new PassThrough(),
+            stderr: new PassThrough(),
+            stdin: new PassThrough(),
+        })
+
+    it("runs ./gradlew in the project on POSIX, each argument intact", async () => {
+        const child = fakeChild()
+        mockedSpawn.mockImplementationOnce(() => child as any)
+        const done = onPlatform("linux", () => runGradle(project, ["clean", "-PconfigPath=/a b/c.json"]))
+        child.emit("close", 0)
+        await done
+        expect(mockedSpawn).toHaveBeenCalledWith("./gradlew", ["clean", "-PconfigPath=/a b/c.json"], {
+            stdio: ["pipe", "pipe", "pipe"],
+            cwd: project,
+        })
+    })
+
+    it("runs gradlew.bat through cmd.exe on Windows", async () => {
+        vi.stubEnv("ComSpec", "cmd.exe")
+        const child = fakeChild()
+        mockedSpawn.mockImplementationOnce(() => child as any)
+        const done = onPlatform("win32", () => runGradle(project, ["clean"]))
+        child.emit("close", 0)
+        await done
+        vi.unstubAllEnvs()
+        const [command, args, options] = mockedSpawn.mock.calls.at(-1)!
+        expect(command).toBe("cmd.exe")
+        expect(args.slice(0, 3)).toEqual(["/d", "/s", "/c"])
+        expect(args[3]).toContain("gradlew.bat")
+        // A daemon left idle holds the project open, and npm install then fails with EBUSY.
+        expect(args[3]).toContain(" --no-daemon clean")
+        expect(options).toMatchObject({ cwd: project, windowsVerbatimArguments: true })
+    })
+
+    it("carries a failed build's output on the error", async () => {
+        const child = fakeChild()
+        mockedSpawn.mockImplementationOnce(() => child as any)
+        const done = onPlatform("linux", () => runGradle(project, ["installDebug"]))
+        child.stderr.emit("data", Buffer.from("* What went wrong:\n"))
+        child.emit("close", 1)
+        await expect(done).rejects.toMatchObject({ code: 1, output: "* What went wrong:\n" })
+    })
+
+    it("gives the signed build a command line", () => {
+        expect(onPlatform("darwin", () => gradleCommandLine(project))).toBe("./gradlew")
+        expect(onPlatform("win32", () => gradleCommandLine(project))).toBe(
+            `"${path.join(project, "gradlew.bat")}" --no-daemon`
+        )
     })
 })
 
@@ -281,7 +413,7 @@ describe("ensureLocalProperties", () => {
 
         expect(ensureLocalProperties(project, "~/Android/sdk")).toBe(true)
         expect(fs.readFileSync(file, "utf8")).toBe(
-            `ndk.dir=/ndk\nsdk.dir=${path.join(home, "Android/sdk")}\n`
+            `ndk.dir=/ndk\nsdk.dir=${path.join(home, "Android/sdk").replace(/\\/g, "\\\\")}\n`
         )
 
         expect(ensureLocalProperties(project, "C:\\Android\\sdk")).toBe(true)

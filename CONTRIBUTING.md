@@ -9,6 +9,11 @@ npm run setup   # installs deps + creates local docs config
 Common commands: `npm run core:build`, `npm run core:test`, `npm run cca:test`,
 `npm run docs:build`. See [README](./README.md#contributing) for the sandbox-app flow.
 
+On Windows, everything except `core:test`, `cca:test` and `test:example` runs from any
+terminal. Those three are shell scripts, so run them from Git Bash, or use
+`node scripts/test-windows-smoke.js`, which is what the Windows CI job runs. iOS builds
+need a Mac.
+
 ## Filing an issue
 
 New issues go through a template — pick the one that fits:

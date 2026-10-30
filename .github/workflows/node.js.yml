@@ -387,6 +387,47 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
+    # Native Windows: the unit suite, then a real scaffold, build, start and
+    # serve. What breaks there (spawning .cmd files, backslashes in paths, file
+    # URLs for import()) cannot show up on a Linux runner, so only this keeps
+    # Windows working. Behind unit-and-contract-tests like the other web stages,
+    # so a change that is broken everywhere does not also pay for a Windows run.
+    windows-unit-and-smoke:
+        needs: [unit-and-contract-tests]
+        if: needs.unit-and-contract-tests.result == 'success'
+        runs-on: windows-latest
+        # actions: write is for the fail-fast cancel step only.
+        permissions:
+            contents: read
+            actions: write
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: ".nvmrc"
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      packages/catalyst-core/mcp_v2/package-lock.json
+
+            - name: Install dependencies
+              run: node -v && npm ci && npm ci --prefix packages/catalyst-core/mcp_v2
+
+            - name: Run unit/contract tests
+              run: npm run test:unit
+
+            - name: Scaffold, build, start and serve
+              run: node scripts/test-windows-smoke.js
+
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     error-catalog:
         # Contract gate for issue #440 / Story #343: proves each in-scope
         # error code (AI-000..003 + PREFLIGHT-001..022) actually surfaces the
@@ -1266,7 +1307,7 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, windows-unit-and-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests]
         if: always()
         runs-on: ubuntu-latest
         steps:
@@ -1276,6 +1317,7 @@ jobs:
                   lint_status="${{ needs.lint.result }}"
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
+                  windows_status="${{ needs.windows-unit-and-smoke.result }}"
                   error_catalog_status="${{ needs.error-catalog.result }}"
                   android_lint_status="${{ needs.android-lint.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
@@ -1303,6 +1345,7 @@ jobs:
                   echo "Coverage summary:"
                   report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
+                  report_platform "windows-unit-and-smoke (not a coverage platform, pass/fail only)" "$windows_status" ""
                   report_platform "error-catalog (error-contract gate, pass/fail only)" "$error_catalog_status" ""
                   report_platform "android-lint (Android Lint gate, pass/fail only)" "$android_lint_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
@@ -1324,7 +1367,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "windows-unit-and-smoke:$windows_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

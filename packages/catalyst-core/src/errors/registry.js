@@ -30,6 +30,7 @@ export const ERROR_CODES = {
     BUNDLE_UPSTREAM_ERROR: "BUNDLE-000",
     IOS_UPSTREAM_ERROR: "IOS-000",
     IOS_SIMULATOR_APP_NOT_FOUND: "IOS-001",
+    IOS_REQUIRES_MACOS: "IOS-002",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
 
@@ -247,6 +248,14 @@ export const ERROR_DEFINITIONS = {
         defaultDetails:
             "Neither DeviceHub.app (Xcode 27+, bundle id com.apple.dt.Devices) nor the legacy Simulator.app (bundle id com.apple.iphonesimulator) is installed under Xcode's Contents/Applications. The simulator itself may still boot headlessly via simctl, but catalyst-core cannot open or focus its window.",
         suggestedAction: "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
+    },
+    [ERROR_CODES.IOS_REQUIRES_MACOS]: {
+        category: "IOS",
+        defaultMessage: "iOS builds need macOS and Xcode",
+        defaultDetails:
+            "buildApp:ios and setupEmulator:ios drive Xcode and the iOS Simulator, which only run on macOS. Everything else, including the Android commands, works on this machine.",
+        suggestedAction:
+            "Build the iOS app on a Mac or a macOS CI runner. Plain catalyst buildApp and catalyst setupEmulator skip iOS on other systems and carry on with Android.",
     },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",

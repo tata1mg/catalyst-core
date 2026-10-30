@@ -64,6 +64,13 @@ function restoreSnapshot(snap: Record<string, string>) {
 
 function killTree(child: any) {
     if (!child) return
+    // No process groups on Windows: taskkill walks the tree instead.
+    if (process.platform === "win32") {
+        try {
+            if (child.pid) execSync(`taskkill /T /F /PID ${child.pid}`, { stdio: "ignore" })
+        } catch (_) {}
+        return
+    }
     try {
         if (child.pid) {
             process.kill(-child.pid, "SIGKILL")
@@ -97,6 +104,11 @@ function killTree(child: any) {
 // `npx -y catalyst <subcommand>`). Callers must not re-append the
 // subcommand — the npx path needs it as an explicit arg.
 function getCatalystScript(scriptRelativePath: string, subcommand: string) {
+    // On Windows .bin holds shims rather than symlinks, so there is no target to follow.
+    if (process.platform === "win32") {
+        const scriptPath = path.join(appDir, "node_modules", "catalyst-core", "dist", scriptRelativePath)
+        if (fs.existsSync(scriptPath)) return { cmd: process.execPath, argsPrefix: [scriptPath] }
+    }
     const localBin = path.join(appDir, "node_modules", ".bin", "catalyst")
     if (fs.existsSync(localBin)) {
         const binTarget = fs.realpathSync(localBin)
@@ -326,6 +338,29 @@ exit 0
 `
         fs.writeFileSync(path.join(tmpDir, "npm"), mockNpmScript, { mode: 0o755 })
         fs.writeFileSync(path.join(tmpDir, "git"), "#!/bin/sh\nexit 0\n", { mode: 0o755 })
+        if (process.platform === "win32") {
+            // cmd.exe only runs what PATHEXT names, so the mocks need their own spelling.
+            fs.writeFileSync(
+                path.join(tmpDir, "npm.cmd"),
+                [
+                    "@echo off",
+                    'if not "%~1"=="pack" exit /b 0',
+                    "mkdir package\\templates\\common package\\templates\\context-js package\\templates\\redux-js package\\templates\\default-js",
+                    `echo {"name":"create-catalyst-app","version":"${ccaVersion}"} > package\\package.json`,
+                    'echo {"name":"app"} > package\\templates\\common\\package.json',
+                    'echo {"name":"app"} > package\\templates\\context-js\\package.json',
+                    'echo {"name":"app"} > package\\templates\\redux-js\\package.json',
+                    'echo {"name":"app"} > package\\templates\\default-js\\package.json',
+                    "echo # template gitignore > package\\templates\\common\\.gitignore",
+                    "echo # template gitignore > package\\templates\\context-js\\.gitignore",
+                    "echo # template gitignore > package\\templates\\redux-js\\.gitignore",
+                    "echo # template gitignore > package\\templates\\default-js\\.gitignore",
+                    `tar -czf create-catalyst-app-${ccaVersion}.tgz package`,
+                    "exit /b 0",
+                ].join("\r\n")
+            )
+            fs.writeFileSync(path.join(tmpDir, "git.cmd"), "@exit /b 0\r\n")
+        }
         if (scen.setupDir) {
             scen.setupDir(tmpDir)
         }
@@ -335,7 +370,7 @@ exit 0
         const child = spawn(process.execPath, [cliPath, ...scen.cliArgs], {
             cwd: tmpDir,
             stdio: ["ignore", "pipe", "pipe"],
-            env: { ...process.env, PATH: `${tmpDir}:${process.env.PATH}`, CATALYST_OUTPUT_MODE: "default" },
+            env: { ...process.env, PATH: `${tmpDir}${path.delimiter}${process.env.PATH}`, CATALYST_OUTPUT_MODE: "default" },
         })
 
         child.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString() })
@@ -372,6 +407,11 @@ describe("Error Catalog Contract Fixtures", () => {
             it.skip(`${scen.code}: ${scen.title} (validator exists, no live call site — see PR #450 ledger)`, () => {})
         } else if ((scen as { network?: boolean }).network && skipNetwork) {
             it.skip(`${scen.code}: ${scen.title} (needs live network — skipped in CI)`, () => {})
+        } else if (
+            (scen as { platforms?: string[] }).platforms &&
+            !(scen as { platforms: string[] }).platforms.includes(process.platform)
+        ) {
+            it.skip(`${scen.code}: ${scen.title} (not reachable on ${process.platform})`, () => {})
         } else if (kind === "client" || kind === "mapping") {
             it(`${scen.code}: ${scen.title} (in-process)`, () => {
                 expect(true).toBe(true)
@@ -395,7 +435,7 @@ describe("Error Catalog Contract Fixtures", () => {
         }
     }
 
-    it("completeness: covers all 75 error codes", () => {
+    it("completeness: covers all 76 error codes", () => {
         const scenarioCodes = new Set(scenarios.map((s) => s.code))
         let viaScenario = 0
         let viaLedger = 0

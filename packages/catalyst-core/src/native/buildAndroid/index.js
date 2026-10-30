@@ -30,8 +30,8 @@ const steps = {
 function createAndroidBuild(config) {
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
-    const configPath = `${process.cwd()}/config/config.json`
-    const publicPath = `${process.cwd()}/public`
+    const configPath = path.join(process.cwd(), "config", "config.json")
+    const publicPath = path.join(process.cwd(), "public")
 
     const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "android" })
 

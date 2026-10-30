@@ -2,7 +2,14 @@
 
 const fs = require("fs")
 const os = require("os")
-const { detectAndroidSdk, listAvds, expandHome, ANDROID_SDK_HINT } = require("../utils.js")
+const {
+    androidTools,
+    detectAndroidSdk,
+    exposeJavaOnPath,
+    listAvds,
+    expandHome,
+    ANDROID_SDK_HINT,
+} = require("../utils.js")
 
 /** An error carrying the one action that fixes it, shown as the diagnostic's hint. */
 function withHint(message, hint) {
@@ -41,6 +48,7 @@ function createConfigPhase(ctx) {
 
     function validateAndroidTools(androidConfig) {
         progress.status("validating tools")
+        exposeJavaOnPath()
 
         // An unset sdkPath is usually just an SDK in the default place. Use it,
         // and say so, rather than failing on a field most people never set.
@@ -55,8 +63,7 @@ function createConfigPhase(ctx) {
         androidConfig.sdkPath = expandHome(androidConfig.sdkPath)
 
         const ANDROID_SDK = androidConfig.sdkPath
-        const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
-        const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
+        const { adb: ADB_PATH, emulator: EMULATOR_PATH } = androidTools(ANDROID_SDK)
 
         if (!fs.existsSync(ANDROID_SDK)) {
             throw withHint(`Android SDK path does not exist: ${ANDROID_SDK}`, ANDROID_SDK_HINT)
@@ -70,7 +77,7 @@ function createConfigPhase(ctx) {
         }
 
         try {
-            ctx.runCommand(`${ADB_PATH} version`, { timeout: 15000 })
+            ctx.runCommand(`"${ADB_PATH}" version`, { timeout: 15000 })
         } catch (error) {
             if (error.hint) throw error
             throw new Error(`ADB is not working properly: ${error.message}`)
@@ -83,7 +90,7 @@ function createConfigPhase(ctx) {
             }
 
             try {
-                ctx.runCommand(`${EMULATOR_PATH} -version`)
+                ctx.runCommand(`"${EMULATOR_PATH}" -version`)
             } catch (error) {
                 throw new Error(`Emulator is not working properly: ${error.message}`)
             }
@@ -101,7 +108,7 @@ function createConfigPhase(ctx) {
             }
 
             try {
-                const avdOutput = ctx.runCommand(`${EMULATOR_PATH} -list-avds`)
+                const avdOutput = ctx.runCommand(`"${EMULATOR_PATH}" -list-avds`)
                 if (!avdOutput.includes(androidConfig.emulatorName)) {
                     throw new Error(
                         `Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`

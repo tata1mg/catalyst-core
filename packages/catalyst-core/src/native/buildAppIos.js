@@ -9,11 +9,19 @@ const {
 const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
 const { buildFailure } = require("../cli/diagnostic.js")
 const { loadAppConfig } = require("../cli/appConfig.js")
+const { iosRequiresMacError } = require("./iosPlatform.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
 async function main() {
+    // Before anything is generated: without Xcode the first failure would be a
+    // missing plutil, several steps in, saying nothing about the actual problem.
+    if (process.platform !== "darwin") {
+        process.stderr.write(buildFailure({ error: iosRequiresMacError(), stage: "iOS build" }))
+        process.exit(1)
+    }
+
     const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
     const {
         progress,
