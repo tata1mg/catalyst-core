@@ -1,7 +1,6 @@
 "use strict"
 
 const { spawn, execFileSync } = require("child_process")
-const path = require("path")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
 const { ensureLocalProperties } = require("../utils.js")
 const { signingGradleEnv } = require("./signing.js")
