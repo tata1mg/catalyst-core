@@ -1,0 +1,31 @@
+scripts/native-release-check.mjs
+  b5146ae36c857cb1 1-170,172-210,212-330
+packages/create-catalyst-app/scripts/native.cjs
+  b5146ae36c857cb1 1-152,154-164,166,168-171,174-254,266-310,312-341
+packages/create-catalyst-app/test/native.test.ts
+  b5146ae36c857cb1 1-224,226-231
+docs/content/01-Introduction/04-Getting-Started.md
+  b5146ae36c857cb1 28-37
+packages/create-catalyst-app/Readme.md
+  b5146ae36c857cb1 26-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "14d1e6d6df1a7f098488db7543ccc376f5def5eb",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 854,
+      "total_deletions": 0,
+      "accepted_lines": 904,
+      "overriden_lines": 8
+    }
+  }
+}
