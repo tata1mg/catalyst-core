@@ -1,0 +1,55 @@
+packages/catalyst-core/test/native/androidDevices.test.ts
+  b5146ae36c857cb1 1-230
+scripts/native-elf-alignment.mjs
+  b5146ae36c857cb1 1-121
+"docs/content/02-Guides and Tutorials/02-First Universal App/02-Running-Universal-Apps.md"
+  b5146ae36c857cb1 7,17,20-21,24,26-29,31-41,44,46,48,50,53-54,57-58,60,62,64,66-79,81,83,89-91,93,95,98-100,102,104,106,108-110,112-113,115-116,118-119,124,126,128,130
+docs/content/08-Deployment/04-Releasing-a-Full-App.md
+  b5146ae36c857cb1 1-25,27-53,55-94
+"docs/content/02-Guides and Tutorials/02-First Universal App/01-Introduction.md"
+  b5146ae36c857cb1 13,15,24,26,28-31,33,35-42,54,57-58,61,63,65,67,70-71,74,76,78
+packages/create-catalyst-app/Readme.md
+  b5146ae36c857cb1 54-66
+packages/catalyst-core/src/native/releaseOutput.js
+  b5146ae36c857cb1 1-49
+packages/catalyst-core/src/native/iosToolchain.js
+  b5146ae36c857cb1 2-4,7,9-11,16-21,60-62,68-70,84-90,94,96-97,102,105-123,125-126,156-158,161-163,171-174,176,204-214,287,289,293-296,298,300,303-304,319-320,331,333-334,336,338-339,342,346-410,412-420,422-432,434-443,445-450,452-456,458-463,547,549-552
+packages/catalyst-core/src/native/buildAndroid/output.js
+  b5146ae36c857cb1 1,3-18,20-26,28-30,32-36
+packages/catalyst-core/src/native/setupEmulatorIos.js
+  b5146ae36c857cb1 2-3,9-13,19,25-26,28-31,33,39-40,49,60,63,65-66,69-72,74,77
+packages/catalyst-core/test/native/androidElfAlignment.test.ts
+  b5146ae36c857cb1 1-139,144-148
+docs/content/08-Deployment/02-Universal-App-Deployment.md
+  b5146ae36c857cb1 9,11,13,18-21,26-33,35-37,39,41,43,45,47,53,55-57,59,61-62,65,67,69-70,72,74,76,78,80-84,86,90,92-158,160,162,164,166-172,174,178-180,183-184,188
+"docs/content/02-Guides and Tutorials/05-iOS-Emulator-Setup.md"
+  b5146ae36c857cb1 9,26,28-31,33-40,43,46-47,49,53,59,65-66,72,81-82,92,94,119-121
+packages/catalyst-core/src/native/buildAndroid/devices.js
+  b5146ae36c857cb1 1-156,158-180
+docs/content/08-Deployment/03-iOS-Production-Release.md
+  b5146ae36c857cb1 9,12,15,19-23,25,30-32,40,42,44,48-53,56,58,60,62-64,66-67,70,72,74,76-78,80,82,84,86,89,94,98-100,102,106,110-112,116-118,124,135-139
+"docs/content/02-Guides and Tutorials/04-Android-Emulator-Setup.md"
+  b5146ae36c857cb1 9,17,21,23,25-26,28,30,34,36,39,42,45-53,55,61,67-68,76-77,84,87,89,97-100
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/Info-Release.plist
+  b5146ae36c857cb1 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "678c62624da52443df3433f4d0dd71ff2d954628",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1515,
+      "total_deletions": 586,
+      "accepted_lines": 1471,
+      "overriden_lines": 29
+    }
+  }
+}
