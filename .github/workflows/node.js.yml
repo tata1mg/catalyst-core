@@ -690,13 +690,14 @@ jobs:
     # Release build through the CLI, the way an app runs it: the packed
     # local catalyst-core installed into examples/catalyst-core-test, then
     # scripts/native-release-check.mjs (runnable locally too). It expects
-    # ANDROID-002 for a LAN release host and ANDROID-003 without a build
-    # number, then builds two signed AABs with a throwaway keytool key:
-    # one from a WEBVIEW_CONFIG.release block (asserting buildType=release,
-    # the prod LOCAL_IP, the fixture's apiBaseUrl and no private IP in
-    # webview_config.properties) and one legacy config with the prod host
-    # in LOCAL_IP and no release block, which must pass with the
-    # deprecation warning.
+    # NATIVE-001 for a LAN release url and NATIVE-003 for a com.example app
+    # id, then builds two signed AABs with a throwaway keytool key packed
+    # the way CATALYST_ANDROID_CREDENTIALS is: one from WEBVIEW_CONFIG.url
+    # (asserting buildType=release, the prod LOCAL_IP, the fixture's
+    # apiBaseUrl, no private IP in webview_config.properties, the upload
+    # certificate PEM beside the AAB and 16 KB aligned native libraries) and
+    # one legacy config with the prod host in LOCAL_IP and buildType
+    # "release", which must pass with the deprecation warning.
     #
     # Standalone on its own filter (needs: detect-changes), like the
     # catalyst-ai jobs: it is about the native build JS as much as the
@@ -796,14 +797,18 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
-    # iOS counterpart of android-release-build: `buildApp:ios --release
-    # --no-sign` on the same fixture through scripts/native-release-check.mjs.
-    # Expects IOS-007 for a LAN release host and IOS-008 without a build
-    # number, then archives and asserts the archive's CFBundleVersion and
-    # CFBundleShortVersionString, PrivacyInfo.xcprivacy inside the .app, and
-    # the generated ConfigConstants url pointing at the prod host. Unsigned,
-    # so it needs no certificates. Standalone on its own filter, for the
-    # same reason as the Android job.
+    # iOS counterpart of android-release-build: `buildApp:ios --release` on
+    # the same fixture through scripts/native-release-check.mjs. Expects
+    # NATIVE-001 for a LAN release url, NATIVE-003 for a com.example app id
+    # and IOS-010 for a release with no signing team. There is no unsigned
+    # release, so the signed IPA check (CFBundleVersion,
+    # CFBundleShortVersionString, CFBundleIdentifier,
+    # ITSAppUsesNonExemptEncryption, PrivacyInfo.xcprivacy and the generated
+    # ConfigConstants url) runs only when the repository has the
+    # CATALYST_IOS_CREDENTIALS and RELEASE_CHECK_IOS_APP_ID secrets (plus
+    # RELEASE_CHECK_IOS_TEAM_ID for cloud signing); without them, as on fork
+    # pull requests, it is skipped with a note. Standalone on its own
+    # filter, for the same reason as the Android job.
     ios-release-archive:
         needs: detect-changes
         if: needs.detect-changes.outputs.ios_release == 'true'
@@ -833,7 +838,11 @@ jobs:
                   cd examples/catalyst-core-test
                   npm install --no-save --package-lock=false "$RUNNER_TEMP"/catalyst-core-*.tgz
 
-            - name: Release archive checks
+            - name: Release build checks
+              env:
+                  CATALYST_IOS_CREDENTIALS: ${{ secrets.CATALYST_IOS_CREDENTIALS }}
+                  RELEASE_CHECK_IOS_APP_ID: ${{ secrets.RELEASE_CHECK_IOS_APP_ID }}
+                  RELEASE_CHECK_IOS_TEAM_ID: ${{ secrets.RELEASE_CHECK_IOS_TEAM_ID }}
               run: node scripts/native-release-check.mjs ios examples/catalyst-core-test
 
             # Fail-fast cancel -- see the lint job for the rationale.
@@ -1472,7 +1481,7 @@ jobs:
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
                   report_platform "android-release-build (CLI release AAB checks, pass/fail only)" "$android_release_status" ""
-                  report_platform "ios-release-archive (CLI release archive checks, pass/fail only)" "$ios_release_status" ""
+                  report_platform "ios-release-archive (CLI release IPA checks, pass/fail only)" "$ios_release_status" ""
 
                   # detect-changes itself failing/erroring (not just "nothing
                   # changed") means the per-platform jobs below were skipped

@@ -1,5 +1,5 @@
 const path = require("path")
-const { createIosBuild, pwd } = require("./buildIos/index.js")
+const { createIosBuild, IOS_BUILD_STEPS, pwd } = require("./buildIos/index.js")
 const { composeIosPlugins } = require("./pluginComposerIos.js")
 const {
     resolveInternalPluginsRoot,
@@ -9,14 +9,17 @@ const {
 const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
 const { buildFailure } = require("../cli/diagnostic.js")
 const { loadAppConfig } = require("../cli/appConfig.js")
-const { ensureDevServer, shouldEnsureDevServer } = require("./setupServer.js")
+const { ensureDevServer, migrateLanAddresses } = require("./setupServer.js")
 const { parseNativeArgs } = require("./utils.js")
+const { ensureXcodeReady, prepareIosDebugTarget } = require("./iosToolchain.js")
+const { isReleaseBuildType } = require("./buildIos/signing.js")
+const TerminalProgress = require("./terminalProgress.js").default
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
-let { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
+const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
-/** A coded error (IOS-002 and on) is our own; anything else is the toolchain's. */
-const reportCode = (error) => (/^IOS-\d{3}$/.test(error?.code) ? error.code : "IOS-000")
+/** A coded error (IOS-002 and on, NATIVE-*) is our own; anything else is the toolchain's. */
+const reportCode = (error) => (/^(IOS|NATIVE)-\d{3}$/.test(error?.code) ? error.code : "IOS-000")
 
 function reportVerbose(error) {
     // --verbose/--debug add the registry's boxed report, printed with
@@ -26,7 +29,7 @@ function reportVerbose(error) {
         console.error(
             formatBuildError({
                 code: reportCode(error),
-                category: "IOS",
+                category: reportCode(error).split("-")[0],
                 upstreamName: "Xcode/CocoaPods",
                 error,
             })
@@ -37,46 +40,79 @@ function reportVerbose(error) {
 }
 
 async function main() {
-    // --release / --build-number / --no-sign. A release resolves its config
-    // (release block, start-URL guard, build number) when the build is
-    // created, so those failures surface here, before Xcode runs.
-    const flags = parseNativeArgs(process.argv.slice(2))
+    // --release / --url / --device / --yes / --accept-licenses. Xcode is
+    // checked, the simulator or iPhone chosen and the config resolved (start
+    // URL and its guard, app id, version, signing files) before Xcode
+    // builds, so those failures surface first.
+    const cwd = process.cwd()
+    const progress = new TerminalProgress(IOS_BUILD_STEPS, "catalyst buildApp", { subject: "ios" })
+    const log = (message, type) => progress.log(message, type)
+    let flags
     let build
+    let devHost = "localhost"
     try {
-        build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }, flags)
+        flags = parseNativeArgs(process.argv.slice(2))
+        // Older setups saved this machine's LAN address in config.json. Put
+        // localhost back once (never for a release or in CI), then read the
+        // config again.
+        const migration = migrateLanAddresses({ cwd, release: flags.release, platform: "ios" })
+        const appConfig = migration.changes.length ? loadAppConfig() : { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
+        for (const change of migration.changes) {
+            log(`config.json ${change.path}: ${change.from} -> ${change.to}`, "info")
+        }
+        const release = flags.release || isReleaseBuildType(appConfig.WEBVIEW_CONFIG?.ios?.buildType)
+        let target
+        if (process.platform === "darwin") {
+            progress.start("toolchain")
+            const developerDir = await ensureXcodeReady({ flags, log })
+            progress.log(`Using ${developerDir}`, "info")
+            progress.complete("toolchain")
+            // A release archives for any iOS device: no simulator, no phone.
+            if (!release) {
+                progress.start("target")
+                ;({ target, devHost } = await prepareIosDebugTarget({
+                    flags,
+                    iosConfig: appConfig.WEBVIEW_CONFIG?.ios || {},
+                    cwd,
+                    log,
+                }))
+                progress.log(
+                    target.target === "device" ? `iPhone ${target.name}` : `Simulator ${target.name}`,
+                    "info"
+                )
+                progress.complete("target")
+            }
+        }
+        build = createIosBuild(appConfig, { ...flags, devHost, target, progress, appRoot: cwd })
     } catch (error) {
-        process.stderr.write(buildFailure({ error, stage: "Resolving the iOS build", code: "IOS-000" }))
+        if (progress.currentStep) progress.fail(progress.currentStep.id)
+        process.stderr.write(
+            buildFailure({ error, stage: "Resolving the iOS build", code: reportCode(error) })
+        )
         reportVerbose(error)
         process.exit(1)
     }
 
-    // One-command dev: a debug build starts the dev server when nothing is
-    // serving on the port. setupServer rewrites the config's addresses, and the
-    // build bakes them in when it is created, so it is created again after.
-    if (shouldEnsureDevServer("ios", WEBVIEW_CONFIG, { release: build.release })) {
-        const { progress } = build
+    // One-command dev: a debug build starts the dev server when nothing
+    // answers on its port, and waits until it does. Only on macOS, the one
+    // place an iOS build can run. An iPhone reaches it on devHost, so the
+    // server listens beyond localhost then.
+    if (build.usesDevServer && process.platform === "darwin") {
         try {
             progress.start("server")
-            const server = await ensureDevServer(
-                path.join(process.cwd(), "config", "config.json"),
-                (message, type) => progress.log(message, type)
-            )
+            await ensureDevServer({ host: devHost, cwd, log })
             progress.complete("server")
-            if (server.started) {
-                ;({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig())
-                build.cleanup()
-                build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }, { ...flags, progress })
-            }
         } catch (error) {
             progress.fail("server")
-            process.stderr.write(buildFailure({ error, stage: "Starting the dev server", code: "IOS-000" }))
+            process.stderr.write(
+                buildFailure({ error, stage: "Starting the dev server", code: reportCode(error) })
+            )
             build.cleanup()
             process.exit(1)
         }
     }
 
     const {
-        progress,
         generateConfigConstants,
         updateInfoPlist,
         updateEntitlements,

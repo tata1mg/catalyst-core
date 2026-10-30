@@ -17,6 +17,7 @@ const platformScripts = {
     "setupEmulator:android": "../dist/native/androidSetup.js",
     "buildApp:ios": "../dist/native/buildAppIos.js",
     "buildApp:android": "../dist/native/buildAppAndroid.js",
+    "credentials:export": "../dist/native/exportCredentials.js",
 }
 const validCommands = new Set([...webCommands, "buildApp", "setupEmulator", ...Object.keys(platformScripts)])
 
@@ -46,10 +47,11 @@ const HELP = [
     [
         "Native",
         [
-            ["setupEmulator:android", "Configure and boot the Android emulator"],
-            ["setupEmulator:ios", "Configure and boot the iOS simulator"],
+            ["setupEmulator:android", "Install the Android tools and start the emulator"],
+            ["setupEmulator:ios", "Install the iOS simulator and finish Xcode setup"],
             ["buildApp:android", "Build and install the Android app"],
             ["buildApp:ios", "Build and install the iOS app"],
+            ["credentials:export", "Print credentials/<android|ios>/ as one CI secret"],
         ],
     ],
     [
@@ -83,16 +85,16 @@ function printHelp() {
         `${GUTTER}  ${"--release".padEnd(width)}${paint("dim", "buildApp: build the signed store release")}`
     )
     lines.push(
-        `${GUTTER}  ${"--build-number <n>".padEnd(width)}${paint("dim", "buildApp: the store build number")}`
+        `${GUTTER}  ${"--device".padEnd(width)}${paint("dim", "buildApp: run on the connected phone")}`
     )
     lines.push(
-        `${GUTTER}  ${"--no-sign".padEnd(width)}${paint("dim", "buildApp:ios: unsigned release archive (CI)")}`
+        `${GUTTER}  ${"--url <url>".padEnd(width)}${paint("dim", "buildApp: the release's production URL")}`
     )
     lines.push(
-        `${GUTTER}  ${"--yes".padEnd(width)}${paint("dim", "setupEmulator: download and save without asking")}`
+        `${GUTTER}  ${"--yes".padEnd(width)}${paint("dim", "Confirm installs and downloads without asking")}`
     )
     lines.push(
-        `${GUTTER}  ${"--accept-licenses".padEnd(width)}${paint("dim", "setupEmulator:android: accept the SDK licences")}`
+        `${GUTTER}  ${"--accept-licenses".padEnd(width)}${paint("dim", "Accept the Android SDK and Xcode licences")}`
     )
     lines.push(`${GUTTER}  ${"-h, --help".padEnd(width)}${paint("dim", "Show this help")}`)
     lines.push(`${GUTTER}  ${"-v, --version".padEnd(width)}${paint("dim", "Print the version")}`)
@@ -132,13 +134,14 @@ if (args[0] === "--version" || args[0] === "-v") {
     process.exit(0)
 }
 
-// Native build flags, with how many values each takes. They are pulled out
-// before dispatch wherever they appear, so `--build-number build` can't be read
-// as the build command and a flag before the command isn't handed to node.
+// Native flags, with how many values each takes. They are pulled out before
+// dispatch wherever they appear, so `--url build` can't be read as the build
+// command and a flag before the command isn't handed to node. Agents and CI
+// answer every question with these; nothing else is ever asked.
 const nativeFlags = {
     "--release": 0,
-    "--build-number": 1,
-    "--no-sign": 0,
+    "--device": 0,
+    "--url": 1,
     "--yes": 0,
     "--accept-licenses": 0,
 }

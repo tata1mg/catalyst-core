@@ -48,10 +48,10 @@ An existing React app usually does not have Catalyst commands in `package.json`.
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "buildApp:android": "catalyst buildApp:android",
-    "buildApp:ios": "catalyst buildApp:ios",
-    "setupEmulator:android": "catalyst setupEmulator:android",
-    "setupEmulator:ios": "catalyst setupEmulator:ios"
+    "android": "catalyst buildApp:android",
+    "ios": "catalyst buildApp:ios",
+    "android:release": "catalyst buildApp:android --release",
+    "ios:release": "catalyst buildApp:ios --release"
   }
 }
 ```
@@ -69,12 +69,14 @@ Use this mapping instead:
 | Start local Catalyst development | `npm run start` | `catalyst start` |
 | Create a production web build | `npm run build` | `catalyst build` |
 | Serve the production web build | `npm run serve` | `catalyst serve` |
-| Build and run Android debug app | `npm run buildApp:android` | `catalyst buildApp:android` |
-| Build and run iOS app | `npm run buildApp:ios` | `catalyst buildApp:ios` |
+| Build and run Android debug app | `npm run android` | `catalyst buildApp:android` |
+| Build and run iOS debug app | `npm run ios` | `catalyst buildApp:ios` |
+| Build the signed Android release | `npm run android:release` | `catalyst buildApp:android --release` |
+| Build the signed iOS release | `npm run ios:release` | `catalyst buildApp:ios --release` |
 
 If you do not want to add scripts immediately, you can run the underlying commands directly. In practice, adding the scripts early is better because the rest of the team will expect `npm run start`, `npm run build`, and `npm run serve` to exist.
 
-Release behavior is controlled by `WEBVIEW_CONFIG.android.buildType` and `WEBVIEW_CONFIG.ios.buildType`. Do not add separate `:release` commands unless your project actually implements them.
+Store builds come from the `--release` flag in the `:release` scripts. `buildType: "release"` in `WEBVIEW_CONFIG.android` or `WEBVIEW_CONFIG.ios` is deprecated.
 
 ## Step 4: Set Up `config/config.json`
 
@@ -99,27 +101,17 @@ When you are ready for Android and iOS builds, add `WEBVIEW_CONFIG` to the same 
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
+    "appId": "com.yourcompany.myapp",
+    "appName": "My App",
+    "url": "https://www.myapp.com",
+    "LOCAL_IP": "localhost",
     "port": "3005",
-    "LOCAL_IP": "192.168.0.11",
-    "appInfo": "android-24Mar2026-v1.0.0",
-    "android": {
-      "appName": "My App",
-      "packageName": "com.example.myapp",
-      "buildType": "debug",
-      "sdkPath": "/Users/yourname/Library/Android/sdk",
-      "emulatorName": "Pixel_8"
-    },
-    "ios": {
-      "appName": "My App",
-      "appBundleId": "com.example.myapp",
-      "buildType": "Debug",
-      "simulatorName": "iPhone 17 Pro"
-    }
+    "appInfo": "android-24Mar2026-v1.0.0"
   }
 }
 ```
 
-For native builds, always use a reachable LAN IP in `WEBVIEW_CONFIG.LOCAL_IP`, not `localhost`.
+Keep `LOCAL_IP` as `localhost`: debug builds work out how the emulator, simulator or phone reaches the dev server. `url` is the deployed site that release builds load. Add `public/icon.png` (square, at least 1024x1024) for the app icon, and `credentials/`, `.catalyst/` and `build-output/` to `.gitignore`.
 
 ## Step 5: Use The Correct Migration Flow
 
@@ -130,7 +122,7 @@ For an existing React app, the safest migration sequence is:
 3. Move routes and page-level data loading into Catalyst patterns.
 4. Validate `npm run build` and `npm run serve` for production web output.
 5. Add `WEBVIEW_CONFIG` and native scripts only after the web app is stable.
-6. Run `npm run buildApp:android` or `npm run buildApp:ios` once the WebView config is complete.
+6. Run `npm run android` or `npm run ios` once the WebView config is complete.
 
 This keeps the migration incremental. Do not try to solve routing, SSR, and native packaging all at once.
 
@@ -138,8 +130,8 @@ This keeps the migration incremental. Do not try to solve routing, SSR, and nati
 
 - Keeping the old React dev command and assuming it is equivalent to `catalyst start`
 - Adding only web scripts and forgetting the native scripts entirely
-- Using `localhost` inside `WEBVIEW_CONFIG.LOCAL_IP`
-- Trying `build:android` or `build:ios` script names instead of `buildApp:android` and `buildApp:ios`
+- Putting a LAN IP in `WEBVIEW_CONFIG.LOCAL_IP`; debug builds handle the address themselves
+- Trying `build:android` or `build:ios` script names instead of `android` and `ios`
 - Treating `catalyst serve` as the dev server; it is for serving the production build
 
 ## Recommended Team Workflow
@@ -157,8 +149,8 @@ npm run build
 npm run serve
 
 # native builds
-npm run buildApp:android
-npm run buildApp:ios
+npm run android
+npm run ios
 ```
 
 Keep this workflow consistent across local development, CI, and onboarding docs.

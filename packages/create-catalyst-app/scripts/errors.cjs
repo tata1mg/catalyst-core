@@ -17,8 +17,6 @@ const ERROR_CODES = {
     CCA_EXTRACTION_FAILED: "CCA-007",
     CCA_MCP_SETUP_FAILED: "CCA-008",
     CCA_GITIGNORE_EXISTS: "CCA-009",
-    CCA_INVALID_NATIVE_OPTION: "CCA-010",
-    CCA_INVALID_APP_ID: "CCA-011",
 }
 
 // One entry per CCA-owned code, including the CCA-000 wrapper used by
@@ -85,19 +83,6 @@ const ERROR_DEFINITIONS = {
         defaultMessage: ".gitignore already exists",
         defaultDetails: "The scaffolded project already contains a .gitignore file.",
         suggestedAction: "Remove or rename the existing .gitignore before running again, or ignore this warning.",
-    },
-    [ERROR_CODES.CCA_INVALID_NATIVE_OPTION]: {
-        category: "CCA",
-        defaultMessage: "Invalid --native option",
-        defaultDetails: 'The --native option must be "none", "android", "ios", "both", or "android,ios".',
-        suggestedAction: "Pass a supported --native value, or leave it out to be asked.",
-    },
-    [ERROR_CODES.CCA_INVALID_APP_ID]: {
-        category: "CCA",
-        defaultMessage: "Invalid app id",
-        defaultDetails:
-            "The --app-id value cannot be used as the Android package name or iOS bundle id. It needs at least two dot-separated parts. On Android each part starts with a letter and has only letters, digits and underscores; on iOS only letters, digits, hyphens and dots are allowed.",
-        suggestedAction: "Pass a reverse-DNS id such as com.yourcompany.myapp.",
     },
 }
 

@@ -4,19 +4,61 @@
 //
 //   node scripts/native-release-check.mjs android <app-dir>
 //   node scripts/native-release-check.mjs ios <app-dir>
+//   node scripts/native-release-check.mjs align <file.aab|file.apk>...
 //
 // <app-dir> is a Catalyst app with catalyst-core installed (CI uses
 // examples/catalyst-core-test with the packed local core). Each scenario
 // writes its own WEBVIEW_CONFIG into config/config.json and runs the real
 // `catalyst buildApp:<platform> --release`; the original config is restored
-// at the end. Android signs with CATALYST_ANDROID_* from the environment, or
-// with a throwaway keystore made here by keytool when those are not set.
+// at the end. Android signs with CATALYST_ANDROID_CREDENTIALS from the
+// environment, or with a throwaway key made here by keytool when it is not set.
+// iOS has no unsigned release, so its signed IPA check needs real signing
+// files: CATALYST_IOS_CREDENTIALS (`catalyst credentials:export ios`) plus
+// RELEASE_CHECK_IOS_APP_ID, the bundle id they sign for, and for cloud
+// signing RELEASE_CHECK_IOS_TEAM_ID. Without them only the iOS checks that
+// fail before signing run, and the IPA check is skipped with a note.
+// `align` checks the native libraries of built bundles or APKs for Google
+// Play's 16 KB page size requirement (scripts/native-elf-alignment.mjs).
 
 import { spawn, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { checkNativeAlignment } from "./native-elf-alignment.mjs"
+
+/** Print the 16 KB alignment of each native lib; returns the failures. */
+function reportAlignment(file) {
+    const { libs, failures } = checkNativeAlignment(file)
+    for (const lib of libs) {
+        const state = lib.ok ? "ok  " : lib.required ? "FAIL" : "note"
+        console.log(
+            `  ${state} ${lib.name} (${lib.bits}-bit, LOAD 0x${lib.minAlign.toString(16)})${lib.problem ? `: ${lib.problem}` : ""}`
+        )
+    }
+    if (!libs.length) console.log(`  ok   ${path.basename(file)} has no native libraries`)
+    return failures
+}
+
+if (process.argv[2] === "align") {
+    const files = process.argv.slice(3)
+    if (!files.length) {
+        console.error("Usage: node scripts/native-release-check.mjs align <file.aab|file.apk>...")
+        process.exit(2)
+    }
+    const failed = files.flatMap((file) => {
+        console.log(`\n${file}`)
+        return reportAlignment(file)
+    })
+    if (failed.length) {
+        console.error(
+            `\n${failed.length} 64-bit librar${failed.length === 1 ? "y is" : "ies are"} not 16 KB aligned:\n- ${failed.join("\n- ")}`
+        )
+        process.exit(1)
+    }
+    console.log("\nEvery 64-bit native library is 16 KB aligned.")
+    process.exit(0)
+}
 
 const [platform, appArg] = process.argv.slice(2)
 if (!["android", "ios"].includes(platform) || !appArg) {
@@ -28,13 +70,13 @@ const appDir = path.resolve(appArg)
 const configPath = path.join(appDir, "config", "config.json")
 const originalConfig = fs.readFileSync(configPath, "utf8")
 const baseConfig = JSON.parse(originalConfig)
-const outputRoot = path.join(appDir, baseConfig.BUILD_OUTPUT_PATH || "build")
 
 const DEV_HOST = "192.168.1.20"
-const PROD_HOST = "www.example.com"
-const API_BASE_URL = "https://api.example.com/v1/"
+// Not a reserved example domain: the release host guard refuses those.
+const PROD_HOST = "shop.acme.com"
+const API_BASE_URL = "https://api.acme.com/v1/"
 const BUILD_NUMBER = "7"
-const RELEASE_BLOCK = { LOCAL_IP: PROD_HOST, port: 443, useHttps: true }
+const APP_ID = "com.catalyst.releasefixture"
 // Private, loopback and link-local IPv4 addresses: none may reach a store build.
 const PRIVATE_IP =
     /\b(?:10\.\d{1,3}|127\.\d{1,3}|192\.168|169\.254|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/
@@ -80,11 +122,23 @@ function buildApp(args, env) {
     })
 }
 
-/** The environment without a build number, so each scenario chooses its own. */
+/** The environment without a build number or credentials, so each scenario chooses its own. */
 function baseEnv() {
     const env = { ...process.env }
     delete env.CATALYST_BUILD_NUMBER
+    delete env.CATALYST_ANDROID_CREDENTIALS
+    delete env.CATALYST_IOS_CREDENTIALS
     return env
+}
+
+/** build-output/<platform>/<version>-<build>/ for this app and BUILD_NUMBER. */
+function releaseDir() {
+    return path.join(appDir, "build-output", platform, `${appVersion()}-${BUILD_NUMBER}`)
+}
+
+function appVersion() {
+    const pkg = JSON.parse(fs.readFileSync(path.join(appDir, "package.json"), "utf8"))
+    return pkg.version || "1.0.0"
 }
 
 async function expectFailure(name, webviewConfig, args, code) {
@@ -97,10 +151,12 @@ async function expectFailure(name, webviewConfig, args, code) {
 
 // --- Android ---------------------------------------------------------------
 
+/** CATALYST_ANDROID_CREDENTIALS: the env value, or one packed from a throwaway key. */
 function signingEnv() {
-    if (process.env.CATALYST_ANDROID_KEYSTORE_BASE64) return {}
-    const dir = tempDir("catalyst-ci-keystore-")
-    const keystore = path.join(dir, "upload.jks")
+    if (process.env.CATALYST_ANDROID_CREDENTIALS) {
+        return { CATALYST_ANDROID_CREDENTIALS: process.env.CATALYST_ANDROID_CREDENTIALS }
+    }
+    const dir = tempDir("catalyst-ci-credentials-")
     const password = randomBytes(18).toString("hex")
     const keytool = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "keytool") : "keytool"
     const result = spawnSync(
@@ -108,7 +164,7 @@ function signingEnv() {
         [
             "-genkeypair",
             "-keystore",
-            keystore,
+            path.join(dir, "upload.jks"),
             "-storetype",
             "PKCS12",
             "-alias",
@@ -131,13 +187,18 @@ function signingEnv() {
     if (result.status !== 0) {
         throw new Error(`keytool could not create the throwaway keystore: ${result.stderr || result.error}`)
     }
-    console.log("Signing with a throwaway keystore made by keytool")
-    return {
-        CATALYST_ANDROID_KEYSTORE_BASE64: fs.readFileSync(keystore).toString("base64"),
-        CATALYST_ANDROID_STORE_PASSWORD: password,
-        CATALYST_ANDROID_KEY_PASSWORD: password,
-        CATALYST_ANDROID_KEY_ALIAS: "upload",
-    }
+    fs.writeFileSync(
+        path.join(dir, "keystore.properties"),
+        `storeFile=upload.jks\nkeyAlias=upload\nstorePassword=${password}\nkeyPassword=${password}\n`,
+        { mode: 0o600 }
+    )
+    // The same shape `catalyst credentials:export android` prints.
+    const tar = spawnSync("tar", ["-czf", "-", "-C", dir, "."], {
+        env: { ...process.env, COPYFILE_DISABLE: "1" },
+    })
+    if (tar.status !== 0) throw new Error(`tar could not pack the throwaway credentials: ${tar.stderr}`)
+    console.log("Signing with a throwaway key made by keytool")
+    return { CATALYST_ANDROID_CREDENTIALS: tar.stdout.toString("base64") }
 }
 
 /** Parse a Java .properties file (key=value, backslash escapes). */
@@ -153,19 +214,6 @@ function parseProperties(text) {
     return props
 }
 
-function newestAab(since) {
-    const dir = path.join(appDir, "build-output")
-    if (!fs.existsSync(dir)) return null
-    return (
-        fs
-            .readdirSync(dir)
-            .filter((file) => file.endsWith(".aab"))
-            .map((file) => path.join(dir, file))
-            .filter((file) => fs.statSync(file).mtimeMs >= since)
-            .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0] || null
-    )
-}
-
 function aabProperties(aab) {
     const result = spawnSync("unzip", ["-p", aab, "base/assets/webview_config.properties"], {
         encoding: "utf8",
@@ -174,24 +222,31 @@ function aabProperties(aab) {
     return { text: result.stdout, props: parseProperties(result.stdout) }
 }
 
-async function expectAab(name, webviewConfig, { expectWarning = false } = {}) {
+async function expectAab(name, webviewConfig, { args = ["--release"], expectWarning = false } = {}) {
     console.log(`\n== ${name}: expect a signed AAB`)
     writeConfig(webviewConfig)
-    const started = Date.now() - 1000
-    const { status, output } = await buildApp(["--release", "--build-number", BUILD_NUMBER], {
+    const dir = releaseDir()
+    fs.rmSync(dir, { recursive: true, force: true })
+    const { status, output } = await buildApp(args, {
         ...baseEnv(),
         ...signing,
+        CATALYST_BUILD_NUMBER: BUILD_NUMBER,
     })
     check(status === 0, `${name}: exits 0 (got ${status})`)
-    const warned = output.includes("WEBVIEW_CONFIG.release is not set")
+    const warned = output.includes("is deprecated")
     check(
         warned === expectWarning,
-        `${name}: ${expectWarning ? "prints" : "does not print"} the deprecation warning`
+        `${name}: ${expectWarning ? "prints" : "does not print"} the buildType deprecation warning`
     )
-    const aab = newestAab(started)
-    check(Boolean(aab), `${name}: wrote an .aab to build-output/`)
+    const aab = fs.existsSync(dir) ? fs.readdirSync(dir).find((file) => file.endsWith(".aab")) : null
+    check(Boolean(aab), `${name}: wrote an .aab to ${path.relative(appDir, dir)}/`)
+    check(
+        fs.existsSync(path.join(dir, "upload_certificate.pem")),
+        `${name}: wrote upload_certificate.pem beside the .aab`
+    )
     if (!aab) return
-    const { text, props } = aabProperties(aab)
+    const aabPath = path.join(dir, aab)
+    const { text, props } = aabProperties(aabPath)
     check(props.buildType === "release", `${name}: buildType=release (got ${props.buildType})`)
     check(props.LOCAL_IP === PROD_HOST, `${name}: LOCAL_IP=${PROD_HOST} (got ${props.LOCAL_IP})`)
     check(props.apiBaseUrl === API_BASE_URL, `${name}: apiBaseUrl preserved (got ${props.apiBaseUrl})`)
@@ -200,33 +255,44 @@ async function expectAab(name, webviewConfig, { expectWarning = false } = {}) {
         !leaked,
         `${name}: no private IP in webview_config.properties${leaked ? ` (found ${leaked[0]})` : ""}`
     )
+    const unaligned = reportAlignment(aabPath)
+    check(!unaligned.length, `${name}: every 64-bit native library is 16 KB aligned (#302)`)
 }
 
 let signing = {}
 
 async function checkAndroid() {
-    const android = {
-        buildType: "debug",
-        packageName: "com.catalyst.releasefixture",
-        appName: "ReleaseFixture",
+    const android = { buildType: "debug", appName: "ReleaseFixture" }
+    const dev = {
+        appId: APP_ID,
+        LOCAL_IP: "localhost",
+        port: "3005",
+        apiBaseUrl: API_BASE_URL,
+        android,
     }
-    const dev = { LOCAL_IP: DEV_HOST, port: "3005", apiBaseUrl: API_BASE_URL, android }
 
+    await expectFailure("lan-host", { ...dev, url: `https://${DEV_HOST}` }, ["--release"], "NATIVE-001")
     await expectFailure(
-        "lan-host",
-        { ...dev, release: { ...RELEASE_BLOCK, LOCAL_IP: DEV_HOST } },
-        ["--release", "--build-number", BUILD_NUMBER],
-        "ANDROID-002"
+        "placeholder-app-id",
+        { ...dev, appId: "com.example.releasefixture", url: `https://${PROD_HOST}` },
+        ["--release"],
+        "NATIVE-003"
     )
-    await expectFailure("no-build-number", { ...dev, release: RELEASE_BLOCK }, ["--release"], "ANDROID-003")
 
     signing = signingEnv()
-    await expectAab("release-block", { ...dev, release: RELEASE_BLOCK })
-    // Before 1.1.1 apps pointed LOCAL_IP itself at production: still builds, with a warning.
+    await expectAab("url", { ...dev, url: `https://${PROD_HOST}` })
+    // Apps before 1.3.0 pointed LOCAL_IP itself at production and set
+    // buildType "release": still a release, with a deprecation warning.
     await expectAab(
-        "legacy-no-release-block",
-        { ...dev, LOCAL_IP: PROD_HOST, port: "443", useHttps: true },
-        { expectWarning: true }
+        "legacy-host-and-build-type",
+        {
+            ...dev,
+            LOCAL_IP: PROD_HOST,
+            port: "443",
+            useHttps: true,
+            android: { ...android, buildType: "release" },
+        },
+        { args: [], expectWarning: true }
     )
 }
 
@@ -237,63 +303,89 @@ function plistValue(file, keyPath) {
     return result.status === 0 ? result.stdout.trim() : null
 }
 
+/** The .app's Info.plist from an IPA, copied to a temp file, and the .app's file list. */
+function readIpa(ipa) {
+    const listing = spawnSync("unzip", ["-Z1", ipa], { encoding: "utf8" })
+    if (listing.status !== 0) throw new Error(`unzip could not list ${ipa}`)
+    const entries = listing.stdout.split("\n").filter(Boolean)
+    const infoEntry = entries.find((entry) => /^Payload\/[^/]+\.app\/Info\.plist$/.test(entry))
+    if (!infoEntry) throw new Error(`${ipa} has no Payload/<name>.app/Info.plist`)
+    const appPrefix = infoEntry.slice(0, -"Info.plist".length)
+    const plist = spawnSync("unzip", ["-p", ipa, infoEntry])
+    if (plist.status !== 0) throw new Error(`unzip could not read ${infoEntry} from ${ipa}`)
+    const infoPath = path.join(tempDir("catalyst-ios-ipa-"), "Info.plist")
+    fs.writeFileSync(infoPath, plist.stdout)
+    const files = entries
+        .filter((entry) => entry.startsWith(appPrefix))
+        .map((entry) => entry.slice(appPrefix.length))
+    return { infoPath, files }
+}
+
 async function checkIos() {
-    const ios = {
-        buildType: "debug",
-        appBundleId: "com.catalyst.releasefixture",
+    const ios = { buildType: "debug" }
+    const dev = {
+        appId: APP_ID,
         appName: "Release Fixture",
-        version: { major: 2, minor: 5, patch: 0 },
+        LOCAL_IP: "localhost",
+        port: "3005",
+        apiBaseUrl: API_BASE_URL,
+        ios,
     }
-    const dev = { LOCAL_IP: DEV_HOST, port: "3005", apiBaseUrl: API_BASE_URL, ios }
 
+    // These fail while the config is resolved, before anything is signed.
+    await expectFailure("lan-host", { ...dev, url: `https://${DEV_HOST}` }, ["--release"], "NATIVE-001")
     await expectFailure(
-        "lan-host",
-        { ...dev, release: { ...RELEASE_BLOCK, LOCAL_IP: DEV_HOST } },
-        ["--release", "--no-sign", "--build-number", BUILD_NUMBER],
-        "IOS-007"
+        "placeholder-app-id",
+        { ...dev, appId: "com.example.releasefixture", url: `https://${PROD_HOST}` },
+        ["--release"],
+        "NATIVE-003"
     )
-    await expectFailure(
-        "no-build-number",
-        { ...dev, release: RELEASE_BLOCK },
-        ["--release", "--no-sign"],
-        "IOS-008"
-    )
+    await expectFailure("no-signing-team", { ...dev, url: `https://${PROD_HOST}` }, ["--release"], "IOS-010")
 
-    console.log("\n== release-block: expect an unsigned archive")
-    writeConfig({ ...dev, release: RELEASE_BLOCK })
-    const archive = path.join(
-        outputRoot,
-        "native",
-        "ios",
-        `2.5.0-${BUILD_NUMBER}`,
-        "Release-Fixture.xcarchive"
-    )
-    fs.rmSync(archive, { recursive: true, force: true })
-    const { status } = await buildApp(["--release", "--no-sign", "--build-number", BUILD_NUMBER], baseEnv())
-    check(status === 0, `release-block: exits 0 (got ${status})`)
-    check(fs.existsSync(archive), `release-block: archive at ${path.relative(appDir, archive)}`)
-    if (!fs.existsSync(archive)) return
-
-    const info = path.join(archive, "Info.plist")
-    const build = plistValue(info, "ApplicationProperties.CFBundleVersion")
-    const version = plistValue(info, "ApplicationProperties.CFBundleShortVersionString")
-    check(build === BUILD_NUMBER, `release-block: CFBundleVersion=${BUILD_NUMBER} (got ${build})`)
-    check(version === "2.5.0", `release-block: CFBundleShortVersionString=2.5.0 (got ${version})`)
-    const bundleId = plistValue(info, "ApplicationProperties.CFBundleIdentifier")
-    check(
-        bundleId === ios.appBundleId,
-        `release-block: CFBundleIdentifier=${ios.appBundleId} (got ${bundleId})`
-    )
-
-    const appsDir = path.join(archive, "Products", "Applications")
-    const app = fs.existsSync(appsDir) ? fs.readdirSync(appsDir).find((file) => file.endsWith(".app")) : null
-    check(Boolean(app), "release-block: archive contains an .app")
-    if (app) {
-        check(
-            fs.existsSync(path.join(appsDir, app, "PrivacyInfo.xcprivacy")),
-            `release-block: ${app}/PrivacyInfo.xcprivacy is bundled`
+    const credentials = process.env.CATALYST_IOS_CREDENTIALS
+    const appId = process.env.RELEASE_CHECK_IOS_APP_ID
+    const teamId = process.env.RELEASE_CHECK_IOS_TEAM_ID
+    if (!credentials || !appId) {
+        console.log(
+            "\n== signed-ipa: skipped. A signed IPA needs real signing files: set CATALYST_IOS_CREDENTIALS " +
+                "(catalyst credentials:export ios) and RELEASE_CHECK_IOS_APP_ID (the bundle id they sign for), " +
+                "plus RELEASE_CHECK_IOS_TEAM_ID for cloud signing with an App Store Connect API key."
         )
+        return
     }
+
+    const name = "signed-ipa"
+    console.log(`\n== ${name}: expect a signed IPA`)
+    writeConfig({
+        ...dev,
+        appId,
+        url: `https://${PROD_HOST}`,
+        ios: { ...ios, ...(teamId ? { developmentTeam: teamId } : {}) },
+    })
+    const dir = releaseDir()
+    fs.rmSync(dir, { recursive: true, force: true })
+    const { status } = await buildApp(["--release"], {
+        ...baseEnv(),
+        CATALYST_IOS_CREDENTIALS: credentials,
+        CATALYST_BUILD_NUMBER: BUILD_NUMBER,
+    })
+    check(status === 0, `${name}: exits 0 (got ${status})`)
+    const ipa = fs.existsSync(dir) ? fs.readdirSync(dir).find((file) => file.endsWith(".ipa")) : null
+    check(Boolean(ipa), `${name}: wrote an .ipa to ${path.relative(appDir, dir)}/`)
+    if (!ipa) return
+
+    const { infoPath, files } = readIpa(path.join(dir, ipa))
+    // CFBundleShortVersionString drops a pre-release suffix: 2.5.0-beta.1 ships as 2.5.0.
+    const version = /^\d+(?:\.\d+){0,2}/.exec(appVersion())?.[0]
+    const build = plistValue(infoPath, "CFBundleVersion")
+    const shortVersion = plistValue(infoPath, "CFBundleShortVersionString")
+    const bundleId = plistValue(infoPath, "CFBundleIdentifier")
+    const encryption = plistValue(infoPath, "ITSAppUsesNonExemptEncryption")
+    check(build === BUILD_NUMBER, `${name}: CFBundleVersion=${BUILD_NUMBER} (got ${build})`)
+    check(shortVersion === version, `${name}: CFBundleShortVersionString=${version} (got ${shortVersion})`)
+    check(bundleId === appId, `${name}: CFBundleIdentifier=${appId} (got ${bundleId})`)
+    check(encryption === "false", `${name}: ITSAppUsesNonExemptEncryption=false (got ${encryption})`)
+    check(files.includes("PrivacyInfo.xcprivacy"), `${name}: PrivacyInfo.xcprivacy is bundled`)
 
     const coreRoot = path.dirname(
         spawnSync(process.execPath, ["-p", 'require.resolve("catalyst-core/package.json")'], {
@@ -307,10 +399,10 @@ async function checkIos() {
     )
     const swift = fs.existsSync(constants) ? fs.readFileSync(constants, "utf8") : ""
     const expectedUrl = `public static let url = "https://${PROD_HOST}:443"`
-    check(swift.includes(expectedUrl), `release-block: ConfigConstants has ${expectedUrl}`)
-    check(swift.includes(`apiBaseUrl = "${API_BASE_URL}"`), "release-block: ConfigConstants keeps apiBaseUrl")
+    check(swift.includes(expectedUrl), `${name}: ConfigConstants has ${expectedUrl}`)
+    check(swift.includes(`apiBaseUrl = "${API_BASE_URL}"`), `${name}: ConfigConstants keeps apiBaseUrl`)
     const leaked = swift.match(PRIVATE_IP)
-    check(!leaked, `release-block: no private IP in ConfigConstants${leaked ? ` (found ${leaked[0]})` : ""}`)
+    check(!leaked, `${name}: no private IP in ConfigConstants${leaked ? ` (found ${leaked[0]})` : ""}`)
 }
 
 try {

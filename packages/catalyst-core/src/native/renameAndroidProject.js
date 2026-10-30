@@ -65,6 +65,9 @@ class SimpleProgress {
         console.log(`${_theme.GUTTER}${_theme.t.dim(_theme.glyph.pipe)} ${mark} ${message}`)
     }
 
+    // Gradle's current task; buildApp:android shows it on the spinner's row.
+    status() {}
+
     printTreeContent(title, items) {
         this.ensureHeader()
         console.log(`\n${_theme.GUTTER}${_theme.t.bold(title)}`)
@@ -81,7 +84,57 @@ class SimpleProgress {
     }
 }
 
-const progress = new SimpleProgress("Android AAB Builder")
+// Run on its own, this script prints every step and detail line itself.
+// buildApp:android passes its progress instead (buildAndroidAAB's `progress`
+// option): the steps and details then ride on its "Build signed AAB" spinner
+// like the rest of buildApp, printed as lines only with --verbose/--debug,
+// while warnings and errors still print.
+let progress = new SimpleProgress("Android AAB Builder")
+
+const STEP_DETAILS = {
+    config: "reading the configuration",
+    validation: "checking the Android project",
+    backup: "backing up the project",
+    createTempDeployment: "copying the project to a build folder",
+    updateFileContents: "applying the app id and name",
+    createSignedAAB: "running Gradle",
+    finalizeAAB: "saving the AAB",
+}
+
+/**
+ * This script's progress calls, reported through a TerminalProgress that
+ * already has a step running. `info` and `success` become spinner detail
+ * (lines under --verbose), warnings and errors print. No summary box and no
+ * failure line: the caller prints its own summary and diagnostic.
+ */
+function nestedProgress(outer) {
+    return {
+        currentStep: null,
+        start(stepId) {
+            this.currentStep = { id: stepId }
+            outer.log(STEP_DETAILS[stepId] || stepId, "info")
+        },
+        complete() {
+            this.currentStep = null
+        },
+        fail() {
+            this.currentStep = null
+        },
+        log(message, type = "info") {
+            outer.log(message, type)
+        },
+        status(detail) {
+            outer.status(detail)
+        },
+        printTreeContent() {},
+    }
+}
+
+/** "> Task :app:bundleRelease" becomes "app:bundleRelease"; null otherwise. */
+function gradleTask(line) {
+    const match = /^>\s*Task\s+:(\S+)/.exec(String(line).trim())
+    return match ? match[1] : null
+}
 
 /**
  * Generate the release webview config and build the signed bundle inside the
@@ -115,7 +168,11 @@ async function createSignedAAB(projectPaths, androidConfig) {
             gradlewPath,
             args,
             {},
-            { env: gradle.env, cwd: absoluteProjectPath }
+            {
+                env: gradle.env,
+                cwd: absoluteProjectPath,
+                onLine: (line) => progress.status(gradleTask(line)),
+            }
         )
 
     progress.log("Generating the release webview configuration...", "info")
@@ -438,7 +495,8 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
     progress.log("Creating temporary deployment project...", "info")
 
     // Create a temporary directory based on package name (if available) or timestamp
-    const tempDirSuffix = packageName ? packageName.replace(/\./g, "_") : Date.now().toString()
+    // Only [A-Za-z0-9_] in the name: the path reaches shell commands below.
+    const tempDirSuffix = packageName ? packageName.replace(/[^A-Za-z0-9_]/g, "_") : Date.now().toString()
     const tempDir = _path.default.join(_path.default.dirname(oldProjectPath), `temp_build_${tempDirSuffix}`)
 
     // Remove existing temp directory with same name if it exists
@@ -494,10 +552,12 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
             { path: "app/src/main/AndroidManifest.xml", desc: "Android manifest" },
         ]
 
+        // Both the Groovy and the Kotlin DSL names are listed, so one of each
+        // pair is always absent: info, not a warning.
         filesToCheck.forEach((file) => {
             const fullPath = _path.default.join(tempDir, file.path)
             const exists = _fs.default.existsSync(fullPath)
-            progress.log(`  ${file.desc}: ${exists ? "found" : "not found"}`, exists ? "info" : "warning")
+            progress.log(`  ${file.desc}: ${exists ? "found" : "not found"}`, "info")
         })
 
         // List all files in temp directory for debugging
@@ -531,7 +591,8 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
             for (const dir of dirsToRename) {
                 const newDirName = dir.split(oldProjectName).join(newProjectName)
                 if (dir !== newDirName) {
-                    ;(0, _utils.runCommand)(`mv "${dir}" "${newDirName}"`)
+                    // fs, not a shell: newProjectName comes from the app's config.
+                    _fs.default.renameSync(dir, newDirName)
                     progress.log(
                         `Renamed subdirectory: ${_path.default.basename(dir)} → ${_path.default.basename(newDirName)}`,
                         "success"
@@ -553,22 +614,26 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
     progress.log("Finalizing AAB and cleaning up temporary files...", "info")
 
     try {
-        // Create final output directory next to original project
-        const outputDir =
-            androidConfig.outputPath ||
-            _path.default.join(_path.default.dirname(oldProjectPath), "build-output")
+        // buildApp:android passes the exact destination
+        // (build-output/android/<version>-<build>/<name>.aab). Run on its
+        // own, this script keeps its dated name in the output folder.
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0]
+        const finalAabPath =
+            androidConfig.finalAabPath ||
+            _path.default.join(
+                androidConfig.outputPath ||
+                    _path.default.join(_path.default.dirname(oldProjectPath), "build-output"),
+                `${androidConfig.newProjectName}-release-${timestamp}.aab`
+            )
+        const outputDir = _path.default.dirname(finalAabPath)
+        const finalAabName = _path.default.basename(finalAabPath)
         if (!_fs.default.existsSync(outputDir)) {
             _fs.default.mkdirSync(outputDir, { recursive: true })
             progress.log(`Created output directory: ${outputDir}`, "success")
         }
 
-        // Copy AAB to final location with descriptive name
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0]
-        const finalAabName = `${androidConfig.newProjectName}-release-${timestamp}.aab`
-        const finalAabPath = _path.default.join(outputDir, finalAabName)
-
         _fs.default.copyFileSync(aabResult.outputAabPath, finalAabPath)
-        progress.log(`AAB saved to: ${finalAabPath}`, "note")
+        progress.log(`AAB saved to: ${finalAabPath}`, "success")
 
         // Clean up temporary deployment directory
         await cleanupTempDeployment(tempDeploymentPath)
@@ -662,7 +727,8 @@ async function updateFileContents(projectPaths, androidConfig) {
                         _fs.default.mkdirSync(newPackageDir, { recursive: true })
 
                         // Move source files
-                        ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                        // fs, not a shell: the path is built from the app id.
+                        _fs.default.renameSync(oldPackagePath, newPackagePath)
                         progress.log(`Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
                     } else {
                         progress.log(
@@ -672,11 +738,10 @@ async function updateFileContents(projectPaths, androidConfig) {
                     }
 
                     // Update package declarations in source files
-                    const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
-                    const sourceFiles = (0, _utils.runCommand)(findCommand)
-                        .trim()
-                        .split("\n")
-                        .filter((f) => f.trim())
+                    const sourceFiles = _fs.default
+                        .readdirSync(newPackagePath, { recursive: true, withFileTypes: true })
+                        .filter((entry) => entry.isFile() && /\.(kt|java)$/.test(entry.name))
+                        .map((entry) => _path.default.join(entry.parentPath || entry.path, entry.name))
 
                     let updatedCount = 0
                     for (const file of sourceFiles) {
@@ -750,7 +815,7 @@ async function updateFileContents(projectPaths, androidConfig) {
             for (const file of filesToRename) {
                 const newFileName = file.split(oldProjectName).join(newProjectName)
                 if (file !== newFileName) {
-                    ;(0, _utils.runCommand)(`mv "${file}" "${newFileName}"`)
+                    _fs.default.renameSync(file, newFileName)
                     progress.log(
                         `Renamed file: ${_path.default.basename(file)} → ${_path.default.basename(newFileName)}`,
                         "success"
@@ -816,7 +881,24 @@ async function updateFileContents(projectPaths, androidConfig) {
     }
 }
 
-async function buildAndroidAAB(configPathOrConfig) {
+/**
+ * Build the signed AAB in a renamed temp copy of the Android project.
+ *
+ * @param {string | object} configPathOrConfig - a config.json path, or the config object buildApp:android builds
+ * @param {object} [options]
+ * @param {object} [options.progress] - the caller's TerminalProgress, with a step running; see nestedProgress
+ */
+async function buildAndroidAAB(configPathOrConfig, { progress: outer } = {}) {
+    const previous = progress
+    if (outer) progress = nestedProgress(outer)
+    try {
+        return await runAABBuild(configPathOrConfig)
+    } finally {
+        progress = previous
+    }
+}
+
+async function runAABBuild(configPathOrConfig) {
     let androidConfig
     let projectPaths
     let backupPath
@@ -885,7 +967,7 @@ async function buildAndroidAAB(configPathOrConfig) {
         aabResult = await finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tempDeploymentPath)
         progress.complete("finalizeAAB")
 
-        // Print completion summary
+        // Completion summary, standalone only: buildApp:android prints its own.
         progress.printTreeContent("Build Summary", [
             "Android AAB build completed successfully:",
             {

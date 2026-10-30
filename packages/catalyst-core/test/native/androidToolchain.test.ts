@@ -8,14 +8,18 @@ import {
     AVD_NAME,
     CMDLINE_TOOLS,
     applyJavaHome,
+    cleanSdkTemp,
     cmdlineToolsArchive,
     ensureAndroidSdk,
     ensureJava,
+    halfInstalledPaths,
     installCmdlineTools,
+    installSdkPackages,
     missingAndroidPackages,
     parseJavaMajor,
     requiredAndroidPackages,
     resolveJavaHome,
+    resolveSdkPath,
     systemImageFor,
 } from "../../src/native/androidToolchain.js"
 
@@ -83,7 +87,55 @@ describe("Java resolution", () => {
             onSkip: (candidate) => skipped.push(candidate),
         })
         expect(java).toEqual({ home: "/jdks/zulu-17/Contents/Home", version: 17, source: "java_home" })
-        expect(skipped).toEqual(["/old/jdk"])
+        expect(skipped[0]).toBe("/old/jdk")
+    })
+
+    it("skips a JDK newer than 23 with a reason, and prefers 21 over 17", () => {
+        const skipped: Array<[string, string]> = []
+        const versions: Record<string, string> = {
+            "/jdk25/bin/java": 'openjdk version "25" 2025-09-16',
+            "/jdk17/bin/java": 'openjdk version "17.0.12"',
+            "/jdk21/bin/java": 'openjdk version "21.0.4"',
+        }
+        const run = (command: string, args: string[]) => {
+            if (command === "/usr/libexec/java_home") {
+                return { "21": "/jdk21\n", "17": "/jdk17\n", "17+": "/jdk25\n" }[args[1]] ?? null
+            }
+            return versions[command] ?? null
+        }
+        const java = resolveJavaHome({
+            env: { JAVA_HOME: "/jdk25" },
+            platform: "darwin",
+            run,
+            exists: (file) => file in versions,
+            onSkip: (candidate, reason) => skipped.push([candidate, reason]),
+        })
+        expect(java).toEqual({ home: "/jdk21", version: 21, source: "java_home" })
+        expect(skipped).toEqual([["/jdk25", expect.stringContaining("newer than Gradle 8.13 supports")]])
+    })
+
+    it("takes 17 over another in-range JDK, and nothing when only 24+ is installed", () => {
+        const versions: Record<string, string> = {
+            "/jdk22/bin/java": 'openjdk version "22.0.1"',
+            "/jdk17/bin/java": 'openjdk version "17.0.12"',
+        }
+        const pick = (javaHome: string, others: string[]) =>
+            resolveJavaHome({
+                env: { JAVA_HOME: javaHome },
+                platform: "linux",
+                run: (command: string) =>
+                    command === "sh" ? `${others[0] || ""}/bin/java` : (versions[command] ?? null),
+                exists: (file) => file in versions,
+            })
+        expect(pick("/jdk22", ["/jdk17"])).toMatchObject({ home: "/jdk17", version: 17 })
+        expect(
+            resolveJavaHome({
+                env: { JAVA_HOME: "/jdk24" },
+                platform: "linux",
+                run: () => 'openjdk version "24"',
+                exists: (file) => file === "/jdk24/bin/java",
+            })
+        ).toBeNull()
     })
 
     it("uses Android Studio's bundled JBR when nothing else is there", () => {
@@ -111,18 +163,52 @@ describe("Java resolution", () => {
         expect(env.PATH.split(path.delimiter)).toEqual([path.join("/jdk", "bin"), "/usr/bin", "/bin"])
     })
 
-    it("fails with ANDROID-007 without a terminal, and never installs", async () => {
+    it("fails with NATIVE-005 naming --yes without a terminal, and never installs", async () => {
         const installs: string[][] = []
         const error = await rejection(
             ensureJava({
                 platform: "darwin",
                 isTTY: false,
+                hasCommand: () => true,
                 resolve: () => null,
                 runInherited: async (_command: string, args: string[]) => void installs.push(args),
             })
         )
-        expect(error.code).toBe("ANDROID-007")
+        expect(error.code).toBe("NATIVE-005")
+        expect(error.message).toContain("--yes")
         expect(installs).toEqual([])
+    })
+
+    it("installs with --yes and no terminal", async () => {
+        let installed = false
+        const java = await ensureJava({
+            platform: "darwin",
+            flags: { yes: true },
+            isTTY: false,
+            hasCommand: () => true,
+            resolve: () => (installed ? { home: "/zulu", version: 17, source: "java_home" } : null),
+            runInherited: async () => {
+                installed = true
+            },
+        })
+        expect(java.home).toBe("/zulu")
+    })
+
+    it("fails with ANDROID-007 when the install is declined or Homebrew is missing", async () => {
+        const declined = await rejection(
+            ensureJava({
+                platform: "darwin",
+                isTTY: true,
+                hasCommand: () => true,
+                ask: async () => false,
+                resolve: () => null,
+            })
+        )
+        expect(declined.code).toBe("ANDROID-007")
+        const noBrew = await rejection(
+            ensureJava({ platform: "darwin", isTTY: true, hasCommand: () => false, resolve: () => null })
+        )
+        expect(noBrew.code).toBe("ANDROID-007")
     })
 
     it("fails with ANDROID-007 on Linux, naming a package to install", async () => {
@@ -138,7 +224,7 @@ describe("Java resolution", () => {
             platform: "darwin",
             isTTY: true,
             hasCommand: () => true,
-            confirm: async () => true,
+            ask: async () => true,
             resolve: () => (installed ? { home: "/zulu", version: 17, source: "java_home" } : null),
             runInherited: async (command: string, args: string[]) => {
                 calls.push([command, ...args])
@@ -166,6 +252,23 @@ describe("SDK packages", () => {
         expect(requiredAndroidPackages({ arch: "x64", withSystemImage: true })).toContain(
             "system-images;android-36;google_apis;x86_64"
         )
+    })
+
+    it("leaves the emulator out for a release or a connected phone", () => {
+        expect(requiredAndroidPackages({ arch: "arm64", withEmulator: false })).toEqual([
+            "platform-tools",
+            "platforms;android-36",
+            "build-tools;36.0.0",
+        ])
+    })
+
+    it("reads the SDK path from config, then the environment, and never prompts", () => {
+        expect(resolveSdkPath({ sdkPath: "/custom/sdk" }, {})).toBe("/custom/sdk")
+        expect(resolveSdkPath({ sdkPath: "~/sdk" }, {})).toBe(path.join(os.homedir(), "sdk"))
+        const home = tempDir()
+        fs.mkdirSync(path.join(home, "platform-tools"))
+        fs.writeFileSync(path.join(home, "platform-tools", "adb"), "")
+        expect(resolveSdkPath({}, { ANDROID_HOME: home })).toBe(home)
     })
 
     it("finds what is missing from package.xml files", () => {
@@ -295,31 +398,32 @@ describe("ensureAndroidSdk", () => {
         expect(result.createdAvd).toBe(false)
     })
 
-    it("fails with ANDROID-008 without a terminal or --yes, listing what it would fetch", async () => {
+    it("fails with NATIVE-005 without a terminal or --yes, listing what it would fetch", async () => {
         const sdk = tempDir()
         const { calls, deps } = fakes(sdk)
         const error = await rejection(
             ensureAndroidSdk({ sdkPath: sdk, isTTY: false, arch: "arm64", listAvds: () => [], ...deps })
         )
-        expect(error.code).toBe("ANDROID-008")
+        expect(error.code).toBe("NATIVE-005")
         expect(error.message).toContain("Android command-line tools")
         expect(error.message).toContain(image)
+        expect(error.message).toContain("--yes")
         expect(calls).toEqual([])
     })
 
-    it("fails with ANDROID-008 when the licences are not accepted in CI", async () => {
+    it("fails with NATIVE-005 naming --accept-licenses when only --yes is given in CI", async () => {
         const sdk = tempDir()
         const error = await rejection(
             ensureAndroidSdk({
                 sdkPath: sdk,
-                yes: true,
+                flags: { yes: true },
                 isTTY: false,
                 arch: "arm64",
                 listAvds: () => [],
                 ...fakes(sdk).deps,
             })
         )
-        expect(error.code).toBe("ANDROID-008")
+        expect(error.code).toBe("NATIVE-005")
         expect(error.message).toContain("--accept-licenses")
     })
 
@@ -328,8 +432,7 @@ describe("ensureAndroidSdk", () => {
         const { calls, deps } = fakes(sdk)
         const result = await ensureAndroidSdk({
             sdkPath: sdk,
-            yes: true,
-            acceptLicenses: true,
+            flags: { yes: true, acceptLicenses: true },
             isTTY: false,
             arch: "arm64",
             listAvds: () => [],
@@ -366,14 +469,15 @@ describe("ensureAndroidSdk", () => {
             emulatorName: "Pixel_7",
             isTTY: true,
             arch: "arm64",
-            confirm: async (question: string) => {
-                questions.push(question)
+            ask: async (kind: string) => {
+                questions.push(kind)
                 return true
             },
             listAvds: () => ["Pixel_7"],
             ...deps,
         })
-        expect(questions).toHaveLength(1)
+        // One question for the download, one for the licences sdkmanager then shows.
+        expect(questions).toEqual(["install", "licence"])
         expect(result).toMatchObject({
             emulatorName: "Pixel_7",
             installed: ["build-tools;36.0.0"],
@@ -389,12 +493,45 @@ describe("ensureAndroidSdk", () => {
                 sdkPath: sdk,
                 isTTY: true,
                 arch: "arm64",
-                confirm: async () => false,
+                ask: async () => false,
                 listAvds: () => [],
                 ...fakes(sdk).deps,
             })
         )
         expect(error.code).toBe("ANDROID-008")
+    })
+
+    it("needs no emulator or AVD for a release or a connected phone", async () => {
+        const sdk = tempDir()
+        installPackages(sdk, ["platform-tools", "platforms;android-36", "build-tools;36.0.0"])
+        const { calls, deps } = fakes(sdk)
+        const result = await ensureAndroidSdk({
+            sdkPath: sdk,
+            needEmulator: false,
+            isTTY: false,
+            arch: "arm64",
+            ...deps,
+            listAvds: () => [],
+        })
+        expect(result).toEqual({ sdkPath: sdk, emulatorName: null, installed: [], createdAvd: false })
+        expect(calls).toEqual([])
+    })
+
+    it("reuses the last AVD before any other, without asking", async () => {
+        const sdk = tempDir()
+        installPackages(sdk, base)
+        const result = await ensureAndroidSdk({
+            sdkPath: sdk,
+            preferredAvd: "Tablet",
+            isTTY: true,
+            arch: "arm64",
+            ask: async () => {
+                throw new Error("should not ask")
+            },
+            listAvds: () => ["Phone", "Tablet"],
+            ...fakes(sdk).deps,
+        })
+        expect(result.emulatorName).toBe("Tablet")
     })
 
     it("replaces a configured AVD that does not exist with catalyst-api36", async () => {
@@ -405,7 +542,7 @@ describe("ensureAndroidSdk", () => {
         const result = await ensureAndroidSdk({
             sdkPath: sdk,
             emulatorName: "Gone_Phone",
-            yes: true,
+            flags: { yes: true },
             isTTY: false,
             arch: "arm64",
             listAvds: () => [],
@@ -414,5 +551,79 @@ describe("ensureAndroidSdk", () => {
         })
         expect(result).toMatchObject({ emulatorName: AVD_NAME, createdAvd: true, installed: [] })
         expect(logs.some((line) => line.includes('"Gone_Phone" does not exist'))).toBe(true)
+    })
+})
+
+describe("sdkmanager recovery (#301)", () => {
+    it("removes stale partial downloads under <sdk>/.temp", () => {
+        const sdk = tempDir()
+        fs.mkdirSync(path.join(sdk, ".temp", "PackageOperation01"), { recursive: true })
+        fs.writeFileSync(path.join(sdk, ".temp", "PackageOperation01", "emulator.zip"), "partial")
+        const logs: string[] = []
+        expect(cleanSdkTemp(sdk, { log: (message: string) => logs.push(message) })).toEqual([
+            "PackageOperation01",
+        ])
+        expect(fs.readdirSync(path.join(sdk, ".temp"))).toEqual([])
+        expect(logs).toHaveLength(1)
+        expect(cleanSdkTemp(tempDir())).toEqual([])
+    })
+
+    it("finds half-installed folders, and only package folders inside the SDK", () => {
+        const sdk = tempDir()
+        installPackages(sdk, ["platforms;android-36"])
+        fs.mkdirSync(path.join(sdk, "emulator"))
+        const output = [
+            `Warning: java.nio.file.FileAlreadyExistsException: ${path.join(sdk, "build-tools", "36.0.0")}`,
+            `java.nio.file.FileAlreadyExistsException: ${path.join(sdk, "platforms")}`,
+            "java.nio.file.FileAlreadyExistsException: /etc",
+        ].join("\n")
+        const ids = ["emulator", "platforms;android-36", "build-tools;36.0.0"]
+        expect(halfInstalledPaths(sdk, ids, output).sort()).toEqual(
+            [path.join(sdk, "build-tools", "36.0.0"), path.join(sdk, "emulator")].sort()
+        )
+    })
+
+    it("cleans a half-installed package after FileAlreadyExistsException and retries once", async () => {
+        const sdk = tempDir()
+        let runs = 0
+        await installSdkPackages(sdk, ["emulator"], async () => {
+            runs++
+            fs.mkdirSync(path.join(sdk, ".temp", `op${runs}`), { recursive: true })
+            if (runs === 1) {
+                fs.mkdirSync(path.join(sdk, "emulator", "lib"), { recursive: true })
+                throw Object.assign(new Error("exit 1"), {
+                    output: `java.nio.file.FileAlreadyExistsException: ${path.join(sdk, "emulator", "lib")}`,
+                })
+            }
+            expect(fs.existsSync(path.join(sdk, "emulator"))).toBe(false)
+            installPackages(sdk, ["emulator"])
+            return ""
+        })
+        expect(runs).toBe(2)
+        expect(fs.readdirSync(path.join(sdk, ".temp"))).toEqual(["op2"])
+    })
+
+    it("retries only once, and not at all for an unrelated failure", async () => {
+        const sdk = tempDir()
+        let runs = 0
+        const stuck = await rejection(
+            installSdkPackages(sdk, ["emulator"], async () => {
+                runs++
+                fs.mkdirSync(path.join(sdk, "emulator"), { recursive: true })
+                return "Warning: java.nio.file.FileAlreadyExistsException"
+            })
+        )
+        expect(runs).toBe(2)
+        expect(stuck.message).toContain("did not install emulator")
+
+        runs = 0
+        const network = await rejection(
+            installSdkPackages(tempDir(), ["emulator"], async () => {
+                runs++
+                throw Object.assign(new Error("exit 1"), { output: "Failed to download" })
+            })
+        )
+        expect(runs).toBe(1)
+        expect(network.message).toBe("exit 1")
     })
 })

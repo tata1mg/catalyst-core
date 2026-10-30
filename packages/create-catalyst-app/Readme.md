@@ -23,18 +23,6 @@ Next, select your preferred state management tool from the provided options.
 
 Following your selection, a default template will be cloned into the directory, and all necessary packages will be installed.
 
-## Native apps
-
-The last question, "Native platforms", sets the app up for Android, iOS or both. You then give an app id, which becomes the Android package name and the iOS bundle id. The app gets the native entries in `config/config.json` (including a `release` block whose placeholder host you replace with your production host), a placeholder `public/icon.png`, `credentials/` in `.gitignore`, and `.github/workflows/catalyst-native.yml` for release builds in GitHub Actions.
-
-Without prompts:
-
-```bash
-npx create-catalyst-app@latest my-app --yes --native both --app-id com.yourcompany.myapp
-```
-
-`--native` takes `none`, `android`, `ios` or `both`. `--yes` alone creates a web-only app.
-
 ## Getting Started
 
 Commence development by initiating the application in development mode with the following commands:
@@ -62,6 +50,19 @@ To serve the production build, execute:
 ```bash
 npm run serve
 ```
+
+## Android and iOS
+
+Every app is ready to run as a native app. `config/config.json` gets `WEBVIEW_CONFIG.appId` (`com.example.<project name>`) and `appName` from the project name, and the app gets a placeholder `public/icon.png`.
+
+```bash
+npm run android          # run on an Android emulator or connected phone
+npm run ios              # run on an iOS simulator or connected iPhone (macOS)
+npm run android:release  # signed App Bundle for Google Play
+npm run ios:release      # signed IPA for App Store Connect
+```
+
+The first run installs what is missing after asking. Before a release, replace the `com.example.` app id with your own and set `WEBVIEW_CONFIG.url` to your deployed site. See [Universal App Deployment](https://catalyst.1mg.com/content/Deployment/universal-app-deployment).
 
 ## Documentation
 

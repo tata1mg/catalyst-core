@@ -6,7 +6,7 @@ id: android-emulator-setup
 
 # Android Emulator Setup
 
-One command sets up everything an Android build needs: a JDK, the Android SDK packages and an emulator. Android Studio is not required. If you already have it, Catalyst reuses its SDK, its bundled JDK and your existing emulators.
+`npm run android` sets up what an Android build needs by itself: a JDK, the Android SDK packages and an emulator. Android Studio is not required. If you already have it, Catalyst reuses its SDK, its bundled JDK and your existing emulators.
 
 ---
 
@@ -14,56 +14,58 @@ One command sets up everything an Android build needs: a JDK, the Android SDK pa
 
 - macOS or Linux
 - About 10 GB of free disk space for the SDK and a system image
-- Homebrew on macOS if you have no JDK 17 yet
+- Homebrew on macOS if you have no JDK yet. On Linux, install a JDK 17 or 21 package (for example `openjdk-17-jdk`) yourself
 
 ---
 
-## Run setup
+## What gets installed
 
-```bash
-npm run setupEmulator:android
-```
+Every `npm run android` and `npm run android:release` checks the toolchain and installs only what is missing. Each install asks first; press Enter to accept the default answer.
 
-The command works through these steps and only downloads what is missing:
-
-1. Java. It looks for JDK 17 or newer in `JAVA_HOME`, then `/usr/libexec/java_home`, then the runtime bundled with Android Studio. On macOS with none found, it offers to run `brew install --cask zulu@17`. Your shell profile is never edited; the JDK is passed to Gradle and the SDK tools directly.
-2. Android SDK. It uses `WEBVIEW_CONFIG.android.sdkPath`, then `ANDROID_HOME`, then `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux). When packages are missing it downloads the Android command-line tools, checks them against their published SHA-256, and installs `platform-tools`, `emulator`, `platforms;android-36` and `build-tools;36.0.0`.
+1. Java. Catalyst looks for JDK 17 to 23 in `JAVA_HOME`, then `/usr/libexec/java_home`, then the runtime bundled with Android Studio, and prefers 21, then 17. A JDK 24 or newer is skipped, because Gradle 8.13 cannot run on it. On macOS with none found, it offers to run `brew install --cask zulu@17`. Your shell profile is never edited; the JDK is passed to Gradle and the SDK tools directly.
+2. Android SDK. It uses `WEBVIEW_CONFIG.android.sdkPath`, then `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux). It never asks for a path and never writes one to `config/config.json`. When packages are missing it downloads the Android command-line tools, checks them against their published SHA-256, and installs `platform-tools`, `platforms;android-36` and `build-tools;36.0.0`, plus `emulator` when the app runs on one.
 3. Licences. The first install shows the Android SDK licences for you to review and accept.
-4. Emulator. An existing emulator is reused. With none, it installs the API 36 Google APIs system image for your CPU (arm64 on Apple silicon, x86_64 elsewhere) and creates `catalyst-api36`, a Pixel 7 profile.
-5. Config. It asks before saving `port`, `buildType`, `sdkPath` and `emulatorName` to `config/config.json`.
-6. It boots the emulator and starts the dev server on your LAN address.
+4. Emulator. An existing emulator is reused: `android.emulatorName` when it is set, else the one you used last, else the first one found. With none, Catalyst installs the API 36 Google APIs system image for your CPU (arm64 on Apple silicon, x86_64 elsewhere, about 1.5 GB) and creates `catalyst-api36` with a Pixel 7 profile.
 
-Everything that downloads, accepts a licence or writes the config asks first. Press Enter to accept the default answer.
+A release build or a run on a connected phone skips the emulator and its system image.
 
 ---
 
-## Run setup in CI
+## Without a terminal
 
-Without a terminal, setup will not download or accept anything on its own. Pass the flags to allow it:
+In CI, or when an agent runs the command, nothing is asked. A step that needs an answer fails at once with [NATIVE-005](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-005.md), and the message names the flag that answers it:
 
 ```bash
-npx catalyst setupEmulator:android --yes --accept-licenses
+npx catalyst buildApp:android --yes --accept-licenses
 ```
 
-- `--yes` allows the downloads, the emulator creation and the config write.
+- `--yes` allows the downloads and installs: the JDK through Homebrew, the SDK packages and the emulator.
 - `--accept-licenses` accepts the Android SDK licences.
 
-Without them a missing piece fails with [ANDROID-008](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-008.md), and a missing JDK with [ANDROID-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md). Release builds do not need an emulator, so CI usually only needs a JDK and the SDK.
+Commands also run without prompts when the `CI` environment variable is set. A declined install fails with [ANDROID-008](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-008.md), and a missing JDK with [ANDROID-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md).
+
+---
+
+## Set up a machine ahead of time
+
+```bash
+npx catalyst setupEmulator:android
+```
+
+`setupEmulator:android` runs the same checks and installs, then starts the emulator. It changes nothing in the app: it does not write `config/config.json` and does not start the dev server. It takes `--yes` and `--accept-licenses` as well. You only need it to prepare a machine before the first build.
 
 ---
 
 ## Configuration
 
-Setup fills these in for you. You can also set them by hand:
+All of these are optional:
 
 ```json
 {
   "WEBVIEW_CONFIG": {
-    "port": "3005",
     "android": {
-      "buildType": "debug",
-      "emulatorName": "catalyst-api36",
-      "sdkPath": "~/Library/Android/sdk"
+      "emulatorName": "Pixel_8_API_36",
+      "sdkPath": "~/Android/Sdk"
     }
   }
 }
@@ -71,22 +73,20 @@ Setup fills these in for you. You can also set them by hand:
 
 | Property | Description |
 |----------|-------------|
-| `port` | Development server port |
-| `buildType` | `debug` or `release` |
-| `emulatorName` | Emulator (AVD) name. If it does not exist, setup creates `catalyst-api36` instead |
-| `sdkPath` | Android SDK location |
+| `emulatorName` | Emulator (AVD) to use. If it does not exist, Catalyst warns and uses another one, or creates `catalyst-api36` |
+| `sdkPath` | Android SDK location, when it is not in one of the places above |
 
 ---
 
 ## Run the app
 
 ```bash
-npm run buildApp:android
+npm run android
 ```
 
-A debug build starts the dev server if it is not already running, boots the emulator if needed, then installs and opens the app.
+This starts the dev server if it is not already running, boots the emulator if needed, then installs and opens the app. [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp) covers connected phones and how the app reaches the dev server.
 
-To set the app icon, add `public/icon.png`: a square PNG of at least 1024x1024 pixels. Per-density icons in `public/android/appIcons` take precedence when present.
+To set the app icon, replace `public/icon.png` with a square PNG of at least 1024x1024 pixels. Per-density icons in `public/android/appIcons` take precedence when present.
 
 ---
 
@@ -94,7 +94,8 @@ To set the app icon, add `public/icon.png`: a square PNG of at least 1024x1024 p
 
 | Issue | Solution |
 |-------|----------|
-| [ANDROID-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md) Java 17 or newer not found | Install JDK 17+ (`brew install --cask zulu@17` or `openjdk-17-jdk`) and set `JAVA_HOME`, or rerun setup in a terminal |
-| [ANDROID-009](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-009.md) command-line tools did not install | Check your network or proxy, then retry |
-| Emulator not found | `emulatorName` is case-sensitive; delete it from the config and rerun setup to pick or create one |
+| [ANDROID-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md) No JDK 17 to 23 found | Install JDK 17 or 21 (`brew install --cask zulu@17` or `openjdk-17-jdk`) and set `JAVA_HOME`, or run again in a terminal or with `--yes` |
+| [ANDROID-008](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-008.md) Android SDK setup was declined | Run again and answer yes, or pass `--yes` and `--accept-licenses` |
+| [ANDROID-009](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-009.md) Command-line tools did not install | Check your network or proxy, then retry |
+| [ANDROID-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-011.md) No Android phone connected | Turn on USB debugging, accept the prompt on the phone and check `adb devices`, or drop `--device` |
 | Slow first boot | The first boot of a new emulator takes a few minutes |

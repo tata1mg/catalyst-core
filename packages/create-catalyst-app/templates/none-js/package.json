@@ -12,7 +12,11 @@
         "buildApp:android": "catalyst buildApp:android",
         "setupEmulator": "catalyst setupEmulator",
         "setupEmulator:ios": "catalyst setupEmulator:ios",
-        "setupEmulator:android": "catalyst setupEmulator:android"
+        "setupEmulator:android": "catalyst setupEmulator:android",
+        "android": "catalyst buildApp:android",
+        "ios": "catalyst buildApp:ios",
+        "android:release": "catalyst buildApp:android --release",
+        "ios:release": "catalyst buildApp:ios --release"
     },
     "_moduleAliases": {
         "@api": "api.js",

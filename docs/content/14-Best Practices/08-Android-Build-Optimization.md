@@ -15,8 +15,7 @@ Android build optimization preloads selected static assets from device storage t
   "WEBVIEW_CONFIG": {
     "android": {
       "buildOptimisation": true,
-      "cachePattern": "*.png,*.jpg,*.css,*.js",
-      "buildType": "release"
+      "cachePattern": "*.png,*.jpg,*.css,*.js"
     }
   }
 }
@@ -45,9 +44,9 @@ Be conservative. Over-caching low-value assets increases package size and can ma
 
 ## Release Checklist
 
-- add the production host to `WEBVIEW_CONFIG.release`
-- back up the upload key in `credentials/android/`, or set the `CATALYST_ANDROID_*` signing variables in CI
-- run `catalyst build` before the Android release build (`buildApp:android --release --build-number <n>`)
+- set `WEBVIEW_CONFIG.url` to the production address
+- back up the upload key with `npx catalyst credentials:export android`; the same value is the `CATALYST_ANDROID_CREDENTIALS` CI secret
+- run `catalyst build` before the Android release build (`npm run android:release`)
 - verify AAB size impact after changing cache patterns
 - test cold start performance on a real device, not just an emulator
 
@@ -61,7 +60,7 @@ Be conservative. Over-caching low-value assets increases package size and can ma
 
 - enabling it in debug flows and expecting HMR-friendly behavior
 - caching too many assets without measuring package growth
-- treating missing keystore config as a late-stage release task
+- leaving the upload key and its backup as a late-stage release task
 - assuming release build success without validating the signed AAB on device
 
 ## Recommendations

@@ -58,25 +58,27 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 
 | Key | Required | Notes |
 |-----|----------|-------|
-| `WEBVIEW_CONFIG.port` | Yes | Port the native WebView should load |
-| `WEBVIEW_CONFIG.LOCAL_IP` | Yes | Use your LAN IP, not `localhost` |
+| `WEBVIEW_CONFIG.appId` | Yes for release | Android application id and iOS bundle id. Wins over `android.packageName`, `ios.bundleIdentifier` and `ios.appBundleId` (in that order). Two or more dot-separated parts; for Android each starts with a letter and uses letters, digits and `_` (no Java keywords), for iOS letters, digits and `-` ([NATIVE-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-010.md)). A release refuses `com.example.` ids. Android debug builds add `.debug` |
+| `WEBVIEW_CONFIG.appName` | No | Name under the app icon. Wins over `android.appName` and `ios.appName` |
+| `WEBVIEW_CONFIG.url` | Yes for release | Production origin the release app opens, for example `https://shop.acme.com`. No path; HTTPS only on port 443. Debug builds ignore it and load the dev server. `--url` overrides it for one build |
+| `WEBVIEW_CONFIG.allowPrivateHost` | No | `true` lets a release load a private or local host (internal apps). Defaults to `false` |
+| `WEBVIEW_CONFIG.port` | No | Debug builds load the dev server on `NODE_SERVER_PORT`, and on `port` only when that is not set. Apps without `url` also use it for the release host |
+| `WEBVIEW_CONFIG.LOCAL_IP` | No | Keep it `localhost`. Debug builds work out the dev server address themselves. Apps without `url` still use it, with `port` and `useHttps`, as the release host |
 | `WEBVIEW_CONFIG.appInfo` | Yes | Build identifier used by native tooling |
-| `WEBVIEW_CONFIG.useHttps` | No | Defaults to `false` |
+| `WEBVIEW_CONFIG.useHttps` | No | Defaults to `false`. With `url`, the scheme of `url` decides |
 | `WEBVIEW_CONFIG.profiler.enabled` | No | Enables the debug-only Catalyst Profiler; defaults to `false` |
-| `WEBVIEW_CONFIG.release` | Yes for store builds | Production overrides, deep-merged over `WEBVIEW_CONFIG` for Android and iOS release builds only. Usually sets `LOCAL_IP`, `port`, `useHttps` and `apiBaseUrl`, and can override `android` and `ios` fields |
-| `WEBVIEW_CONFIG.release.allowPrivateHost` | No | `true` lets a release start URL use a private or local host (internal apps). Defaults to `false` |
+
+The app version comes from `package.json`, and the build number from the clock or `CATALYST_BUILD_NUMBER`. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md#version-and-build-number).
 
 ### Android fields
 
 | Key | Required | Notes |
 |-----|----------|-------|
-| `WEBVIEW_CONFIG.android.sdkPath` | Yes | Absolute path to the Android SDK |
-| `WEBVIEW_CONFIG.android.emulatorName` | Yes for debug | Required for emulator-based debug builds |
-| `WEBVIEW_CONFIG.android.buildType` | No | `debug` or `release`. `buildApp:android --release` also builds release |
-| `WEBVIEW_CONFIG.android.packageName` | Yes for release | Application id for release and debug builds (debug adds `.debug`) |
-| `WEBVIEW_CONFIG.android.version` | No | `{ major, minor, patch, buildNumber }`, the same shape as `ios.version`. Without it the version name comes from `package.json` |
-| `WEBVIEW_CONFIG.android.signing.storeFile` | No | Upload keystore path, relative to the app. Defaults to `credentials/android/upload.jks` |
-| `WEBVIEW_CONFIG.android.signing.keyAlias` | No | Upload key alias. Defaults to `upload` |
+| `WEBVIEW_CONFIG.android.sdkPath` | No | Android SDK location. Otherwise `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then the default location |
+| `WEBVIEW_CONFIG.android.emulatorName` | No | Emulator (AVD) for debug builds. Otherwise the last one used, or one Catalyst creates |
+| `WEBVIEW_CONFIG.android.buildType` | No | Deprecated: `release` still builds a release, with a warning. Use `buildApp:android --release` |
+| `WEBVIEW_CONFIG.android.packageName` | No | Application id for apps without `appId` |
+| `WEBVIEW_CONFIG.android.outputPath` | No | Folder for release builds instead of `build-output/android` |
 | `WEBVIEW_CONFIG.android.keystoreConfig.organizationInfo` | No | Certificate details used when Catalyst creates the upload key. Passwords here are no longer used |
 | `WEBVIEW_CONFIG.android.buildOptimisation` | No | Enables Android build optimisation, in release builds too |
 
@@ -84,16 +86,16 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 
 | Key | Required | Notes |
 |-----|----------|-------|
-| `WEBVIEW_CONFIG.ios.appBundleId` | Required for distribution | Set this explicitly for release builds |
-| `WEBVIEW_CONFIG.ios.buildType` | No | `debug` or `release`, in any case. `release` builds the store IPA like `buildApp:ios --release` |
-| `WEBVIEW_CONFIG.ios.version` | No | `{ major, minor, patch, buildNumber }`. Without it the version comes from `package.json` |
-| `WEBVIEW_CONFIG.ios.simulatorName` | No | Used for simulator builds |
-| `WEBVIEW_CONFIG.ios.deviceUDID` | No | For physical device builds |
-| `WEBVIEW_CONFIG.ios.developmentTeam` | Yes for device and release builds | Apple team ID. With no `provisioningProfile`, Xcode signs automatically for this team |
-| `WEBVIEW_CONFIG.ios.provisioningProfile` | No | Profile name for manual signing. Put the App Store profile in `release.ios.provisioningProfile` |
-| `WEBVIEW_CONFIG.ios.ascApiKey` | No | `{ path, keyId, issuerId }` of an App Store Connect API key, so automatic signing works without an Apple account in Xcode. Keep the `.p8` outside the repository |
+| `WEBVIEW_CONFIG.ios.appBundleId` | No | Bundle id for apps without `appId` |
+| `WEBVIEW_CONFIG.ios.buildType` | No | Deprecated: `release` (any case) still builds the store IPA, with a warning. Use `buildApp:ios --release` |
+| `WEBVIEW_CONFIG.ios.simulatorName` | No | Simulator for debug builds. Without it (or when it does not exist) the build uses the last pick, a booted iPhone simulator or the newest one, and creates "Catalyst iPhone" only when there is none |
+| `WEBVIEW_CONFIG.ios.deviceUDID` | No | Which iPhone `--device` uses when several are connected and there is no terminal to ask |
+| `WEBVIEW_CONFIG.ios.developmentTeam` | Yes for iPhone and release builds | Apple team ID. With no `.p12` in `credentials/ios/` and no `provisioningProfile`, Xcode signs automatically for this team |
+| `WEBVIEW_CONFIG.ios.provisioningProfile` | No | Name of an installed profile for manual signing |
 | `WEBVIEW_CONFIG.ios.exportMethod` | No | How the release archive is exported: `app-store-connect` (default), `release-testing`, `enterprise` or `debugging` |
 | `WEBVIEW_CONFIG.ios.cachePattern` | No | Array of glob-style URL patterns (e.g. `["*.css", "*.js"]`) the native WebView cache should match — a single string is treated as one literal pattern, not comma-split; when unset, no pattern-based caching is enabled (offline-route caching can still apply) |
+
+Signing keys and passwords never go in `config.json`. They live in `credentials/android/` and `credentials/ios/`, or in CI in the `CATALYST_ANDROID_CREDENTIALS` and `CATALYST_IOS_CREDENTIALS` secrets.
 
 ## Access Control
 
@@ -141,7 +143,7 @@ When `splashScreen` is set and `public/splashscreen.html` exists, the app shows 
 
 - Missing required top-level config keys cause startup failures.
 - Using `CLIENT_ENV_KEYS` is outdated. The current key is `CLIENT_ENV_VARIABLES`.
-- `ios.buildType` accepts `debug` or `release` in any case. `release` makes `buildApp:ios` build the store IPA instead of running the app.
-- `LOCAL_IP` should be a reachable LAN IP for emulator or device builds. Put the production host in `WEBVIEW_CONFIG.release`.
-- A release build fails when its start URL points at a local or private host, or when it has no build number. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) and [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md).
+- `buildType: "release"` in `android` or `ios` is deprecated. Use the `--release` flag (`npm run android:release`, `npm run ios:release`).
+- Debug builds never need a LAN IP in the config: Android uses `adb reverse` and an iPhone the Mac's `.local` name.
+- A release build fails when `url` points at a local or private host, or when `appId` is a placeholder. See [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) and [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md).
 - `WEBPACK_DEV_SERVER_HOSTNAME`, `WEBPACK_DEV_SERVER_PORT`, and `ANALYZE_BUNDLE` are no longer required or read, so you can delete them or leave them in place.

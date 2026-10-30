@@ -292,19 +292,27 @@ dependencies {
     }
 
     // Security detection dependencies
-    implementation("com.scottyab:rootbeer-lib:0.1.1")  // Root detection
+    // 0.1.2 ships libtoolChecker.so 16 KB aligned on every ABI (0.1.1 did on
+    // 64-bit only). #302; https://github.com/scottyab/rootbeer/releases
+    implementation("com.scottyab:rootbeer-lib:0.1.2")  // Root detection
     implementation("com.google.android.play:integrity:1.3.0")  // Play Integrity API
 
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
-    // CameraX
-    implementation("androidx.camera:camera-core:1.3.4")
-    implementation("androidx.camera:camera-camera2:1.3.4")
-    implementation("androidx.camera:camera-lifecycle:1.3.4")
-    implementation("androidx.camera:camera-view:1.3.4")
+    // CameraX. 1.3.4's libimage_processing_util_jni.so has 4 KB LOAD
+    // segments; 1.4.0-alpha05 and later ship it 16 KB aligned (#302, checked
+    // in the AARs from Google Maven). 1.4.2 is the newest line that needs
+    // neither minSdk 23 nor Kotlin 2 (1.5.0 raised both; see
+    // https://developer.android.com/jetpack/androidx/releases/camera).
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
 
-    // ML Kit Barcode Scanning
+    // ML Kit Barcode Scanning. 17.3.0 is 16 KB aligned on 64-bit ABIs, which
+    // is what Play requires: https://developers.google.com/ml-kit/release-notes
+    // (August 7, 2024).
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // Notification dependencies - conditional based on config
@@ -487,7 +495,7 @@ tasks.register("generateWebViewConfig") {
         val properties = Properties()
 
         // Set different IP based on build type. A release takes LOCAL_IP from
-        // the config (the CLI merges WEBVIEW_CONFIG.release over it first) and
+        // the config (the CLI resolves WEBVIEW_CONFIG.url into it first) and
         // honours android.buildOptimisation instead of forcing it on.
         if (isCatalystReleaseBuild) {
             properties.setProperty("LOCAL_IP", "127.0.0.1") // Overridden by the config's LOCAL_IP
@@ -508,8 +516,6 @@ tasks.register("generateWebViewConfig") {
         
                 while (keys.hasNext()) {
                     val key = keys.next()
-                    // The release override block is merged by the CLI, never shipped as-is.
-                    if (prefix.isEmpty() && key == "release") continue
                     val value = jsonObj.opt(key)
                     val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
                     

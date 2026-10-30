@@ -8,16 +8,23 @@ import {
     listAvds,
     runInteractiveCommand,
     runInheritedCommand,
-    isInteractiveTerminal,
+    isInteractive,
     promptUser,
-    confirm as confirmUser,
+    askConsent,
+    detectAndroidSdk,
+    expandHome,
 } from "./utils.js"
 
 // ---------------------------------------------------------------------------
 // Java
 // ---------------------------------------------------------------------------
 
+// Gradle 8.13 runs on JDK 17 to 23. A newer JDK is skipped, not used: Gradle
+// fails on it with an "Unsupported class file major version" error.
 const MIN_JAVA_MAJOR = 17
+const MAX_JAVA_MAJOR = 23
+// The LTS releases in range, best first.
+const PREFERRED_JAVA_MAJORS = [21, 17]
 
 /** The major version in `java -version` output: "17.0.9" -> 17, "1.8.0_392" -> 8. */
 function parseJavaMajor(output) {
@@ -36,9 +43,11 @@ function defaultRun(command, args) {
 }
 
 /**
- * Where JDK 17+ lives, without touching any shell profile: JAVA_HOME, then
- * macOS's /usr/libexec/java_home, then the JBR bundled with Android Studio,
- * then (off macOS) the `java` on PATH. Each candidate must run and report 17+.
+ * Where a JDK Gradle 8.13 can run on (17 to 23) lives, without touching any
+ * shell profile: JAVA_HOME, then macOS's /usr/libexec/java_home, then the JBR
+ * bundled with Android Studio, then (off macOS) the `java` on PATH. Each
+ * candidate must run and report a version in range; JDK 21 is preferred,
+ * then 17, then any other in range. A JDK 24 or newer is skipped.
  *
  * @param {object} [options]
  * @param {NodeJS.ProcessEnv} [options.env]
@@ -57,24 +66,28 @@ function resolveJavaHome({
 } = {}) {
     const home = os.homedir()
     const candidates = []
-    if (env.JAVA_HOME) candidates.push([env.JAVA_HOME, "JAVA_HOME"])
+    const add = (dir, source) => {
+        if (dir && !candidates.some(([known]) => known === dir)) candidates.push([dir, source])
+    }
+    if (env.JAVA_HOME) add(env.JAVA_HOME, "JAVA_HOME")
     if (platform === "darwin") {
-        const found = run("/usr/libexec/java_home", ["-v", `${MIN_JAVA_MAJOR}+`])
-        if (found && found.trim()) candidates.push([found.trim().split("\n")[0], "java_home"])
-        candidates.push(
-            ["/Applications/Android Studio.app/Contents/jbr/Contents/Home", "Android Studio"],
-            [path.join(home, "Applications/Android Studio.app/Contents/jbr/Contents/Home"), "Android Studio"]
-        )
+        // Ask for the preferred majors by name: a bare `-v 17+` answers with
+        // the newest JDK, which may be one Gradle cannot use.
+        for (const version of [...PREFERRED_JAVA_MAJORS.map(String), `${MIN_JAVA_MAJOR}+`]) {
+            const found = run("/usr/libexec/java_home", ["-v", version])
+            if (found && found.trim()) add(found.trim().split("\n")[0], "java_home")
+        }
+        add("/Applications/Android Studio.app/Contents/jbr/Contents/Home", "Android Studio")
+        add(path.join(home, "Applications/Android Studio.app/Contents/jbr/Contents/Home"), "Android Studio")
     } else if (platform === "linux") {
-        candidates.push(
-            ["/opt/android-studio/jbr", "Android Studio"],
-            [path.join(home, "android-studio", "jbr"), "Android Studio"]
-        )
+        add("/opt/android-studio/jbr", "Android Studio")
+        add(path.join(home, "android-studio", "jbr"), "Android Studio")
         const java = run("sh", ["-c", 'readlink -f "$(command -v java)"'])
-        if (java && java.trim()) candidates.push([path.dirname(path.dirname(java.trim())), "PATH"])
+        if (java && java.trim()) add(path.dirname(path.dirname(java.trim())), "PATH")
     }
 
     const exe = platform === "win32" ? "java.exe" : "java"
+    const usable = []
     for (const [candidate, source] of candidates) {
         const bin = path.join(candidate, "bin", exe)
         if (!exists(bin)) {
@@ -82,10 +95,26 @@ function resolveJavaHome({
             continue
         }
         const version = parseJavaMajor(run(bin, ["-version"]))
-        if (version && version >= MIN_JAVA_MAJOR) return { home: candidate, version, source }
-        onSkip(candidate, version ? `is Java ${version}` : "did not run")
+        if (!version) {
+            onSkip(candidate, "did not run")
+        } else if (version < MIN_JAVA_MAJOR) {
+            onSkip(candidate, `is Java ${version}, older than ${MIN_JAVA_MAJOR}`)
+        } else if (version > MAX_JAVA_MAJOR) {
+            onSkip(
+                candidate,
+                `is Java ${version}, newer than Gradle 8.13 supports (${MIN_JAVA_MAJOR} to ${MAX_JAVA_MAJOR})`
+            )
+        } else {
+            const java = { home: candidate, version, source }
+            if (version === PREFERRED_JAVA_MAJORS[0]) return java
+            usable.push(java)
+        }
     }
-    return null
+    for (const major of PREFERRED_JAVA_MAJORS) {
+        const match = usable.find((java) => java.version === major)
+        if (match) return match
+    }
+    return usable[0] || null
 }
 
 /** Point this process (and so every child it spawns) at a JDK. No profile is edited. */
@@ -100,13 +129,29 @@ function applyJavaHome(java, env = process.env) {
 }
 
 /**
- * Find JDK 17+, or install Zulu 17 with Homebrew after a terminal confirm.
- * Without a terminal (or on Linux) this is ANDROID-007.
+ * Find a usable JDK (17 to 23), or install Zulu 17 with Homebrew once the
+ * install is agreed to (a terminal yes, or `--yes`). Without a terminal and
+ * without `--yes` the question fails with NATIVE-005; off macOS, without
+ * Homebrew, or when declined it is ANDROID-007.
+ *
+ * @param {object} [options]
+ * @param {string} [options.platform]
+ * @param {{ yes?: boolean }} [options.flags] - from parseNativeArgs
+ * @param {boolean} [options.isTTY]
+ * @param {(kind: "install" | "licence" | "key", question: string, options?: object) => Promise<boolean>} [options.ask]
+ * @param {(question: string, options?: object) => Promise<string>} [options.prompt]
+ * @param {(command: string, args: string[]) => Promise<void>} [options.runInherited]
+ * @param {(options: { onSkip: (candidate: string, reason: string) => void }) => { home: string, version: number, source: string } | null} [options.resolve]
+ * @param {(name: string) => boolean} [options.hasCommand]
+ * @param {(message: string, type?: string) => void} [options.log]
+ * @returns {Promise<{ home: string, version: number, source: string }>}
  */
 async function ensureJava({
     platform = process.platform,
-    isTTY = isInteractiveTerminal(),
-    confirm = confirmUser,
+    flags = {},
+    isTTY,
+    ask = askConsent,
+    prompt = promptUser,
     runInherited = runInheritedCommand,
     resolve = resolveJavaHome,
     hasCommand = (name) => defaultRun("sh", ["-c", `command -v ${name}`]) !== null,
@@ -119,18 +164,21 @@ async function ensureJava({
     if (platform !== "darwin") {
         throw nativeError(
             "ANDROID-007",
-            "install a JDK 17+ (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
+            "install a JDK 17 or 21 (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
         )
     }
-    if (!isTTY) throw nativeError("ANDROID-007", "no JDK 17+ found and no terminal to confirm an install")
     if (!hasCommand("brew")) {
-        throw nativeError("ANDROID-007", "no JDK 17+ found and Homebrew is not installed")
+        throw nativeError("ANDROID-007", "no JDK 17 to 23 found and Homebrew is not installed")
     }
-    const yes = await confirm("Install the Zulu JDK 17 with Homebrew (brew install --cask zulu@17)")
+    const yes = await ask(
+        "install",
+        "No JDK 17 to 23 found. Install the Zulu JDK 17 with Homebrew (brew install --cask zulu@17)",
+        { flags, isTTY, prompt }
+    )
     if (!yes) throw nativeError("ANDROID-007", "install declined")
     await runInherited("brew", ["install", "--cask", "zulu@17"])
     java = resolve({ onSkip })
-    if (!java) throw nativeError("ANDROID-007", "Homebrew finished but no JDK 17+ was found")
+    if (!java) throw nativeError("ANDROID-007", "Homebrew finished but no JDK 17 to 23 was found")
     return java
 }
 
@@ -182,9 +230,18 @@ function systemImageFor(arch = os.arch()) {
     return `system-images;android-${ANDROID_API};google_apis;${abi}`
 }
 
-/** The SDK packages a Catalyst app needs, plus the system image when an AVD is to be created. */
-function requiredAndroidPackages({ arch = os.arch(), withSystemImage = false } = {}) {
-    const packages = ["platform-tools", "emulator", `platforms;android-${ANDROID_API}`, "build-tools;36.0.0"]
+/**
+ * The SDK packages a Catalyst app needs: the emulator only when the app runs
+ * on one (not for a release or a connected phone), plus the system image
+ * when an AVD is to be created.
+ */
+function requiredAndroidPackages({ arch = os.arch(), withSystemImage = false, withEmulator = true } = {}) {
+    const packages = [
+        "platform-tools",
+        ...(withEmulator ? ["emulator"] : []),
+        `platforms;android-${ANDROID_API}`,
+        "build-tools;36.0.0",
+    ]
     return withSystemImage ? [...packages, systemImageFor(arch)] : packages
 }
 
@@ -204,6 +261,18 @@ function defaultSdkPath(env = process.env, platform = process.platform) {
     return platform === "darwin"
         ? path.join(os.homedir(), "Library", "Android", "sdk")
         : path.join(os.homedir(), "Android", "Sdk")
+}
+
+/**
+ * The SDK this app builds with: WEBVIEW_CONFIG.android.sdkPath, then
+ * ANDROID_HOME, ANDROID_SDK_ROOT and the default location (the first that has
+ * adb), else where a new SDK goes. Read only: never asked for, never written.
+ *
+ * @param {{ sdkPath?: string }} [androidConfig]
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+function resolveSdkPath(androidConfig = {}, env = process.env) {
+    return expandHome(androidConfig.sdkPath) || detectAndroidSdk(env) || defaultSdkPath(env)
 }
 
 const toolExt = (platform) => (platform === "win32" ? ".bat" : "")
@@ -304,6 +373,86 @@ async function installCmdlineTools(
     }
 }
 
+/** True when `child` is strictly inside `parent`. */
+function isInside(parent, child) {
+    const relative = path.relative(parent, child)
+    return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative)
+}
+
+/**
+ * Remove what an interrupted sdkmanager left in <sdk>/.temp. A stale partial
+ * download there makes the next install fail (#301).
+ *
+ * @param {string} sdkPath
+ * @param {{ log?: (message: string, type?: string) => void }} [options]
+ * @returns {string[]} the entries removed
+ */
+function cleanSdkTemp(sdkPath, { log = () => {} } = {}) {
+    const temp = path.join(sdkPath, ".temp")
+    let entries = []
+    try {
+        entries = fs.readdirSync(temp)
+    } catch {
+        return []
+    }
+    for (const entry of entries) fs.rmSync(path.join(temp, entry), { recursive: true, force: true })
+    if (entries.length) log(`Removed ${entries.length} stale partial download(s) from ${temp}`, "note")
+    return entries
+}
+
+/**
+ * The folders of `ids` that an earlier install left half done: the folder is
+ * there but its package.xml is not. Also the folder a FileAlreadyExistsException
+ * in `output` names, when it is one of those packages or under <sdk>/.temp.
+ * Nothing outside the SDK, and never a folder another package lives in.
+ */
+function halfInstalledPaths(sdkPath, ids, output = "", exists = fs.existsSync) {
+    const targets = ids.map((id) => path.join(sdkPath, ...id.split(";")))
+    const found = new Set(targets.filter((dir) => exists(dir) && !exists(path.join(dir, "package.xml"))))
+    for (const match of String(output).matchAll(/FileAlreadyExistsException:\s*(.+)/g)) {
+        const named = path.resolve(match[1].trim())
+        if (targets.includes(named) || isInside(path.join(sdkPath, ".temp"), named)) found.add(named)
+    }
+    return [...found].filter((dir) => isInside(sdkPath, dir))
+}
+
+/**
+ * Run an sdkmanager install of `ids`, cleaning <sdk>/.temp first. When it
+ * fails or leaves a package half installed (FileAlreadyExistsException, #301),
+ * the half-installed folders are removed and the install runs once more.
+ *
+ * @param {string} sdkPath
+ * @param {string[]} ids
+ * @param {() => Promise<unknown>} install - one sdkmanager run; may reject with `output`
+ * @param {{ log?: (message: string, type?: string) => void }} [options]
+ */
+async function installSdkPackages(sdkPath, ids, install, { log = () => {} } = {}) {
+    let lastError = null
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        cleanSdkTemp(sdkPath, { log })
+        let output = ""
+        lastError = null
+        try {
+            output = String((await install()) || "")
+        } catch (error) {
+            lastError = error
+            output = String(error.output || error.message || "")
+        }
+        const still = missingAndroidPackages(sdkPath, ids)
+        if (!still.length) return
+        const stale = halfInstalledPaths(sdkPath, still, output)
+        if (attempt === 2 || (!stale.length && !/FileAlreadyExistsException/.test(output))) {
+            if (lastError) throw lastError
+            throw new Error(`sdkmanager did not install ${still.join(", ")}`)
+        }
+        for (const dir of stale) fs.rmSync(dir, { recursive: true, force: true })
+        log(
+            `sdkmanager left ${stale.map((dir) => path.relative(sdkPath, dir)).join(", ") || "a package"} half installed; removed it and retrying once`,
+            "warning"
+        )
+    }
+}
+
 /** AVDs from the emulator, or from ~/.android/avd when the emulator isn't installed yet. */
 function knownAvds(sdkPath, { env = process.env } = {}) {
     const names = new Set(listAvds(sdkPath))
@@ -319,38 +468,46 @@ function knownAvds(sdkPath, { env = process.env } = {}) {
 
 /**
  * Bring the Android SDK to what a Catalyst app needs, from nothing if need be:
- * cmdline-tools, licences, the platform/build/emulator packages, and an AVD.
+ * cmdline-tools, licences, the platform/build packages and, when the app runs
+ * on an emulator, the emulator and an AVD.
  *
- * Downloads and the AVD only happen after a terminal confirm or `--yes`;
- * licences only after an interactive `sdkmanager --licenses` or
- * `--accept-licenses`. Without either, ANDROID-008 names the flags.
+ * Downloads and the AVD only happen after a terminal yes or `--yes`;
+ * licences only after a terminal yes (then sdkmanager shows them) or
+ * `--accept-licenses`. Without a terminal and without the flag, NATIVE-005
+ * names it; a "no" is ANDROID-008.
+ *
+ * The AVD: the configured `emulatorName` if it exists, else `preferredAvd`
+ * (the last one used), else catalyst-api36, else the first existing one;
+ * only when there is none is catalyst-api36 created.
  *
  * @param {object} options
  * @param {string} options.sdkPath
- * @param {string} [options.emulatorName] - the configured AVD, if any
- * @param {boolean} [options.yes]
- * @param {boolean} [options.acceptLicenses]
+ * @param {string} [options.emulatorName] - WEBVIEW_CONFIG.android.emulatorName, if any
+ * @param {string} [options.preferredAvd] - the AVD the last run used
+ * @param {boolean} [options.needEmulator] - false for a release or a connected phone
+ * @param {{ yes?: boolean, acceptLicenses?: boolean }} [options.flags] - from parseNativeArgs
  * @param {boolean} [options.isTTY]
  * @param {string} [options.arch]
  * @param {string} [options.platform]
- * @param {(question: string) => Promise<boolean>} [options.confirm]
- * @param {(question: string, options?: object) => Promise<string>} [options.prompt]
+ * @param {(kind: "install" | "licence" | "key", question: string, options?: object) => Promise<boolean>} [options.ask]
+ * @param {typeof promptUser} [options.prompt]
  * @param {(command: string, args: string[], responses?: object) => Promise<string>} [options.run] - captured output
  * @param {(command: string, args: string[]) => Promise<void>} [options.runInherited] - on the user's terminal
  * @param {(sdkPath: string, options?: object) => Promise<unknown>} [options.installTools] - installs cmdline-tools
  * @param {(sdkPath: string) => string[]} [options.listAvds]
  * @param {(message: string, type?: string) => void} [options.log]
- * @returns {Promise<{ sdkPath: string, emulatorName: string, installed: string[], createdAvd: boolean }>}
+ * @returns {Promise<{ sdkPath: string, emulatorName: string | null, installed: string[], createdAvd: boolean }>}
  */
 async function ensureAndroidSdk({
     sdkPath,
     emulatorName,
-    yes = false,
-    acceptLicenses = false,
-    isTTY = isInteractiveTerminal(),
+    preferredAvd,
+    needEmulator = true,
+    flags = {},
+    isTTY = isInteractive(),
     arch = os.arch(),
     platform = process.platform,
-    confirm = confirmUser,
+    ask = askConsent,
     prompt = promptUser,
     run = (command, args, responses) => runInteractiveCommand(command, args, responses),
     runInherited = runInheritedCommand,
@@ -358,22 +515,21 @@ async function ensureAndroidSdk({
     listAvds: avdLister = (dir) => knownAvds(dir),
     log = () => {},
 }) {
-    const avds = avdLister(sdkPath)
-    let avdName = emulatorName && avds.includes(emulatorName) ? emulatorName : null
-    if (emulatorName && !avdName) {
-        log(`The configured emulator "${emulatorName}" does not exist; using ${AVD_NAME}`, "warning")
-    } else if (!emulatorName && avds.length) {
-        // An existing AVD is reused rather than downloading a new image for it.
-        const chosen =
-            isTTY && !yes ? await prompt("Android emulator (AVD) name", { defaultValue: avds[0] }) : avds[0]
-        if (avds.includes(chosen)) avdName = chosen
-        else log(`No emulator named "${chosen}"; using ${AVD_NAME}`, "warning")
+    let avdName = null
+    let createAvd = false
+    if (needEmulator) {
+        const avds = avdLister(sdkPath)
+        if (emulatorName && avds.includes(emulatorName)) avdName = emulatorName
+        else {
+            if (emulatorName) log(`The configured emulator "${emulatorName}" does not exist`, "warning")
+            avdName =
+                [preferredAvd, AVD_NAME].find((name) => name && avds.includes(name)) || avds[0] || null
+        }
+        createAvd = !avdName
+        if (createAvd) avdName = AVD_NAME
     }
-    if (!avdName && avds.includes(AVD_NAME)) avdName = AVD_NAME
-    const createAvd = !avdName
-    if (createAvd) avdName = AVD_NAME
 
-    const packages = requiredAndroidPackages({ arch, withSystemImage: createAvd })
+    const packages = requiredAndroidPackages({ arch, withSystemImage: createAvd, withEmulator: needEmulator })
     const missing = missingAndroidPackages(sdkPath, packages)
     let sdkmanager = cmdlineTool(sdkPath, "sdkmanager", { platform })
     const needTools = !sdkmanager && (missing.length > 0 || createAvd)
@@ -387,19 +543,12 @@ async function ensureAndroidSdk({
         ...missing,
         ...(createAvd ? [`emulator "${avdName}" (${AVD_DEVICE})`] : []),
     ]
-    if (!yes) {
-        if (!isTTY) {
-            throw nativeError(
-                "ANDROID-008",
-                `${sdkPath} needs ${plan.join(", ")}; pass --yes to install them`
-            )
-        }
-        log(`The Android SDK at ${sdkPath} needs: ${plan.join(", ")}`, "note")
-        const ok = await confirm(
-            `Download and install ${plan.length === 1 ? "it" : "them"}${createAvd ? " (the system image is about 1.5 GB)" : ""}`
-        )
-        if (!ok) throw nativeError("ANDROID-008", "declined")
-    }
+    const install = await ask(
+        "install",
+        `The Android SDK at ${sdkPath} needs ${plan.join(", ")}. Download and install ${plan.length === 1 ? "it" : "them"}${createAvd ? " (the system image is about 1.5 GB)" : ""}`,
+        { flags, isTTY, prompt }
+    )
+    if (!install) throw nativeError("ANDROID-008", `${sdkPath} still needs ${plan.join(", ")}`)
 
     if (needTools) {
         await installTools(sdkPath, { log })
@@ -410,31 +559,36 @@ async function ensureAndroidSdk({
 
     const sdkRoot = `--sdk_root=${sdkPath}`
     if (missing.length && !licensesAccepted(sdkPath)) {
-        if (acceptLicenses) {
+        const accept = await ask(
+            "licence",
+            "Review and accept the Android SDK licences (https://developer.android.com/studio/terms)",
+            { flags, isTTY, prompt }
+        )
+        if (!accept) throw nativeError("ANDROID-008", "the Android SDK licences were not accepted")
+        if (flags.acceptLicenses) {
             await run(sdkmanager, [sdkRoot, "--licenses"], { "(y/N)": "y" })
-        } else if (isTTY) {
-            log("Review and accept the Android SDK licences", "note")
+        } else {
+            // On the terminal, so the person reads and answers each licence.
             await runInherited(sdkmanager, [sdkRoot, "--licenses"])
         }
         if (!licensesAccepted(sdkPath)) {
-            throw nativeError(
-                "ANDROID-008",
-                "the Android SDK licences are not accepted; pass --accept-licenses to accept them"
-            )
+            throw nativeError("ANDROID-008", "the Android SDK licences were not accepted")
         }
     }
 
     if (missing.length) {
         log(`Installing ${missing.join(", ")}`)
-        if (isTTY && !acceptLicenses) {
-            // On the terminal: the download progress shows, and a licence
-            // this package adds is asked about, not answered for the user.
-            await runInherited(sdkmanager, [sdkRoot, ...missing])
-        } else {
-            await run(sdkmanager, [sdkRoot, ...missing], { "(y/N)": acceptLicenses ? "y" : "n" })
-        }
-        const still = missingAndroidPackages(sdkPath, missing)
-        if (still.length) throw new Error(`sdkmanager did not install ${still.join(", ")}`)
+        await installSdkPackages(
+            sdkPath,
+            missing,
+            () =>
+                isTTY && !flags.acceptLicenses
+                    ? // On the terminal: the download progress shows, and a licence
+                      // this package adds is asked about, not answered for the user.
+                      runInherited(sdkmanager, [sdkRoot, ...missing])
+                    : run(sdkmanager, [sdkRoot, ...missing], { "(y/N)": flags.acceptLicenses ? "y" : "n" }),
+            { log }
+        )
     }
 
     if (createAvd) {
@@ -454,6 +608,7 @@ async function ensureAndroidSdk({
 
 export {
     MIN_JAVA_MAJOR,
+    MAX_JAVA_MAJOR,
     parseJavaMajor,
     resolveJavaHome,
     applyJavaHome,
@@ -466,10 +621,14 @@ export {
     requiredAndroidPackages,
     missingAndroidPackages,
     defaultSdkPath,
+    resolveSdkPath,
     cmdlineTool,
     licensesAccepted,
     sha256File,
     installCmdlineTools,
     knownAvds,
+    cleanSdkTemp,
+    halfInstalledPaths,
+    installSdkPackages,
     ensureAndroidSdk,
 }

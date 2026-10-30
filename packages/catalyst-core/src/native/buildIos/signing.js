@@ -3,26 +3,36 @@ import crypto from "crypto"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { expandHome, nativeError } from "../utils.js"
+import { nativeError } from "../utils.js"
+import { cleanupOnSignal, maskSecret } from "../credentials.js"
 
-// iOS signing without opening Xcode.
+// iOS signing without opening Xcode. Signing files live in the app's
+// git-ignored credentials/ios/ folder, or in CI in the one
+// CATALYST_IOS_CREDENTIALS secret (`catalyst credentials:export ios`), which
+// resolveCredentials("ios") unpacks to a private temp folder:
 //
-// Three ways to sign, picked in this order:
+//   credentials/ios/
+//     AuthKey_<KEYID>.p8     App Store Connect API key: cloud signing
+//     <name>.p12             distribution certificate and its private key: local signing
+//     <name>.mobileprovision the provisioning profile for that certificate
+//     signing.properties     ascIssuerId=<uuid>, ascKeyId=<id> (optional, else from
+//                            the .p8 file name), p12Password=<password of the .p12>
 //
-//   1. CI manual signing: CATALYST_IOS_P12_BASE64 + CATALYST_IOS_PROFILE_BASE64
-//      (+ CATALYST_IOS_P12_PASSWORD). The p12 goes into a temporary keychain
-//      and the profile into Xcode's profile folders, and both are removed
-//      again when the build ends, also on Ctrl+C.
-//   2. Manual signing with an installed profile: ios.provisioningProfile.
-//   3. Automatic signing for ios.developmentTeam, with an App Store Connect
-//      API key (ios.ascApiKey or CATALYST_ASC_*) or whatever Apple account is
-//      signed in to Xcode.
+// A release signs, in this order:
+//
+//   1. Locally with the .p12 and profile: the p12 goes into a temporary
+//      keychain and the profile into Xcode's profile folders, and both are
+//      removed again when the build ends, also on Ctrl+C.
+//   2. Manually with an installed profile: ios.provisioningProfile.
+//   3. Automatically for ios.developmentTeam: cloud signing with the API key,
+//      or whatever Apple account is signed in to Xcode.
 //
 // `security` takes the p12 password (`import -P`) and the throwaway keychain
 // password (`create-keychain -p`, `unlock-keychain -p`, `set-key-partition-list
 // -k`) only as arguments: it has no environment or stdin form for them, and
 // leaving them out makes it ask through a GUI prompt. They are never logged,
-// and every error from these commands is scrubbed of both before it is shown.
+// they are masked under GitHub Actions (maskSecret), and every error from
+// these commands is scrubbed of both before it is shown.
 
 // Xcode 26's names. The pre-Xcode 15.3 names still work there, with a warning.
 const EXPORT_METHODS = ["app-store-connect", "release-testing", "enterprise", "debugging"]
@@ -34,7 +44,7 @@ const LEGACY_EXPORT_METHODS = {
 
 const KEYCHAIN_LOCK_TIMEOUT_SECONDS = 6 * 60 * 60
 
-const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value)
+const SIGNING_PROPERTIES = "signing.properties"
 
 /** `ios.buildType: "release"`, in any case, asks for a release build like `--release`. */
 function isReleaseBuildType(buildType) {
@@ -77,84 +87,96 @@ function resolveExportMethod(iosConfig = {}, { log = () => {} } = {}) {
     throw nativeError("IOS-013", `"${raw}"`)
 }
 
+/** Java-style .properties, the subset people write by hand: key=value (or key: value) lines, # and ! comments. */
+function parseProperties(text) {
+    const values = {}
+    for (const raw of String(text || "").split(/\r?\n/)) {
+        const line = raw.trim()
+        if (!line || line.startsWith("#") || line.startsWith("!")) continue
+        const match = /^([^=:\s]+)\s*[=:]\s*(.*)$/.exec(line)
+        if (match) values[match[1]] = match[2].trim()
+    }
+    return values
+}
+
 /**
- * The App Store Connect API key for automatic signing, or null when none of
- * its settings is given. The environment wins over ios.ascApiKey field by
- * field. CATALYST_ASC_KEY_BASE64 (or the key's PEM text) is written to a 0600
- * file in a private temp folder that `cleanup()` removes.
+ * What credentials/ios/ (or the unpacked CATALYST_IOS_CREDENTIALS) holds.
+ * Each password read is masked under GitHub Actions before anything else can
+ * print it.
  *
+ * @param {string} dir - from resolveCredentials("ios")
  * @param {object} [options]
- * @param {Record<string, any>} [options.iosConfig]
- * @param {Record<string, string | undefined>} [options.env]
- * @param {string} [options.appRoot]
- * @param {(message: string, type?: string) => void} [options.log]
- * @returns {{ keyPath: string, keyId: string, issuerId: string, source: string, cleanup: () => void } | null}
+ * @param {Record<string, string | undefined>} [options.env] - for maskSecret
+ * @param {(value: string, options?: object) => boolean} [options.mask]
+ * @returns {{
+ *   dir: string,
+ *   apiKey: { keyPath: string, keyId: string, issuerId: string } | null,
+ *   p12: { file: string, password: string, profileFile: string } | null,
+ * }}
  */
-function resolveAscApiKey({
-    iosConfig = {},
-    env = process.env,
-    appRoot = process.cwd(),
-    log = () => {},
-} = {}) {
-    const config = isPlainObject(iosConfig.ascApiKey) ? iosConfig.ascApiKey : {}
-    const keyId = String(env.CATALYST_ASC_KEY_ID || config.keyId || "").trim()
-    const issuerId = String(env.CATALYST_ASC_ISSUER_ID || config.issuerId || "").trim()
-    const inline = env.CATALYST_ASC_KEY_BASE64 ? String(env.CATALYST_ASC_KEY_BASE64).trim() : ""
-    const configuredPath = env.CATALYST_ASC_KEY_PATH || config.path
-    if (!keyId && !issuerId && !inline && !configuredPath) return null
-
-    const missing = []
-    if (!inline && !configuredPath) {
-        missing.push("the key file (ios.ascApiKey.path, CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64)")
+function readIosCredentials(dir, { env = process.env, mask = maskSecret } = {}) {
+    let names = []
+    try {
+        names = fs.readdirSync(dir).filter((name) => fs.statSync(path.join(dir, name)).isFile())
+    } catch (error) {
+        return { dir, apiKey: null, p12: null }
     }
-    if (!keyId) missing.push("the key ID (ios.ascApiKey.keyId or CATALYST_ASC_KEY_ID)")
-    if (!issuerId) missing.push("the issuer ID (ios.ascApiKey.issuerId or CATALYST_ASC_ISSUER_ID)")
-    if (missing.length) throw nativeError("IOS-011", `missing ${missing.join(", ")}`)
-    if (!/^[A-Za-z0-9]+$/.test(keyId)) {
-        throw nativeError("IOS-011", `the key ID "${keyId}" should be letters and digits only`)
-    }
-
-    if (inline) {
-        const contents = inline.includes("BEGIN PRIVATE KEY")
-            ? Buffer.from(`${inline}\n`, "utf8")
-            : Buffer.from(inline, "base64")
-        if (!contents.length) throw nativeError("IOS-011", "CATALYST_ASC_KEY_BASE64 is not base64")
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalyst-asc-key-"))
-        fs.chmodSync(dir, 0o700)
-        const keyPath = path.join(dir, `AuthKey_${keyId}.p8`)
-        fs.writeFileSync(keyPath, contents, { mode: 0o600 })
-        return {
-            keyPath,
-            keyId,
-            issuerId,
-            source: "CATALYST_ASC_KEY_BASE64",
-            cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
+    const withExt = (ext) => names.filter((name) => name.toLowerCase().endsWith(ext))
+    const one = (ext, code) => {
+        const found = withExt(ext)
+        if (found.length > 1) {
+            throw nativeError(
+                code,
+                `credentials/ios/ holds ${found.length} ${ext} files (${found.join(", ")}); keep one`
+            )
         }
+        return found[0] ? path.join(dir, found[0]) : null
+    }
+    const props = names.includes(SIGNING_PROPERTIES)
+        ? parseProperties(fs.readFileSync(path.join(dir, SIGNING_PROPERTIES), "utf8"))
+        : {}
+    if (props.p12Password) mask(props.p12Password, { env })
+
+    // App Store Connect API key.
+    let apiKey = null
+    const keyFile = one(".p8", "IOS-011")
+    if (keyFile || props.ascKeyId || props.ascIssuerId) {
+        const fromName = keyFile ? /^AuthKey_([A-Za-z0-9]+)\.p8$/i.exec(path.basename(keyFile)) : null
+        const keyId = String(props.ascKeyId || fromName?.[1] || "").trim()
+        const issuerId = String(props.ascIssuerId || "").trim()
+        const missing = []
+        if (!keyFile) missing.push("the key file (AuthKey_<KEYID>.p8)")
+        if (!keyId)
+            missing.push(
+                `the key ID (ascKeyId in ${SIGNING_PROPERTIES}, or the AuthKey_<KEYID>.p8 file name)`
+            )
+        if (!issuerId) missing.push(`the issuer ID (ascIssuerId in ${SIGNING_PROPERTIES})`)
+        if (missing.length) throw nativeError("IOS-011", `credentials/ios/ is missing ${missing.join(", ")}`)
+        if (!/^[A-Za-z0-9]+$/.test(keyId)) {
+            throw nativeError("IOS-011", `the key ID "${keyId}" should be letters and digits only`)
+        }
+        apiKey = { keyPath: keyFile, keyId, issuerId }
     }
 
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The key path is the developer's own setting for their own machine.
-    const keyPath = path.resolve(appRoot, expandHome(String(configuredPath)))
-    if (!fs.existsSync(keyPath)) throw nativeError("IOS-011", `the key file does not exist: ${keyPath}`)
-    const relative = path.relative(appRoot, keyPath)
-    if (!relative.startsWith("..") && !path.isAbsolute(relative) && !relative.startsWith("credentials")) {
-        log(
-            `The App Store Connect key ${relative} is inside the app. Keep it outside the repository (or in the git-ignored credentials/ folder).`,
-            "warning"
-        )
+    // Distribution certificate and profile.
+    let p12 = null
+    const p12File = one(".p12", "IOS-012")
+    const profileFile = one(".mobileprovision", "IOS-012")
+    if (p12File && !profileFile) {
+        throw nativeError("IOS-012", "credentials/ios/ has a .p12 but no .mobileprovision for it")
     }
-    return {
-        keyPath,
-        keyId,
-        issuerId,
-        source: env.CATALYST_ASC_KEY_PATH ? "CATALYST_ASC_KEY_PATH" : "ios.ascApiKey.path",
-        cleanup: () => {},
+    if (profileFile && !p12File) {
+        throw nativeError("IOS-012", "credentials/ios/ has a .mobileprovision but no .p12 to sign with")
     }
+    if (p12File) p12 = { file: p12File, password: props.p12Password ?? "", profileFile }
+
+    return { dir, apiKey, p12 }
 }
 
 /**
  * xcodebuild flags that let automatic signing create and fetch certificates
- * and profiles: with the API key when there is one, otherwise with the
- * Apple account signed in to Xcode.
+ * and profiles: with the API key when there is one (cloud signing),
+ * otherwise with the Apple account signed in to Xcode.
  */
 function xcodeAuthArgs(apiKey) {
     const args = ["-allowProvisioningUpdates", "-allowProvisioningDeviceRegistration"]
@@ -172,8 +194,8 @@ function xcodeAuthArgs(apiKey) {
 }
 
 /**
- * How this build signs, decided from the config and environment alone (no
- * side effects), so the entitlements can be written before Xcode runs.
+ * How this build signs, decided from the config and the credentials alone
+ * (no side effects), so the entitlements can be written before Xcode runs.
  *
  * aps-environment: Xcode's entitlements merger takes aps-environment from the
  * provisioning profile it signs with. An automatic-signing archive is signed
@@ -183,40 +205,23 @@ function xcodeAuthArgs(apiKey) {
  *
  * @param {object} options
  * @param {Record<string, any>} [options.iosConfig]
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {ReturnType<typeof readIosCredentials> | null} [options.credentials]
  * @param {boolean} [options.release]
- * @param {boolean} [options.noSign]
  * @param {string} [options.exportMethod]
  */
 function planIosSigning({
     iosConfig = {},
-    env = process.env,
+    credentials = null,
     release = false,
-    noSign = false,
     exportMethod = "app-store-connect",
 } = {}) {
     const teamId = String(iosConfig.developmentTeam || "").trim()
     const distribution = release && exportMethod !== "debugging"
-    if (release && noSign) {
-        return { style: "none", source: "--no-sign", ci: false, teamId, apsEnvironment: "development" }
-    }
-    const hasP12 = Boolean(env.CATALYST_IOS_P12_BASE64)
-    const hasProfile = Boolean(env.CATALYST_IOS_PROFILE_BASE64)
-    if (release && (hasP12 || hasProfile)) {
-        if (!hasP12)
-            throw nativeError(
-                "IOS-012",
-                "CATALYST_IOS_PROFILE_BASE64 is set but CATALYST_IOS_P12_BASE64 is not"
-            )
-        if (!hasProfile)
-            throw nativeError(
-                "IOS-012",
-                "CATALYST_IOS_P12_BASE64 is set but CATALYST_IOS_PROFILE_BASE64 is not"
-            )
+    if (release && credentials?.p12) {
         return {
             style: "manual",
-            source: "CATALYST_IOS_P12_BASE64",
-            ci: true,
+            source: "credentials/ios .p12",
+            p12: true,
             teamId,
             apsEnvironment: distribution ? "production" : "development",
         }
@@ -225,13 +230,19 @@ function planIosSigning({
         return {
             style: "manual",
             source: "ios.provisioningProfile",
-            ci: false,
+            p12: false,
             teamId,
             provisioningProfile: String(iosConfig.provisioningProfile),
             apsEnvironment: distribution ? "production" : "development",
         }
     }
-    return { style: "automatic", source: "automatic", ci: false, teamId, apsEnvironment: "development" }
+    return {
+        style: "automatic",
+        source: credentials?.apiKey ? "App Store Connect API key" : "Xcode account",
+        p12: false,
+        teamId,
+        apsEnvironment: "development",
+    }
 }
 
 /** The quoted paths `security list-keychains` prints, one per line. */
@@ -291,7 +302,7 @@ function readProvisioningProfile(file, { workDir, run = defaultRun }) {
     try {
         run("security", ["cms", "-D", "-i", file, "-o", decoded])
     } catch (error) {
-        throw nativeError("IOS-012", "CATALYST_IOS_PROFILE_BASE64 is not a provisioning profile")
+        throw nativeError("IOS-012", `${path.basename(file)} is not a provisioning profile`)
     }
     const extract = (keyPath) => {
         try {
@@ -315,18 +326,20 @@ function readProvisioningProfile(file, { workDir, run = defaultRun }) {
 }
 
 /**
- * CI manual signing: import CATALYST_IOS_P12_BASE64 into a temporary keychain,
- * put that keychain on the user search list, and install
- * CATALYST_IOS_PROFILE_BASE64 where Xcode looks for profiles.
+ * Local signing with credentials/ios/: import the .p12 into a temporary
+ * keychain, put that keychain on the user search list, and install the
+ * .mobileprovision where Xcode looks for profiles.
  *
  * `cleanup()` restores the exact search list read before anything changed,
- * deletes the keychain, removes the profile files this call created and the
- * decoded secrets. It runs on failure here, and on SIGINT/SIGTERM until the
+ * deletes the keychain (and the decoded profile beside it), and removes the
+ * profile files this call created. It never touches credentials/ios/. It runs on failure here, and on SIGINT/SIGTERM until the
  * caller has run it. Call it in a `finally`.
  *
  * @param {object} options
+ * @param {{ file: string, password?: string, profileFile: string }} options.p12 - from readIosCredentials
  * @param {string} [options.bundleId] - checked against the profile
- * @param {Record<string, string | undefined>} [options.env]
+ * @param {Record<string, string | undefined>} [options.env] - for maskSecret
+ * @param {(value: string, options?: object) => boolean} [options.mask]
  * @param {(command: string, args: string[], options?: object) => string} [options.run]
  * @param {string} [options.homeDir]
  * @param {string} [options.tmpRoot]
@@ -335,9 +348,11 @@ function readProvisioningProfile(file, { workDir, run = defaultRun }) {
  * @param {(code: number) => void} [options.exit]
  * @param {() => Date} [options.now]
  */
-function setupCiSigning({
+function setupP12Signing({
+    p12,
     bundleId,
     env = process.env,
+    mask = maskSecret,
     run = defaultRun,
     homeDir = os.homedir(),
     tmpRoot = os.tmpdir(),
@@ -346,8 +361,11 @@ function setupCiSigning({
     exit = (code) => process.exit(code),
     now = () => new Date(),
 } = {}) {
-    const p12Password = env.CATALYST_IOS_P12_PASSWORD ?? ""
+    const p12Password = p12?.password ?? ""
     const keychainPassword = crypto.randomBytes(24).toString("base64url")
+    if (p12Password) mask(p12Password, { env })
+    mask(keychainPassword, { env })
+    const p12Name = path.basename(p12?.file || "the .p12")
     const secrets = [p12Password, keychainPassword].filter(Boolean)
     const exec = (command, args, prefix) => {
         try {
@@ -363,15 +381,11 @@ function setupCiSigning({
     const state = { originalList: null, keychainCreated: false, installed: [], createdDirs: [] }
 
     let cleaned = false
-    const onSignal = (signal) => {
-        cleanup()
-        exit(signal === "SIGINT" ? 130 : 143)
-    }
+    let releaseSignals = () => {}
     function cleanup() {
         if (cleaned) return
         cleaned = true
-        signals.removeListener("SIGINT", onSignal)
-        signals.removeListener("SIGTERM", onSignal)
+        releaseSignals()
         const step = (what, fn) => {
             try {
                 fn()
@@ -396,20 +410,15 @@ function setupCiSigning({
                 if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) fs.rmdirSync(dir)
             })
         }
-        step("remove the decoded signing files", () => fs.rmSync(workDir, { recursive: true, force: true }))
+        step("remove the temporary signing folder", () =>
+            fs.rmSync(workDir, { recursive: true, force: true })
+        )
     }
-    signals.once("SIGINT", onSignal)
-    signals.once("SIGTERM", onSignal)
+    releaseSignals = cleanupOnSignal(cleanup, { signals, exit })
 
     try {
-        const p12File = path.join(workDir, "signing.p12")
-        const profileFile = path.join(workDir, "signing.mobileprovision")
-        fs.writeFileSync(p12File, Buffer.from(String(env.CATALYST_IOS_P12_BASE64 || ""), "base64"), {
-            mode: 0o600,
-        })
-        fs.writeFileSync(profileFile, Buffer.from(String(env.CATALYST_IOS_PROFILE_BASE64 || ""), "base64"), {
-            mode: 0o600,
-        })
+        const p12File = p12.file
+        const profileFile = p12.profileFile
 
         // Read first: whatever happens next, cleanup puts exactly this back.
         state.originalList = parseKeychainList(
@@ -453,7 +462,7 @@ function setupCiSigning({
         } catch (error) {
             throw nativeError(
                 "IOS-012",
-                `could not import CATALYST_IOS_P12_BASE64; check CATALYST_IOS_P12_PASSWORD (${error.message})`
+                `could not import ${p12Name}; check p12Password in credentials/ios/signing.properties (${error.message})`
             )
         }
         exec(
@@ -483,7 +492,7 @@ function setupCiSigning({
             )
         )
         if (!identity) {
-            throw nativeError("IOS-012", "CATALYST_IOS_P12_BASE64 holds no valid code signing identity")
+            throw nativeError("IOS-012", `${p12Name} holds no valid code signing identity`)
         }
 
         const profile = readProvisioningProfile(profileFile, { workDir, run })
@@ -612,9 +621,11 @@ function signingSetupError(detail, cause) {
 
 export {
     EXPORT_METHODS,
+    SIGNING_PROPERTIES,
     isReleaseBuildType,
     resolveExportMethod,
-    resolveAscApiKey,
+    parseProperties,
+    readIosCredentials,
     xcodeAuthArgs,
     planIosSigning,
     parseKeychainList,
@@ -622,7 +633,7 @@ export {
     profileMatchesBundleId,
     profileDirectories,
     readProvisioningProfile,
-    setupCiSigning,
+    setupP12Signing,
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,

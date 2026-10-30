@@ -1,11 +1,11 @@
 import { execFileSync } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
-import os from "os"
 import path from "path"
-import { nativeError, promptUser } from "../utils.js"
+import { askConsent, confirm, nativeError, promptUser } from "../utils.js"
+import { maskSecret, resolveCredentials } from "../credentials.js"
 
-// Release signing for Android: one persistent upload key per app.
+// Release signing for Android: one persistent upload key per app (#508).
 //
 // The key used to be generated inside the temp_build_<pkg> copy, which is
 // wiped on every run, so every release was signed with a new key and Play
@@ -14,22 +14,50 @@ import { nativeError, promptUser } from "../utils.js"
 //   <app>/credentials/android/upload.jks
 //   <app>/credentials/android/keystore.properties   (0600: alias + passwords)
 //
-// CI supplies the key through the environment instead. Passwords never go on
-// a command line: keytool reads them with -storepass:env, Gradle through
-// ORG_GRADLE_PROJECT_* variables.
+// CI gets the same folder from the CATALYST_ANDROID_CREDENTIALS secret
+// (catalyst credentials:export android), through resolveCredentials.
+// Passwords never go on a command line: keytool reads them with
+// -storepass:env, Gradle through ORG_GRADLE_PROJECT_* variables. No code
+// path here deletes or overwrites an existing key.
 
 const CREDENTIALS_DIR = path.join("credentials", "android")
 const DEFAULT_ALIAS = "upload"
+const DEFAULT_STORE_FILE = "upload.jks"
 const GITIGNORE_ENTRY = "credentials/"
+// Play Console Help, "Use Play App Signing": resetting a lost or compromised upload key.
+const PLAY_UPLOAD_KEY_RESET_URL = "https://support.google.com/googleplay/android-developer/answer/9842756"
+const BACKUP_REMINDER =
+    "Back it up now: run catalyst credentials:export android and keep the value somewhere safe, such as a password manager. Play only accepts updates signed with this key."
 
-function credentialPaths(appRoot) {
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the local app directory; the rest is fixed.
-    const dir = path.join(appRoot, CREDENTIALS_DIR)
-    return {
-        dir,
-        storeFile: path.join(dir, "upload.jks"),
-        propertiesFile: path.join(dir, "keystore.properties"),
-    }
+/** The key files in a credentials folder; keystore.properties may name another storeFile in the same folder. */
+function keyPaths(dir) {
+    const propertiesFile = path.join(dir, "keystore.properties")
+    const named = path.basename(
+        String(readKeystoreProperties(propertiesFile).storeFile || DEFAULT_STORE_FILE)
+    )
+    return { dir, storeFile: path.join(dir, named), propertiesFile }
+}
+
+/**
+ * Where releases before 1.1.1 left a copy of their keystore:
+ * <android.outputPath or build-output>/<name>-keystore.jks, with the name
+ * those releases used (newProjectName, then appName, then the last part of
+ * packageName). Pass WEBVIEW_CONFIG.android as written in config.json, not
+ * the resolved block: appId and appName overwrite packageName and appName.
+ *
+ * @param {Record<string, any>} [androidConfig]
+ * @param {object} [options]
+ * @param {string} [options.cwd]
+ */
+function legacyKeystorePath(androidConfig = {}, { cwd = process.cwd() } = {}) {
+    const name =
+        androidConfig.newProjectName ||
+        androidConfig.appName ||
+        androidConfig.packageName?.split(".").pop() ||
+        "catalystapp"
+    const outputPath = androidConfig.outputPath || path.join(cwd, "build-output")
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - outputPath and the name come from the app's own config.
+    return path.resolve(cwd, outputPath, `${name}-keystore.jks`)
 }
 
 /** Java .properties, the subset Catalyst writes: key=value lines, # comments. */
@@ -46,6 +74,7 @@ function readKeystoreProperties(file) {
     return values
 }
 
+/** Write keystore.properties for a new key. Refuses to replace an existing file. */
 function writeKeystoreProperties(file, { keyAlias, storePassword, keyPassword }) {
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
     const body = [
@@ -57,7 +86,8 @@ function writeKeystoreProperties(file, { keyAlias, storePassword, keyPassword })
         `keyPassword=${keyPassword}`,
         "",
     ].join("\n")
-    fs.writeFileSync(file, body, { mode: 0o600 })
+    // "wx": fail rather than replace the passwords of a key that exists.
+    fs.writeFileSync(file, body, { mode: 0o600, flag: "wx" })
     fs.chmodSync(file, 0o600)
 }
 
@@ -129,7 +159,7 @@ function distinguishedName(organizationInfo = {}, commonName) {
 
 /**
  * Create a PKCS12 upload keystore. PKCS12 uses one password for the store
- * and the key, so `password` is both.
+ * and the key, so `password` is both. Never replaces an existing file.
  *
  * @param {string} storeFile
  * @param {object} key
@@ -145,6 +175,9 @@ function createUploadKeystore(
     { keyAlias = DEFAULT_ALIAS, password, organizationInfo, commonName, validityYears = 25 },
     options = {}
 ) {
+    if (fs.existsSync(storeFile)) {
+        throw new Error(`Refusing to replace the existing upload key at ${storeFile}`)
+    }
     fs.mkdirSync(path.dirname(storeFile), { recursive: true, mode: 0o700 })
     const args = [
         "-genkeypair",
@@ -235,17 +268,56 @@ function legacyPasswords(androidConfig = {}) {
     return null
 }
 
-function isYes(answer) {
-    return /^y(es)?$/i.test(String(answer || "").trim())
+/**
+ * Write the upload certificate as PEM (`keytool -exportcert -rfc`). Play asks
+ * for it when an upload key is registered or reset, and it identifies which
+ * key signed a bundle (#508).
+ *
+ * @param {{ storeFile: string, keyAlias: string, storePassword: string }} signing
+ * @param {string} destFile
+ * @param {{ env?: Record<string, string | undefined>, exec?: Function }} [options]
+ * @returns {string} destFile
+ */
+function exportUploadCertificate(signing, destFile, options = {}) {
+    fs.mkdirSync(path.dirname(destFile), { recursive: true })
+    try {
+        runKeytool(
+            [
+                "-exportcert",
+                "-rfc",
+                "-keystore",
+                signing.storeFile,
+                "-alias",
+                signing.keyAlias,
+                "-storepass:env",
+                "CATALYST_KEYTOOL_STOREPASS",
+                "-file",
+                destFile,
+            ],
+            { storePassword: signing.storePassword },
+            options
+        )
+    } catch (error) {
+        const detail = String(error.stderr || error.message || "")
+            .trim()
+            .split("\n")[0]
+        throw new Error(`keytool could not export the upload certificate: ${detail}`)
+    }
+    return destFile
 }
 
 /**
- * Work out which upload key signs this release, creating or adopting one
- * after a terminal confirm when there is none.
+ * Work out which upload key signs this release.
  *
- * Precedence: CATALYST_ANDROID_KEYSTORE_BASE64, then android.signing.storeFile,
- * then credentials/android/upload.jks. Passwords and alias come from the
- * CATALYST_ANDROID_* variables, else the keystore.properties beside the key.
+ * The key comes from credentials/android/ (upload.jks and keystore.properties),
+ * or in CI from the CATALYST_ANDROID_CREDENTIALS secret (resolveCredentials).
+ * When there is none, a person at a terminal may adopt a keystore an older
+ * release left in build-output/, or create a new key. Without a terminal no
+ * key is ever created, whatever the flags. A new key is refused for an app
+ * that is already on Google Play: its updates must be signed with the key
+ * Play knows, and only Play can reset that.
+ *
+ * Every password read is masked in GitHub Actions logs (maskSecret).
  *
  * @param {object} [options]
  * @param {string} [options.appRoot]
@@ -254,50 +326,58 @@ function isYes(answer) {
  * @param {boolean} [options.isTTY]
  * @param {(question: string, options?: object) => Promise<string>} [options.prompt]
  * @param {(message: string, type?: string) => void} [options.log]
- * @param {string} [options.legacyKeystorePath] - build-output/<name>-keystore.jks from releases before 1.1.1
+ * @param {string} [options.legacyKeystorePath] - build-output/<name>-keystore.jks from earlier releases
  * @param {string} [options.commonName] - certificate CN for a new key
  * @param {Function} [options.exec] - execFileSync stand-in, for tests
- * @returns {Promise<{storeFile: string, storePassword: string, keyAlias: string, keyPassword: string, source: string, cleanup: () => void}>}
+ * @param {(value: string, options?: object) => unknown} [options.mask] - maskSecret stand-in, for tests
+ * @returns {Promise<{storeFile: string, storePassword: string, keyAlias: string, keyPassword: string, source: string, created: boolean, cleanup: () => void}>}
  */
 async function resolveAndroidSigning({
     appRoot = process.cwd(),
     androidConfig = {},
     env = process.env,
-    isTTY = Boolean(process.stdin.isTTY),
+    isTTY = Boolean(process.stdin.isTTY && process.stdout.isTTY),
     prompt = promptUser,
     log = () => {},
     legacyKeystorePath,
     commonName,
     exec,
+    mask = maskSecret,
 } = {}) {
     const keytoolOptions = { env, ...(exec ? { exec } : {}) }
-    const paths = credentialPaths(appRoot)
-    let cleanup = () => {}
 
     if (configHasPasswords(androidConfig)) {
         log(
             "config/config.json holds keystore passwords (android.keystoreConfig or android.keystore). " +
-                "Move them to credentials/android/keystore.properties or CI secrets and delete them from the config.",
+                "Move them to credentials/android/keystore.properties and delete them from the config.",
             "warning"
         )
     }
 
-    const finish = (storeFile, values, source) => {
-        const storePassword = env.CATALYST_ANDROID_STORE_PASSWORD || values.storePassword
-        const keyAlias =
-            env.CATALYST_ANDROID_KEY_ALIAS ||
-            values.keyAlias ||
-            androidConfig.signing?.keyAlias ||
-            DEFAULT_ALIAS
-        const keyPassword = env.CATALYST_ANDROID_KEY_PASSWORD || values.keyPassword || storePassword
+    const credentials = resolveCredentials("android", { cwd: appRoot, env, log })
+    const { cleanup } = credentials
+    const paths = keyPaths(credentials.dir)
+    const where =
+        credentials.source === "env"
+            ? credentials.envName
+            : path.relative(appRoot, paths.dir) || CREDENTIALS_DIR
+
+    const fail = (code, detail, extra) => {
+        cleanup()
+        return nativeError(code, detail, extra)
+    }
+
+    const finish = (storeFile, source, created = false) => {
+        const values = readKeystoreProperties(paths.propertiesFile)
+        const storePassword = values.storePassword
+        const keyAlias = values.keyAlias || DEFAULT_ALIAS
+        const keyPassword = values.keyPassword || storePassword
         if (!storePassword) {
-            cleanup()
-            throw nativeError(
-                "ANDROID-006",
-                `no store password for ${storeFile}; set CATALYST_ANDROID_STORE_PASSWORD or storePassword in ${path.join(CREDENTIALS_DIR, "keystore.properties")}`
-            )
+            throw fail("ANDROID-006", `no storePassword in keystore.properties (${where})`)
         }
-        const signing = { storeFile, storePassword, keyAlias, keyPassword, source, cleanup }
+        mask(storePassword, { env })
+        if (keyPassword !== storePassword) mask(keyPassword, { env })
+        const signing = { storeFile, storePassword, keyAlias, keyPassword, source, created, cleanup }
         try {
             verifyKeystore(signing, keytoolOptions)
         } catch (error) {
@@ -307,34 +387,24 @@ async function resolveAndroidSigning({
         return signing
     }
 
-    // 1. CI: the whole keystore in an environment variable.
-    if (env.CATALYST_ANDROID_KEYSTORE_BASE64) {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalyst-android-signing-"))
-        cleanup = () => fs.rmSync(dir, { recursive: true, force: true })
-        const storeFile = path.join(dir, "upload.jks")
-        fs.writeFileSync(storeFile, Buffer.from(env.CATALYST_ANDROID_KEYSTORE_BASE64, "base64"), {
-            mode: 0o600,
-        })
-        return finish(storeFile, {}, "CATALYST_ANDROID_KEYSTORE_BASE64")
-    }
-
-    // 2. A keystore the config points at.
-    if (androidConfig.signing?.storeFile) {
-        const storeFile = path.resolve(appRoot, androidConfig.signing.storeFile)
-        if (!fs.existsSync(storeFile)) {
-            throw nativeError("ANDROID-006", `android.signing.storeFile does not exist: ${storeFile}`)
-        }
-        const values = readKeystoreProperties(path.join(path.dirname(storeFile), "keystore.properties"))
-        return finish(storeFile, values, "android.signing.storeFile")
-    }
-
-    // 3. The app's own upload key.
+    // 1. The key is there: the app's folder, or the CI secret.
     if (fs.existsSync(paths.storeFile)) {
-        ensureGitignored(appRoot)
-        return finish(paths.storeFile, readKeystoreProperties(paths.propertiesFile), CREDENTIALS_DIR)
+        if (credentials.source === "folder") ensureGitignored(appRoot)
+        return finish(paths.storeFile, credentials.source === "env" ? credentials.envName : CREDENTIALS_DIR)
+    }
+    if (credentials.source === "env") {
+        throw fail("ANDROID-006", `${credentials.envName} has no ${path.basename(paths.storeFile)}`)
+    }
+    // Settings without their key: the key was lost or not copied. A new key
+    // would not match the one Play knows, so stop here.
+    if (fs.existsSync(paths.propertiesFile)) {
+        throw fail(
+            "ANDROID-006",
+            `${where}/keystore.properties is there but ${path.basename(paths.storeFile)} is not; restore the key from your backup`
+        )
     }
 
-    // 4. Nothing yet. Adopting or creating a key needs a person to say yes.
+    // 2. Nothing yet. Adopting or creating a key needs a person to say yes.
     const legacy = legacyKeystorePath && fs.existsSync(legacyKeystorePath) ? legacyKeystorePath : null
     const legacyPw = legacyPasswords(androidConfig)
     const relStore = path.relative(appRoot, paths.storeFile)
@@ -342,18 +412,19 @@ async function resolveAndroidSigning({
     if (!isTTY) {
         const detail = legacy
             ? `found ${legacy} from an earlier build; run the release build once in a terminal to adopt it`
-            : `nothing at ${relStore} and no CATALYST_ANDROID_KEYSTORE_BASE64`
-        throw nativeError("ANDROID-005", detail)
+            : `nothing in ${CREDENTIALS_DIR} and no ${credentials.envName}`
+        throw fail("ANDROID-005", detail)
     }
 
     if (legacy && legacyPw) {
-        const answer = await prompt(
-            `Found ${path.relative(appRoot, legacy)} from an earlier release build. Keep using it as the upload key (moves a copy to ${relStore})? (y/N)`,
-            { defaultValue: "n" }
+        const adopt = await askConsent(
+            "key",
+            `Found ${path.relative(appRoot, legacy)} from an earlier release build. Keep using it as the upload key (copies it to ${relStore})`,
+            { isTTY, prompt }
         )
-        if (isYes(answer)) {
+        if (adopt) {
             fs.mkdirSync(paths.dir, { recursive: true, mode: 0o700 })
-            fs.copyFileSync(legacy, paths.storeFile)
+            fs.copyFileSync(legacy, paths.storeFile, fs.constants.COPYFILE_EXCL)
             fs.chmodSync(paths.storeFile, 0o600)
             writeKeystoreProperties(paths.propertiesFile, {
                 keyAlias: legacyPw.keyAlias,
@@ -361,18 +432,34 @@ async function resolveAndroidSigning({
                 keyPassword: legacyPw.password,
             })
             if (ensureGitignored(appRoot)) log("Added credentials/ to .gitignore", "info")
-            log(`Upload key adopted at ${relStore}. Back up credentials/android/.`, "success")
-            return finish(paths.storeFile, readKeystoreProperties(paths.propertiesFile), "adopted")
+            log(`Upload key adopted at ${relStore}. ${BACKUP_REMINDER}`, "warning")
+            return finish(paths.storeFile, "adopted")
         }
     }
 
-    const answer = await prompt(
-        `No upload key found. Create one at ${relStore}? Back it up: Play only accepts updates signed with it. (y/N)`,
-        { defaultValue: "n" }
+    const create = await askConsent(
+        "key",
+        `No upload key found. Create one in ${CREDENTIALS_DIR}/ (PKCS12, kept out of git)`,
+        { isTTY, prompt }
     )
-    if (!isYes(answer)) throw nativeError("ANDROID-005", "creating a new upload key was declined")
+    if (!create) throw fail("ANDROID-005", "creating a new upload key was declined")
 
-    const keyAlias = androidConfig.signing?.keyAlias || DEFAULT_ALIAS
+    const onPlay = await confirm("Has this app been uploaded to Google Play before", {
+        defaultYes: false,
+        prompt,
+        isTTY: true,
+    })
+    if (onPlay) {
+        throw fail(
+            "ANDROID-005",
+            "this app is already on Google Play, so a new upload key would be rejected",
+            {
+                hint: `Put the upload key the app was signed with in ${CREDENTIALS_DIR}/ (upload.jks and keystore.properties). If it is lost, ask Google Play to reset the upload key: ${PLAY_UPLOAD_KEY_RESET_URL}`,
+            }
+        )
+    }
+
+    const keyAlias = DEFAULT_ALIAS
     const password = generatePassword()
     createUploadKeystore(
         paths.storeFile,
@@ -391,11 +478,8 @@ async function resolveAndroidSigning({
         keyPassword: password,
     })
     if (ensureGitignored(appRoot)) log("Added credentials/ to .gitignore", "info")
-    log(
-        `Created the upload key at ${relStore}. Back up credentials/android/; it cannot be recovered.`,
-        "success"
-    )
-    return finish(paths.storeFile, readKeystoreProperties(paths.propertiesFile), "created")
+    log(`Created the upload key at ${relStore}. ${BACKUP_REMINDER}`, "warning")
+    return finish(paths.storeFile, "created", true)
 }
 
 /** The Gradle project properties that sign the release, as environment variables. */
@@ -410,13 +494,16 @@ function signingGradleEnv(signing) {
 
 export {
     CREDENTIALS_DIR,
-    credentialPaths,
+    PLAY_UPLOAD_KEY_RESET_URL,
+    keyPaths,
+    legacyKeystorePath,
     readKeystoreProperties,
     writeKeystoreProperties,
     ensureGitignored,
     distinguishedName,
     createUploadKeystore,
     verifyKeystore,
+    exportUploadCertificate,
     configHasPasswords,
     resolveAndroidSigning,
     signingGradleEnv,

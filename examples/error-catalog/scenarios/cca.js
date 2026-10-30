@@ -60,26 +60,6 @@ export const ccaScenarios = [
         restore: () => {},
         expect: { inOutput: ["CCA-009", "CCA/CCA-009"], exitNonZero: true },
     },
-    {
-        code: "CCA-010",
-        title: "Invalid --native option passed to create-catalyst-app",
-        tier: "cca-cli",
-        kind: "cca-cli",
-        cliArgs: ["my-app", "--native", "windows", "-y"],
-        break: () => {},
-        restore: () => {},
-        expect: { inOutput: ["CCA-010", "CCA/CCA-010"], exitNonZero: true },
-    },
-    {
-        code: "CCA-011",
-        title: "Invalid --app-id passed to create-catalyst-app",
-        tier: "cca-cli",
-        kind: "cca-cli",
-        cliArgs: ["my-app", "-y", "--native", "android", "--app-id", "com.example.my-app"],
-        break: () => {},
-        restore: () => {},
-        expect: { inOutput: ["CCA-011", "CCA/CCA-011"], exitNonZero: true },
-    },
 ]
 
 export default ccaScenarios

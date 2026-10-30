@@ -35,24 +35,33 @@ export const ERROR_CODES = {
     IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
     IOS_APP_ICON_INVALID: "IOS-005",
     IOS_APP_ICON_HAS_ALPHA: "IOS-006",
-    IOS_RELEASE_PRIVATE_HOST: "IOS-007",
-    IOS_MISSING_BUILD_NUMBER: "IOS-008",
-    IOS_INVALID_BUILD_NUMBER: "IOS-009",
     IOS_SIGNING_NOT_SET_UP: "IOS-010",
     IOS_ASC_API_KEY_INVALID: "IOS-011",
     IOS_MANUAL_SIGNING_INVALID: "IOS-012",
     IOS_EXPORT_METHOD_INVALID: "IOS-013",
+    IOS_DEVICE_NOT_FOUND: "IOS-014",
+    IOS_DEVICE_HOST_UNREACHABLE: "IOS-015",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
-    ANDROID_RELEASE_PRIVATE_HOST: "ANDROID-002",
-    ANDROID_RELEASE_BUILD_NUMBER_MISSING: "ANDROID-003",
-    ANDROID_INVALID_BUILD_NUMBER: "ANDROID-004",
     ANDROID_UPLOAD_KEY_MISSING: "ANDROID-005",
     ANDROID_UPLOAD_KEY_INVALID: "ANDROID-006",
     ANDROID_JDK_NOT_FOUND: "ANDROID-007",
-    ANDROID_SDK_SETUP_NEEDS_CONSENT: "ANDROID-008",
+    ANDROID_SDK_SETUP_DECLINED: "ANDROID-008",
     ANDROID_CMDLINE_TOOLS_INSTALL_FAILED: "ANDROID-009",
     ANDROID_APP_ICON_INVALID: "ANDROID-010",
+    ANDROID_NO_DEVICE: "ANDROID-011",
+
+    NATIVE_RELEASE_PRIVATE_HOST: "NATIVE-001",
+    NATIVE_INVALID_BUILD_NUMBER: "NATIVE-002",
+    NATIVE_PLACEHOLDER_APP_ID: "NATIVE-003",
+    NATIVE_INVALID_URL: "NATIVE-004",
+    NATIVE_ANSWER_NEEDS_TERMINAL: "NATIVE-005",
+    NATIVE_DEV_SERVER_NOT_ANSWERING: "NATIVE-006",
+    NATIVE_CREDENTIALS_SECRET_INVALID: "NATIVE-007",
+    NATIVE_CREDENTIALS_MISSING: "NATIVE-008",
+    NATIVE_CREDENTIALS_TOO_LARGE: "NATIVE-009",
+    NATIVE_INVALID_APP_ID: "NATIVE-010",
+    NATIVE_RELEASE_OUTPUT_EXISTS: "NATIVE-011",
 
     RUNTIME_NATIVE_PERMISSION_DENIED: "RUNTIME-NATIVE-001",
     RUNTIME_NATIVE_PERMISSION_REQUIRED: "RUNTIME-NATIVE-002",
@@ -274,9 +283,9 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
     },
-    // The messages and suggested actions of IOS-002..006 are copied into
-    // src/native/utils.js NATIVE_ERRORS; test/native/releaseConfig.test.ts
-    // keeps the two equal.
+    // The messages and suggested actions of IOS-002..006 and IOS-010..015 are
+    // copied into src/native/utils.js NATIVE_ERRORS;
+    // test/native/nativeConfig.test.ts keeps the two equal.
     [ERROR_CODES.IOS_XCODE_NOT_INSTALLED]: {
         category: "IOS",
         defaultMessage: "Full Xcode is not installed or selected",
@@ -289,7 +298,7 @@ export const ERROR_DEFINITIONS = {
         category: "IOS",
         defaultMessage: "Xcode setup is not finished",
         defaultDetails:
-            "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password, so they only run after a yes in an interactive terminal.",
+            "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password: in a terminal they run after a yes, and without one --accept-licenses (the licence) and --yes (first launch) run them with sudo -n, which works only where sudo needs no password.",
         suggestedAction:
             "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
     },
@@ -317,54 +326,29 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
     },
-    // IOS-007..013 are copied into src/native/utils.js NATIVE_ERRORS too.
-    [ERROR_CODES.IOS_RELEASE_PRIVATE_HOST]: {
-        category: "IOS",
-        defaultMessage: "Release build points at a local or private host",
-        defaultDetails:
-            "An iOS release build (buildApp:ios --release, or ios.buildType release) would open a start URL on localhost, a loopback, private (RFC 1918), link-local or .local address, or this machine's own address. Devices of App Store users can never reach it. The start URL comes from WEBVIEW_CONFIG.release merged over the base config.",
-        suggestedAction:
-            "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
-    },
-    [ERROR_CODES.IOS_MISSING_BUILD_NUMBER]: {
-        category: "IOS",
-        defaultMessage: "Release build has no build number",
-        defaultDetails:
-            "Every build uploaded to App Store Connect needs a CFBundleVersion higher than the last one for that version. A release build takes it from --build-number, then CATALYST_BUILD_NUMBER, then WEBVIEW_CONFIG.ios.version.buildNumber, and none of them is set.",
-        suggestedAction:
-            "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.ios.version.buildNumber.",
-    },
-    [ERROR_CODES.IOS_INVALID_BUILD_NUMBER]: {
-        category: "IOS",
-        defaultMessage: "Invalid build number",
-        defaultDetails:
-            "The build number becomes CFBundleVersion (CURRENT_PROJECT_VERSION). It must be a whole number from 1 to 2100000000.",
-        suggestedAction:
-            "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded for this version.",
-    },
     [ERROR_CODES.IOS_SIGNING_NOT_SET_UP]: {
         category: "IOS",
         defaultMessage: "iOS code signing is not set up",
         defaultDetails:
-            "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key or an Apple account signed in to Xcode; manual signing needs ios.provisioningProfile or the CI signing variables. xcodebuild reported a signing failure, or a release build has no team to sign for.",
+            "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key in credentials/ios/ (cloud signing) or an Apple account signed in to Xcode; manual signing needs a .p12 and its provisioning profile in credentials/ios/, or an installed ios.provisioningProfile. xcodebuild reported a signing failure, or a release build has no team to sign for.",
         suggestedAction:
-            "Set WEBVIEW_CONFIG.ios.developmentTeam and an App Store Connect API key (ios.ascApiKey, or CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64 with CATALYST_ASC_KEY_ID and CATALYST_ASC_ISSUER_ID) for automatic signing, or sign manually with ios.provisioningProfile, or in CI with CATALYST_IOS_P12_BASE64, CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64.",
+            "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
     },
     [ERROR_CODES.IOS_ASC_API_KEY_INVALID]: {
         category: "IOS",
         defaultMessage: "App Store Connect API key settings are incomplete or wrong",
         defaultDetails:
-            "Automatic signing without Xcode uses an App Store Connect API key, which takes three values: the .p8 key file, its key ID and the issuer ID. Some of them are set but not all, or the key file does not exist.",
+            "Cloud signing uses an App Store Connect API key from credentials/ios/ (in CI, unpacked from CATALYST_IOS_CREDENTIALS), which takes three values: the AuthKey_*.p8 file, its key ID and the issuer ID. Some of them are there but not all, there is more than one .p8 file, or the key ID is not letters and digits.",
         suggestedAction:
-            "Give all three of the key file (ios.ascApiKey.path, CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64), the key ID (ios.ascApiKey.keyId or CATALYST_ASC_KEY_ID) and the issuer ID (ios.ascApiKey.issuerId or CATALYST_ASC_ISSUER_ID).",
+            "Put the AuthKey_*.p8 file in credentials/ios/, and an ascIssuerId line (plus ascKeyId when the file is renamed) in credentials/ios/signing.properties. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
     },
     [ERROR_CODES.IOS_MANUAL_SIGNING_INVALID]: {
         category: "IOS",
         defaultMessage: "Manual signing inputs are incomplete or wrong",
         defaultDetails:
-            "CI signing imports a .p12 into a temporary keychain and installs a provisioning profile for the build. Only one of CATALYST_IOS_P12_BASE64 and CATALYST_IOS_PROFILE_BASE64 is set, the p12 or its password is wrong, the p12 has no code signing identity, or the profile is unreadable, expired or for another bundle ID.",
+            "Local signing imports the .p12 from credentials/ios/ into a temporary keychain and installs its provisioning profile for the build. Only one of the .p12 and the .mobileprovision is there, there are several of either, the p12Password in signing.properties is wrong, the p12 has no code signing identity, or the profile is unreadable, expired or for another bundle ID.",
         suggestedAction:
-            "Set CATALYST_IOS_P12_BASE64 (a base64 .p12 holding the distribution certificate and its private key), CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64 (a base64 .mobileprovision for WEBVIEW_CONFIG.ios.appBundleId), and check that they belong together.",
+            "Keep one distribution .p12 and the .mobileprovision for WEBVIEW_CONFIG.appId in credentials/ios/, with a p12Password line in credentials/ios/signing.properties, and check that they belong together. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
     },
     [ERROR_CODES.IOS_EXPORT_METHOD_INVALID]: {
         category: "IOS",
@@ -373,6 +357,22 @@ export const ERROR_DEFINITIONS = {
             "WEBVIEW_CONFIG.ios.exportMethod picks how the release archive is exported to an IPA. Xcode 26 accepts app-store-connect, release-testing, enterprise and debugging; the older names app-store, ad-hoc and development are mapped to them with a warning.",
         suggestedAction:
             "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
+    },
+    [ERROR_CODES.IOS_DEVICE_NOT_FOUND]: {
+        category: "IOS",
+        defaultMessage: "No connected iPhone found",
+        defaultDetails:
+            "buildApp:ios --device builds for a connected iPhone, and xcrun devicectl lists none that is paired and reachable. An iPhone shows up once it is unlocked, trusts this Mac and has Developer Mode on.",
+        suggestedAction:
+            "Connect the iPhone with a cable, unlock it, accept Trust This Computer and turn on Developer Mode (Settings > Privacy & Security), then retry; or leave out --device to use the simulator.",
+    },
+    [ERROR_CODES.IOS_DEVICE_HOST_UNREACHABLE]: {
+        category: "IOS",
+        defaultMessage: "No address the iPhone can reach this Mac on",
+        defaultDetails:
+            "A debug build on a physical iPhone loads the dev server from this Mac over the local network, at the Mac's Bonjour name (its Local Hostname plus .local) or its LAN IP address. This Mac has neither a Local Hostname nor a private IPv4 address on an active interface.",
+        suggestedAction:
+            "Join the Mac and the iPhone to the same Wi-Fi network and check the Local Hostname in System Settings > General > Sharing, then retry.",
     },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",
@@ -388,65 +388,40 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
     },
-    // The messages and suggested actions of ANDROID-002..006 are copied into
+    // The messages and suggested actions of ANDROID-005..011 are copied into
     // src/native/utils.js NATIVE_ERRORS (the CJS native subtree can't import
-    // this module); test/native/releaseConfig.test.ts keeps the two equal.
-    [ERROR_CODES.ANDROID_RELEASE_PRIVATE_HOST]: {
-        category: "ANDROID",
-        defaultMessage: "Release build points at a local or private host",
-        defaultDetails:
-            "The release start URL, built from WEBVIEW_CONFIG.release merged over WEBVIEW_CONFIG (useHttps, LOCAL_IP, port), names localhost, a loopback, RFC 1918, link-local or .local address, or this machine's own address. Users' devices cannot reach it, so the store build would open on an error page.",
-        suggestedAction:
-            "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
-    },
-    [ERROR_CODES.ANDROID_RELEASE_BUILD_NUMBER_MISSING]: {
-        category: "ANDROID",
-        defaultMessage: "Release build has no build number",
-        defaultDetails:
-            "Google Play needs a new, higher versionCode for every upload. None was given through --build-number, the CATALYST_BUILD_NUMBER environment variable, or WEBVIEW_CONFIG.android.version.buildNumber.",
-        suggestedAction:
-            "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.android.version.buildNumber.",
-    },
-    [ERROR_CODES.ANDROID_INVALID_BUILD_NUMBER]: {
-        category: "ANDROID",
-        defaultMessage: "Invalid build number",
-        defaultDetails:
-            "The build number becomes the app's versionCode, which must be a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
-        suggestedAction:
-            "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
-    },
+    // this module); test/native/nativeConfig.test.ts keeps the two equal.
     [ERROR_CODES.ANDROID_UPLOAD_KEY_MISSING]: {
         category: "ANDROID",
         defaultMessage: "No upload key for the release build",
         defaultDetails:
-            "A release build signs the app bundle with the app's upload key. None was found at credentials/android/upload.jks, android.signing.storeFile or CATALYST_ANDROID_KEYSTORE_BASE64, and a new key is only created after a yes in an interactive terminal.",
+            "A release build signs the app bundle with the app's upload key. None was found in credentials/android/ or in the CATALYST_ANDROID_CREDENTIALS secret. A new key is only created after a yes in an interactive terminal, and never for an app that is already on Google Play.",
         suggestedAction:
-            "Run the release build once in a terminal to create credentials/android/upload.jks, or in CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD (plus CATALYST_ANDROID_KEY_ALIAS and CATALYST_ANDROID_KEY_PASSWORD when they differ from the defaults).",
+            "Run catalyst buildApp:android --release once in a terminal to create credentials/android/upload.jks, then back it up with catalyst credentials:export android. In CI, set the CATALYST_ANDROID_CREDENTIALS secret to the output of catalyst credentials:export android.",
     },
     [ERROR_CODES.ANDROID_UPLOAD_KEY_INVALID]: {
         category: "ANDROID",
         defaultMessage: "Upload key settings are incomplete or wrong",
         defaultDetails:
-            "An upload keystore was found but cannot be used: its file is missing, no store password was given, or keytool rejected the password or alias.",
+            "An upload key was found but cannot be used: the keystore or its keystore.properties is missing, no store password was given, or keytool rejected the password or alias.",
         suggestedAction:
-            "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
+            "Check credentials/android/keystore.properties against credentials/android/upload.jks. In CI, run catalyst credentials:export android again and update the CATALYST_ANDROID_CREDENTIALS secret.",
     },
-    // ANDROID-007..010 are copied into src/native/utils.js NATIVE_ERRORS too.
     [ERROR_CODES.ANDROID_JDK_NOT_FOUND]: {
         category: "ANDROID",
-        defaultMessage: "Java 17 or newer not found",
+        defaultMessage: "No JDK 17 to 23 found",
         defaultDetails:
-            "Gradle and the Android SDK tools need JDK 17 or newer. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime, and installing one with Homebrew needs a yes in an interactive terminal on macOS.",
+            "Gradle 8.13 and the Android SDK tools need JDK 17 to 23. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime (a JDK 24 or newer is skipped), and none could be installed: this is not macOS, Homebrew is missing, or the install was declined.",
         suggestedAction:
-            "Install JDK 17 or newer (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst setupEmulator:android in a terminal to install it.",
+            "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
     },
-    [ERROR_CODES.ANDROID_SDK_SETUP_NEEDS_CONSENT]: {
+    [ERROR_CODES.ANDROID_SDK_SETUP_DECLINED]: {
         category: "ANDROID",
-        defaultMessage: "Android SDK setup needs your confirmation",
+        defaultMessage: "Android SDK setup was declined",
         defaultDetails:
-            "setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept. Downloads only happen after a yes in an interactive terminal or with --yes, and licences are only accepted interactively or with --accept-licenses.",
+            "buildApp:android or setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept, and the answer was no. Without them the app cannot be built or run.",
         suggestedAction:
-            "Run catalyst setupEmulator:android in a terminal, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences (for CI).",
+            "Run the command again and answer yes, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences.",
     },
     [ERROR_CODES.ANDROID_CMDLINE_TOOLS_INSTALL_FAILED]: {
         category: "ANDROID",
@@ -464,7 +439,105 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
     },
+    [ERROR_CODES.ANDROID_NO_DEVICE]: {
+        category: "ANDROID",
+        defaultMessage: "No Android phone connected",
+        defaultDetails:
+            "buildApp:android --device installs the app on a phone that adb can reach, but adb lists none that is ready: no phone is connected, USB debugging is off, the phone has not allowed this computer yet (adb shows it as unauthorized), or ANDROID_SERIAL names a phone that is not connected.",
+        suggestedAction:
+            "Connect the phone, turn on USB debugging in Developer options, accept the Allow USB debugging prompt on the phone and check that adb devices lists it. Or drop --device to use the emulator.",
+    },
 
+    // NATIVE-001..009 are shared by the Android and iOS builds. Their messages and
+    // suggested actions are copied into src/native/utils.js NATIVE_ERRORS;
+    // test/native/nativeConfig.test.ts keeps the two equal.
+    [ERROR_CODES.NATIVE_RELEASE_PRIVATE_HOST]: {
+        category: "NATIVE",
+        defaultMessage: "Release build points at a local or private host",
+        defaultDetails:
+            "A release build (buildApp:android --release or buildApp:ios --release) would open a start URL on localhost, a loopback, private (RFC 1918), link-local or .local address, this machine's own address, or a reserved placeholder domain such as example.com. Users' devices cannot reach it, so the store build would open on an error page. The start URL comes from --url, then WEBVIEW_CONFIG.url, then the older LOCAL_IP, port and useHttps keys.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.url to your production origin (e.g. https://shop.acme.com) or pass --url, or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_BUILD_NUMBER]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid build number",
+        defaultDetails:
+            "The build number becomes the Android versionCode and the iOS CFBundleVersion. It is the whole minutes since 2024-01-01T00:00:00Z unless CATALYST_BUILD_NUMBER is set, and CATALYST_BUILD_NUMBER is not a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
+        suggestedAction:
+            "Unset CATALYST_BUILD_NUMBER to use the automatic build number, or set it to a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+    },
+    [ERROR_CODES.NATIVE_PLACEHOLDER_APP_ID]: {
+        category: "NATIVE",
+        defaultMessage: "Release build uses a placeholder app id",
+        defaultDetails:
+            "The app id becomes the Android application id and the iOS bundle id, and a store listing is tied to it for good. It is a com.example.* id or one of the template defaults (io.yourname.androidproject, com.catalyst.framework.app, com.debug.webview), or none is set, so the template's default would ship.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id, e.g. com.acme.shop.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_URL]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid production URL",
+        defaultDetails:
+            "WEBVIEW_CONFIG.url and --url take an origin: an http:// or https:// scheme, a host and an optional port, with no path, query, fragment or user name. HTTPS must use port 443, because the iOS app always loads HTTPS on 443.",
+        suggestedAction:
+            "Use an origin such as https://shop.acme.com, without a path or a port other than 443.",
+    },
+    [ERROR_CODES.NATIVE_ANSWER_NEEDS_TERMINAL]: {
+        category: "NATIVE",
+        defaultMessage: "A step needs your answer and there is no terminal to ask on",
+        defaultDetails:
+            "Native commands only ask questions when stdin and stdout are terminals and CI is not set. This step needs an answer: --yes confirms installs and downloads, --accept-licenses accepts licences, and creating a signing key always needs a person at a terminal.",
+        suggestedAction: "Pass the flag named in the message, or run the command in an interactive terminal.",
+    },
+    [ERROR_CODES.NATIVE_DEV_SERVER_NOT_ANSWERING]: {
+        category: "NATIVE",
+        defaultMessage: "The dev server did not answer",
+        defaultDetails:
+            "A debug build loads the app from the dev server. The CLI started it with catalyst start and waited for it to answer, but it exited, did not answer in time, or is running where the device cannot reach it.",
+        suggestedAction:
+            "Run npm start on its own to see why the server does not start, then run the build again.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_SECRET_INVALID]: {
+        category: "NATIVE",
+        defaultMessage: "The credentials secret could not be unpacked",
+        defaultDetails:
+            "CATALYST_ANDROID_CREDENTIALS and CATALYST_IOS_CREDENTIALS hold a base64 gzipped tar of credentials/<platform>/, as printed by catalyst credentials:export. The value is not one, is cut short, or holds links or paths outside the folder.",
+        suggestedAction:
+            "Run catalyst credentials:export <android|ios> where credentials/<platform>/ exists and paste the whole value into the secret again.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_MISSING]: {
+        category: "NATIVE",
+        defaultMessage: "No credentials to export",
+        defaultDetails:
+            "catalyst credentials:export packs credentials/<platform>/ in the app root, and that folder is missing or empty. A first release build creates it (the Android upload key), or you add the iOS signing files to it.",
+        suggestedAction:
+            "Run the command from the app root after a release build has created credentials/<platform>/.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_TOO_LARGE]: {
+        category: "NATIVE",
+        defaultMessage: "Credentials are too large for one secret",
+        defaultDetails:
+            "A GitHub Actions secret holds at most 48 KB, and credentials/<platform>/ packs to more than that.",
+        suggestedAction:
+            "Remove files the build does not need from credentials/<platform>/ (only signing keys, profiles and their settings belong there), then export again.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_APP_ID]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid app id",
+        defaultDetails:
+            "The app id (WEBVIEW_CONFIG.appId, android.packageName or ios.bundleIdentifier / appBundleId) is not a valid id for the platform. Android needs a Java package name: two or more dot-separated parts, each starting with a letter and using only letters, digits and _, none a Java keyword. iOS needs two or more parts of letters, digits and -.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.appId in config/config.json to a reverse-DNS id such as com.acme.shop: letters and digits only, each part starting with a letter.",
+    },
+    [ERROR_CODES.NATIVE_RELEASE_OUTPUT_EXISTS]: {
+        category: "NATIVE",
+        defaultMessage: "A release with this version and build number already exists",
+        defaultDetails:
+            "build-output/<platform>/<version>-<build>/ already holds a store artifact. The build number counts whole minutes, so two releases in the same minute get the same number, and a store refuses a build number it has already seen.",
+        suggestedAction:
+            "Wait a minute and run the release again, or set CATALYST_BUILD_NUMBER to a higher number. To rebuild the same build on purpose, delete that folder first.",
+    },
     [ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Permission denied",

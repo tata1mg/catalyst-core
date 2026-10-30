@@ -12,15 +12,18 @@ import {
     isSigningFailure,
     parseIdentity,
     parseKeychainList,
+    parseProperties,
     planIosSigning,
     profileMatchesBundleId,
-    resolveAscApiKey,
+    readIosCredentials,
     resolveExportMethod,
-    setupCiSigning,
+    setupP12Signing,
     signingSetupError,
     writeExportOptionsPlist,
     xcodeAuthArgs,
 } from "../../src/native/buildIos/signing.js"
+import { releaseOutputDir } from "../../src/native/buildIos/output.js"
+import { packCredentials, resolveCredentials } from "../../src/native/credentials.js"
 
 // The CJS build phases load with require, as in releaseConfig.test.ts.
 const require = createRequire(import.meta.url)
@@ -83,76 +86,117 @@ describe("resolveExportMethod", () => {
     })
 })
 
-describe("resolveAscApiKey", () => {
-    it("is null when nothing is set", () => {
-        expect(resolveAscApiKey({ iosConfig: {}, env: {} })).toBeNull()
+/** A credentials/ios/ folder with these files (name -> contents). */
+function credentialsFolder(files: Record<string, string>) {
+    const dir = path.join(tempDir(), "credentials", "ios")
+    fs.mkdirSync(dir, { recursive: true })
+    for (const [name, contents] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), contents)
+    return dir
+}
+
+describe("readIosCredentials", () => {
+    const PEM = "-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----\n"
+
+    it("finds nothing in a missing or empty folder", () => {
+        expect(readIosCredentials(path.join(tempDir(), "nope"))).toMatchObject({ apiKey: null, p12: null })
+        expect(readIosCredentials(credentialsFolder({}))).toMatchObject({ apiKey: null, p12: null })
     })
 
-    it("fails a partial key with IOS-011 naming what is missing", () => {
-        const error = thrown(() =>
-            resolveAscApiKey({ iosConfig: { ascApiKey: { keyId: "ABC123" } }, env: {} })
+    it("reads the API key, taking the key ID from the file name", () => {
+        const dir = credentialsFolder({
+            "AuthKey_ABC123XYZ.p8": PEM,
+            "signing.properties": "# cloud signing\nascIssuerId = 11111111-2222-3333-4444-555555555555\n",
+        })
+        expect(readIosCredentials(dir).apiKey).toEqual({
+            keyPath: path.join(dir, "AuthKey_ABC123XYZ.p8"),
+            keyId: "ABC123XYZ",
+            issuerId: "11111111-2222-3333-4444-555555555555",
+        })
+    })
+
+    it("takes ascKeyId over the file name", () => {
+        const dir = credentialsFolder({
+            "store.p8": PEM,
+            "signing.properties": "ascKeyId=KEY42\nascIssuerId=issuer\n",
+        })
+        expect(readIosCredentials(dir).apiKey).toMatchObject({ keyId: "KEY42", issuerId: "issuer" })
+    })
+
+    it("fails a partial API key with IOS-011 naming what is missing", () => {
+        const noIssuer = thrown(() => readIosCredentials(credentialsFolder({ "AuthKey_ABC.p8": PEM })))
+        expect(noIssuer.code).toBe("IOS-011")
+        expect(noIssuer.message).toMatch(/issuer ID/)
+        expect(noIssuer.message).not.toMatch(/key file/)
+        const noKey = thrown(() =>
+            readIosCredentials(credentialsFolder({ "signing.properties": "ascIssuerId=issuer\n" }))
         )
-        expect(error.code).toBe("IOS-011")
-        expect(error.message).toMatch(/key file/)
-        expect(error.message).toMatch(/issuer ID/)
-        expect(error.message).not.toMatch(/key ID \(/)
-    })
-
-    it("fails a key path that does not exist", () => {
-        const error = thrown(() =>
-            resolveAscApiKey({
-                iosConfig: { ascApiKey: { path: "/nope/AuthKey.p8", keyId: "ABC123", issuerId: "issuer" } },
-                env: {},
-            })
+        expect(noKey.code).toBe("IOS-011")
+        expect(noKey.message).toMatch(/key file/)
+        expect(
+            thrown(() =>
+                readIosCredentials(
+                    credentialsFolder({
+                        "AuthKey_A.p8": PEM,
+                        "AuthKey_B.p8": PEM,
+                        "signing.properties": "ascIssuerId=i",
+                    })
+                )
+            ).message
+        ).toMatch(/keep one/)
+        expect(thrown(() => readIosCredentials(credentialsFolder({ "AuthKey_A.p8": PEM }))).hint).toMatch(
+            /CATALYST_IOS_CREDENTIALS/
         )
-        expect(error.code).toBe("IOS-011")
     })
 
-    it("writes CATALYST_ASC_KEY_BASE64 to a private file that cleanup removes", () => {
-        const pem = "-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----\n"
-        const key = resolveAscApiKey({
-            iosConfig: { ascApiKey: { keyId: "CONFIGID", issuerId: "config-issuer" } },
-            env: {
-                CATALYST_ASC_KEY_BASE64: Buffer.from(pem).toString("base64"),
-                CATALYST_ASC_KEY_ID: "ENVKEY1234",
-                CATALYST_ASC_ISSUER_ID: "env-issuer",
-            },
-        })!
-        expect(key.keyId).toBe("ENVKEY1234")
-        expect(key.issuerId).toBe("env-issuer")
-        expect(path.basename(key.keyPath)).toBe("AuthKey_ENVKEY1234.p8")
-        expect(fs.readFileSync(key.keyPath, "utf8")).toBe(pem)
-        expect(fs.statSync(key.keyPath).mode & 0o777).toBe(0o600)
-        expect(fs.statSync(path.dirname(key.keyPath)).mode & 0o777).toBe(0o700)
-        key.cleanup()
-        expect(fs.existsSync(path.dirname(key.keyPath))).toBe(false)
+    it("pairs the .p12 with its profile and masks the password", () => {
+        const masked: string[] = []
+        const dir = credentialsFolder({
+            "dist.p12": "p12",
+            "Acme_App_Store.mobileprovision": "profile",
+            "signing.properties": "p12Password=hunter2-s3cret\n",
+        })
+        const found = readIosCredentials(dir, { mask: (value: string) => void masked.push(value) })
+        expect(found.p12).toEqual({
+            file: path.join(dir, "dist.p12"),
+            password: "hunter2-s3cret",
+            profileFile: path.join(dir, "Acme_App_Store.mobileprovision"),
+        })
+        expect(masked).toEqual(["hunter2-s3cret"])
     })
 
-    it("accepts the key's PEM text in CATALYST_ASC_KEY_BASE64", () => {
-        const key = resolveAscApiKey({
-            env: {
-                CATALYST_ASC_KEY_BASE64: "-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----",
-                CATALYST_ASC_KEY_ID: "KEY1",
-                CATALYST_ASC_ISSUER_ID: "issuer",
-            },
-        })!
-        expect(fs.readFileSync(key.keyPath, "utf8")).toMatch(/^-----BEGIN PRIVATE KEY-----/)
-        key.cleanup()
+    it("fails a .p12 without a profile, and a profile without a .p12, with IOS-012", () => {
+        expect(thrown(() => readIosCredentials(credentialsFolder({ "dist.p12": "x" }))).code).toBe("IOS-012")
+        expect(thrown(() => readIosCredentials(credentialsFolder({ "a.mobileprovision": "x" }))).code).toBe(
+            "IOS-012"
+        )
     })
 
-    it("resolves a configured path from the app root and warns when it sits inside the app", () => {
-        const appRoot = tempDir()
-        fs.writeFileSync(path.join(appRoot, "AuthKey.p8"), "key")
-        const logs: string[] = []
-        const key = resolveAscApiKey({
-            iosConfig: { ascApiKey: { path: "AuthKey.p8", keyId: "KEY1", issuerId: "issuer" } },
-            env: {},
-            appRoot,
-            log: (m: string) => logs.push(m),
-        })!
-        expect(key.keyPath).toBe(path.join(appRoot, "AuthKey.p8"))
-        expect(key.source).toBe("ios.ascApiKey.path")
-        expect(logs.join("\n")).toMatch(/outside the repository/)
+    it("reads the same files from CATALYST_IOS_CREDENTIALS when the folder is missing", () => {
+        const source = credentialsFolder({
+            "AuthKey_ENVKEY1.p8": PEM,
+            "signing.properties": "ascIssuerId=env-issuer\n",
+        })
+        const value = packCredentials("ios", { cwd: path.dirname(path.dirname(source)) })
+        const found = resolveCredentials("ios", {
+            cwd: tempDir(),
+            env: { CATALYST_IOS_CREDENTIALS: value },
+        })
+        try {
+            expect(found.source).toBe("env")
+            const key = readIosCredentials(found.dir).apiKey!
+            expect(key).toMatchObject({ keyId: "ENVKEY1", issuerId: "env-issuer" })
+            expect(fs.readFileSync(key.keyPath, "utf8")).toBe(PEM)
+        } finally {
+            found.cleanup()
+        }
+        expect(fs.existsSync(found.dir)).toBe(false)
+    })
+
+    it("parses the properties subset people write", () => {
+        expect(parseProperties("# c\n! c\na=1\nb : two words \n\nbroken line\n")).toEqual({
+            a: "1",
+            b: "two words",
+        })
     })
 })
 
@@ -179,49 +223,56 @@ describe("xcodeAuthArgs", () => {
 })
 
 describe("planIosSigning", () => {
-    it("signs nothing with --no-sign", () => {
-        expect(planIosSigning({ release: true, noSign: true, env: {} }).style).toBe("none")
-    })
+    const p12 = { file: "/c/dist.p12", password: "", profileFile: "/c/a.mobileprovision" }
+    const apiKey = { keyPath: "/c/AuthKey_A.p8", keyId: "A", issuerId: "I" }
 
-    it("uses CI manual signing when both CI inputs are set, with a production push environment", () => {
-        const plan = planIosSigning({
-            release: true,
-            env: { CATALYST_IOS_P12_BASE64: "p12", CATALYST_IOS_PROFILE_BASE64: "profile" },
+    it("signs a release locally with the .p12 from credentials/ios, with a production push environment", () => {
+        expect(planIosSigning({ release: true, credentials: { dir: "/c", apiKey, p12 } })).toMatchObject({
+            style: "manual",
+            p12: true,
+            apsEnvironment: "production",
         })
-        expect(plan).toMatchObject({ style: "manual", ci: true, apsEnvironment: "production" })
     })
 
-    it("fails half of the CI inputs with IOS-012", () => {
-        expect(
-            thrown(() => planIosSigning({ release: true, env: { CATALYST_IOS_P12_BASE64: "x" } })).code
-        ).toBe("IOS-012")
-        expect(
-            thrown(() => planIosSigning({ release: true, env: { CATALYST_IOS_PROFILE_BASE64: "x" } })).code
-        ).toBe("IOS-012")
+    it("leaves the .p12 to releases: a debug build signs automatically", () => {
+        expect(planIosSigning({ credentials: { dir: "/c", apiKey: null, p12 } })).toMatchObject({
+            style: "automatic",
+            p12: false,
+        })
     })
 
     it("keeps ios.provisioningProfile users on manual signing", () => {
         const iosConfig = { provisioningProfile: "My Profile", developmentTeam: "TEAM123456" }
-        expect(planIosSigning({ iosConfig, env: {} })).toMatchObject({
+        expect(planIosSigning({ iosConfig })).toMatchObject({
             style: "manual",
             provisioningProfile: "My Profile",
             teamId: "TEAM123456",
             apsEnvironment: "development",
         })
-        expect(planIosSigning({ iosConfig, env: {}, release: true }).apsEnvironment).toBe("production")
-        expect(
-            planIosSigning({ iosConfig, env: {}, release: true, exportMethod: "debugging" }).apsEnvironment
-        ).toBe("development")
+        expect(planIosSigning({ iosConfig, release: true }).apsEnvironment).toBe("production")
+        expect(planIosSigning({ iosConfig, release: true, exportMethod: "debugging" }).apsEnvironment).toBe(
+            "development"
+        )
     })
 
-    it("is automatic otherwise, archived for development (export re-signs for distribution)", () => {
-        expect(planIosSigning({ iosConfig: { developmentTeam: "T" }, env: {}, release: true })).toMatchObject(
-            {
-                style: "automatic",
-                teamId: "T",
-                apsEnvironment: "development",
-            }
-        )
+    it("is cloud signing with the API key otherwise, archived for development (export re-signs)", () => {
+        expect(
+            planIosSigning({
+                iosConfig: { developmentTeam: "T" },
+                release: true,
+                credentials: { dir: "/c", apiKey, p12: null },
+            })
+        ).toMatchObject({
+            style: "automatic",
+            source: "App Store Connect API key",
+            teamId: "T",
+            apsEnvironment: "development",
+        })
+        expect(planIosSigning({ release: true }).source).toBe("Xcode account")
+    })
+
+    it("has no unsigned mode", () => {
+        expect(planIosSigning({ release: true, noSign: true } as any).style).not.toBe("none")
     })
 })
 
@@ -252,7 +303,7 @@ describe("security output parsing", () => {
     })
 })
 
-describe("setupCiSigning", () => {
+describe("setupP12Signing", () => {
     const P12_PASSWORD = "p12-s3cret-value"
     const SHA = "B".repeat(40)
     const LOGIN = "/Users/ci/Library/Keychains/login.keychain-db"
@@ -304,16 +355,19 @@ describe("setupCiSigning", () => {
         }
         const logs: string[] = []
         const exits: number[] = []
+        const masked: string[] = []
         const homeDir = tempDir()
         const tmpRoot = tempDir()
-        const env = {
-            CATALYST_IOS_P12_BASE64: Buffer.from("p12-bytes").toString("base64"),
-            CATALYST_IOS_P12_PASSWORD: P12_PASSWORD,
-            CATALYST_IOS_PROFILE_BASE64: Buffer.from("profile-bytes").toString("base64"),
-        }
+        const credentials = credentialsFolder({ "dist.p12": "p12-bytes", "store.mobileprovision": "profile" })
         const options = {
+            p12: {
+                file: path.join(credentials, "dist.p12"),
+                password: P12_PASSWORD,
+                profileFile: path.join(credentials, "store.mobileprovision"),
+            },
             bundleId: "com.acme.app",
-            env,
+            env: {},
+            mask: (value: string) => void masked.push(value),
             run,
             homeDir,
             tmpRoot,
@@ -322,7 +376,7 @@ describe("setupCiSigning", () => {
             log: (message: string) => logs.push(message),
             now: () => new Date("2026-10-26T00:00:00Z"),
         }
-        return { calls, handlers, logs, exits, homeDir, tmpRoot, options }
+        return { calls, handlers, logs, exits, masked, credentials, homeDir, tmpRoot, options }
     }
 
     const securityCalls = (calls: Call[]) =>
@@ -341,7 +395,7 @@ describe("setupCiSigning", () => {
 
     it("runs the keychain commands in order and restores the exact search list on cleanup", () => {
         const fake = fakeSigning()
-        const result = setupCiSigning(fake.options)
+        const result = setupP12Signing(fake.options)
 
         expect(securityCalls(fake.calls)).toEqual([
             "list-keychains",
@@ -377,6 +431,8 @@ describe("setupCiSigning", () => {
         expect(fs.readdirSync(fake.homeDir)).toEqual([])
         expect(fs.readdirSync(fake.tmpRoot)).toEqual([])
         expect(fake.handlers).toEqual({})
+        // The credentials folder is read, never changed.
+        expect(fs.readdirSync(fake.credentials).sort()).toEqual(["dist.p12", "store.mobileprovision"])
         // Idempotent.
         result.cleanup()
         expect(fake.calls.length).toBe(before + 2)
@@ -384,7 +440,7 @@ describe("setupCiSigning", () => {
 
     it("restores the search list and deletes the keychain when a step fails, without leaking the password", () => {
         const fake = fakeSigning({ failOn: "security import" })
-        const error = thrown(() => setupCiSigning(fake.options))
+        const error = thrown(() => setupP12Signing(fake.options))
         expect(error.code).toBe("IOS-012")
         expect(error.message).not.toContain(P12_PASSWORD)
         const tail = fake.calls.slice(-2).map((c) => c.args.slice(0, 5))
@@ -397,7 +453,7 @@ describe("setupCiSigning", () => {
 
     it("cleans up and exits on SIGINT", () => {
         const fake = fakeSigning()
-        setupCiSigning(fake.options)
+        setupP12Signing(fake.options)
         const before = fake.calls.length
         fake.handlers.SIGINT("SIGINT")
         expect(fake.calls.slice(before).map((c) => c.args[0])).toEqual(["list-keychains", "delete-keychain"])
@@ -408,7 +464,7 @@ describe("setupCiSigning", () => {
 
     it("keeps secrets out of logs and passes them only to the security commands that require them", () => {
         const fake = fakeSigning()
-        const result = setupCiSigning(fake.options)
+        const result = setupP12Signing(fake.options)
         result.cleanup()
         const keychainPassword = fake.calls.find((c) => c.args[0] === "create-keychain")!.args[2]
         expect(keychainPassword.length).toBeGreaterThan(20)
@@ -421,6 +477,8 @@ describe("setupCiSigning", () => {
             "unlock-keychain",
             "set-key-partition-list",
         ])
+        // Under GitHub Actions both are masked before any command runs.
+        expect(fake.masked).toEqual([P12_PASSWORD, keychainPassword])
         const logged = fake.logs.join("\n")
         expect(logged).not.toContain(P12_PASSWORD)
         expect(logged).not.toContain(keychainPassword)
@@ -432,14 +490,14 @@ describe("setupCiSigning", () => {
         const [userData] = profilePaths(fake.homeDir)
         fs.mkdirSync(path.dirname(userData), { recursive: true })
         fs.writeFileSync(userData, "theirs")
-        setupCiSigning(fake.options).cleanup()
+        setupP12Signing(fake.options).cleanup()
         expect(fs.readFileSync(userData, "utf8")).toBe("theirs")
     })
 
     it("rejects a profile for another bundle id, an expired profile, and a p12 with no identity", () => {
         expect(
             thrown(() =>
-                setupCiSigning(
+                setupP12Signing(
                     fakeSigning({
                         profile: { "Entitlements.application-identifier": "TEAM123456.com.other" },
                     }).options
@@ -448,11 +506,11 @@ describe("setupCiSigning", () => {
         ).toBe("IOS-012")
         expect(
             thrown(() =>
-                setupCiSigning(fakeSigning({ profile: { ExpirationDate: "2020-01-01T00:00:00Z" } }).options)
+                setupP12Signing(fakeSigning({ profile: { ExpirationDate: "2020-01-01T00:00:00Z" } }).options)
             ).message
         ).toMatch(/expired/)
         const fake = fakeSigning({ identities: "     0 valid identities found\n" })
-        expect(thrown(() => setupCiSigning(fake.options)).code).toBe("IOS-012")
+        expect(thrown(() => setupP12Signing(fake.options)).code).toBe("IOS-012")
         expect(fake.calls.at(-1)!.args[0]).toBe("delete-keychain")
     })
 })
@@ -528,7 +586,9 @@ describe("signing failures", () => {
         const error = signingSetupError("Xcode could not sign the device build", cause)
         expect(error.code).toBe("IOS-010")
         expect(error.output).toBe("requires a development team")
-        expect(error.hint).toMatch(/CATALYST_IOS_P12_BASE64/)
+        expect(error.hint).toMatch(/CATALYST_IOS_CREDENTIALS/)
+        expect(error.hint).toMatch(/catalyst credentials:export ios/)
+        expect(error.hint).not.toMatch(/CATALYST_ASC_|CATALYST_IOS_P12/)
     })
 })
 
@@ -596,6 +656,103 @@ describe("generateXCConfig signing and version", () => {
     })
 })
 
+describe("updateInfoPlist", () => {
+    function infoPlistPhase(extra: Record<string, any> = {}, pluginInfoPlist: Record<string, any> = {}) {
+        const projectDir = tempDir()
+        const dir = path.join(projectDir, "iosnativeWebView")
+        fs.mkdirSync(dir, { recursive: true })
+        const debugFile = path.join(dir, "Info.plist")
+        const releaseFile = path.join(dir, "Info-Release.plist")
+        fs.writeFileSync(
+            debugFile,
+            JSON.stringify({ NSAppTransportSecurity: { NSAllowsArbitraryLoads: true } })
+        )
+        fs.writeFileSync(
+            releaseFile,
+            JSON.stringify({ NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } })
+        )
+        const { updateInfoPlist } = createIosConfigPhase({
+            WEBVIEW_CONFIG: {},
+            iosConfig: { appName: "Acme" },
+            PROJECT_DIR: projectDir,
+            PROJECT_NAME: "iosnativeWebView",
+            version: { versionName: "2.5.0-beta.1", buildNumber: 1501234 },
+            restoreManagedFileFromBaseline: () => {},
+            readPlistObject: (f: string) => JSON.parse(fs.readFileSync(f, "utf8")),
+            writePlistObject: (f: string, v: unknown) => fs.writeFileSync(f, JSON.stringify(v)),
+            ...extra,
+        })
+        const read = (f: string) => JSON.parse(fs.readFileSync(f, "utf8"))
+        return {
+            run: () => updateInfoPlist({ infoPlist: pluginInfoPlist }),
+            debug: () => read(debugFile),
+            release: () => read(releaseFile),
+        }
+    }
+
+    it("writes the version and build number into both plists", async () => {
+        const phase = infoPlistPhase()
+        await phase.run()
+        for (const plist of [phase.debug(), phase.release()]) {
+            expect(plist.CFBundleShortVersionString).toBe("2.5.0")
+            expect(plist.CFBundleVersion).toBe("1501234")
+        }
+    })
+
+    it("allows local networking in the debug plist only, when the app loads the dev server", async () => {
+        // The template's debug plist allows arbitrary loads; NSAllowsLocalNetworking
+        // there would make iOS ignore it, so it is not added.
+        const dev = infoPlistPhase({ localNetworking: true })
+        await dev.run()
+        expect(dev.debug().NSAppTransportSecurity).toEqual({ NSAllowsArbitraryLoads: true })
+        expect(dev.release().NSAppTransportSecurity).toEqual({ NSAllowsArbitraryLoads: false })
+
+        // A debug plist without arbitrary loads gets local networking.
+        const strict = infoPlistPhase({
+            localNetworking: true,
+            restoreManagedFileFromBaseline: (file: string) => {
+                if (file.endsWith("/Info.plist")) {
+                    fs.writeFileSync(
+                        file,
+                        JSON.stringify({ NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } })
+                    )
+                }
+            },
+        })
+        await strict.run()
+        expect(strict.debug().NSAppTransportSecurity).toEqual({
+            NSAllowsArbitraryLoads: false,
+            NSAllowsLocalNetworking: true,
+        })
+
+        const legacy = infoPlistPhase({ localNetworking: false })
+        await legacy.run()
+        expect(legacy.debug().NSAppTransportSecurity).not.toHaveProperty("NSAllowsLocalNetworking")
+    })
+
+    it("declares no non-exempt encryption in the release plist, unless a plugin says otherwise", async () => {
+        const phase = infoPlistPhase()
+        await phase.run()
+        expect(phase.release().ITSAppUsesNonExemptEncryption).toBe(false)
+        expect(phase.debug()).not.toHaveProperty("ITSAppUsesNonExemptEncryption")
+
+        const crypto = infoPlistPhase({}, { ITSAppUsesNonExemptEncryption: true })
+        await crypto.run()
+        expect(crypto.release().ITSAppUsesNonExemptEncryption).toBe(true)
+    })
+})
+
+describe("release output", () => {
+    it("goes to build-output/ios/<version>-<build> under the app root", () => {
+        expect(releaseOutputDir("/apps/shop", { versionName: "1.4.0", buildNumber: 1501234 })).toBe(
+            path.resolve("/apps/shop/build-output/ios/1.4.0-1501234")
+        )
+        expect(releaseOutputDir("/apps/shop", { buildNumber: 7 } as any)).toBe(
+            path.resolve("/apps/shop/build-output/ios/1.0.0-7")
+        )
+    })
+})
+
 describe("updateEntitlements", () => {
     function entitlementsPhase(WEBVIEW_CONFIG: Record<string, any>, apsEnvironment?: string) {
         const projectDir = tempDir()
@@ -659,6 +816,35 @@ describe("ConfigConstants", () => {
         expect(swift).toContain('public static let url = "https://www.example.com:443"')
         expect(swift).toContain("appBundleId")
         expect(swift).not.toMatch(/AuthKey|ascApiKey|AscApiKey|exportMethod/)
+    })
+})
+
+describe("ConfigConstants resolver-only keys", () => {
+    it("skips url, appId, appName and allowPrivateHost even when they reach the emitter", async () => {
+        const projectDir = tempDir()
+        const progress = { start() {}, complete() {}, fail() {}, log() {} }
+        const { generateConfigConstants } = createIosConfigPhase({
+            WEBVIEW_CONFIG: {
+                url: "https://shop.acme.com",
+                appId: "com.acme.shop",
+                appName: "Acme Shop",
+                allowPrivateHost: true,
+                LOCAL_IP: "shop.acme.com",
+            },
+            iosConfig: {},
+            PROJECT_DIR: projectDir,
+            PUBLIC_PATH: tempDir(),
+            url: "https://shop.acme.com",
+            progress,
+        })
+        await generateConfigConstants()
+        const swift = fs.readFileSync(
+            path.join(projectDir, "CoreLogic/Sources/CatalystCoreLogic/Constants/ConfigConstants.swift"),
+            "utf8"
+        )
+        expect(swift.match(/static let url\b/g)).toHaveLength(1)
+        expect(swift).not.toMatch(/static let (appId|appName|allowPrivateHost)\b/)
+        expect(swift).toContain('public static let LOCAL_IP = "shop.acme.com"')
     })
 })
 
@@ -735,6 +921,13 @@ describe("the iOS shell project", () => {
             "NSPrivacyAccessedAPICategorySystemBootTime",
             "NSPrivacyAccessedAPICategoryUserDefaults",
         ])
+    })
+
+    it("declares no non-exempt encryption in the release plist and keeps local networking out of the template", () => {
+        const release = fs.readFileSync(path.join(shellDir, "iosnativeWebView/Info-Release.plist"), "utf8")
+        expect(release).toMatch(/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/)
+        const debug = fs.readFileSync(path.join(shellDir, "iosnativeWebView/Info.plist"), "utf8")
+        expect(debug + release).not.toContain("NSAllowsLocalNetworking")
     })
 
     it("does not ask for push in the template entitlements", () => {

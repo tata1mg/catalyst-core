@@ -7,7 +7,7 @@ sidebar_position: 35
 
 # CLI Reference
 
-Catalyst workflows are split between the framework CLI and project-level npm scripts. The CLI handles web app lifecycle commands, while native builds are usually exposed as scripts in the generated app.
+Catalyst workflows are split between the framework CLI and project-level npm scripts. The generated app wraps the web and native commands in scripts.
 
 ## Core Commands
 
@@ -49,9 +49,10 @@ Most apps wrap the CLI in package scripts:
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "buildApp": "catalyst buildApp",
-    "buildApp:android": "catalyst buildApp:android",
-    "buildApp:ios": "catalyst buildApp:ios"
+    "android": "catalyst buildApp:android",
+    "ios": "catalyst buildApp:ios",
+    "android:release": "catalyst buildApp:android --release",
+    "ios:release": "catalyst buildApp:ios --release"
   }
 }
 ```
@@ -68,36 +69,36 @@ production-style run.
 
 | Command | Purpose |
 |---------|---------|
-| `npm run setupEmulator:android` | Install JDK, Android SDK packages and an emulator if missing, then boot it |
-| `npm run setupEmulator:ios` | Check Xcode, install an iOS runtime and a simulator if missing, then boot it |
-| `npm run buildApp:android` | Build and run the Android debug app |
-| `npm run buildApp:android -- --release --build-number <n>` | Build the signed Android App Bundle for Google Play |
-| `npm run buildApp:ios` | Build and run the iOS debug app on a simulator or connected iPhone |
-| `npm run buildApp:ios -- --release --build-number <n>` | Build the signed iOS IPA for App Store Connect |
+| `npm run android` (`catalyst buildApp:android`) | Install what is missing, start the dev server if needed, then build and run the Android debug app |
+| `npm run ios` (`catalyst buildApp:ios`) | The same for iOS, on a simulator or connected iPhone |
+| `npm run android:release` (`catalyst buildApp:android --release`) | Build the signed Android App Bundle for Google Play |
+| `npm run ios:release` (`catalyst buildApp:ios --release`) | Build the signed iOS IPA for App Store Connect |
+| `catalyst credentials:export <android\|ios>` | Print `credentials/<platform>/` as one value, for the CI secret and as a backup |
+| `catalyst setupEmulator:android` | Install the Android toolchain and an emulator, then start it. Changes nothing in the app |
+| `catalyst setupEmulator:ios` | Finish Xcode setup and install a simulator runtime and a simulator. Changes nothing in the app |
 
-For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. `buildApp:android` and `buildApp:ios` build a release when given `--release` or when the platform's `buildType` is `release`.
+Apps created before 1.3.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands.
 
 | Option | Effect |
 |--------|--------|
-| `--release` | Build the signed store release, using `WEBVIEW_CONFIG.release` over the base config |
-| `--build-number <n>` | The store build number (Android `versionCode`, iOS `CFBundleVersion`). Also read from `CATALYST_BUILD_NUMBER` |
-| `--no-sign` | `buildApp:ios`: archive the release without signing and skip the IPA export. For CI checks without signing secrets |
-| `--yes` | `setupEmulator`: download missing SDK pieces, create the emulator or simulator, and save the config without asking |
-| `--accept-licenses` | `setupEmulator:android`: accept the Android SDK licences without the interactive review (for CI) |
+| `--release` | Build the signed store release |
+| `--device` | Run the debug build on the connected phone instead of the emulator or simulator |
+| `--url <url>` | The release's production URL, over `WEBVIEW_CONFIG.url` |
+| `--yes` | Allow installs and downloads without asking: JDK, SDK packages, emulator, simulator runtime, simulator, Xcode first launch |
+| `--accept-licenses` | Accept the Android SDK licences and the Xcode licence without asking |
 
-A debug `buildApp` starts the dev server in the background when nothing is listening on `WEBVIEW_CONFIG.port`, so `npm run buildApp:android` or `npm run buildApp:ios` is enough on its own.
+Through npm scripts, pass options after `--`, for example `npm run android -- --device`. The options can go before or after the command.
 
-The flags can go before or after the command. Android release signing reads `CATALYST_ANDROID_KEYSTORE_BASE64`, `CATALYST_ANDROID_STORE_PASSWORD`, `CATALYST_ANDROID_KEY_PASSWORD` and `CATALYST_ANDROID_KEY_ALIAS` in CI; see [Universal App Deployment](/content/08-Deployment/02-Universal-App-Deployment.md) for the full flow.
+Nothing is asked when stdin and stdout are not both terminals or when `CI` is set. A step that needs an answer then fails at once with [NATIVE-005](/errors/NATIVE/NATIVE-005), naming the option that answers it. `--yes` never accepts a licence and never creates a signing key; creating the Android upload key always needs a person at a terminal.
 
-iOS signing reads these environment variables; see [iOS Production Release](/content/08-Deployment/03-iOS-Production-Release.md):
+| Environment variable | Use |
+|----------------------|-----|
+| `CATALYST_ANDROID_CREDENTIALS` | `credentials/android/` from `catalyst credentials:export android`, for CI |
+| `CATALYST_IOS_CREDENTIALS` | `credentials/ios/` from `catalyst credentials:export ios`, for CI |
+| `CATALYST_BUILD_NUMBER` | Override the build number, which otherwise counts the minutes since 2024-01-01 UTC |
+| `ANDROID_SERIAL` | Which Android phone `--device` uses when several are connected |
 
-| Variable | Use |
-|----------|-----|
-| `CATALYST_ASC_KEY_PATH` or `CATALYST_ASC_KEY_BASE64` | App Store Connect API key file (`.p8`), as a path or base64, for automatic signing |
-| `CATALYST_ASC_KEY_ID`, `CATALYST_ASC_ISSUER_ID` | The API key's ID and issuer ID |
-| `CATALYST_IOS_P12_BASE64`, `CATALYST_IOS_P12_PASSWORD` | Distribution certificate and private key for manual signing in CI |
-| `CATALYST_IOS_PROFILE_BASE64` | App Store provisioning profile for manual signing in CI |
-| `CATALYST_BUILD_NUMBER` | Build number when `--build-number` is not given |
+See [Universal App Deployment](/content/Deployment/universal-app-deployment) for the release flow and CI, and [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp) for development.
 
 ## Production Web Flow
 

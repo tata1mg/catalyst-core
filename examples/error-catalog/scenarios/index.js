@@ -87,6 +87,10 @@ export const LEDGER = {
     "ANDROID-008": "not-example-reproducible",
     "ANDROID-009": "not-example-reproducible",
     "ANDROID-010": "not-example-reproducible",
+    // ANDROID-011 (--device with no phone adb can use) needs adb on the
+    // runner and a real or missing USB phone. Covered by
+    // test/native/androidDevices.test.ts in catalyst-core.
+    "ANDROID-011": "not-example-reproducible",
     // ── IOS ─────────────────────────────────────────────────────────────────
     // IOS-001 (no Simulator/DeviceHub app installed) requires the actual
     // absence of Xcode's Simulator.app/DeviceHub.app on the host — not
@@ -108,6 +112,33 @@ export const LEDGER = {
     // while the temporary keychain is set up, so it needs macOS. Covered by
     // test/native/iosSigning.test.ts in catalyst-core.
     "IOS-012": "not-example-reproducible",
+    // IOS-014 (--device with no paired iPhone) and IOS-015 (no address an
+    // iPhone can reach this Mac on) are raised while a debug build picks its
+    // target, which only happens on macOS with Xcode. Covered by
+    // test/native/iosToolchain.test.ts.
+    "IOS-014": "not-example-reproducible",
+    "IOS-015": "not-example-reproducible",
+    // ── NATIVE ──────────────────────────────────────────────────────────────
+    // NATIVE-002 needs CATALYST_BUILD_NUMBER set, and scenarios run with the
+    // runner's own environment. Covered by test/native/nativeConfig.test.ts.
+    "NATIVE-002": "not-example-reproducible",
+    // NATIVE-005 is a question with no terminal to ask on (an install, a
+    // licence or a new signing key); which one fires depends on what the
+    // runner has installed. Covered by test/native/interaction.test.ts.
+    "NATIVE-005": "not-example-reproducible",
+    // NATIVE-006 needs a dev server that never answers, which takes the full
+    // two-minute wait. Covered by test/native/setupServer.test.ts.
+    "NATIVE-006": "not-example-reproducible",
+    // NATIVE-007..009 come from CATALYST_<PLATFORM>_CREDENTIALS and
+    // `catalyst credentials:export`, neither of which a config.json mistake
+    // reaches. Covered by test/native/credentials.test.ts.
+    "NATIVE-007": "not-example-reproducible",
+    "NATIVE-008": "not-example-reproducible",
+    "NATIVE-009": "not-example-reproducible",
+    // NATIVE-011 needs an earlier release's AAB or IPA in build-output/, which
+    // takes a full signed release build first. Covered by
+    // test/native/androidSigning.test.ts.
+    "NATIVE-011": "not-example-reproducible",
 }
 
 export default scenarios

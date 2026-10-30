@@ -34,6 +34,22 @@ export function resolveDevFsAllow(devFs, frameworkPaths) {
 }
 
 /**
+ * `server.allowedHosts` plus the comma-separated hosts in
+ * CATALYST_DEV_ALLOWED_HOSTS. `catalyst buildApp:ios` sets it to the Mac's
+ * `<name>.local` when a physical iPhone loads the dev server by that name:
+ * Vite answers 403 to any Host header that is not localhost or an IP.
+ */
+export function withExtraAllowedHosts(allowedHosts, extra) {
+    const hosts = String(extra || "")
+        .split(",")
+        .map((host) => host.trim())
+        .filter(Boolean)
+    if (allowedHosts === true || hosts.length === 0) return allowedHosts
+    const base = Array.isArray(allowedHosts) ? allowedHosts : []
+    return [...base, ...hosts.filter((host) => !base.includes(host))]
+}
+
+/**
  * Vite `server` block from `buildConfig.devServer`. Passthrough keys are spread
  * first so the framework-owned `hmr` and `fs` always win.
  */
@@ -47,8 +63,13 @@ export function buildDevServer(devServer = {}, { frameworkPaths, isProduction = 
     // module) opt out. isProduction is captured at module load, so it cannot
     // be flipped by setting NODE_ENV just before createServer().
     const hmrDisabled = isProduction || process.env.CATALYST_NO_HMR === "true"
+    const allowedHosts = withExtraAllowedHosts(
+        serverOverrides.allowedHosts,
+        process.env.CATALYST_DEV_ALLOWED_HOSTS
+    )
     return {
         ...serverOverrides,
+        ...(allowedHosts === undefined ? {} : { allowedHosts }),
         hmr: hmrDisabled ? false : (hmr ?? true),
         fs: { allow: resolveDevFsAllow(fs, frameworkPaths) },
     }

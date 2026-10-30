@@ -7,20 +7,24 @@ const path = require("path")
 const { displayPath } = require("../../cli/theme.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { buildFailure } = require("../../cli/diagnostic.js")
-const { resolveNativeConfig, assertReleaseHost, resolveAppVersion, nativeError } = require("../utils.js")
+const { nativeError } = require("../utils.js")
+const { resolveNativeConfig } = require("../nativeConfig.js")
+const { resolveCredentials } = require("../credentials.js")
 const {
     isReleaseBuildType,
     resolveExportMethod,
-    resolveAscApiKey,
+    readIosCredentials,
     planIosSigning,
     xcodeAuthArgs,
-    setupCiSigning,
+    setupP12Signing,
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,
     signingSetupError,
 } = require("./signing.js")
 const { generateLocalhostP12 } = require("./localhostCert.js")
+const { artifactBaseName, releaseOutputDir } = require("./output.js")
+const { DEFAULT_VERSION_NAME, assertReleaseFolderFree } = require("../releaseOutput.js")
 
 const createConfigPhase = require("./config.js")
 const createPluginsPhase = require("./plugins.js")
@@ -37,83 +41,114 @@ const MANAGED_BASELINE_SUFFIX = ".catalyst-base"
 const shellCommand = process.platform === "win32" ? "cmd.exe" : "sh"
 const shellArgs = (command) => (process.platform === "win32" ? ["/d", "/s", "/c", command] : ["-c", command])
 
-/** A file-name-safe version of the app name for the release artifacts. */
-function artifactBaseName(appName) {
-    const safe = String(appName || "")
-        .trim()
-        .replace(/[^A-Za-z0-9._-]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-    return safe || "app"
+// The steps of `catalyst buildApp:ios`. buildAppIos.js creates the progress
+// with these, so the toolchain and target steps show before the build exists.
+const IOS_BUILD_STEPS = {
+    toolchain: "Check Xcode",
+    target: "Choose simulator or iPhone",
+    server: "Start dev server",
+    signing: "Resolve signing",
+    config: "Generate build configuration",
+    launchSimulator: "Launch iOS simulator",
+    clean: "Clean build artifacts",
+    assets: "Process notification assets",
+    build: "Build iOS project",
+    findApp: "Locate built application",
+    install: "Install application",
+    launch: "Launch application",
+    archive: "Archive release build",
+    export: "Export IPA",
 }
 
 /**
  * @param {object} config - { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } from config.json
  * @param {object} [options]
- * @param {object} [options.progress] - an existing TerminalProgress to continue, when the build is re-created after the config changed
+ * @param {object} [options.progress] - an existing TerminalProgress to continue (buildAppIos.js passes one made with IOS_BUILD_STEPS)
  * @param {boolean} [options.release] - `--release`: archive and export the store IPA whatever ios.buildType says
- * @param {boolean} [options.noSign] - `--no-sign`: an unsigned release archive and no export (CI)
- * @param {string} [options.buildNumber] - `--build-number`
+ * @param {string} [options.url] - `--url`: the release's production URL, over WEBVIEW_CONFIG.url
+ * @param {string} [options.devHost] - debug: the host the app reaches the dev server on (localhost for the simulator, the Mac's `.local` name or LAN IP for an iPhone)
+ * @param {{ target: "simulator", name?: string, udid?: string } | { target: "device", name: string, udid: string }} [options.target] - debug: from buildAppIos.js; without it, the configured simulator
+ * @param {string} [options.appRoot] - the app root, for credentials/ and build-output/
+ * @param {Record<string, string | undefined>} [options.env]
  */
 function createIosBuild(
     config,
-    { progress: existingProgress, release: releaseFlag = false, noSign = false, buildNumber } = {}
+    {
+        progress: existingProgress,
+        release: releaseFlag = false,
+        url: urlFlag,
+        devHost,
+        target,
+        appRoot = process.cwd(),
+        env = process.env,
+    } = {}
 ) {
     const { BUILD_OUTPUT_PATH } = config
-    const release = Boolean(
-        releaseFlag || noSign || isReleaseBuildType(config.WEBVIEW_CONFIG?.ios?.buildType)
-    )
+    const release = Boolean(releaseFlag || isReleaseBuildType(config.WEBVIEW_CONFIG?.ios?.buildType))
 
-    const steps = {
-        server: "Start dev server",
-        signing: "Resolve signing",
-        config: "Generate build configuration",
-        deviceDetection: "Detect physical device",
-        launchSimulator: "Launch iOS simulator",
-        clean: "Clean build artifacts",
-        assets: "Process notification assets",
-        build: "Build iOS project",
-        findApp: "Locate built application",
-        install: "Install application",
-        launch: "Launch application",
-        archive: "Archive release build",
-        export: "Export IPA",
-    }
-
-    const progress = existingProgress || new TerminalProgress(steps, "catalyst buildApp", { subject: "ios" })
+    const progress =
+        existingProgress || new TerminalProgress(IOS_BUILD_STEPS, "catalyst buildApp", { subject: "ios" })
     const log = (message, type) => progress.log(message, type)
 
-    // ─── Release resolution, before anything reads the config ─────────────────
-    // `release` is merged over the base config, the start URL must be a public
-    // host, and the build number is required. All of it fails here, before
-    // Xcode is touched.
+    // ─── Config resolution, before anything reads the config ──────────────────
+    // nativeConfig.js turns url/appId/appName into the legacy keys this shell
+    // reads, points a debug build at the dev server, and for a release guards
+    // the start URL and the app id. All of it fails here, before Xcode runs.
 
-    let WEBVIEW_CONFIG = config.WEBVIEW_CONFIG
-    let allowPrivateHost = false
-    if (release) {
-        const resolved = resolveNativeConfig("ios", { release: true, config, log })
-        // iOS reads the merged config in memory; Gradle is the one that needs the file.
-        resolved.cleanup()
-        WEBVIEW_CONFIG = resolved.WEBVIEW_CONFIG
-        WEBVIEW_CONFIG.ios = { ...WEBVIEW_CONFIG.ios, buildType: "release" }
-        allowPrivateHost = resolved.allowPrivateHost
-        assertReleaseHost("ios", WEBVIEW_CONFIG, { allowPrivateHost, log })
-    }
-    const version = resolveAppVersion("ios", { WEBVIEW_CONFIG, release, buildNumber })
+    const resolved = resolveNativeConfig("ios", {
+        release,
+        url: urlFlag,
+        devHost,
+        config,
+        cwd: appRoot,
+        env,
+        log,
+    })
+    // iOS reads the resolved config in memory; Gradle is the one that needs the file.
+    resolved.cleanup()
+    const WEBVIEW_CONFIG = resolved.WEBVIEW_CONFIG
+    const { version, usesDevServer } = resolved
+    // Before signing files are read or Xcode runs: a second release in the
+    // same minute would overwrite the first one's IPA.
+    if (release) assertReleaseFolderFree(releaseOutputDir(appRoot, version), [".ipa"])
     const exportMethod = release ? resolveExportMethod(WEBVIEW_CONFIG.ios || {}, { log }) : undefined
-    const signingPlan = planIosSigning({ iosConfig: WEBVIEW_CONFIG.ios || {}, release, noSign, exportMethod })
-    // The API key signs releases here and device builds once a device is
-    // found (a simulator build never needs it). A temp copy of a base64 key
-    // is removed by cleanup().
-    const resolveApiKey = () =>
-        signingPlan.style === "automatic"
-            ? resolveAscApiKey({ iosConfig: WEBVIEW_CONFIG.ios || {}, appRoot: process.cwd(), log })
-            : null
+
+    // Signing files come from credentials/ios/, or in CI from
+    // CATALYST_IOS_CREDENTIALS unpacked to a temp folder that cleanup()
+    // removes. A release reads them up front; a debug build only when it
+    // signs for an iPhone (a simulator build never signs).
+    let credentials = null
+    function loadCredentials() {
+        if (credentials) return credentials
+        const found = resolveCredentials("ios", { cwd: appRoot, env, log })
+        try {
+            credentials = {
+                ...readIosCredentials(found.dir, { env }),
+                source: found.source,
+                cleanup: found.cleanup,
+            }
+        } catch (error) {
+            found.cleanup()
+            throw error
+        }
+        return credentials
+    }
+    if (release) loadCredentials()
+    const signingPlan = planIosSigning({
+        iosConfig: WEBVIEW_CONFIG.ios || {},
+        credentials,
+        release,
+        exportMethod,
+    })
+    // Automatic signing uses the API key when there is one: cloud signing
+    // for a release, development signing for an iPhone.
+    const resolveApiKey = () => (signingPlan.style === "automatic" ? loadCredentials().apiKey : null)
     const apiKey = release ? resolveApiKey() : null
     if (release && signingPlan.style === "automatic" && !signingPlan.teamId) {
-        apiKey?.cleanup()
+        credentials?.cleanup()
         throw nativeError(
             "IOS-010",
-            "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam (pass --no-sign for an unsigned archive)"
+            "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam"
         )
     }
 
@@ -133,7 +168,8 @@ function createIosBuild(
     const PRODUCT_BUNDLE_ID =
         iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
     const PROJECT_NAME = path.basename(PROJECT_DIR)
-    const IPHONE_MODEL = iosConfig.simulatorName
+    const IPHONE_MODEL =
+        (target?.target === "simulator" && target.name) || iosConfig.simulatorName || "Catalyst iPhone"
 
     // ─── Low-level helpers shared across modules ──────────────────────────────
 
@@ -294,7 +330,7 @@ function createIosBuild(
         WEBVIEW_CONFIG,
         BUILD_OUTPUT_PATH,
         // Captured before the build chdirs into the Xcode project.
-        appRoot: process.cwd(),
+        appRoot,
         iosConfig,
         isGoogleSignInEnabled,
         PROJECT_DIR,
@@ -307,6 +343,9 @@ function createIosBuild(
         progress,
         release,
         version,
+        target,
+        // Debug Info.plist gets NSAllowsLocalNetworking when the app loads the dev server.
+        localNetworking: !release && usesDevServer,
         signingPlan,
         apiKey,
         resolveApiKey,
@@ -333,9 +372,7 @@ function createIosBuild(
         buildXcodeProject,
         buildProjectForTesting,
         findAppPath,
-        moveAppToBuildOutput,
         installAndLaunchApp,
-        detectPhysicalDevices,
         buildProjectForPhysicalDevice,
         findPhysicalDeviceAppPath,
         installAndLaunchOnPhysicalDevice,
@@ -348,21 +385,9 @@ function createIosBuild(
         generateLocalhostP12(path.join(PROJECT_DIR, PROJECT_NAME, "localhost.p12"))
     }
 
-    /** <app>/<BUILD_OUTPUT_PATH>/native/ios/<version>-<build>, from the app root, not the cwd. */
-    function releaseOutputDir() {
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot and BUILD_OUTPUT_PATH come from the local app and its config.
-        return path.resolve(
-            ctx.appRoot,
-            BUILD_OUTPUT_PATH || "build-output",
-            "native",
-            "ios",
-            `${version.versionName || "1.0.0"}-${version.buildNumber}`
-        )
-    }
-
-    /** Remove the previous artifact at this path, so a rebuild of the same version replaces it. */
-    function clearArtifact(target) {
-        fs.rmSync(target, { recursive: true, force: true })
+    /** Remove a leftover file at this path (e.g. dSYMs from a failed export) before writing it. */
+    function clearArtifact(file) {
+        fs.rmSync(file, { recursive: true, force: true })
     }
 
     // ─── Orchestrated build flows ─────────────────────────────────────────────
@@ -382,10 +407,12 @@ function createIosBuild(
             await copyAppIcon()
             generateLocalhostCertificate()
             process.chdir(PROJECT_DIR)
-            const physicalDevice = await detectPhysicalDevices()
+            // buildAppIos.js chose the target before the config was resolved,
+            // so the dev server host fits it. No target means the simulator.
+            const physicalDevice =
+                target?.target === "device" ? { name: target.name, udid: target.udid } : null
             let APP_PATH, targetInfo
             if (physicalDevice) {
-                progress.log("Building for physical device workflow", "success")
                 targetInfo = { type: "physical", name: physicalDevice.name, udid: physicalDevice.udid }
                 await cleanBuildArtifacts()
                 progress.start("build")
@@ -428,19 +455,21 @@ function createIosBuild(
                 APP_PATH = await findAppPath()
                 progress.log("Found app at: " + APP_PATH, "success")
                 await installAndLaunchApp(APP_PATH)
-                const MOVED_APP_PATH = await moveAppToBuildOutput(APP_PATH)
-                APP_PATH = MOVED_APP_PATH
             }
             // Same aligned key/value shape as the Android summary and the
-            // Config tree the setup commands print.
+            // Config tree the setup commands print. The .app stays in
+            // DerivedData: a debug build copies nothing into the app.
             const deviceName = `${targetInfo.name}${targetInfo.type === "physical" ? "" : " simulator"}`
             progress.printTreeContent("Build", [
                 { text: `device     ${deviceName}`, color: "gray" },
-                { text: `artifact   ${displayPath(APP_PATH, originalDir)}`, color: "gray" },
+                { text: `app        ${displayPath(APP_PATH, originalDir)}`, color: "gray" },
                 { text: `loads      ${url}`, color: "gray" },
             ])
 
-            progress.summary(`Installed on ${deviceName}`, "Run catalyst start to serve the app")
+            progress.summary(
+                `Installed on ${deviceName}`,
+                usesDevServer ? "Edit your code; the app reloads from the dev server" : "Open the app"
+            )
             return { success: true, targetInfo, appPath: APP_PATH }
         } catch (error) {
             // Mark the step, then show what actually broke -- once. The ✗ line
@@ -459,15 +488,13 @@ function createIosBuild(
     /**
      * The store build: `xcodebuild archive` in Release for a generic iOS
      * device, then `-exportArchive` to an IPA, with the IPA and zipped dSYMs
-     * written to releaseOutputDir(). With --no-sign the archive is built with
-     * CODE_SIGNING_ALLOWED=NO, nothing is exported, and the .xcarchive itself
-     * is the artifact.
+     * written to build-output/ios/<version>-<build>/.
      */
     async function buildReleaseForIOS(pluginComposition = {}) {
         const originalDir = process.cwd()
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fixed prefix under the OS temp dir.
         const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "catalyst-ios-release-"))
-        let ciSigning = null
+        let p12Signing = null
         try {
             await generatePackageSwift(pluginComposition.iosDependencies)
             await updateXcodeProjectPackageDependencies()
@@ -478,22 +505,23 @@ function createIosBuild(
 
             progress.start("signing")
             const signing = { ...signingPlan }
-            if (signingPlan.ci) {
-                ciSigning = setupCiSigning({ bundleId: PRODUCT_BUNDLE_ID, log })
-                signing.provisioningProfile = ciSigning.profile.name
-                signing.identity = ciSigning.identity.sha1
-                signing.teamId = ciSigning.profile.teamId || signing.teamId
+            if (signingPlan.p12) {
+                p12Signing = setupP12Signing({ p12: credentials.p12, bundleId: PRODUCT_BUNDLE_ID, env, log })
+                signing.provisioningProfile = p12Signing.profile.name
+                signing.identity = p12Signing.identity.sha1
+                signing.teamId = p12Signing.profile.teamId || signing.teamId
             } else if (signing.style === "manual" && exportMethod !== "debugging") {
                 signing.identity = "iPhone Distribution"
             }
-            if (signing.style === "none") {
-                progress.log("Unsigned archive (--no-sign); the IPA export is skipped", "info")
+            const from = credentials?.source === "env" ? "CATALYST_IOS_CREDENTIALS" : "credentials/ios"
+            if (signingPlan.p12) {
+                progress.log(`Local signing with the .p12 and profile from ${from}`, "info")
             } else if (signing.style === "manual") {
                 progress.log(`Manual signing with profile "${signing.provisioningProfile}"`, "info")
             } else {
                 progress.log(
                     ctx.apiKey
-                        ? `Automatic signing for team ${signing.teamId} with App Store Connect key ${ctx.apiKey.keyId} (${ctx.apiKey.source})`
+                        ? `Cloud signing for team ${signing.teamId} with App Store Connect key ${ctx.apiKey.keyId} from ${from}`
                         : `Automatic signing for team ${signing.teamId} with the Apple account signed in to Xcode`,
                     "info"
                 )
@@ -506,18 +534,12 @@ function createIosBuild(
             generateLocalhostCertificate()
             process.chdir(PROJECT_DIR)
 
-            const outDir = releaseOutputDir()
+            const outDir = releaseOutputDir(appRoot, version)
             fs.mkdirSync(outDir, { recursive: true })
             const name = artifactBaseName(iosConfig.appName)
-            const archivePath = path.join(signing.style === "none" ? outDir : workDir, `${name}.xcarchive`)
-            clearArtifact(archivePath)
+            const archivePath = path.join(workDir, `${name}.xcarchive`)
 
-            const signingArgs =
-                signing.style === "none"
-                    ? ["CODE_SIGNING_ALLOWED=NO"]
-                    : signing.style === "automatic"
-                      ? xcodeAuthArgs(ctx.apiKey)
-                      : []
+            const signingArgs = signing.style === "automatic" ? xcodeAuthArgs(ctx.apiKey) : []
             progress.start("archive")
             try {
                 await runCommandStreaming("xcodebuild", [
@@ -535,91 +557,72 @@ function createIosBuild(
                     ...signingArgs,
                 ])
             } catch (error) {
-                const failure =
-                    signing.style !== "none" && isSigningFailure(error.output)
-                        ? signingSetupError("Xcode could not sign the release archive", error)
-                        : error
+                const failure = isSigningFailure(error.output)
+                    ? signingSetupError("Xcode could not sign the release archive", error)
+                    : error
                 failure.stage = "Archiving the release build"
                 throw failure
             }
             progress.complete("archive")
 
-            const rows = []
-            let result
-            if (signing.style === "none") {
-                rows.push({ text: `archive    ${displayPath(archivePath, originalDir)}`, color: "gray" })
-                result = { archivePath }
-            } else {
-                progress.start("export")
-                const exportPath = path.join(workDir, "export")
-                const optionsPlist = writeExportOptionsPlist(
-                    buildExportOptions({
-                        method: exportMethod,
-                        teamId: signing.teamId,
-                        signingStyle: signing.style,
-                        bundleId: PRODUCT_BUNDLE_ID,
-                        profileName: signing.provisioningProfile,
-                        signingCertificate: signing.ci ? signing.identity : undefined,
-                    }),
-                    path.join(workDir, "ExportOptions.plist")
-                )
-                try {
-                    await runCommandStreaming("xcodebuild", [
-                        "-exportArchive",
-                        "-archivePath",
-                        archivePath,
-                        "-exportPath",
-                        exportPath,
-                        "-exportOptionsPlist",
-                        optionsPlist,
-                        ...(signing.style === "automatic" ? xcodeAuthArgs(ctx.apiKey) : []),
-                    ])
-                } catch (error) {
-                    const failure = isSigningFailure(error.output)
-                        ? signingSetupError("Xcode could not sign the IPA for export", error)
-                        : error
-                    failure.stage = "Exporting the IPA"
-                    throw failure
-                }
-                const exported = fs.readdirSync(exportPath).find((file) => file.endsWith(".ipa"))
-                if (!exported) throw new Error(`xcodebuild -exportArchive wrote no .ipa to ${exportPath}`)
-                const ipaPath = path.join(outDir, `${name}.ipa`)
-                clearArtifact(ipaPath)
-                fs.copyFileSync(path.join(exportPath, exported), ipaPath)
-
-                const dsymsDir = path.join(archivePath, "dSYMs")
-                const dsymsZip = path.join(outDir, `${name}-dSYMs.zip`)
-                clearArtifact(dsymsZip)
-                if (fs.existsSync(dsymsDir) && fs.readdirSync(dsymsDir).length > 0) {
-                    execFileSync("ditto", ["-c", "-k", "--keepParent", dsymsDir, dsymsZip])
-                }
-                progress.complete("export")
-                rows.push({ text: `artifact   ${displayPath(ipaPath, originalDir)}`, color: "gray" })
-                if (fs.existsSync(dsymsZip)) {
-                    rows.push({ text: `dSYMs      ${displayPath(dsymsZip, originalDir)}`, color: "gray" })
-                }
-                result = { ipaPath, dsymsZip: fs.existsSync(dsymsZip) ? dsymsZip : null }
+            progress.start("export")
+            const exportPath = path.join(workDir, "export")
+            const optionsPlist = writeExportOptionsPlist(
+                buildExportOptions({
+                    method: exportMethod,
+                    teamId: signing.teamId,
+                    signingStyle: signing.style,
+                    bundleId: PRODUCT_BUNDLE_ID,
+                    profileName: signing.provisioningProfile,
+                    signingCertificate: signing.p12 ? signing.identity : undefined,
+                }),
+                path.join(workDir, "ExportOptions.plist")
+            )
+            try {
+                await runCommandStreaming("xcodebuild", [
+                    "-exportArchive",
+                    "-archivePath",
+                    archivePath,
+                    "-exportPath",
+                    exportPath,
+                    "-exportOptionsPlist",
+                    optionsPlist,
+                    ...(signing.style === "automatic" ? xcodeAuthArgs(ctx.apiKey) : []),
+                ])
+            } catch (error) {
+                const failure = isSigningFailure(error.output)
+                    ? signingSetupError("Xcode could not sign the IPA for export", error)
+                    : error
+                failure.stage = "Exporting the IPA"
+                throw failure
             }
+            const exported = fs.readdirSync(exportPath).find((file) => file.endsWith(".ipa"))
+            if (!exported) throw new Error(`xcodebuild -exportArchive wrote no .ipa to ${exportPath}`)
+            const ipaPath = path.join(outDir, `${name}.ipa`)
+            clearArtifact(ipaPath)
+            fs.copyFileSync(path.join(exportPath, exported), ipaPath)
 
+            const dsymsDir = path.join(archivePath, "dSYMs")
+            const dsymsZip = path.join(outDir, `${name}-dSYMs.zip`)
+            clearArtifact(dsymsZip)
+            if (fs.existsSync(dsymsDir) && fs.readdirSync(dsymsDir).length > 0) {
+                execFileSync("ditto", ["-c", "-k", "--keepParent", dsymsDir, dsymsZip])
+            }
+            progress.complete("export")
+
+            const rows = [{ text: `artifact   ${displayPath(ipaPath, originalDir)}`, color: "gray" }]
+            if (fs.existsSync(dsymsZip)) {
+                rows.push({ text: `dSYMs      ${displayPath(dsymsZip, originalDir)}`, color: "gray" })
+            }
             rows.push({
-                text: `version    ${version.versionName || "1.0.0"} (${version.buildNumber})`,
+                text: `version    ${version.versionName || DEFAULT_VERSION_NAME} (${version.buildNumber})`,
                 color: "gray",
             })
-            rows.push({
-                text: `signing    ${signing.style === "none" ? "unsigned" : `${signing.style}, ${exportMethod}`}`,
-                color: "gray",
-            })
+            rows.push({ text: `signing    ${signing.style}, ${exportMethod}`, color: "gray" })
             rows.push({ text: `loads      ${url}`, color: "gray" })
             progress.printTreeContent("Build", rows)
-            if (signing.style === "none") {
-                progress.summary(
-                    "Built the unsigned release archive",
-                    "Sign and export it, or build with signing set up"
-                )
-            } else {
-                progress.summary("Built the signed IPA", "Upload it to App Store Connect with Transporter")
-            }
-            return { success: true, ...result }
+            progress.summary("Built the signed IPA", "Upload it to App Store Connect with Transporter")
+            return { success: true, ipaPath, dsymsZip: fs.existsSync(dsymsZip) ? dsymsZip : null }
         } catch (error) {
             if (progress.currentStep) progress.fail(progress.currentStep.id)
             process.stderr.write(
@@ -632,7 +635,7 @@ function createIosBuild(
             )
             throw error
         } finally {
-            ciSigning?.cleanup()
+            p12Signing?.cleanup()
             fs.rmSync(workDir, { recursive: true, force: true })
             process.chdir(originalDir)
         }
@@ -723,11 +726,13 @@ function createIosBuild(
         release,
         version,
         WEBVIEW_CONFIG,
+        /** Debug: the app loads the dev server, which buildAppIos.js makes sure answers. */
+        usesDevServer,
         PROJECT_DIR,
         SCHEME_NAME,
-        /** Removes the temp copy of a base64 API key. */
-        cleanup: () => ctx.apiKey?.cleanup(),
+        /** Removes the credentials unpacked from CATALYST_IOS_CREDENTIALS. */
+        cleanup: () => credentials?.cleanup(),
     }
 }
 
-module.exports = { createIosBuild, pwd }
+module.exports = { createIosBuild, IOS_BUILD_STEPS, pwd }

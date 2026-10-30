@@ -389,190 +389,29 @@ async function runInheritedCommand(command, args, { env, cwd } = {}) {
     )
 }
 
-/** True when a person can answer a question on this terminal. */
-function isInteractiveTerminal() {
-    return Boolean(process.stdin.isTTY)
-}
-
-/**
- * A yes/no question. Enter takes the default. Without a terminal it returns
- * false, so callers decide (usually a coded error naming the flag to pass).
- */
-async function confirm(question, { defaultYes = true, prompt = promptUser, isTTY } = {}) {
-    if (!(isTTY ?? isInteractiveTerminal())) return false
-    const answer = await prompt(`${question.replace(/[?\s]+$/, "")}? ${defaultYes ? "[Y/n]" : "[y/N]"}`, {
-        defaultValue: defaultYes ? "y" : "n",
-    })
-    return /^y(es)?$/i.test(String(answer || "").trim())
-}
-
-async function runSdkManagerCommand(sdkManagerPath, args) {
-    const promptResponses = {
-        "(y/N)": "y",
-        "Accept? (y/N):": "y",
-    }
-    return runInteractiveCommand(sdkManagerPath, args, promptResponses)
-}
-
-async function validateAndCompleteConfig(platform, configPath) {
-    // Read existing config
-    let config
-    try {
-        const configContent = fs.readFileSync(configPath, "utf8")
-        config = JSON.parse(configContent)
-    } catch (error) {
-        console.error(`Error reading config file: ${error.message}`)
-        config = {}
-    }
-
-    // Initialize WEBVIEW_CONFIG if it doesn't exist
-    if (!config.WEBVIEW_CONFIG) {
-        config.WEBVIEW_CONFIG = {}
-    }
-
-    // Check if WEBVIEW_CONFIG already has all required fields
-    const webviewConfig = config.WEBVIEW_CONFIG
-
-    const commonFields = {
-        port: "Port the app is served on",
-    }
-
-    // cachePattern is optional -- the iOS build emits an empty pattern list
-    // when it is absent and Android never required it -- so asking for it on
-    // every first setup only stalled people on a question they could not answer.
-    const platformConfigs = {
-        android: {
-            buildType: "Android build type (debug/release)",
-            sdkPath: "Android SDK path",
-            emulatorName: "Android emulator (AVD) name",
-        },
-        ios: {
-            buildType: "iOS build type (debug/release)",
-            appBundleId: "iOS bundle ID (e.g. com.example.app)",
-            simulatorName: "iOS simulator name (e.g. iPhone 16 Pro)",
-        },
-    }
-
-    // Answers we can work out are filled in rather than asked; the rest are
-    // asked with the best guess offered as the default.
-    const sdkGuess = platform === "android" ? webviewConfig.android?.sdkPath || detectAndroidSdk() : null
-    const defaults = {
-        port: config.NODE_SERVER_PORT ? String(config.NODE_SERVER_PORT) : undefined,
-        buildType: "debug",
-        sdkPath: sdkGuess || undefined,
-        emulatorName: platform === "android" ? listAvds(sdkGuess)[0] : undefined,
-    }
-    const filled = []
-
-    if (!platformConfigs[platform]) {
-        throw new Error('Invalid platform. Must be either "android" or "ios"')
-    }
-
-    // Check if all required fields are present
-    let hasAllFields = true
-
-    // Check common fields
-    for (const key of Object.keys(commonFields)) {
-        if (!webviewConfig[key]) {
-            hasAllFields = false
-            break
-        }
-    }
-
-    // Check platform-specific fields
-    if (!webviewConfig[platform]) {
-        webviewConfig[platform] = {}
-        hasAllFields = false
-    } else {
-        for (const key of Object.keys(platformConfigs[platform])) {
-            if (!webviewConfig[platform][key]) {
-                hasAllFields = false
-                break
-            }
-        }
-    }
-
-    // If all fields are present, return the platform-specific config
-    if (hasAllFields) {
-        return {
-            port: webviewConfig.port,
-            [platform]: webviewConfig[platform],
-        }
-    }
-
-    // Fields with a sure answer (detected or conventional) are filled without
-    // asking; only genuinely unknown ones reach the prompt.
-    const autoFill = new Set(["port", "buildType", "sdkPath"])
-    const fill = async (target, key, prompt) => {
-        if (target[key]) return
-        const guess = defaults[key]
-        target[key] = guess && autoFill.has(key) ? guess : await promptUser(prompt, { defaultValue: guess })
-        filled.push(key)
-    }
-
-    for (const [key, prompt] of Object.entries(commonFields)) await fill(webviewConfig, key, prompt)
-    for (const [key, prompt] of Object.entries(platformConfigs[platform])) {
-        await fill(webviewConfig[platform], key, prompt)
-    }
-
-    // Save updated config back to file
-    try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-        if (filled.length) {
-            // Under a live spinner a plain log lands on the spinner's own row.
-            await withSpinnersPaused(async () =>
-                console.log(
-                    `${GUTTER}${t.accent("›")} Saved ${filled.join(", ")} to ${t.accent("config/config.json")}`
-                )
-            )
-        }
-    } catch (error) {
-        console.error(`Error saving config file: ${error.message}`)
-        throw error
-    }
-
-    // Return only the platform-specific config
-    return {
-        port: webviewConfig.port,
-        [platform]: webviewConfig[platform],
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Release configuration, shared by the Android and iOS builds.
+// Coded errors shared by the Android and iOS builds.
 // ---------------------------------------------------------------------------
 
-// Messages mirror errors/registry.js ERROR_DEFINITIONS (see errors/ANDROID/*.md).
+// Messages mirror errors/registry.js ERROR_DEFINITIONS (see errors/<CATEGORY>/*.md).
 // This CJS subtree can't import the ESM error registry (see
 // buildErrorFormat.js), so the strings are copied here; a test keeps them equal.
 const NATIVE_ERRORS = {
-    "ANDROID-002": {
-        message: "Release build points at a local or private host",
-        hint: "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
-    },
-    "ANDROID-003": {
-        message: "Release build has no build number",
-        hint: "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.android.version.buildNumber.",
-    },
-    "ANDROID-004": {
-        message: "Invalid build number",
-        hint: "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
-    },
     "ANDROID-005": {
         message: "No upload key for the release build",
-        hint: "Run the release build once in a terminal to create credentials/android/upload.jks, or in CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD (plus CATALYST_ANDROID_KEY_ALIAS and CATALYST_ANDROID_KEY_PASSWORD when they differ from the defaults).",
+        hint: "Run catalyst buildApp:android --release once in a terminal to create credentials/android/upload.jks, then back it up with catalyst credentials:export android. In CI, set the CATALYST_ANDROID_CREDENTIALS secret to the output of catalyst credentials:export android.",
     },
     "ANDROID-006": {
         message: "Upload key settings are incomplete or wrong",
-        hint: "Check credentials/android/keystore.properties, or the CATALYST_ANDROID_* environment variables, against the keystore.",
+        hint: "Check credentials/android/keystore.properties against credentials/android/upload.jks. In CI, run catalyst credentials:export android again and update the CATALYST_ANDROID_CREDENTIALS secret.",
     },
     "ANDROID-007": {
-        message: "Java 17 or newer not found",
-        hint: "Install JDK 17 or newer (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst setupEmulator:android in a terminal to install it.",
+        message: "No JDK 17 to 23 found",
+        hint: "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
     },
     "ANDROID-008": {
-        message: "Android SDK setup needs your confirmation",
-        hint: "Run catalyst setupEmulator:android in a terminal, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences (for CI).",
+        message: "Android SDK setup was declined",
+        hint: "Run the command again and answer yes, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences.",
     },
     "ANDROID-009": {
         message: "Could not install the Android command-line tools",
@@ -581,6 +420,10 @@ const NATIVE_ERRORS = {
     "ANDROID-010": {
         message: "App icon is not usable",
         hint: "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+    },
+    "ANDROID-011": {
+        message: "No Android phone connected",
+        hint: "Connect the phone, turn on USB debugging in Developer options, accept the Allow USB debugging prompt on the phone and check that adb devices lists it. Or drop --device to use the emulator.",
     },
     "IOS-002": {
         message: "Full Xcode is not installed or selected",
@@ -602,350 +445,261 @@ const NATIVE_ERRORS = {
         message: "App icon has transparency",
         hint: "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
     },
-    "IOS-007": {
-        message: "Release build points at a local or private host",
-        hint: "Set WEBVIEW_CONFIG.release.LOCAL_IP (and port/useHttps) to your production host, or set WEBVIEW_CONFIG.release.allowPrivateHost to true for an internal app on a private network.",
-    },
-    "IOS-008": {
-        message: "Release build has no build number",
-        hint: "Pass --build-number <n>, set CATALYST_BUILD_NUMBER in CI, or set WEBVIEW_CONFIG.ios.version.buildNumber.",
-    },
-    "IOS-009": {
-        message: "Invalid build number",
-        hint: "Use a whole number from 1 to 2100000000 that is higher than the last one you uploaded for this version.",
-    },
     "IOS-010": {
         message: "iOS code signing is not set up",
-        hint: "Set WEBVIEW_CONFIG.ios.developmentTeam and an App Store Connect API key (ios.ascApiKey, or CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64 with CATALYST_ASC_KEY_ID and CATALYST_ASC_ISSUER_ID) for automatic signing, or sign manually with ios.provisioningProfile, or in CI with CATALYST_IOS_P12_BASE64, CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64.",
+        hint: "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
     },
     "IOS-011": {
         message: "App Store Connect API key settings are incomplete or wrong",
-        hint: "Give all three of the key file (ios.ascApiKey.path, CATALYST_ASC_KEY_PATH or CATALYST_ASC_KEY_BASE64), the key ID (ios.ascApiKey.keyId or CATALYST_ASC_KEY_ID) and the issuer ID (ios.ascApiKey.issuerId or CATALYST_ASC_ISSUER_ID).",
+        hint: "Put the AuthKey_*.p8 file in credentials/ios/, and an ascIssuerId line (plus ascKeyId when the file is renamed) in credentials/ios/signing.properties. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
     },
     "IOS-012": {
         message: "Manual signing inputs are incomplete or wrong",
-        hint: "Set CATALYST_IOS_P12_BASE64 (a base64 .p12 holding the distribution certificate and its private key), CATALYST_IOS_P12_PASSWORD and CATALYST_IOS_PROFILE_BASE64 (a base64 .mobileprovision for WEBVIEW_CONFIG.ios.appBundleId), and check that they belong together.",
+        hint: "Keep one distribution .p12 and the .mobileprovision for WEBVIEW_CONFIG.appId in credentials/ios/, with a p12Password line in credentials/ios/signing.properties, and check that they belong together. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
     },
     "IOS-013": {
         message: "Unknown iOS export method",
         hint: "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
     },
-}
-
-// Per-platform codes for the shared release checks.
-const RELEASE_ERROR_CODES = {
-    android: {
-        privateHost: "ANDROID-002",
-        missingBuildNumber: "ANDROID-003",
-        invalidBuildNumber: "ANDROID-004",
+    "IOS-014": {
+        message: "No connected iPhone found",
+        hint: "Connect the iPhone with a cable, unlock it, accept Trust This Computer and turn on Developer Mode (Settings > Privacy & Security), then retry; or leave out --device to use the simulator.",
     },
-    ios: {
-        privateHost: "IOS-007",
-        missingBuildNumber: "IOS-008",
-        invalidBuildNumber: "IOS-009",
+    "IOS-015": {
+        message: "No address the iPhone can reach this Mac on",
+        hint: "Join the Mac and the iPhone to the same Wi-Fi network and check the Local Hostname in System Settings > General > Sharing, then retry.",
+    },
+    "NATIVE-001": {
+        message: "Release build points at a local or private host",
+        hint: "Set WEBVIEW_CONFIG.url to your production origin (e.g. https://shop.acme.com) or pass --url, or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network.",
+    },
+    "NATIVE-002": {
+        message: "Invalid build number",
+        hint: "Unset CATALYST_BUILD_NUMBER to use the automatic build number, or set it to a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+    },
+    "NATIVE-003": {
+        message: "Release build uses a placeholder app id",
+        hint: "Set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id, e.g. com.acme.shop.",
+    },
+    "NATIVE-004": {
+        message: "Invalid production URL",
+        hint: "Use an origin such as https://shop.acme.com, without a path or a port other than 443.",
+    },
+    "NATIVE-005": {
+        message: "A step needs your answer and there is no terminal to ask on",
+        hint: "Pass the flag named in the message, or run the command in an interactive terminal.",
+    },
+    "NATIVE-006": {
+        message: "The dev server did not answer",
+        hint: "Run npm start on its own to see why the server does not start, then run the build again.",
+    },
+    "NATIVE-007": {
+        message: "The credentials secret could not be unpacked",
+        hint: "Run catalyst credentials:export <android|ios> where credentials/<platform>/ exists and paste the whole value into the secret again.",
+    },
+    "NATIVE-008": {
+        message: "No credentials to export",
+        hint: "Run the command from the app root after a release build has created credentials/<platform>/.",
+    },
+    "NATIVE-009": {
+        message: "Credentials are too large for one secret",
+        hint: "Remove files the build does not need from credentials/<platform>/ (only signing keys, profiles and their settings belong there), then export again.",
+    },
+    "NATIVE-010": {
+        message: "Invalid app id",
+        hint: "Set WEBVIEW_CONFIG.appId in config/config.json to a reverse-DNS id such as com.acme.shop: letters and digits only, each part starting with a letter.",
+    },
+    "NATIVE-011": {
+        message: "A release with this version and build number already exists",
+        hint: "Wait a minute and run the release again, or set CATALYST_BUILD_NUMBER to a higher number. To rebuild the same build on purpose, delete that folder first.",
     },
 }
 
 const ERROR_DOC_BASE = "https://github.com/tata1mg/catalyst-core/blob/main/errors"
 
-/** A coded error the build diagnostic prints with its code, hint and doc link. */
+/**
+ * A coded error the build diagnostic prints with its code, hint and doc link.
+ *
+ * @param {string} code
+ * @param {string} [detail]
+ * @param {{ hint?: string }} [options]
+ * @returns {Error & { code: string, hint?: string, docUrl: string }}
+ */
 function nativeError(code, detail, { hint } = {}) {
     const def = NATIVE_ERRORS[code] || { message: "Native build failed" }
+    /** @type {any} */
     const error = new Error(detail ? `${def.message}: ${detail}` : def.message)
     error.code = code
     error.hint = hint || def.hint
-    error.docUrl = `${ERROR_DOC_BASE}/${code.split("-")[0]}/${code}.md`
+    error.docUrl = `${ERROR_DOC_BASE}/${code.replace(/-\d{3}$/, "")}/${code}.md`
     return error
 }
 
-function releaseErrorCode(platform, kind) {
-    const code = RELEASE_ERROR_CODES[platform]?.[kind]
-    if (!code) throw new Error(`No ${kind} error code for platform "${platform}"`)
-    return code
-}
+// ---------------------------------------------------------------------------
+// Flags and questions. Agents and CI never get a prompt: without a terminal,
+// a question that needs an answer fails at once with NATIVE-005 naming the
+// flag that answers it.
+// ---------------------------------------------------------------------------
 
 /**
- * The native flags the CLI forwards: `--release`, `--build-number <n>` (or
- * `--build-number=<n>`), `--no-sign` (iOS: an unsigned release archive, for
- * CI), and setup's `--yes` (allow downloads and config writes without
- * asking) and `--accept-licenses` (accept the Android SDK licences).
- * bin/catalyst.js keeps them out of command dispatch; this reads them back in
- * the platform script.
+ * The native flags the CLI forwards (bin/catalyst.js keeps them out of
+ * command dispatch; this reads them back in the platform script):
+ * `--release` (signed store build), `--device` (the connected phone instead
+ * of the emulator/simulator), `--url <u>` / `--url=<u>` (the release's
+ * production URL, over WEBVIEW_CONFIG.url), `--yes` (confirms installs and
+ * downloads, never licences or key creation) and `--accept-licenses`.
+ *
+ * @param {string[]} [argv]
+ * @returns {{ release: boolean, device: boolean, url: string | undefined, yes: boolean, acceptLicenses: boolean }}
  */
 function parseNativeArgs(argv = process.argv.slice(2)) {
-    const result = {
-        release: false,
-        buildNumber: undefined,
-        noSign: false,
-        yes: false,
-        acceptLicenses: false,
-    }
+    const result = { release: false, device: false, url: undefined, yes: false, acceptLicenses: false }
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i]
         if (arg === "--release") result.release = true
-        else if (arg === "--no-sign") result.noSign = true
+        else if (arg === "--device") result.device = true
         else if (arg === "--yes") result.yes = true
         else if (arg === "--accept-licenses") result.acceptLicenses = true
-        else if (arg === "--build-number") result.buildNumber = argv[++i]
-        else if (arg.startsWith("--build-number=")) result.buildNumber = arg.slice("--build-number=".length)
+        else if (arg === "--url" || arg.startsWith("--url=")) {
+            const value = arg === "--url" ? argv[++i] : arg.slice("--url=".length)
+            if (!value || value.startsWith("--")) {
+                throw nativeError("NATIVE-004", "--url needs a value, e.g. --url https://shop.acme.com")
+            }
+            result.url = value
+        }
     }
     return result
 }
 
-const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value)
-
-/** Objects merge key by key; arrays and scalars in `override` replace the base value. */
-function deepMerge(base, override) {
-    const out = { ...base }
-    for (const [key, value] of Object.entries(override)) {
-        out[key] = isPlainObject(value) && isPlainObject(base[key]) ? deepMerge(base[key], value) : value
-    }
-    return out
-}
-
 /**
- * The config a native build should use.
+ * True when a person can answer a question here: stdin and stdout are both
+ * terminals and `CI` is not set.
  *
- * For a release build, `WEBVIEW_CONFIG.release` is deep-merged over the base
- * values. `release` itself is always stripped, so the native generators never
- * see it, and the result is written to a 0600 temp file for tools that read a
- * path (Gradle's -PconfigPath). Call `cleanup()` when the build is done.
- *
- * @param {"android"|"ios"} platform
- * @param {object} options
- * @param {boolean} [options.release]
- * @param {object} [options.config] - the parsed config.json; read from configPath when omitted
- * @param {string} [options.configPath] - defaults to <cwd>/config/config.json
- * @param {(message: string, type?: string) => void} [options.log]
- */
-function resolveNativeConfig(platform, { release = false, config, configPath, log = () => {} } = {}) {
-    const sourcePath = configPath || path.join(process.cwd(), "config", "config.json")
-    const raw = config || JSON.parse(fs.readFileSync(sourcePath, "utf8"))
-    const base = raw.WEBVIEW_CONFIG || {}
-    const { release: releaseBlock, ...rest } = base
-
-    let WEBVIEW_CONFIG = rest
-    let allowPrivateHost = false
-    if (release) {
-        if (isPlainObject(releaseBlock)) {
-            const { allowPrivateHost: allow, ...overrides } = releaseBlock
-            allowPrivateHost = allow === true
-            WEBVIEW_CONFIG = deepMerge(rest, overrides)
-        } else {
-            log(
-                "WEBVIEW_CONFIG.release is not set, so this release build uses the base config. " +
-                    "Add a release block with your production LOCAL_IP, port, useHttps and apiBaseUrl; " +
-                    "building release from the base config is deprecated.",
-                "warning"
-            )
-        }
-    }
-
-    const resolved = { ...raw, WEBVIEW_CONFIG }
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `catalyst-${platform}-config-`))
-    const resolvedPath = path.join(dir, "config.json")
-    fs.writeFileSync(resolvedPath, JSON.stringify(resolved, null, 2), { mode: 0o600 })
-
-    return {
-        config: resolved,
-        WEBVIEW_CONFIG,
-        configPath: resolvedPath,
-        release,
-        allowPrivateHost,
-        cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
-    }
-}
-
-/**
- * The URL the app opens on launch, built the way each shell builds it:
- * Android uses the configured port (MainActivity), iOS forces 443 under
- * HTTPS (buildIos/index.js). With no LOCAL_IP, an Android release falls back
- * to 127.0.0.1 (generateWebViewConfig) and iOS to localhost.
- */
-function computeStartUrl(platform, wv = {}, { release = false } = {}) {
-    const protocol = wv.useHttps ? "https" : "http"
-    const fallbackHost = platform === "android" && release ? "127.0.0.1" : "localhost"
-    const host = String(wv.LOCAL_IP || fallbackHost)
-    let port
-    if (platform === "ios") port = wv.port ? (wv.useHttps ? 443 : wv.port) : null
-    else port = wv.port || 3005
-    const initial = platform === "android" ? String(wv.initial_url || "") : ""
-    const hostPart = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host
-    return { protocol, host, port, url: `${protocol}://${hostPart}${port ? `:${port}` : ""}/${initial}` }
-}
-
-function ipv4ToInt(ip) {
-    return ip.split(".").reduce((acc, part) => acc * 256 + Number(part), 0)
-}
-
-const PRIVATE_V4_RANGES = [
-    ["0.0.0.0", 8, "an unroutable address"],
-    ["127.0.0.0", 8, "a loopback address"],
-    ["10.0.0.0", 8, "a private (RFC 1918) address"],
-    ["172.16.0.0", 12, "a private (RFC 1918) address"],
-    ["192.168.0.0", 16, "a private (RFC 1918) address"],
-    ["169.254.0.0", 16, "a link-local address"],
-]
-
-/** This machine's own addresses and hostname: what a dev setup writes into LOCAL_IP. */
-function localMachineHosts() {
-    const hosts = new Set()
-    try {
-        for (const entries of Object.values(os.networkInterfaces())) {
-            for (const entry of entries || []) hosts.add(entry.address.toLowerCase())
-        }
-    } catch (error) {
-        // No interfaces to compare against.
-    }
-    try {
-        hosts.add(os.hostname().toLowerCase())
-    } catch (error) {
-        // Hostname unavailable.
-    }
-    return hosts
-}
-
-/**
- * Why a host can't serve a store build, or null when it can. Covers
- * localhost, loopback, RFC 1918, link-local, mDNS (.local) names and this
- * machine's own current addresses.
- *
- * @param {string} rawHost
  * @param {object} [options]
- * @param {Set<string>} [options.localHosts] - this machine's addresses; detected when omitted
- * @returns {string | null}
- */
-function privateHostReason(rawHost, { localHosts = localMachineHosts() } = {}) {
-    const host = String(rawHost || "")
-        .trim()
-        .toLowerCase()
-        .replace(/^\[|\]$/g, "")
-    if (!host) return "an empty host"
-    if (host === "localhost" || host.endsWith(".localhost")) return "localhost"
-    if (host.endsWith(".local")) return "a local network (mDNS) name"
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-        const value = ipv4ToInt(host)
-        for (const [start, bits, reason] of PRIVATE_V4_RANGES) {
-            const from = ipv4ToInt(start)
-            if (value >= from && value < from + 2 ** (32 - bits)) return reason
-        }
-    } else if (host.includes(":")) {
-        if (host === "::" || host === "::1") return "a loopback address"
-        if (/^fe[89ab]/.test(host)) return "a link-local address"
-        if (/^f[cd]/.test(host)) return "a private (unique local) address"
-        const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(host)
-        if (mapped) return privateHostReason(mapped[1], { localHosts })
-    }
-    if (localHosts.has(host)) return "this machine's own address"
-    return null
-}
-
-/**
- * Fail a release build whose start URL users' devices could never reach.
- * `release.allowPrivateHost: true` downgrades the failure to a warning for
- * internal apps. Plain HTTP is always only a warning.
- *
- * @param {"android"|"ios"} platform
- * @param {object} wv - the resolved WEBVIEW_CONFIG
- * @param {object} [options]
- * @param {boolean} [options.allowPrivateHost]
- * @param {(message: string, type?: string) => void} [options.log]
- * @param {Set<string>} [options.localHosts]
- */
-function assertReleaseHost(platform, wv, { allowPrivateHost = false, log = () => {}, localHosts } = {}) {
-    const start = computeStartUrl(platform, wv, { release: true })
-    const reason = privateHostReason(start.host, { localHosts })
-    if (reason) {
-        if (!allowPrivateHost) {
-            throw nativeError(
-                releaseErrorCode(platform, "privateHost"),
-                `${start.url} (${start.host} is ${reason})`
-            )
-        }
-        log(`Release start URL ${start.url} is ${reason}; allowed by release.allowPrivateHost`, "warning")
-    }
-    if (!wv.useHttps) {
-        log(`Release start URL ${start.url} uses plain HTTP. Set useHttps for store builds.`, "warning")
-    }
-    return start
-}
-
-// Google Play's ceiling for versionCode.
-const MAX_BUILD_NUMBER = 2100000000
-
-/**
- * The marketing version and build number for a native build.
- *
- * Marketing version: `<platform>.version.{major,minor,patch}`, else the app's
- * package.json version. Build number: `--build-number`, then
- * `CATALYST_BUILD_NUMBER`, then `<platform>.version.buildNumber`. A release
- * without one fails; debug defaults to 1.
- *
- * @param {"android"|"ios"} platform
- * @param {object} [options]
- * @param {Record<string, any>} [options.WEBVIEW_CONFIG]
- * @param {boolean} [options.release]
- * @param {string | number} [options.buildNumber] - from --build-number
+ * @param {{ isTTY?: boolean }} [options.stdin]
+ * @param {{ isTTY?: boolean }} [options.stdout]
  * @param {Record<string, string | undefined>} [options.env]
- * @param {string} [options.cwd] - the app root, for package.json
- * @returns {{ versionName: string | undefined, buildNumber: number, buildNumberSource: string }}
  */
-function resolveAppVersion(
-    platform,
-    { WEBVIEW_CONFIG = {}, release = false, buildNumber, env = process.env, cwd = process.cwd() } = {}
+function isInteractive({ stdin = process.stdin, stdout = process.stdout, env = process.env } = {}) {
+    const ci = env.CI !== undefined && env.CI !== "" && env.CI !== "0" && env.CI.toLowerCase() !== "false"
+    return Boolean(stdin?.isTTY && stdout?.isTTY && !ci)
+}
+
+/**
+ * The error for a question that needs an answer when there is no terminal.
+ *
+ * @param {string} question - what would have been asked
+ * @param {object} [options]
+ * @param {string | null} [options.flag] - the flag that answers it; null when only a person can (key creation)
+ * @param {string} [options.hint] - replaces the generated hint
+ */
+function needsAnswerError(question, { flag = null, hint } = {}) {
+    const label = String(question).replace(/[?:\s]+$/, "")
+    return nativeError("NATIVE-005", flag ? `${label} (pass ${flag})` : label, {
+        hint:
+            hint ||
+            (flag
+                ? `Pass ${flag} to answer yes without a terminal, or run the command in an interactive terminal.`
+                : "Run the command once in an interactive terminal. No flag answers this, not even --yes."),
+    })
+}
+
+/**
+ * A yes/no question. Enter takes the default. Without a terminal it returns
+ * false, so callers decide (usually needsAnswerError naming the flag).
+ */
+async function confirm(question, { defaultYes = true, prompt = promptUser, isTTY } = {}) {
+    if (!(isTTY ?? isInteractive())) return false
+    const answer = await prompt(`${question.replace(/[?\s]+$/, "")}? ${defaultYes ? "[Y/n]" : "[y/N]"}`, {
+        defaultValue: defaultYes ? "y" : "n",
+    })
+    return /^y(es)?$/i.test(String(answer || "").trim())
+}
+
+// What each kind of consent accepts in place of a typed yes.
+const CONSENT_FLAGS = { install: "--yes", licence: "--accept-licenses", key: null }
+
+/**
+ * Ask for consent to a step, following the rules for every native command:
+ * - "install": an install or download. `--yes` answers it.
+ * - "licence": accepting a licence. Only `--accept-licenses` answers it.
+ * - "key": creating a signing key. Only a person at a terminal answers it.
+ *
+ * Returns true when allowed, false when the person said no. Without a
+ * terminal and without the answering flag it throws NATIVE-005.
+ *
+ * @param {"install" | "licence" | "key"} kind
+ * @param {string} question
+ * @param {object} [options]
+ * @param {{ yes?: boolean, acceptLicenses?: boolean }} [options.flags] - from parseNativeArgs
+ * @param {boolean} [options.defaultYes] - Enter's answer; defaults to true, false for "key"
+ * @param {boolean} [options.isTTY] - defaults to isInteractive()
+ * @param {typeof promptUser} [options.prompt]
+ * @returns {Promise<boolean>}
+ */
+async function askConsent(kind, question, { flags = {}, defaultYes, isTTY, prompt = promptUser } = {}) {
+    if (!(kind in CONSENT_FLAGS)) throw new Error(`Unknown consent kind "${kind}"`)
+    if (kind === "install" && flags.yes) return true
+    if (kind === "licence" && flags.acceptLicenses) return true
+    const interactive = isTTY ?? isInteractive()
+    if (!interactive) throw needsAnswerError(question, { flag: CONSENT_FLAGS[kind] })
+    return confirm(question, { defaultYes: defaultYes ?? kind !== "key", prompt, isTTY: true })
+}
+
+/**
+ * Pick one of several choices on the terminal (a numbered list; Enter takes
+ * the default). Without a terminal it returns the default, or throws
+ * NATIVE-005 naming `flag` when there is none.
+ *
+ * @template T
+ * @param {string} question
+ * @param {{ label: string, value: T, hint?: string }[]} choices
+ * @param {object} [options]
+ * @param {T} [options.defaultValue]
+ * @param {string} [options.flag] - the flag that makes this choice without a terminal
+ * @param {boolean} [options.isTTY]
+ * @param {typeof promptUser} [options.prompt]
+ * @param {(text: string) => void} [options.write]
+ * @returns {Promise<T>}
+ */
+async function select(
+    question,
+    choices,
+    { defaultValue, flag, isTTY, prompt = promptUser, write = (text) => process.stdout.write(text) } = {}
 ) {
-    const version = WEBVIEW_CONFIG[platform]?.version
-    let versionName
-    if (isPlainObject(version) && (version.major != null || version.minor != null || version.patch != null)) {
-        versionName = `${version.major || 1}.${version.minor || 0}.${version.patch || 0}`
-    } else {
-        try {
-            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the local app directory; the file name is fixed.
-            const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8"))
-            if (typeof pkg.version === "string" && pkg.version.trim()) versionName = pkg.version.trim()
-        } catch (error) {
-            // No package.json version: the native project's default applies.
-        }
-    }
-
-    const candidates = [
-        ["--build-number", buildNumber],
-        ["CATALYST_BUILD_NUMBER", env.CATALYST_BUILD_NUMBER],
-        [`${platform}.version.buildNumber`, isPlainObject(version) ? version.buildNumber : undefined],
-    ]
-    const found = candidates.find(
-        ([, value]) => value !== undefined && value !== null && String(value).trim() !== ""
+    if (!choices.length) throw new Error("select() needs at least one choice")
+    const defaultIndex = Math.max(
+        0,
+        choices.findIndex((choice) => choice.value === defaultValue)
     )
-    if (!found) {
-        if (release) {
-            throw nativeError(
-                releaseErrorCode(platform, "missingBuildNumber"),
-                "set one with --build-number, CATALYST_BUILD_NUMBER or " + `${platform}.version.buildNumber`
-            )
+    if (!(isTTY ?? isInteractive())) {
+        if (defaultValue !== undefined) return defaultValue
+        throw needsAnswerError(question, { flag: flag || null })
+    }
+    return withSpinnersPaused(async () => {
+        write(`${GUTTER}${t.warn("?")} ${String(question).replace(/[?:\s]+$/, "")}\n`)
+        choices.forEach((choice, index) => {
+            const hint = choice.hint ? t.dim(`  ${choice.hint}`) : ""
+            write(`${GUTTER}  ${index + 1}. ${choice.label}${hint}\n`)
+        })
+        for (;;) {
+            const answer = await prompt(`Choose 1-${choices.length}`, {
+                defaultValue: String(defaultIndex + 1),
+            })
+            const index = Number(String(answer).trim()) - 1
+            if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index].value
         }
-        return { versionName, buildNumber: 1, buildNumberSource: "default" }
-    }
-
-    const [source, value] = found
-    const text = String(value).trim()
-    const number = Number(text)
-    if (!/^\d+$/.test(text) || number < 1 || number > MAX_BUILD_NUMBER) {
-        throw nativeError(releaseErrorCode(platform, "invalidBuildNumber"), `"${text}" from ${source}`)
-    }
-    return { versionName, buildNumber: number, buildNumberSource: source }
+    })
 }
 
 export {
     NATIVE_ERRORS,
     nativeError,
     parseNativeArgs,
-    deepMerge,
-    resolveNativeConfig,
-    computeStartUrl,
-    privateHostReason,
-    assertReleaseHost,
-    resolveAppVersion,
-    MAX_BUILD_NUMBER,
+    isInteractive,
+    needsAnswerError,
+    askConsent,
+    select,
     runCommand,
     commandExists,
     promptUser,
@@ -953,12 +707,9 @@ export {
     listAvds,
     ensureLocalProperties,
     ANDROID_SDK_HINT,
-    runSdkManagerCommand,
     runInteractiveCommand,
     runInheritedCommand,
-    isInteractiveTerminal,
     confirm,
-    validateAndCompleteConfig,
     redactSecrets,
     redactError,
     expandHome,

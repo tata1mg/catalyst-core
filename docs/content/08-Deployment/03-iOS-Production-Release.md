@@ -6,146 +6,122 @@ id: ios-production-release
 
 # Building and Releasing a Catalyst iOS App
 
-From Catalyst 1.1.1, `buildApp:ios --release` produces the signed IPA for TestFlight and the App Store. Xcode has to be installed, but you never open it: the CLI archives the app, signs it and exports the IPA, on your Mac and in CI.
+`npm run ios:release` produces the signed IPA for TestFlight and the App Store. Xcode has to be installed, but you never open it: the CLI archives the app, signs it and exports the IPA, on your Mac and in CI.
 
 ```bash
-npm run buildApp:ios -- --release --build-number 12
+npm run ios:release
 ```
 
-The IPA and its zipped debug symbols land in `<BUILD_OUTPUT_PATH>/native/ios/<version>-<build>/` inside your app, for example `build/native/ios/2.5.0-12/MyApp.ipa` and `MyApp-dSYMs.zip`. Upload the IPA with Apple's Transporter app or your usual upload tool. Catalyst does not upload it for you yet.
+The IPA and its zipped debug symbols land in `build-output/ios/<version>-<build>/` inside your app, for example `build-output/ios/2.5.0-1497600/Acme-Shop.ipa` and `Acme-Shop-dSYMs.zip`. Uploading is up to you; see [Upload to TestFlight](#4-upload-to-testflight).
 
 ## Before you begin
 
-- Enroll the releasing Apple account in the Apple Developer Program and register the app's bundle ID.
-- Deploy the production web application first. The iOS app loads the configured remote URL in a WebView, and the release build only allows HTTPS loads.
-- Finish the app's identity: `ios.appBundleId`, `ios.appName`, the version, and `public/icon.png` (opaque, at least 1024x1024).
-- Install a full Xcode 26 or newer. `catalyst setupEmulator:ios` checks it and finishes Xcode's first-launch setup.
+- Enroll the releasing Apple account in the Apple Developer Program.
+- Register the bundle ID (your `appId`) under Certificates, Identifiers & Profiles, and create the app in App Store Connect (Apps > + > New App) with that bundle ID.
+- Deploy the production web application over HTTPS and set `WEBVIEW_CONFIG.url` to it. The app loads that URL in a WebView.
+- Finish the app's identity: `appId`, `appName`, the `version` in `package.json`, and `public/icon.png` (opaque, at least 1024x1024).
+- Install a full Xcode 26 or newer. The build checks it and offers to finish Xcode's first-launch setup.
 
-## 1. Point the release at production
-
-A release build uses `WEBVIEW_CONFIG.release`, deep-merged over the rest of `WEBVIEW_CONFIG`. Put the production host there and keep your LAN address in the base config for development:
+## 1. Configure the release
 
 ```json title="config/config.json"
 {
     "WEBVIEW_CONFIG": {
-        "port": 3005,
-        "LOCAL_IP": "192.168.1.20",
+        "appId": "com.acme.shop",
+        "appName": "Acme Shop",
+        "url": "https://shop.acme.com",
         "ios": {
-            "appBundleId": "com.example.shop",
-            "appName": "Shop",
-            "developmentTeam": "ABCDE12345",
-            "version": { "major": 2, "minor": 5, "patch": 0 }
-        },
-        "release": {
-            "LOCAL_IP": "www.example.com",
-            "port": 443,
-            "useHttps": true,
-            "apiBaseUrl": "https://api.example.com/"
+            "developmentTeam": "ABCDE12345"
         }
     }
 }
 ```
 
-The build fails with [IOS-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-007.md) when the start URL is localhost, a private or link-local address, a `.local` name, or this Mac's own address. An internal app on a private network can set `release.allowPrivateHost` to `true`. On iOS the app connects on port 443 whenever `useHttps` is set.
+`developmentTeam` is your 10-character team ID, under Membership details at developer.apple.com/account. The build fails with [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) when `url` is localhost, a private or link-local address, a `.local` name or this Mac's own address, and with [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) for a `com.example.` app id. An internal app on a private network can set `allowPrivateHost` to `true`. On iOS the app always connects on port 443 over HTTPS.
 
-`release` changes the native config only. In bundled mode (`buildOptimisation`), build the web app for production with `catalyst build` first.
+The version (`CFBundleShortVersionString`) comes from `package.json`, without any pre-release suffix. The build number (`CFBundleVersion`) is the number of minutes since 2024-01-01 UTC, or `CATALYST_BUILD_NUMBER` when set. See [Version and Build Number](/content/Deployment/universal-app-deployment#version-and-build-number).
 
-## 2. Version and build number
+## 2. Add the signing files
 
-The version (`CFBundleShortVersionString`) comes from `ios.version.{major,minor,patch}`, or from the app's `package.json` version when `ios.version` is not set. Pre-release suffixes are dropped, so `2.5.0-beta.1` becomes `2.5.0`.
+Signing files live in `credentials/ios/` in your app. New apps list `credentials/` in `.gitignore`; add it to an older app's `.gitignore` before you put files there. There are two ways to sign:
 
-Every upload needs a build number (`CFBundleVersion`) higher than the last one for that version. The release build takes the first of `--build-number <n>`, the `CATALYST_BUILD_NUMBER` environment variable, and `ios.version.buildNumber`. Without one it fails with [IOS-008](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-008.md). In CI, pass the run number.
-
-## 3. Set up signing
-
-Pick one of the three ways below. The build fails with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) when none of them is set up.
-
-### Automatic signing with an App Store Connect API key (recommended)
-
-Xcode creates or fetches the distribution certificate and profile itself. It needs your team ID and an App Store Connect API key with the Admin or App Manager role. Create the key in App Store Connect under Users and Access, Integrations, and download the `.p8` file once.
-
-Keep the `.p8` outside the repository and point the config at it:
-
-```json
-"ios": {
-    "developmentTeam": "ABCDE12345",
-    "ascApiKey": {
-        "path": "~/keys/AuthKey_A1B2C3D4E5.p8",
-        "keyId": "A1B2C3D4E5",
-        "issuerId": "69a6de70-0000-47e3-e053-5b8c7c11a4d1"
-    }
-}
+```text
+credentials/ios/
+  AuthKey_<KEYID>.p8          cloud signing: the App Store Connect API key
+  signing.properties          ascIssuerId=..., ascKeyId=... (optional), p12Password=...
+  distribution.p12            local signing: Apple Distribution certificate and private key
+  AppStore.mobileprovision    local signing: App Store profile for the app id
 ```
 
-The environment variables `CATALYST_ASC_KEY_PATH` (or `CATALYST_ASC_KEY_BASE64`, the base64 of the `.p8`), `CATALYST_ASC_KEY_ID` and `CATALYST_ASC_ISSUER_ID` override these fields one by one. A base64 key is written to a private temporary file for the build and deleted afterwards. A key with one of the three values missing fails with [IOS-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md).
+Keep at most one file of each kind. Back the folder up with `npx catalyst credentials:export ios`; the same value is the CI secret.
 
-Without a key, automatic signing uses the Apple account signed in to Xcode (Xcode, Settings, Accounts) on that Mac, if there is one.
+### Cloud signing with an API key (recommended)
 
-### Manual signing with an installed profile
+Xcode creates or fetches a cloud-managed distribution certificate and the App Store profile itself, so there is nothing to export from Keychain Access.
 
-If you already manage certificates and profiles yourself, set `ios.provisioningProfile` to the profile name. Put the App Store profile in the release block, so debug device builds keep using your development profile:
+1. In App Store Connect, go to Users and Access > Integrations > App Store Connect API and create a team key with the Admin role. Cloud-managed certificates need Admin.
+2. Download `AuthKey_<KEYID>.p8`. Apple lets you download it only once.
+3. Put it in `credentials/ios/` and create `credentials/ios/signing.properties` with the issuer ID shown above the list of keys:
 
-```json
-"ios": { "developmentTeam": "ABCDE12345", "provisioningProfile": "Shop Development" },
-"release": { "ios": { "provisioningProfile": "Shop App Store" } }
+```properties title="credentials/ios/signing.properties"
+ascIssuerId=69a6de70-0000-47e3-e053-5b8c7c11a4d1
 ```
 
-The distribution certificate must be in your login keychain.
+Add `ascKeyId=<KEYID>` only if you renamed the `.p8` file. Cloud signing also needs `ios.developmentTeam`. A key with a value missing fails with [IOS-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md).
 
-### Manual signing in CI
+### Local signing with a .p12 and a profile
 
-Ephemeral CI machines should not create a new certificate on every run, so CI signs with an exported certificate and profile:
+If you manage certificates yourself, export the Apple Distribution certificate with its private key from Keychain Access as a `.p12`, download the App Store provisioning profile for your `appId`, and put both in `credentials/ios/` with the `.p12` password:
 
-| Variable | Value |
-|----------|-------|
-| `CATALYST_IOS_P12_BASE64` | base64 of a `.p12` holding the Apple Distribution certificate and its private key |
-| `CATALYST_IOS_P12_PASSWORD` | the `.p12` password |
-| `CATALYST_IOS_PROFILE_BASE64` | base64 of the App Store `.mobileprovision` for `ios.appBundleId` |
-
-The build imports the certificate into a temporary keychain, adds it to the keychain search list, and installs the profile. When the build ends, also on failure or Ctrl+C, it restores the original search list, deletes the keychain and removes the profile and the decoded files. Inputs that are missing, wrong or do not match the bundle ID fail with [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md).
-
-A GitHub Actions step looks like this. Apps created with a native platform already have it in `.github/workflows/catalyst-native.yml`; see [Native CI](/content/Deployment/universal-app-deployment#native-ci).
-
-```yaml
-- run: npx catalyst buildApp:ios --release
-  env:
-      CATALYST_BUILD_NUMBER: ${{ github.run_number }}
-      CATALYST_IOS_P12_BASE64: ${{ secrets.CATALYST_IOS_P12_BASE64 }}
-      CATALYST_IOS_P12_PASSWORD: ${{ secrets.CATALYST_IOS_P12_PASSWORD }}
-      CATALYST_IOS_PROFILE_BASE64: ${{ secrets.CATALYST_IOS_PROFILE_BASE64 }}
+```properties title="credentials/ios/signing.properties"
+p12Password=the-password-you-chose
 ```
 
-## 4. Build the IPA
+For a release, the `.p12` wins over an API key in the same folder. The build imports the certificate into a temporary keychain and installs the profile. When the build ends, also on failure or Ctrl+C, it restores your keychain search list and removes the keychain and the profile it installed. Files that are missing, wrong or for another bundle ID fail with [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md).
+
+`ios.provisioningProfile` still works for a profile you installed yourself, with the distribution certificate in your login keychain.
+
+With no signing files at all, automatic signing uses the Apple account signed in to Xcode on that Mac, and needs `ios.developmentTeam`; without it the build fails with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md).
+
+## 3. Build the IPA
 
 ```bash
-npm run buildApp:ios -- --release --build-number 12
+npm run ios:release
 ```
 
-Setting `ios.buildType` to `release` (any case) does the same as `--release`. The build:
+The build:
 
-1. merges `release`, checks the start URL and the build number;
+1. resolves the config: `url`, `appId`, version and build number, and the signing files;
 2. writes the native config, entitlements and signing settings;
 3. runs `xcodebuild archive` with the Release configuration for a generic iOS device;
 4. exports the archive with `xcodebuild -exportArchive`, using `ios.exportMethod` (default `app-store-connect`; also `release-testing`, `enterprise` and `debugging`);
-5. copies the IPA and the zipped dSYMs to the output folder.
+5. copies the IPA and the zipped dSYMs to `build-output/ios/<version>-<build>/`.
 
-The export keeps the version and build number Catalyst set. An unknown `ios.exportMethod` fails with [IOS-013](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-013.md).
+The export keeps the version and build number Catalyst set. An unknown `ios.exportMethod` fails with [IOS-013](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-013.md). The archive itself is not kept, so the build does not show up in Xcode's Organizer.
 
-`--no-sign` archives without signing and skips the export. It writes the `.xcarchive` to the same folder and is meant for CI checks that the release compiles, without any signing secrets.
+## 4. Upload to TestFlight
+
+Catalyst does not upload. Use Apple's Transporter app from the Mac App Store: sign in with your Apple account, drag in the IPA from `build-output/ios/<version>-<build>/` and choose Deliver.
+
+Apple processes the build for a few minutes and emails you when it is ready. Then add it to an internal testing group in the app's TestFlight tab. The release build sets `ITSAppUsesNonExemptEncryption` to `false`, because the app only uses the encryption built into iOS, so TestFlight does not ask the export compliance question.
 
 ## 5. Complete the release in App Store Connect
 
-1. Upload the IPA with Transporter and wait for Apple to process it.
-2. Test it through TestFlight.
-3. Complete the store listing, privacy details, pricing and availability.
-4. Select the build for the version and submit it for App Review.
+1. Test the build through TestFlight.
+2. Complete the store listing, privacy details, pricing and availability.
+3. Select the build for the version and submit it for App Review.
 
 Apple's release workflow is documented in [Distributing your app for beta testing and releases](https://developer.apple.com/documentation/xcode/distributing-your-app-for-beta-testing-and-releases).
+
+## CI
+
+Run `npx catalyst credentials:export ios`, store the output as the `CATALYST_IOS_CREDENTIALS` repository secret, and run `npm run ios:release -- --yes --accept-licenses` on a macOS runner with a pinned Xcode. Cloud signing suits CI best, because no certificate has to be exported. [Native CI](/content/Deployment/universal-app-deployment#native-ci) has the complete workflow.
 
 ## What the release build sets for you
 
 - Push notifications: the `aps-environment` entitlement is only added when `WEBVIEW_CONFIG.notifications.enabled` is true. With automatic signing the archive is signed for development and the export re-signs it with the distribution profile, which sets `production`. A manually signed release writes `production` directly.
 - Privacy manifest: the app ships a `PrivacyInfo.xcprivacy` declaring the required-reason APIs the Catalyst shell uses (UserDefaults, system boot time and file timestamps), no tracking and no collected data. Declare what your own web app collects in App Store Connect.
+- Export compliance: `ITSAppUsesNonExemptEncryption` is `false`.
 - Local HTTPS: the in-app file server's self-signed `localhost` certificate is generated on every build. It is only trusted for `localhost` inside the app.
 
 ## Generated project
@@ -156,9 +132,9 @@ The Xcode project lives inside the installed package (`node_modules/catalyst-cor
 
 | Error | Fix |
 |-------|-----|
-| [IOS-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-007.md) Release build points at a local or private host | Set `release.LOCAL_IP`, `port` and `useHttps` to the production host |
-| [IOS-008](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-008.md) Release build has no build number | Pass `--build-number` or set `CATALYST_BUILD_NUMBER` |
-| [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) iOS code signing is not set up | Set `ios.developmentTeam` with an API key, or one of the manual options above |
-| [IOS-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md) App Store Connect API key settings are incomplete or wrong | Give the key file, key ID and issuer ID |
-| [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md) Manual signing inputs are incomplete or wrong | Check the three `CATALYST_IOS_*` variables belong together |
+| [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) Release build points at a local or private host | Set `WEBVIEW_CONFIG.url` to your production address, or pass `--url` |
+| [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) Release build uses a placeholder app id | Set `WEBVIEW_CONFIG.appId` to your own bundle ID |
+| [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) iOS code signing is not set up | Set `ios.developmentTeam` and add an API key, or a `.p12` and profile, to `credentials/ios/` |
+| [IOS-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md) App Store Connect API key settings are incomplete or wrong | Keep one `AuthKey_<KEYID>.p8` and an `ascIssuerId` line in `signing.properties` |
+| [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md) Manual signing inputs are incomplete or wrong | Check that the `.p12`, its password and the profile belong together and match `appId` |
 | [IOS-006](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-006.md) App icon has transparency | Flatten `public/icon.png` onto a solid background |

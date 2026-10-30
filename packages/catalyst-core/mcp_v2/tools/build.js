@@ -29,7 +29,7 @@ const MASTER_FLOWS = {
             step: 2,
             cmd: null,
             label: "Browser / WebView loads",
-            detail: "Web: browser hits localhost. Universal: WebView loads http://<LOCAL_IP>:<port>. IP auto-detected by catalyst at startup.",
+            detail: "Web: browser hits localhost. Universal debug builds load the same dev server: Android over adb reverse on localhost, the iOS simulator on localhost, an iPhone on <mac>.local. Nothing is written to config.json.",
         },
     ],
 
@@ -87,27 +87,27 @@ const MASTER_FLOWS = {
     android_debug: [
         {
             step: 1,
-            cmd: null,
-            label: "Pre-check: config",
-            detail: 'Reads config/config.json → WEBVIEW_CONFIG.android. Requires: sdkPath, emulatorName, buildType="debug" (or "Debug").',
+            cmd: "npm run android",
+            label: "Android debug build",
+            detail: "catalyst buildApp:android. Checks JDK 17 to 23 and the Android SDK (sdkPath, ANDROID_HOME, ANDROID_SDK_ROOT, default location) and installs what is missing after asking (--yes / --accept-licenses without a terminal). Since 1.0.2 Gradle runs behind one progress line; on failure --verbose or --debug add the ANDROID-000 report.",
         },
         {
             step: 2,
-            cmd: "catalyst build",
-            label: "Build web assets",
-            detail: "Compiles web app to build/. Android build embeds these as the WebView content.",
+            cmd: null,
+            label: "Target",
+            detail: "The emulator (android.emulatorName, else the last one used, else catalyst-api36, created when missing). With a phone connected, a terminal run asks; --device uses the phone (ANDROID_SERIAL picks one without a terminal). The pick is remembered in .catalyst/local.json.",
         },
         {
             step: 3,
-            cmd: "npm run buildApp:android",
-            label: "Android debug build",
-            detail: "Runs buildAppAndroid.js: validates ADB + emulator path from sdkPath, launches emulator (emulatorName), copies web assets to androidProject/, runs Gradle debug build, installs APK. Since 1.0.2 Gradle runs behind one progress line that shows the current task; on failure --verbose or --debug add the ANDROID-000 report with the full Gradle output.",
+            cmd: null,
+            label: "Dev server",
+            detail: "Starts `catalyst start` when nothing answers on NODE_SERVER_PORT and waits until it answers; a running server is reused. No separate npm start needed.",
         },
         {
             step: 4,
             cmd: null,
-            label: "WebView startup",
-            detail: "App launches → WebView loads http://<LOCAL_IP>:<port> → bridge initialises → hooks available.",
+            label: "Install, reverse, launch",
+            detail: "Installs <appId>.debug, runs adb reverse for NODE_SERVER_PORT, the HMR port and every localhost:<port> in config.json, then launches. The app loads http://localhost:<port>; WEBVIEW_CONFIG.url is ignored in debug.",
         },
     ],
 
@@ -116,52 +116,46 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: "WEBVIEW_CONFIG.release holds the production LOCAL_IP/port/useHttps/apiBaseUrl (deep-merged over WEBVIEW_CONFIG). A LAN or localhost start URL fails with ANDROID-002. A build number is required (--build-number, CATALYST_BUILD_NUMBER or android.version.buildNumber).",
+            detail: "WEBVIEW_CONFIG.url (or --url) is the production origin; a localhost/LAN/.local/example host fails with NATIVE-001 unless allowPrivateHost is true. appId must not be com.example.* or a template id (NATIVE-003). Version from package.json; build number = minutes since 2024-01-01 UTC, or CATALYST_BUILD_NUMBER.",
         },
         {
             step: 2,
             cmd: null,
             label: "Pre-check: upload key",
-            detail: "The upload key lives in credentials/android/upload.jks + keystore.properties (created after a terminal confirm on the first release build). In CI set CATALYST_ANDROID_KEYSTORE_BASE64 and CATALYST_ANDROID_STORE_PASSWORD.",
+            detail: "credentials/android/upload.jks + keystore.properties. The first release in a terminal asks to create it (never without a terminal, even with --yes: ANDROID-005) and refuses if the app is already on Google Play. Back it up with `catalyst credentials:export android`; CI reads the same value from CATALYST_ANDROID_CREDENTIALS.",
         },
         {
             step: 3,
-            cmd: "catalyst build",
-            label: "Build web assets",
-            detail: "Production web build. Assets are consumed by the Android release build.",
+            cmd: "npm run android:release",
+            label: "Android release build",
+            detail: "catalyst buildApp:android --release. Signs the AAB with the upload key (passwords via environment, never argv). targetSdk 36, 16 KB aligned native libraries. Run `catalyst build` first only with android.buildOptimisation.",
         },
         {
             step: 4,
-            cmd: "npx catalyst buildApp:android --release --build-number <n>",
-            label: "Android release build",
-            detail: "Skips emulator validation. Calls buildAndroidAAB() — renames project, generates the release webview config and signs the AAB with the upload key. Output goes to ./build-output/.",
-        },
-        {
-            step: 5,
             cmd: null,
             label: "AAB output",
-            detail: "Signed .aab in ./deployment/. Upload to Play Console. Not directly installable — use bundletool to test on device.",
+            detail: "build-output/android/<version>-<build>/<name>.aab and upload_certificate.pem. Upload to Play Console (Testing > Internal testing) by hand; Catalyst does not publish.",
         },
     ],
 
     ios_debug: [
         {
             step: 1,
-            cmd: null,
-            label: "Pre-check: config",
-            detail: "Reads WEBVIEW_CONFIG and WEBVIEW_CONFIG.ios. Confirm the development URL, appBundleId, simulatorName, plugins, and selected public/ios assets.",
+            cmd: "npm run ios",
+            label: "iOS debug build",
+            detail: 'catalyst buildApp:ios. Checks full Xcode, offers the Xcode licence and first-launch steps, installs a simulator runtime, and uses an existing iPhone simulator (ios.simulatorName, else the last pick, a booted one or the newest), creating "Catalyst iPhone" after asking only when there is none.',
         },
         {
             step: 2,
-            cmd: "npm run buildApp:ios",
-            label: "iOS simulator build",
-            detail: "Generates native configuration and plugin code in the package-owned Xcode project, syncs selected assets, compiles with Xcode's Debug configuration, installs the .app, and launches it.",
+            cmd: null,
+            label: "Target",
+            detail: "Simulator by default; with an iPhone connected a terminal run asks; --device uses the iPhone (ios.deviceUDID picks one without a terminal). The pick is remembered in .catalyst/local.json. An iPhone needs ios.developmentTeam and an Apple account signed in to Xcode once (a free account works).",
         },
         {
             step: 3,
             cmd: null,
-            label: "Remote web application",
-            detail: "The iOS shell loads the configured remote URL. buildApp:ios does not bundle the full Catalyst web client, so the target web application must be reachable.",
+            label: "Dev server",
+            detail: "Starts `catalyst start` when nothing answers and waits. Simulator: localhost. iPhone: <LocalHostName>.local (else the LAN IP), with the server bound to the network; a server already running for localhost only fails with NATIVE-006. Debug builds add NSAllowsLocalNetworking and ignore WEBVIEW_CONFIG.url.",
         },
         {
             step: 4,
@@ -176,25 +170,25 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: "WEBVIEW_CONFIG.release holds the production LOCAL_IP/port/useHttps/apiBaseUrl (deep-merged over WEBVIEW_CONFIG). A LAN or localhost start URL fails with IOS-007. A build number is required (--build-number, CATALYST_BUILD_NUMBER or ios.version.buildNumber), else IOS-008. Set ios.appBundleId and ios.developmentTeam.",
+            detail: "WEBVIEW_CONFIG.url (or --url), appId (not com.example.*), ios.developmentTeam for cloud or Xcode-account signing (else IOS-010). Version from package.json, build number from the clock or CATALYST_BUILD_NUMBER.",
         },
         {
             step: 2,
             cmd: null,
             label: "Pre-check: signing",
-            detail: "One of: ios.ascApiKey { path, keyId, issuerId } (or CATALYST_ASC_KEY_PATH|CATALYST_ASC_KEY_BASE64 + CATALYST_ASC_KEY_ID + CATALYST_ASC_ISSUER_ID) for automatic signing; ios.provisioningProfile (App Store profile in release.ios.provisioningProfile) for manual signing; or in CI CATALYST_IOS_P12_BASE64 + CATALYST_IOS_P12_PASSWORD + CATALYST_IOS_PROFILE_BASE64 (temporary keychain, removed after the build). None set: IOS-010.",
+            detail: "credentials/ios/ (CI: CATALYST_IOS_CREDENTIALS from `catalyst credentials:export ios`). Cloud signing: AuthKey_<KEYID>.p8 (Admin-role App Store Connect API key) + signing.properties with ascIssuerId. Local signing: one .p12 + one .mobileprovision + p12Password in signing.properties (temporary keychain, removed after the build). Bad key inputs: IOS-011; bad p12/profile: IOS-012.",
         },
         {
             step: 3,
-            cmd: "npx catalyst buildApp:ios --release --build-number <n>",
+            cmd: "npm run ios:release",
             label: "iOS release build",
-            detail: 'No Xcode UI. xcodebuild archive (Release, generic/platform=iOS), then -exportArchive with ios.exportMethod (default app-store-connect). Writes <app>/<BUILD_OUTPUT_PATH>/native/ios/<version>-<build>/<name>.ipa and <name>-dSYMs.zip. --no-sign archives unsigned and skips the export (CI compile check). ios.buildType "release" (any case) does the same as --release.',
+            detail: "catalyst buildApp:ios --release. No Xcode UI: xcodebuild archive (Release, generic/platform=iOS), then -exportArchive with ios.exportMethod (default app-store-connect). Writes build-output/ios/<version>-<build>/<name>.ipa and <name>-dSYMs.zip. ITSAppUsesNonExemptEncryption=false.",
         },
         {
             step: 4,
             cmd: null,
             label: "Upload and release",
-            detail: "Upload the IPA with Transporter (Catalyst does not upload yet), test through TestFlight, complete App Store Connect metadata and privacy details, and submit for App Review.",
+            detail: "Upload the IPA with Transporter or `xcrun altool --upload-app` (Catalyst does not upload), test through TestFlight, complete App Store Connect metadata and privacy details, and submit for App Review.",
         },
     ],
 }
@@ -278,17 +272,17 @@ const MASTER_DIAGRAMS = {
             "→ [web path] hook falls back to browser API (navigator.vibrate, <input type=file>, etc.)",
         ],
         configurable_today: [
-            "port — WebView loads this port from the local server",
-            "useHttps — switches WebView URL to https (requires cert setup)",
-            "LOCAL_IP — override auto-detected IP for device builds",
+            "appId: Android application id and iOS bundle id (release refuses com.example.*)",
+            "appName: name under the app icon on both platforms",
+            "url: production origin release builds load (--url overrides); debug builds use the dev server",
+            "allowPrivateHost: lets a release load a private host (internal apps)",
             "accessControl.allowedUrls — whitelist for outbound requests from WebView",
             "googleSignIn.enabled / clientId / iosClientId",
             "splashScreen — duration, minDuration, backgroundColor, image size; optional animated public/splashscreen.html (1.0.2+)",
             "notifications.enabled — push notification permission prompt",
             "android.buildOptimisation — enables build caching",
-            "release — production overrides merged over WEBVIEW_CONFIG for release builds",
-            "android.version — { major, minor, patch, buildNumber } for release builds",
-            "ios.appBundleId — bundle identifier for App Store",
+            "version: package.json version; build number from the clock or CATALYST_BUILD_NUMBER",
+            "signing: credentials/android/ and credentials/ios/ (CI: CATALYST_ANDROID_CREDENTIALS / CATALYST_IOS_CREDENTIALS)",
         ],
     },
 
@@ -366,7 +360,7 @@ const MASTER_DIAGRAMS = {
             "",
             "[App build] In app project root:",
             "→ catalyst build (Vite client + SSR output)",
-            "→ npm run buildApp:android / buildApp:ios",
+            "→ npm run android / npm run ios (catalyst buildApp:android / buildApp:ios)",
             "→ native build script reads WEBVIEW_CONFIG from config/config.json",
             "→ copies build/ assets into native project",
             "→ compiles native project (Gradle / xcodebuild)",
@@ -473,7 +467,7 @@ const LEGACY_BUILD_PIPELINE = {
     flow: [
         "catalyst build (webpack)",
         "→ catalyst serve for production-style validation",
-        "→ npm run buildApp:android or npm run buildApp:ios",
+        "→ npm run android or npm run ios",
     ],
 }
 
@@ -499,6 +493,27 @@ function getProjectContext(root) {
         port: wv.port,
         useHttps: !!wv.useHttps,
         accessControl: wv.accessControl || {},
+    }
+}
+
+/** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.3.0+). */
+function appIdentityWarnings(ctx, isRelease, warnings) {
+    const wv = ctx.wv
+    const appId = wv.appId || wv.android?.packageName || wv.ios?.appBundleId || wv.ios?.bundleIdentifier
+    if (isRelease && (!appId || /^com\.example\./i.test(appId))) {
+        warnings.push(
+            "WEBVIEW_CONFIG.appId is missing or a com.example placeholder: the release fails with NATIVE-003. Set your own reverse-DNS id."
+        )
+    }
+    if (isRelease && !wv.url && !wv.LOCAL_IP) {
+        warnings.push(
+            "WEBVIEW_CONFIG.url not set: set the production origin (e.g. https://shop.acme.com) or pass --url."
+        )
+    }
+    if (wv.LOCAL_IP && /^\d{1,3}(\.\d{1,3}){3}$/.test(wv.LOCAL_IP) && wv.LOCAL_IP !== "127.0.0.1") {
+        warnings.push(
+            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}. Keep it "localhost"; debug builds work out the dev server address, and the first 1.3.0 build resets saved LAN addresses.`
+        )
     }
 }
 
@@ -586,25 +601,13 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
 
         const isRelease = m === "release" || ctx.androidBuildType === "release"
         flow_key = isRelease ? "android_release" : "android_debug"
-
-        if (isRelease) {
-            if (!ctx.wv.release) {
-                warnings.push(
-                    "WEBVIEW_CONFIG.release missing — the release build uses the base LOCAL_IP and fails (ANDROID-002) if it is a LAN or localhost address. Add a release block with the production host."
-                )
-            }
-        } else {
-            if (!ctx.wv.android?.sdkPath) {
-                warnings.push(
-                    "WEBVIEW_CONFIG.android.sdkPath not set — ADB and emulator validation will fail."
-                )
-            }
-            if (!ctx.wv.android?.emulatorName) {
-                warnings.push("WEBVIEW_CONFIG.android.emulatorName not set — emulator launch step will fail.")
-            }
+        appIdentityWarnings(ctx, isRelease, warnings)
+        if (ctx.androidBuildType === "release") {
+            warnings.push(
+                'android.buildType "release" is deprecated: use `npm run android:release` and set buildType to "debug" or remove it.'
+            )
         }
 
-        notes.push(`buildType detected: ${ctx.androidBuildType}`)
         if (ctx.wv.android?.sdkPath) notes.push(`sdkPath: ${ctx.wv.android.sdkPath}`)
         if (ctx.wv.android?.emulatorName) notes.push(`emulatorName: ${ctx.wv.android.emulatorName}`)
         if (ctx.wv.android?.buildOptimisation) notes.push("buildOptimisation: enabled")
@@ -618,41 +621,32 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
             )
         }
 
-        const isRelease = m === "release"
+        const isRelease = m === "release" || ctx.iosBuildType === "release"
         flow_key = isRelease ? "ios_release" : "ios_debug"
-
-        if (!ctx.wv.ios?.appBundleId) {
+        appIdentityWarnings(ctx, isRelease, warnings)
+        if (ctx.iosBuildType === "release") {
             warnings.push(
-                'WEBVIEW_CONFIG.ios.appBundleId not set — Xcode build will use fallback "com.debug.webview".'
+                'ios.buildType "release" is deprecated: use `npm run ios:release` and set buildType to "debug" or remove it.'
             )
         }
-        if (!ctx.wv.ios?.simulatorName && !isRelease) {
-            warnings.push("WEBVIEW_CONFIG.ios.simulatorName not set — simulator launch step will fail.")
-        }
-        if (ctx.hasGoogleSignIn && !ctx.wv.ios?.simulatorName) {
+        if (isRelease && !ctx.wv.ios?.developmentTeam && !ctx.wv.ios?.provisioningProfile) {
             warnings.push(
-                "googleSignIn.enabled=true but iosClientId may be missing — check WEBVIEW_CONFIG.googleSignIn.iosClientId."
+                "ios.developmentTeam not set. A release fails with IOS-010 unless credentials/ios/ holds a .p12 and its provisioning profile."
             )
         }
-        if (isRelease && !ctx.useHttps) {
+        if (ctx.hasGoogleSignIn && !ctx.wv.googleSignIn?.iosClientId) {
             warnings.push(
-                "WEBVIEW_CONFIG.useHttps is not enabled — the App Store flow requires a reachable HTTPS production web application."
+                "googleSignIn.enabled=true but iosClientId may be missing. Check WEBVIEW_CONFIG.googleSignIn.iosClientId."
             )
         }
         if (isRelease && ctx.hasNotifications) {
             warnings.push(
-                "Push notifications are enabled — review the generated aps-environment entitlement and Release provisioning before archiving."
+                "Push notifications are enabled: review the generated aps-environment entitlement and the release provisioning profile."
             )
         }
 
-        notes.push(`buildType detected: ${ctx.wv.ios?.buildType || "not set (defaults to debug)"}`)
-        if (isRelease) {
-            notes.push(
-                "ios.buildType does not select the App Store build configuration; buildApp:ios still performs a Debug build. Archive the generated project with the scheme's Release action."
-            )
-        }
-        if (ctx.wv.ios?.appBundleId) notes.push(`appBundleId: ${ctx.wv.ios.appBundleId}`)
         if (ctx.wv.ios?.simulatorName) notes.push(`simulatorName: ${ctx.wv.ios.simulatorName}`)
+        if (ctx.wv.ios?.developmentTeam) notes.push(`developmentTeam: ${ctx.wv.ios.developmentTeam}`)
         if (ctx.hasGoogleSignIn) notes.push("googleSignIn: enabled")
     } else {
         return { error: `Unknown platform "${platform}". Use: web | android | ios` }

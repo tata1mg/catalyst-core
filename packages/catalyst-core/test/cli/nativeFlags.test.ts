@@ -18,7 +18,13 @@ beforeAll(() => {
     fs.mkdirSync(path.join(root, "dist", "native"), { recursive: true })
     fs.copyFileSync(binSource, path.join(root, "bin", "catalyst.js"))
     fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ type: "module", version: "0.0.0" }))
-    for (const name of ["buildAppAndroid", "buildAppIos", "androidSetup", "setupEmulatorIos"]) {
+    for (const name of [
+        "buildAppAndroid",
+        "buildAppIos",
+        "androidSetup",
+        "setupEmulatorIos",
+        "exportCredentials",
+    ]) {
         fs.writeFileSync(
             path.join(root, "dist", "native", `${name}.js`),
             `console.log(JSON.stringify({ script: ${JSON.stringify(name)}, args: process.argv.slice(2) }))\n`
@@ -41,18 +47,18 @@ function run(args: string[]) {
 }
 
 describe("native build flags", () => {
-    it("forwards --release and --build-number to the platform script", () => {
-        expect(run(["buildApp:android", "--release", "--build-number", "7"])).toEqual([
-            { script: "buildAppAndroid", args: ["--release", "--build-number", "7"] },
+    it("forwards --release and --url to the platform script", () => {
+        expect(run(["buildApp:android", "--release", "--url", "https://shop.acme.com"])).toEqual([
+            { script: "buildAppAndroid", args: ["--release", "--url", "https://shop.acme.com"] },
         ])
     })
 
-    it("does not dispatch on a build number that names a command", () => {
-        expect(run(["--build-number", "build", "buildApp:android"])).toEqual([
-            { script: "buildAppAndroid", args: ["--build-number", "build"] },
+    it("does not dispatch on a --url value that names a command", () => {
+        expect(run(["--url", "build", "buildApp:android"])).toEqual([
+            { script: "buildAppAndroid", args: ["--url", "build"] },
         ])
-        expect(run(["buildApp:android", "--build-number=serve"])).toEqual([
-            { script: "buildAppAndroid", args: ["--build-number=serve"] },
+        expect(run(["buildApp:android", "--url=serve"])).toEqual([
+            { script: "buildAppAndroid", args: ["--url=serve"] },
         ])
     })
 
@@ -62,13 +68,11 @@ describe("native build flags", () => {
         ])
     })
 
-    it("forwards iOS's --no-sign wherever it appears", () => {
-        expect(run(["--no-sign", "buildApp:ios", "--release", "--build-number=7"])).toEqual([
-            { script: "buildAppIos", args: ["--no-sign", "--release", "--build-number=7"] },
-        ])
+    it("forwards --device wherever it appears", () => {
+        expect(run(["--device", "buildApp:ios"])).toEqual([{ script: "buildAppIos", args: ["--device"] }])
     })
 
-    it("forwards setup's --yes and --accept-licenses wherever they appear", () => {
+    it("forwards --yes and --accept-licenses wherever they appear", () => {
         expect(run(["--yes", "setupEmulator:android", "--accept-licenses"])).toEqual([
             { script: "androidSetup", args: ["--yes", "--accept-licenses"] },
         ])
@@ -79,9 +83,15 @@ describe("native build flags", () => {
     })
 
     it("passes the flags to both platforms for buildApp", () => {
-        expect(run(["buildApp", "--release", "--build-number", "3"])).toEqual([
-            { script: "buildAppIos", args: ["--release", "--build-number", "3"] },
-            { script: "buildAppAndroid", args: ["--release", "--build-number", "3"] },
+        expect(run(["buildApp", "--release", "--url=https://shop.acme.com"])).toEqual([
+            { script: "buildAppIos", args: ["--release", "--url=https://shop.acme.com"] },
+            { script: "buildAppAndroid", args: ["--release", "--url=https://shop.acme.com"] },
+        ])
+    })
+
+    it("dispatches credentials:export with its platform", () => {
+        expect(run(["credentials:export", "android"])).toEqual([
+            { script: "exportCredentials", args: ["android"] },
         ])
     })
 })

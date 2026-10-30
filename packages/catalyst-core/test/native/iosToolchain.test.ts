@@ -4,11 +4,15 @@ import {
     DEFAULT_SIMULATOR_NAME,
     assertFullXcode,
     availableIosRuntimes,
-    chooseSimulator,
+    chooseIosTarget,
+    devHostFor,
     ensureIosRuntime,
+    ensureSimulator,
     ensureXcodeReady,
     newestIphoneDeviceType,
+    parseDevicectlDevices,
     pendingXcodeSetup,
+    prepareIosDebugTarget,
 } from "../../src/native/iosToolchain.js"
 
 async function rejection(promise: Promise<unknown>): Promise<any> {
@@ -80,40 +84,87 @@ describe("Xcode checks", () => {
         ])
     })
 
-    it("never runs sudo without a terminal: IOS-003 names the commands", async () => {
+    it("never runs sudo without a terminal or a flag: NATIVE-005 names the flag and the command", async () => {
         const sudo: string[][] = []
+        const logs: string[] = []
         const error = await rejection(
             ensureXcodeReady({
-                run: xcode({ firstLaunch: false }).run,
+                run: xcode({ licence: false }).run,
                 isTTY: false,
+                log: (m: string) => void logs.push(m),
                 runInherited: async (command: string, args: string[]) => void sudo.push([command, ...args]),
             })
         )
-        expect(error.code).toBe("IOS-003")
-        expect(error.message).toContain("sudo xcodebuild -runFirstLaunch")
+        expect(error.code).toBe("NATIVE-005")
+        expect(error.message).toContain("--accept-licenses")
+        expect(error.hint).toContain("sudo xcodebuild -license accept")
+        expect(logs.join("\n")).toContain("sudo xcodebuild -license accept")
         expect(sudo).toEqual([])
     })
 
-    it("runs the pending steps on the user's terminal after a yes", async () => {
-        const { run, state } = xcode({ licence: false })
+    it("does not take --yes for the licence", async () => {
+        const error = await rejection(
+            ensureXcodeReady({ run: xcode({ licence: false }).run, isTTY: false, flags: { yes: true } })
+        )
+        expect(error.code).toBe("NATIVE-005")
+    })
+
+    it("asks for the licence as a licence and the first launch as an install", async () => {
+        const { run, state } = xcode({ licence: false, firstLaunch: false })
+        const asked: string[] = []
         const sudo: string[][] = []
         await ensureXcodeReady({
             run,
             isTTY: true,
-            confirm: async () => true,
+            ask: async (kind: string) => {
+                asked.push(kind)
+                return true
+            },
+            runInherited: async (command: string, args: string[]) => {
+                sudo.push([command, ...args])
+                if (args.includes("-license")) state.licence = true
+                else state.firstLaunch = true
+            },
+        })
+        expect(asked).toEqual(["licence", "install"])
+        expect(sudo).toEqual([
+            ["sudo", "xcodebuild", "-license", "accept"],
+            ["sudo", "xcodebuild", "-runFirstLaunch"],
+        ])
+    })
+
+    it("runs sudo -n without a terminal when the flag answers (CI)", async () => {
+        const { run, state } = xcode({ licence: false })
+        const sudo: string[][] = []
+        await ensureXcodeReady({
+            run,
+            isTTY: false,
+            flags: { acceptLicenses: true },
             runInherited: async (command: string, args: string[]) => {
                 sudo.push([command, ...args])
                 state.licence = true
             },
         })
-        expect(sudo).toEqual([["sudo", "xcodebuild", "-license", "accept"]])
+        expect(sudo).toEqual([["sudo", "-n", "xcodebuild", "-license", "accept"]])
     })
 
-    it("fails with IOS-003 when the user declines", async () => {
-        const error = await rejection(
-            ensureXcodeReady({ run: xcode({ licence: false }).run, isTTY: true, confirm: async () => false })
+    it("fails with IOS-003 naming the command when the user declines or sudo fails", async () => {
+        const declined = await rejection(
+            ensureXcodeReady({ run: xcode({ licence: false }).run, isTTY: true, ask: async () => false })
         )
-        expect(error.code).toBe("IOS-003")
+        expect(declined.code).toBe("IOS-003")
+        expect(declined.message).toContain("sudo xcodebuild -license accept")
+        const failed = await rejection(
+            ensureXcodeReady({
+                run: xcode({ licence: false }).run,
+                isTTY: false,
+                flags: { acceptLicenses: true },
+                runInherited: async () => {
+                    throw new Error("sudo: a password is required")
+                },
+            })
+        )
+        expect(failed.code).toBe("IOS-003")
     })
 })
 
@@ -134,7 +185,7 @@ describe("iOS runtime", () => {
         expect(runtimes.map((r) => r.version)).toEqual(["26.0", "18.2"])
     })
 
-    it("fails with IOS-004 with no runtime and no consent, without downloading", async () => {
+    it("fails with NATIVE-005 naming --yes without a terminal, without downloading", async () => {
         const downloads: string[][] = []
         const error = await rejection(
             ensureIosRuntime({
@@ -143,15 +194,23 @@ describe("iOS runtime", () => {
                 runInherited: async (_c: string, args: string[]) => void downloads.push(args),
             })
         )
-        expect(error.code).toBe("IOS-004")
+        expect(error.code).toBe("NATIVE-005")
+        expect(error.message).toContain("--yes")
         expect(downloads).toEqual([])
+    })
+
+    it("fails with IOS-004 when the user declines the download", async () => {
+        const error = await rejection(
+            ensureIosRuntime({ isTTY: true, ask: async () => false, listRuntimes: () => ({ runtimes: [] }) })
+        )
+        expect(error.code).toBe("IOS-004")
     })
 
     it("downloads the platform with --yes", async () => {
         let installed = false
         const downloads: string[][] = []
         const result = await ensureIosRuntime({
-            yes: true,
+            flags: { yes: true },
             isTTY: false,
             listRuntimes: () => ({ runtimes: installed ? [runtime("26.0")] : [] }),
             runInherited: async (command: string, args: string[]) => {
@@ -164,7 +223,7 @@ describe("iOS runtime", () => {
     })
 })
 
-describe("simulator choice", () => {
+describe("simulator", () => {
     const rt = runtime("26.0", {
         supportedDeviceTypes: [
             { name: "iPad Pro", identifier: "ipad", productFamily: "iPad" },
@@ -198,58 +257,416 @@ describe("simulator choice", () => {
         ).toBe("iphone-16")
     })
 
-    it("creates Catalyst iPhone without a terminal", async () => {
-        const created: string[][] = []
-        const choice = await chooseSimulator({
+    it("uses an existing simulator without asking", async () => {
+        const simulator = await ensureSimulator({
             runtime: rt,
-            devicesJson: devices(["iPhone 17"]),
+            name: "iPhone 17",
+            devicesJson: devices([DEFAULT_SIMULATOR_NAME, "iPhone 17"]),
             deviceTypesJson: {},
-            isTTY: false,
-            create: (name: string, type: any, r: any) =>
-                void created.push([name, type.identifier, r.identifier]),
+            ask: async () => {
+                throw new Error("should not ask")
+            },
         })
-        expect(choice).toEqual({ name: DEFAULT_SIMULATOR_NAME, created: true })
-        expect(created).toEqual([[DEFAULT_SIMULATOR_NAME, "iphone-17-pro", rt.identifier]])
+        expect(simulator).toEqual({ name: "iPhone 17", udid: "U1", created: false })
     })
 
-    it("reuses an existing Catalyst iPhone with --yes", async () => {
-        const choice = await chooseSimulator({
-            runtime: rt,
-            devicesJson: devices([DEFAULT_SIMULATOR_NAME]),
+    // What Xcode 26 puts on a fresh Mac: stock iPhones and iPads on iOS 26.0,
+    // and older ones on an iOS 18.2 runtime.
+    const ios26 = runtime("26.0", {
+        supportedDeviceTypes: [
+            "iPhone-17-Pro",
+            "iPhone-17-Pro-Max",
+            "iPhone-Air",
+            "iPhone-17",
+            "iPhone-16e",
+        ].map((t) => ({
+            name: t.replace(/-/g, " "),
+            identifier: `com.apple.CoreSimulator.SimDeviceType.${t}`,
+            productFamily: "iPhone",
+        })),
+    })
+    const ios18 = runtime("18.2")
+    const sim = (name: string, udid: string, extra: object = {}) => ({
+        name,
+        udid,
+        state: "Shutdown",
+        isAvailable: true,
+        deviceTypeIdentifier: `com.apple.CoreSimulator.SimDeviceType.${name.replace(/[ ()]+/g, "-")}`,
+        ...extra,
+    })
+    const stock = (overrides: Record<string, object> = {}) => {
+        const at = (name: string, udid: string) => sim(name, udid, overrides[name] || {})
+        return {
+            devices: {
+                [ios18.identifier]: [at("iPhone 16 Pro", "OLD-16PRO"), at("iPhone 16", "OLD-16")],
+                [ios26.identifier]: [
+                    at("iPhone 17 Pro Max", "PROMAX"),
+                    at("iPhone 17", "SEVENTEEN"),
+                    at("iPhone Air", "AIR"),
+                    at("iPhone 16e", "SIXTEENE"),
+                    at("iPad Pro 11-inch (M4)", "IPAD"),
+                    at("iPhone 17 Pro", "PRO"),
+                ],
+                "com.apple.CoreSimulator.SimRuntime.watchOS-26-0": [sim("Apple Watch Series 11", "WATCH")],
+            },
+        }
+    }
+    const pick = (options: Record<string, any>) =>
+        ensureSimulator({
+            runtime: ios26,
             deviceTypesJson: {},
-            yes: true,
-            isTTY: true,
+            isTTY: false,
+            ask: async () => {
+                throw new Error("should not ask")
+            },
             create: () => {
                 throw new Error("should not create")
             },
+            ...options,
         })
-        expect(choice).toEqual({ name: DEFAULT_SIMULATOR_NAME, created: false })
-    })
 
-    it("defaults the terminal picker to creating Catalyst iPhone, and can pick another", async () => {
-        const lines: string[] = []
-        const created: string[] = []
-        const common = {
-            runtime: rt,
-            devicesJson: devices(["iPhone 17", "iPhone Air"]),
-            deviceTypesJson: {},
-            isTTY: true,
-            print: (line: string) => lines.push(line),
-            create: (name: string) => void created.push(name),
-        }
-        expect(
-            await chooseSimulator({ ...common, prompt: async (_q: string, o: any) => o.defaultValue })
-        ).toEqual({
-            name: DEFAULT_SIMULATOR_NAME,
-            created: true,
-        })
-        expect(
-            lines.some((line) => line.startsWith(`1. Create "${DEFAULT_SIMULATOR_NAME}" (iPhone 17 Pro`))
-        ).toBe(true)
-        expect(await chooseSimulator({ ...common, prompt: async () => "3" })).toEqual({
-            name: "iPhone Air",
+    it("takes the newest Pro (not Max) on the chosen runtime without asking or creating", async () => {
+        expect(await pick({ devicesJson: stock() })).toEqual({
+            name: "iPhone 17 Pro",
+            udid: "PRO",
             created: false,
         })
+    })
+
+    it("takes the newest iPhone when the runtime has no Pro, the same one every run", async () => {
+        const noPro = stock()
+        noPro.devices[ios26.identifier] = noPro.devices[ios26.identifier].filter(
+            (s: any) => s.udid !== "PRO" && s.udid !== "PROMAX"
+        )
+        const first = await pick({ devicesJson: noPro })
+        noPro.devices[ios26.identifier].reverse()
+        expect(first).toEqual({ name: "iPhone Air", udid: "AIR", created: false })
+        expect(await pick({ devicesJson: noPro })).toEqual(first)
+    })
+
+    it("falls back to another runtime's iPhones before creating one", async () => {
+        const only18 = stock()
+        only18.devices[ios26.identifier] = []
+        expect(await pick({ devicesJson: only18 })).toEqual({
+            name: "iPhone 16 Pro",
+            udid: "OLD-16PRO",
+            created: false,
+        })
+    })
+
+    it("prefers a booted iPhone over the newest one", async () => {
+        expect(await pick({ devicesJson: stock({ "iPhone 16e": { state: "Booted" } }) })).toEqual({
+            name: "iPhone 16e",
+            udid: "SIXTEENE",
+            created: false,
+        })
+    })
+
+    it("prefers the remembered pick while its udid is available, over a booted one", async () => {
+        const devicesJson = stock({ "iPhone 16e": { state: "Booted" } })
+        const last = { target: "simulator", udid: "AIR", name: "iPhone Air" }
+        expect(await pick({ devicesJson, last })).toEqual({ name: "iPhone Air", udid: "AIR", created: false })
+        const gone = stock({ "iPhone Air": { isAvailable: false }, "iPhone 16e": { state: "Booted" } })
+        expect(await pick({ devicesJson: gone, last })).toMatchObject({ udid: "SIXTEENE" })
+        expect(
+            await pick({ devicesJson, last: { target: "device", udid: "AIR", name: "Jane's iPhone" } })
+        ).toMatchObject({ udid: "SIXTEENE" })
+    })
+
+    it("prefers ios.simulatorName over the remembered pick, and warns when it is missing", async () => {
+        const last = { target: "simulator", udid: "AIR", name: "iPhone Air" }
+        expect(await pick({ devicesJson: stock(), name: "iPhone 16", last })).toEqual({
+            name: "iPhone 16",
+            udid: "OLD-16",
+            created: false,
+        })
+        const logs: string[][] = []
+        const result = await pick({
+            devicesJson: stock(),
+            name: "iPhone 15",
+            last,
+            log: (message: string, type: string) => void logs.push([message, type]),
+        })
+        expect(result).toMatchObject({ udid: "AIR" })
+        expect(logs).toEqual([[expect.stringContaining('"iPhone 15"'), "warning"]])
+    })
+
+    it("does not count iPads or other platforms as an iPhone simulator", async () => {
+        const created: string[] = []
+        const result = await pick({
+            devicesJson: {
+                devices: {
+                    [ios26.identifier]: [sim("iPad Pro 11-inch (M4)", "IPAD")],
+                    "com.apple.CoreSimulator.SimRuntime.watchOS-26-0": [
+                        sim("Apple Watch Series 11", "WATCH"),
+                    ],
+                },
+            },
+            flags: { yes: true },
+            ask: async () => true,
+            create: (name: string) => {
+                created.push(name)
+                return "NEW\n"
+            },
+        })
         expect(created).toEqual([DEFAULT_SIMULATOR_NAME])
+        expect(result).toEqual({ name: DEFAULT_SIMULATOR_NAME, udid: "NEW", created: true })
+    })
+
+    it("creates Catalyst iPhone after an install consent, and returns its udid", async () => {
+        const created: string[][] = []
+        const asked: string[] = []
+        const simulator = await ensureSimulator({
+            runtime: rt,
+            devicesJson: devices(["iPad Pro"]),
+            deviceTypesJson: {},
+            isTTY: false,
+            flags: { yes: true },
+            ask: async (kind: string, question: string, options: any) => {
+                asked.push(kind)
+                return Boolean(options.flags.yes)
+            },
+            create: (name: string, type: any, r: any) => {
+                created.push([name, type.identifier, r.identifier])
+                return "ABCDEF01-2345-6789-ABCD-EF0123456789\n"
+            },
+        })
+        expect(asked).toEqual(["install"])
+        expect(created).toEqual([[DEFAULT_SIMULATOR_NAME, "iphone-17-pro", rt.identifier]])
+        expect(simulator).toEqual({
+            name: DEFAULT_SIMULATOR_NAME,
+            udid: "ABCDEF01-2345-6789-ABCD-EF0123456789",
+            created: true,
+        })
+    })
+
+    it("fails with NATIVE-005 naming --yes when it would create one without a terminal", async () => {
+        const error = await rejection(
+            ensureSimulator({ runtime: rt, devicesJson: devices([]), deviceTypesJson: {}, isTTY: false })
+        )
+        expect(error.code).toBe("NATIVE-005")
+        expect(error.message).toContain("--yes")
+    })
+})
+
+describe("connected iPhones", () => {
+    const entry = (name: string, udid: string, extra: Record<string, any> = {}) => ({
+        identifier: `id-${udid}`,
+        deviceProperties: { name, osVersionNumber: "26.0" },
+        hardwareProperties: { reality: "physical", udid, platform: "iOS" },
+        connectionProperties: { tunnelState: "connected" },
+        ...extra,
+    })
+
+    it("keeps reachable physical iOS devices with a safe udid", () => {
+        const json = {
+            result: {
+                devices: [
+                    entry("Jane's iPhone", "00008110-001A2B3C4D5E"),
+                    entry("Old iPhone", "00008030-AAAA", {
+                        connectionProperties: { tunnelState: "unavailable" },
+                    }),
+                    entry("Sim", "1111", { hardwareProperties: { reality: "virtual", udid: "1111" } }),
+                    entry("Evil", "00; rm -rf /"),
+                    entry("Watch", "2222", {
+                        hardwareProperties: { reality: "physical", udid: "2222", platform: "watchOS" },
+                    }),
+                ],
+            },
+        }
+        expect(parseDevicectlDevices(json)).toEqual([
+            { name: "Jane's iPhone", udid: "00008110-001A2B3C4D5E", version: "26.0" },
+        ])
+        expect(parseDevicectlDevices({})).toEqual([])
+    })
+})
+
+describe("target choice", () => {
+    const jane = { name: "Jane's iPhone", udid: "00008110-AAAA", version: "26.0" }
+    const ravi = { name: "Ravi's iPhone", udid: "00008110-BBBB", version: "18.5" }
+    const never = async () => {
+        throw new Error("should not ask")
+    }
+
+    it("is the simulator by default, even with an iPhone connected, without a terminal", async () => {
+        expect(await chooseIosTarget({ devices: [jane], isTTY: false, select: never })).toEqual({
+            target: "simulator",
+        })
+    })
+
+    it("does not ask in a terminal when no iPhone is connected", async () => {
+        expect(await chooseIosTarget({ devices: [], isTTY: true, select: never })).toEqual({
+            target: "simulator",
+        })
+    })
+
+    it("asks in a terminal when both are available, defaulting to the remembered pick", async () => {
+        const seen: any[] = []
+        const select = async (_q: string, choices: any[], options: any) => {
+            seen.push({ values: choices.map((c) => c.value), defaultValue: options.defaultValue })
+            return options.defaultValue
+        }
+        expect(await chooseIosTarget({ devices: [jane], isTTY: true, select })).toEqual({
+            target: "simulator",
+        })
+        expect(
+            await chooseIosTarget({
+                devices: [jane, ravi],
+                isTTY: true,
+                last: { target: "device", udid: ravi.udid },
+                select,
+            })
+        ).toEqual({ target: "device", udid: ravi.udid, name: ravi.name })
+        expect(seen).toEqual([
+            { values: ["simulator", jane.udid], defaultValue: "simulator" },
+            { values: ["simulator", jane.udid, ravi.udid], defaultValue: ravi.udid },
+        ])
+    })
+
+    it("--device takes the one connected iPhone without asking", async () => {
+        expect(await chooseIosTarget({ device: true, devices: [jane], isTTY: false, select: never })).toEqual(
+            {
+                target: "device",
+                udid: jane.udid,
+                name: jane.name,
+            }
+        )
+    })
+
+    it("--device fails with IOS-014 when no iPhone is connected", async () => {
+        const error = await rejection(chooseIosTarget({ device: true, devices: [], isTTY: true }))
+        expect(error.code).toBe("IOS-014")
+    })
+
+    it("--device with several iPhones: ios.deviceUDID, else a choice in a terminal, else NATIVE-005", async () => {
+        expect(
+            await chooseIosTarget({
+                device: true,
+                devices: [jane, ravi],
+                configuredUdid: ravi.udid,
+                isTTY: false,
+                select: never,
+            })
+        ).toMatchObject({ udid: ravi.udid })
+        expect(
+            await chooseIosTarget({
+                device: true,
+                devices: [jane, ravi],
+                isTTY: true,
+                select: async (_q: string, choices: any[]) => choices[1].value,
+            })
+        ).toMatchObject({ udid: ravi.udid })
+        const error = await rejection(chooseIosTarget({ device: true, devices: [jane, ravi], isTTY: false }))
+        expect(error.code).toBe("NATIVE-005")
+        expect(error.hint).toContain("deviceUDID")
+    })
+})
+
+describe("dev server host", () => {
+    it("is localhost for the simulator, which shares the Mac's network", () => {
+        expect(
+            devHostFor(
+                { target: "simulator" },
+                {
+                    reachableHost: () => {
+                        throw new Error("not needed")
+                    },
+                }
+            )
+        ).toBe("localhost")
+    })
+
+    it("is the Mac's .local name for an iPhone, else its LAN IP", () => {
+        const iphone = { target: "device", name: "Jane's iPhone" }
+        expect(
+            devHostFor(iphone, { reachableHost: () => ({ host: "janes-mac.local", source: "bonjour" }) })
+        ).toBe("janes-mac.local")
+        expect(devHostFor(iphone, { reachableHost: () => ({ host: "192.168.1.20", source: "lan" }) })).toBe(
+            "192.168.1.20"
+        )
+    })
+
+    it("fails with IOS-015 when the iPhone has no way to reach the Mac", () => {
+        expect(thrown(() => devHostFor({ target: "device" }, { reachableHost: () => null })).code).toBe(
+            "IOS-015"
+        )
+    })
+})
+
+describe("prepareIosDebugTarget", () => {
+    const rt = runtime("26.0")
+    const jane = { name: "Jane's iPhone", udid: "00008110-AAAA", version: "26.0" }
+
+    function deps(overrides: Record<string, any> = {}) {
+        const saved: any[] = []
+        const options = {
+            cwd: "/app",
+            last: null,
+            listDevices: () => [jane],
+            ensureRuntime: async () => rt,
+            ensureSim: async ({ name }: any) => ({
+                name: name || "iPhone 17 Pro",
+                udid: "SIM-UDID",
+                created: false,
+            }),
+            reachableHost: () => ({ host: "janes-mac.local", source: "bonjour" }),
+            save: (platform: string, target: any) => void saved.push([platform, target]),
+            ...overrides,
+        }
+        return { options, saved }
+    }
+
+    it("builds for the simulator on localhost without a terminal, and remembers nothing", async () => {
+        const { options, saved } = deps({ isTTY: false, iosConfig: { simulatorName: "iPhone 17" } })
+        expect(await prepareIosDebugTarget(options)).toEqual({
+            target: { target: "simulator", name: "iPhone 17", udid: "SIM-UDID" },
+            devHost: "localhost",
+        })
+        expect(saved).toEqual([])
+    })
+
+    it("builds for the iPhone on the Mac's .local name with --device, and remembers it", async () => {
+        const { options, saved } = deps({
+            isTTY: false,
+            flags: { device: true },
+            ensureRuntime: async () => {
+                throw new Error("a device build needs no simulator runtime")
+            },
+        })
+        const result = await prepareIosDebugTarget(options)
+        expect(result).toEqual({
+            target: { target: "device", udid: jane.udid, name: jane.name },
+            devHost: "janes-mac.local",
+        })
+        expect(saved).toEqual([["ios", result.target]])
+    })
+
+    it("remembers a pick made in a terminal", async () => {
+        const { options, saved } = deps({ isTTY: true, select: async () => "simulator" })
+        await prepareIosDebugTarget(options)
+        expect(saved).toEqual([["ios", { target: "simulator", name: "iPhone 17 Pro", udid: "SIM-UDID" }]])
+    })
+
+    it("hands the configured name and the remembered pick to the simulator choice", async () => {
+        const seen: any[] = []
+        const last = { target: "simulator", udid: "LAST-UDID", name: "iPhone Air" }
+        const { options } = deps({
+            isTTY: false,
+            last,
+            ensureSim: async (args: any) => {
+                seen.push({ name: args.name, last: args.last })
+                return { name: "iPhone Air", udid: "LAST-UDID", created: false }
+            },
+        })
+        expect((await prepareIosDebugTarget(options)).target).toEqual({
+            target: "simulator",
+            name: "iPhone Air",
+            udid: "LAST-UDID",
+        })
+        await prepareIosDebugTarget({ ...options, iosConfig: { simulatorName: "iPhone 16" } })
+        expect(seen).toEqual([
+            { name: undefined, last },
+            { name: "iPhone 16", last },
+        ])
     })
 })

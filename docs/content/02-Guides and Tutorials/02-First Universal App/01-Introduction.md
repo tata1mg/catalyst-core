@@ -10,9 +10,9 @@ This guide gives a clean first-flow for building a Catalyst universal app for We
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22 or newer
 - For iOS: macOS with Xcode installed. You never need to open it.
-- For Android: nothing else. Android Studio is optional; `setupEmulator:android` installs the JDK, SDK and emulator it needs.
+- For Android: nothing else. Android Studio is optional; the first build installs the JDK, SDK and emulator it needs.
 
 ## Step 1: Create App
 
@@ -21,25 +21,25 @@ npx create-catalyst-app@latest my-universal-app
 cd my-universal-app
 ```
 
-Answer "Native platforms" with Android, iOS or both, and accept or edit the suggested app id. The app id is the Android package name and the iOS bundle id, so use your own reverse-DNS domain, for example `com.yourcompany.myapp`. Google Play rejects ids that start with `com.example`. To skip the questions, pass them as flags:
+Every new app is ready for Android and iOS. It gets:
 
-```bash
-npx create-catalyst-app@latest my-universal-app --yes --native both --app-id com.yourcompany.myapp
-```
-
-`--native` takes `none`, `android`, `ios` or `both`. Without it, `--yes` creates a web-only app.
-
-For the chosen platforms the app gets:
-
-- `android.packageName` and `ios.appBundleId` set to the app id, `appName` from the project name, and a `version` block from `package.json`
-- a `WEBVIEW_CONFIG.release` block whose `LOCAL_IP` is the placeholder `your-production-host.localhost`. Release builds refuse it until you put your production host there
+- `WEBVIEW_CONFIG.appId` set to `com.example.<project name>` and `appName` from the project name, for example `com.example.myuniversalapp` and "My Universal App"
 - `public/icon.png`, a placeholder Catalyst icon at 1024x1024 with no transparency
-- `credentials/` in `.gitignore`, where the Android upload key will live
-- `.github/workflows/catalyst-native.yml`, which builds release binaries in GitHub Actions
+- the scripts `android`, `ios`, `android:release` and `ios:release` in `package.json`
+- `credentials/`, `.catalyst/` and `build-output/` in `.gitignore`, for signing keys, per-machine CLI state and store builds
 
-## Step 2: Configure Runtime
+## Step 2: Set the App Id
 
-Set host, ports, and webview config in `config/config.json`. For development, leave `LOCAL_IP` as it is; the emulator setup writes your LAN address there.
+`appId` is the Android package name and the iOS bundle id. Replace `com.example.myuniversalapp` with your own reverse-DNS id, for example `com.yourcompany.myapp`. Debug builds work with the placeholder, but a release build refuses any `com.example.` id, and the stores do not let you change the id after the first upload.
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "appId": "com.yourcompany.myapp",
+    "appName": "My App"
+  }
+}
+```
 
 [Configuration reference →](/content/Guides%20and%20Tutorials/First%20Universal%20App/universal-app-configuration)
 
@@ -51,43 +51,31 @@ npm run start
 
 Open `http://localhost:3005`.
 
-## Step 4: Prepare Emulators
+## Step 4: Run on Android and iOS
 
 ```bash
-npm run setupEmulator:android
-npm run setupEmulator:ios
+npm run android
+npm run ios
 ```
 
-Each command installs what is missing after asking, then boots the emulator or simulator. See [Android Emulator Setup](/content/Guides%20and%20Tutorials/android-emulator-setup) and [iOS Simulator Setup](/content/Guides%20and%20Tutorials/ios-emulator-setup) for the details and the CI flags.
+The first run installs what is missing after asking, starts the dev server if it is not running, and opens the app on an emulator or simulator. With a phone connected, it asks where to run. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp) for phones and the dev server, and [Android Emulator Setup](/content/Guides%20and%20Tutorials/android-emulator-setup) and [iOS Simulator Setup](/content/Guides%20and%20Tutorials/ios-emulator-setup) for what gets installed.
 
-## Step 5: Run Universal App
+Replace `public/icon.png` with your own square PNG of at least 1024x1024 pixels to set the app icon on both platforms.
+
+## Step 5: Build for Release
+
+Deploy the web app over HTTPS and set `WEBVIEW_CONFIG.url` to its address, for example `https://shop.acme.com`. Then:
 
 ```bash
-npm run buildApp:android
-npm run buildApp:ios
+npm run android:release
+npm run ios:release
 ```
 
-A debug build starts the dev server when it is not running, so this is the only command you need. Replace `public/icon.png` with your own square PNG of at least 1024x1024 pixels to set the app icon on both platforms.
+The first Android release in a terminal offers to create your upload key in `credentials/android/`; back it up with `npx catalyst credentials:export android`. The signed AAB lands in `build-output/android/<version>-<build>/` and the IPA in `build-output/ios/<version>-<build>/`. iOS signing needs files in `credentials/ios/`; see [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release).
 
-- [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp)
-- [Cache Management](/content/Guides%20and%20Tutorials/First%20Universal%20App/Cache-Management)
+Uploading to Google Play and App Store Connect is manual. [Releasing a Full App](/content/Deployment/releasing-a-full-app) walks through the first release end to end, and [Universal App Deployment](/content/Deployment/universal-app-deployment#native-ci) has a GitHub Actions workflow for CI.
 
-## Step 6: Build for Release
-
-Deploy the web app over HTTPS and set `WEBVIEW_CONFIG.release.LOCAL_IP` to its host. Then:
-
-```bash
-npm run buildApp:android -- --release --build-number 1
-npm run buildApp:ios -- --release --build-number 1
-```
-
-The first Android release in a terminal offers to create your upload key in `credentials/android/`; back that folder up. The signed AAB lands in `build-output/`, and the IPA in `build/native/ios/<version>-<build>/`. iOS signing needs `ios.developmentTeam` and an App Store Connect API key, or one of the other options in [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release).
-
-## Step 7: Build in CI
-
-The generated `.github/workflows/catalyst-native.yml` runs the same release builds on GitHub Actions when you push a `v*` tag or start it by hand. Add the secrets listed at the top of the file first. It uploads the AAB and IPA as workflow artifacts and does not publish anything. See [Native CI](/content/Deployment/universal-app-deployment#native-ci).
-
-## Step 8: Native APIs
+## Step 6: Native APIs
 
 Use hooks from `catalyst-core/hooks` for platform-native features.
 

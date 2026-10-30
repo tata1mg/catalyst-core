@@ -27,13 +27,12 @@ Use this stage when you are ready to package the same app for Android and iOS, c
 
 The whole native path runs from the Catalyst CLI. Android Studio is not needed, and Xcode only has to be installed:
 
-1. `npx create-catalyst-app@latest` and pick Android, iOS or both under "Native platforms". This writes the app id, app name, version and a `release` block into `config/config.json`, adds a placeholder `public/icon.png`, and adds `.github/workflows/catalyst-native.yml`.
-2. `npm run setupEmulator:android` or `npm run setupEmulator:ios` installs the missing toolchain pieces after asking, and boots an emulator or simulator.
-3. `npm run buildApp:android` or `npm run buildApp:ios` starts the dev server if needed and runs the app.
-4. Set `WEBVIEW_CONFIG.release.LOCAL_IP` to your production host, then `npm run buildApp:android -- --release --build-number 1` builds the signed AAB and `npm run buildApp:ios -- --release --build-number 1` the signed IPA.
-5. Add the signing secrets listed at the top of the workflow file, and CI builds both on every `v*` tag.
+1. `npx create-catalyst-app@latest`. Every new app gets `appId` and `appName` in `config/config.json`, a placeholder `public/icon.png`, and the `android`, `ios`, `android:release` and `ios:release` scripts.
+2. `npm run android` or `npm run ios` installs the missing toolchain pieces after asking, starts the dev server if needed, and runs the app on an emulator, simulator or connected phone.
+3. Replace the `com.example.` app id with your own, set `WEBVIEW_CONFIG.url` to your production address, then `npm run android:release` builds the signed AAB and `npm run ios:release` the signed IPA.
+4. Back up the signing files with `npx catalyst credentials:export android` and `npx catalyst credentials:export ios`; the same values are the CI secrets.
 
-See [Universal App Deployment](/content/Deployment/universal-app-deployment) for the release details.
+See [Releasing a Full App](/content/Deployment/releasing-a-full-app) for the first store release and [Universal App Deployment](/content/Deployment/universal-app-deployment) for the details.
 
 ## 3. Use The Core Reference
 

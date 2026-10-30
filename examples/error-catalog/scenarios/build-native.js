@@ -29,39 +29,22 @@ export const buildNativeScenarios = [
         },
         expect: { inOutput: ["ANDROID-000"], exitNonZero: true },
     },
-    // ANDROID-002..004 fire while the release config is resolved, before any
-    // Android tooling is touched, so they reproduce on a runner without the SDK.
-    // android.buildType "release" stands in for --release (scenarios run the
-    // script without extra arguments).
+    // NATIVE-001, -003, -004 and -010 fire while the release config is resolved,
+    // before any Android tooling is touched, so they reproduce on a runner
+    // without the SDK. android.buildType "release" stands in for --release
+    // (scenarios run the script without extra arguments).
     {
-        code: "ANDROID-002",
-        title: "Release build points at a LAN address",
-        tier: "build-native",
-        kind: "build-native",
-        break: (appDir) => {
-            const confPath = path.join(appDir, "config", "config.json")
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
-            conf.WEBVIEW_CONFIG = { port: 3005, LOCAL_IP: "192.168.1.10", android: { buildType: "release" } }
-            writeJson(confPath, conf)
-        },
-        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
-        restore: (appDir) => {
-            restoreBaselineConfig(appDir)
-        },
-        expect: { inOutput: ["ANDROID-002"], exitNonZero: true },
-    },
-    {
-        code: "ANDROID-003",
-        title: "Release build without a build number",
+        code: "NATIVE-001",
+        title: "Release build whose url is a LAN address",
         tier: "build-native",
         kind: "build-native",
         break: (appDir) => {
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
             conf.WEBVIEW_CONFIG = {
-                port: 3005,
+                url: "http://192.168.1.10:3005",
+                appId: "com.acme.shop",
                 android: { buildType: "release" },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
             }
             writeJson(confPath, conf)
         },
@@ -69,20 +52,20 @@ export const buildNativeScenarios = [
         restore: (appDir) => {
             restoreBaselineConfig(appDir)
         },
-        expect: { inOutput: ["ANDROID-003"], exitNonZero: true },
+        expect: { inOutput: ["NATIVE-001"], exitNonZero: true },
     },
     {
-        code: "ANDROID-004",
-        title: "Release build number of 0",
+        code: "NATIVE-003",
+        title: "Release build with the template's app id",
         tier: "build-native",
         kind: "build-native",
         break: (appDir) => {
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
             conf.WEBVIEW_CONFIG = {
-                port: 3005,
-                android: { buildType: "release", version: { major: 1, buildNumber: 0 } },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+                url: "https://shop.acme.com",
+                appId: "com.example.app",
+                android: { buildType: "release" },
             }
             writeJson(confPath, conf)
         },
@@ -90,7 +73,49 @@ export const buildNativeScenarios = [
         restore: (appDir) => {
             restoreBaselineConfig(appDir)
         },
-        expect: { inOutput: ["ANDROID-004"], exitNonZero: true },
+        expect: { inOutput: ["NATIVE-003"], exitNonZero: true },
+    },
+    {
+        code: "NATIVE-010",
+        title: "App id with a Java keyword in it",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                url: "https://shop.acme.com",
+                appId: "com.acme.new",
+                android: { buildType: "release" },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["NATIVE-010"], exitNonZero: true },
+    },
+    {
+        code: "NATIVE-004",
+        title: "Production url with a path",
+        tier: "build-native",
+        kind: "build-native",
+        break: (appDir) => {
+            const confPath = path.join(appDir, "config", "config.json")
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
+            conf.WEBVIEW_CONFIG = {
+                url: "https://shop.acme.com/app",
+                appId: "com.acme.shop",
+                android: { buildType: "release" },
+            }
+            writeJson(confPath, conf)
+        },
+        run: { cmd: "catalyst", args: ["buildApp:android"], kind: "build-native" },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["NATIVE-004"], exitNonZero: true },
     },
     {
         code: "IOS-000",
@@ -110,68 +135,10 @@ export const buildNativeScenarios = [
         },
         expect: { inOutput: ["IOS-000"], exitNonZero: true },
     },
-    // IOS-007..011 and IOS-013 fire while buildApp:ios resolves the release
-    // config, before Xcode is touched, so they reproduce on a Linux runner.
+    // IOS-010, IOS-011 and IOS-013 fire while buildApp:ios resolves the
+    // release config, before Xcode is touched, so they reproduce on a Linux
+    // runner.
     // ios.buildType "release" stands in for --release.
-    {
-        code: "IOS-007",
-        title: "Release build points at a LAN address",
-        tier: "build-native",
-        kind: "build-native",
-        break: (appDir) => {
-            const confPath = path.join(appDir, "config", "config.json")
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
-            conf.WEBVIEW_CONFIG = { port: 3005, LOCAL_IP: "192.168.1.10", ios: { buildType: "release" } }
-            writeJson(confPath, conf)
-        },
-        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
-        restore: (appDir) => {
-            restoreBaselineConfig(appDir)
-        },
-        expect: { inOutput: ["IOS-007"], exitNonZero: true },
-    },
-    {
-        code: "IOS-008",
-        title: "Release build without a build number",
-        tier: "build-native",
-        kind: "build-native",
-        break: (appDir) => {
-            const confPath = path.join(appDir, "config", "config.json")
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
-            conf.WEBVIEW_CONFIG = {
-                port: 3005,
-                ios: { buildType: "release" },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
-            }
-            writeJson(confPath, conf)
-        },
-        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
-        restore: (appDir) => {
-            restoreBaselineConfig(appDir)
-        },
-        expect: { inOutput: ["IOS-008"], exitNonZero: true },
-    },
-    {
-        code: "IOS-009",
-        title: "Release build number of 0",
-        tier: "build-native",
-        kind: "build-native",
-        break: (appDir) => {
-            const confPath = path.join(appDir, "config", "config.json")
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
-            conf.WEBVIEW_CONFIG = {
-                port: 3005,
-                ios: { buildType: "release", version: { major: 1, buildNumber: 0 } },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
-            }
-            writeJson(confPath, conf)
-        },
-        run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
-        restore: (appDir) => {
-            restoreBaselineConfig(appDir)
-        },
-        expect: { inOutput: ["IOS-009"], exitNonZero: true },
-    },
     {
         code: "IOS-010",
         title: "Signed release build with no development team",
@@ -181,9 +148,9 @@ export const buildNativeScenarios = [
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
             conf.WEBVIEW_CONFIG = {
-                port: 3005,
-                ios: { buildType: "release", version: { major: 1, buildNumber: 7 } },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+                url: "https://shop.acme.com",
+                appId: "com.acme.shop",
+                ios: { buildType: "release" },
             }
             writeJson(confPath, conf)
         },
@@ -195,26 +162,27 @@ export const buildNativeScenarios = [
     },
     {
         code: "IOS-011",
-        title: "App Store Connect API key with only a key ID",
+        title: "App Store Connect API key with no issuer ID",
         tier: "build-native",
         kind: "build-native",
+        // credentials/ios/ holds an AuthKey_<KEYID>.p8 (a fake one) but no
+        // signing.properties with its ascIssuerId line.
         break: (appDir) => {
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
             conf.WEBVIEW_CONFIG = {
-                port: 3005,
-                ios: {
-                    buildType: "release",
-                    version: { major: 1, buildNumber: 7 },
-                    developmentTeam: "ABCDE12345",
-                    ascApiKey: { keyId: "ABC123" },
-                },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
+                url: "https://shop.acme.com",
+                appId: "com.acme.shop",
+                ios: { buildType: "release", developmentTeam: "ABCDE12345" },
             }
             writeJson(confPath, conf)
+            const keyDir = path.join(appDir, "credentials", "ios")
+            fs.mkdirSync(keyDir, { recursive: true })
+            fs.writeFileSync(path.join(keyDir, "AuthKey_ABC123.p8"), "not a real key\n")
         },
         run: { cmd: "catalyst", args: ["buildApp:ios"], kind: "build-native" },
         restore: (appDir) => {
+            fs.rmSync(path.join(appDir, "credentials"), { recursive: true, force: true })
             restoreBaselineConfig(appDir)
         },
         expect: { inOutput: ["IOS-011"], exitNonZero: true },
@@ -228,14 +196,13 @@ export const buildNativeScenarios = [
             const confPath = path.join(appDir, "config", "config.json")
             const conf = JSON.parse(fs.readFileSync(confPath, "utf8"))
             conf.WEBVIEW_CONFIG = {
-                port: 3005,
+                url: "https://shop.acme.com",
+                appId: "com.acme.shop",
                 ios: {
                     buildType: "release",
-                    version: { major: 1, buildNumber: 7 },
                     developmentTeam: "ABCDE12345",
                     exportMethod: "app-store-please",
                 },
-                release: { LOCAL_IP: "www.example.com", useHttps: true, port: 443 },
             }
             writeJson(confPath, conf)
         },
