@@ -22,12 +22,14 @@ export default defineConfig({
         ...baseConfig.build,
         outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
         target: "es2022",
-        minify: "esbuild",
+        // Oxc minifies JS (drops legal comments too); esbuild keeps minifying CSS, as in the client build.
+        minify: "oxc",
+        cssMinify: "esbuild",
         sourcemap: false,
         manifest: false,
         ssrManifest: false,
 
-        rollupOptions: {
+        rolldownOptions: {
             // Belt-and-suspenders with ssr.external: ensures the opt-in OTEL /
             // node-only packages (and their transitive @opentelemetry/* deps) are
             // never resolved/bundled, even though they may not be installed.
@@ -43,7 +45,8 @@ export default defineConfig({
                 },
                 chunkFileNames: "server/assets/[name]-[hash].js",
                 assetFileNames: (assetInfo) => {
-                    const extType = assetInfo.name.split(".").pop()
+                    // Rolldown deprecates `name` in favour of `names`
+                    const extType = (assetInfo.name ?? assetInfo.names?.[0] ?? "").split(".").pop()
                     if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
                         return "server/assets/images/[name]-[hash][extname]"
                     }
@@ -59,11 +62,6 @@ export default defineConfig({
         },
 
         chunkSizeWarningLimit: 2000,
-    },
-
-    // Optimization for production
-    esbuild: {
-        legalComments: "none",
     },
 
     // Production-specific define

@@ -1,4 +1,4 @@
-import { defineConfig, transformWithEsbuild, defaultServerConditions } from "vite"
+import { defineConfig, transformWithOxc, defaultServerConditions } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 
@@ -55,7 +55,9 @@ function jsxInJsPlugin() {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, { loader: "jsx" })
+            // Classic runtime (React.createElement), which is how app .js files compiled before Vite 8.
+            const result = await transformWithOxc(code, id, { lang: "jsx", jsx: { runtime: "classic" } })
+            return { code: result.code, map: result.map }
         },
     }
 }
@@ -187,7 +189,7 @@ const browserOptimizeDeps = [
     "fast-average-color",
     "react-dfp",
     "web-vitals",
-    // Referenced by manualChunks in vite.config.client.js — pre-bundle so the
+    // Referenced by the vendor chunk groups in vite.config.client.js — pre-bundle so the
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
@@ -281,10 +283,8 @@ export default defineConfig({
                 // "@tata1mg/slowoi-react",
                 "catalyst-core/router/ClientRouter",
             ],
-            esbuildOptions: {
-                format: "esm",
-                target: "node2022",
-                loader: {
+            rolldownOptions: {
+                moduleTypes: {
                     ".js": "jsx",
                 },
             },
@@ -301,6 +301,8 @@ export default defineConfig({
         svgr({
             include: ["**/*.svg", "**/*.svg?react"],
             exclude: "**/node_modules/**",
+            // Classic runtime, as before Vite 8 (Oxc would default SVG components to the automatic runtime).
+            oxcOptions: { jsx: { runtime: "classic" } },
         }),
     ],
     resolve: {
@@ -333,10 +335,8 @@ export default defineConfig({
         ],
         include: browserOptimizeDeps,
         exclude: ["catalyst-core/router/ClientRouter"],
-        esbuildOptions: {
-            format: "esm",
-            target: "node2022",
-            loader: {
+        rolldownOptions: {
+            moduleTypes: {
                 ".js": "jsx",
             },
         },
