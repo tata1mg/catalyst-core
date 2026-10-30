@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runCommand, parseNativeArgs, ensureLocalProperties, ANDROID_SDK_HINT } from "./utils.js"
+import { runFile, parseNativeArgs, ensureLocalProperties, ANDROID_SDK_HINT } from "./utils.js"
 import { applyJavaHome, ensureAndroidSdk, ensureJava, resolveSdkPath } from "./androidToolchain.js"
 import { getLastTarget } from "./localState.js"
 import TerminalProgress from "./terminalProgress.js"
@@ -72,7 +72,7 @@ function validateAndroidTools(androidConfig) {
     }
 
     try {
-        runCommand(`${ADB_PATH} version`)
+        runFile(ADB_PATH, ["version"])
     } catch (error) {
         throw new Error(`ADB is not working properly: ${error.message}`)
     }
@@ -82,13 +82,13 @@ function validateAndroidTools(androidConfig) {
     }
 
     try {
-        runCommand(`${EMULATOR_PATH} -version`)
+        runFile(EMULATOR_PATH, ["-version"])
     } catch (error) {
         throw new Error(`Emulator is not working properly: ${error.message}`)
     }
 
     try {
-        const avdOutput = runCommand(`${EMULATOR_PATH} -list-avds`)
+        const avdOutput = runFile(EMULATOR_PATH, ["-list-avds"])
         if (!avdOutput.includes(androidConfig.emulatorName)) {
             throw new Error(`Specified emulator "${androidConfig.emulatorName}" not found in available AVDs`)
         }
@@ -102,7 +102,7 @@ function validateAndroidTools(androidConfig) {
 
 async function checkEmulator(ADB_PATH) {
     try {
-        const devices = runCommand(`${ADB_PATH} devices`, { timeout: 15000 })
+        const devices = runFile(ADB_PATH, ["devices"], { timeout: 15000 })
         return devices.includes("emulator")
     } catch (error) {
         progress.log(`Error checking emulator: ${error}`, "error")

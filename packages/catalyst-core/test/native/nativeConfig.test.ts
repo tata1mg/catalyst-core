@@ -407,14 +407,20 @@ describe("resolveNativeConfig: release", () => {
             release: true,
         })
         try {
-            expect(fs.statSync(resolved.configPath).mode & 0o777).toBe(0o600)
-            expect(JSON.parse(fs.readFileSync(resolved.configPath, "utf8")).WEBVIEW_CONFIG.LOCAL_IP).toBe(
-                "shop.acme.com"
-            )
+            // One descriptor for the mode and the content.
+            const fd = fs.openSync(resolved.configPath, "r")
+            try {
+                expect(fs.fstatSync(fd).mode & 0o777).toBe(0o600)
+                expect(JSON.parse(fs.readFileSync(fd, "utf8")).WEBVIEW_CONFIG.LOCAL_IP).toBe("shop.acme.com")
+            } finally {
+                fs.closeSync(fd)
+            }
         } finally {
             resolved.cleanup()
         }
-        expect(fs.existsSync(resolved.configPath)).toBe(false)
+        expect(() => fs.openSync(resolved.configPath, "r")).toThrow(
+            expect.objectContaining({ code: "ENOENT" })
+        )
     })
 })
 
@@ -478,6 +484,33 @@ describe("resolveNativeConfig: debug", () => {
             { devHost: "jane-mac.local" }
         )
         expect(resolved.WEBVIEW_CONFIG.apiBaseUrl).toBe("http://jane-mac.local:8080/api")
+    })
+
+    it("leaves an apiBaseUrl that is not a URL, or on another host, as written", () => {
+        const notUrl = resolve(
+            "ios",
+            { WEBVIEW_CONFIG: { port: "3005", apiBaseUrl: "/api/v1" } },
+            { devHost: "jane-mac.local" }
+        )
+        expect(notUrl.WEBVIEW_CONFIG.apiBaseUrl).toBe("/api/v1")
+        const elsewhere = resolve(
+            "ios",
+            { WEBVIEW_CONFIG: { port: "3005", apiBaseUrl: "https://api.partner.com/v2" } },
+            { devHost: "jane-mac.local" }
+        )
+        expect(elsewhere.WEBVIEW_CONFIG.apiBaseUrl).toBe("https://api.partner.com/v2")
+        // localhost stays localhost for a target that shares the machine's network.
+        const local = resolve("android", {
+            WEBVIEW_CONFIG: { port: "3005", apiBaseUrl: "http://localhost:8080/api" },
+        })
+        expect(local.WEBVIEW_CONFIG.apiBaseUrl).toBe("http://localhost:8080/api")
+    })
+
+    it("passes an allowedUrls of another shape through unchanged", () => {
+        const resolved = resolve("android", {
+            WEBVIEW_CONFIG: { port: "3005", accessControl: { enabled: false, allowedUrls: null } },
+        })
+        expect(resolved.WEBVIEW_CONFIG.accessControl).toEqual({ enabled: false, allowedUrls: null })
     })
 
     it("keeps a legacy public LOCAL_IP with a warning and no dev server", () => {

@@ -3,7 +3,8 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import crypto from "crypto"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import zlib from "zlib"
 
 import { EventEmitter } from "events"
 import {
@@ -24,6 +25,7 @@ function tempDir() {
     return dir
 }
 afterEach(() => {
+    vi.restoreAllMocks()
     for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
 })
 
@@ -139,6 +141,22 @@ describe("credentials", () => {
         expect(error.message).toContain("CATALYST_ANDROID_CREDENTIALS")
     })
 
+    it("refuses gzipped data that is not a tar archive (NATIVE-007)", () => {
+        const value = zlib.gzipSync(Buffer.from("not a tar archive at all\n".repeat(40))).toString("base64")
+        const error = thrown(() =>
+            unpackCredentials(value, tempDir(), { envName: "CATALYST_IOS_CREDENTIALS" })
+        )
+        expect(error.code).toBe("NATIVE-007")
+        expect(error.message).toContain("CATALYST_IOS_CREDENTIALS could not be read as a tar archive")
+    })
+
+    it("names the platforms it knows", () => {
+        expect(() => credentialsEnvName("windows" as any)).toThrow(
+            'Unknown platform "windows": expected android or ios'
+        )
+        expect(() => packCredentials("web" as any, { cwd: tempDir() })).toThrow(/Unknown platform "web"/)
+    })
+
     it("refuses an archive with paths outside the folder or links", () => {
         const work = tempDir()
         fs.mkdirSync(path.join(work, "inner"))
@@ -170,6 +188,12 @@ describe("credentials", () => {
         expect(maskSecret("50%\nx", { env: { GITHUB_ACTIONS: "true" }, write })).toBe(true)
         expect(out).toEqual(["::add-mask::50%25%0Ax\n"])
     })
+
+    it("writes the mask to stdout by default", () => {
+        const write = vi.spyOn(process.stdout, "write").mockImplementation(() => true)
+        expect(maskSecret("abc", { env: { GITHUB_ACTIONS: "true" } })).toBe(true)
+        expect(write).toHaveBeenCalledWith("::add-mask::abc\n")
+    })
 })
 
 describe("catalyst credentials:export", () => {
@@ -197,6 +221,14 @@ describe("catalyst credentials:export", () => {
         })
         expect(code).toBe(1)
         expect(err.join("")).toContain("NATIVE-008")
+    })
+
+    it("writes to the process streams by default", () => {
+        const out = vi.spyOn(process.stdout, "write").mockImplementation(() => true)
+        const err = vi.spyOn(process.stderr, "write").mockImplementation(() => true)
+        expect(runExportCredentials({ argv: ["android"], cwd: appWithCredentials() })).toBe(0)
+        expect(String(out.mock.calls[0][0]).trim()).toMatch(/^[A-Za-z0-9+/]+=*$/)
+        expect(String(err.mock.calls[0][0])).toContain("CATALYST_ANDROID_CREDENTIALS")
     })
 
     it("needs a platform", () => {

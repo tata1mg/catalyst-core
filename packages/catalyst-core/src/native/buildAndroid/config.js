@@ -70,7 +70,7 @@ function createConfigPhase(ctx) {
         if (!fs.existsSync(ADB_PATH)) throw withHint(`adb not found at ${ADB_PATH}`, ANDROID_SDK_HINT)
 
         try {
-            ctx.runCommand(`"${ADB_PATH}" version`, { timeout: 15000 })
+            ctx.runFile(ADB_PATH, ["version"], { timeout: 15000 })
         } catch (error) {
             if (error.hint) throw error
             throw new Error(`ADB is not working properly: ${error.message}`)

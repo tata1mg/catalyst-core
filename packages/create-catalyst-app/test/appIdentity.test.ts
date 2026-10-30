@@ -70,6 +70,17 @@ describe("applyAppIdentity", () => {
         })
     })
 
+    it("writes nothing when config.json is missing or not JSON", () => {
+        const dir = app()
+        const file = path.join(dir, "config", "config.json")
+        fs.writeFileSync(file, "{ not json")
+        expect(identity.applyAppIdentity(dir, "shop")).toBe(false)
+        expect(fs.readFileSync(file, "utf8")).toBe("{ not json")
+        fs.rmSync(file)
+        expect(identity.applyAppIdentity(dir, "shop")).toBe(false)
+        expect(fs.existsSync(file)).toBe(false)
+    })
+
     it("leaves a config without WEBVIEW_CONFIG alone", () => {
         const dir = app()
         const file = path.join(dir, "config", "config.json")

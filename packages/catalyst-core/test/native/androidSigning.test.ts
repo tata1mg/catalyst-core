@@ -412,6 +412,103 @@ describe("resolveAndroidSigning", () => {
         ).toBe(true)
     })
 
+    it("adopts a legacy keystore from the older android.keystore shape, with its alias", async () => {
+        const app = tempDir()
+        const legacy = path.join(app, "build-output", "shop-keystore.jks")
+        fs.mkdirSync(path.dirname(legacy))
+        fs.writeFileSync(legacy, "old-key")
+        const { exec, calls } = fakeKeytool()
+        const signing = await resolveAndroidSigning({
+            appRoot: app,
+            androidConfig: { keystore: { alias: "shop", storePassword: "older-pw" } },
+            env: {},
+            isTTY: true,
+            prompt: async () => "yes",
+            legacyKeystorePath: legacy,
+            exec,
+        })
+        expect(signing).toMatchObject({ keyAlias: "shop", storePassword: "older-pw", source: "adopted" })
+        expect(readKeystoreProperties(credentialPaths(app).propertiesFile)).toMatchObject({
+            keyAlias: "shop",
+            storePassword: "older-pw",
+        })
+        expect(calls.map((call) => call.args[0])).toEqual(["-list"])
+    })
+
+    it("removes the unpacked secret when its key does not open (ANDROID-006)", async () => {
+        const { exec, calls } = fakeKeytool({ rejectList: true })
+        const masked: string[] = []
+        const error = await rejection(
+            resolveAndroidSigning({
+                appRoot: tempDir(),
+                env: {
+                    CATALYST_ANDROID_CREDENTIALS: packSecret({
+                        "upload.jks": "k",
+                        "keystore.properties": `storeFile=upload.jks\nkeyAlias=ci\nstorePassword=pw1\nkeyPassword=pw2\n`,
+                    }),
+                },
+                isTTY: false,
+                exec,
+                mask: (value: string) => void masked.push(value),
+            })
+        )
+        expect(error.code).toBe("ANDROID-006")
+        expect(error.message).toContain("keystore password was incorrect")
+        // Both passwords are masked, and the folder the secret was unpacked to is gone.
+        expect(masked).toEqual(["pw1", "pw2"])
+        const storeFile = calls[0].args[calls[0].args.indexOf("-keystore") + 1]
+        expect(path.basename(storeFile)).toBe("upload.jks")
+        expect(fs.existsSync(path.dirname(storeFile))).toBe(false)
+    })
+
+    it("names keytool's first line when the key cannot be created or exported", () => {
+        const failing = () => {
+            throw Object.assign(new Error("Command failed"), {
+                stderr: "keytool error: java.lang.Exception: bad dname\n\tat sun.security.tools\n",
+            })
+        }
+        const dir = tempDir()
+        expect(() =>
+            createUploadKeystore(
+                path.join(dir, "upload.jks"),
+                { password: "pw", organizationInfo: {} },
+                { exec: failing, env: {} }
+            )
+        ).toThrow("keytool could not create the upload key: keytool error: java.lang.Exception: bad dname")
+        expect(fs.existsSync(path.join(dir, "upload.jks"))).toBe(false)
+
+        expect(() =>
+            exportUploadCertificate(
+                { storeFile: "/k/upload.jks", keyAlias: "upload", storePassword: "pw" },
+                path.join(dir, "out", "upload_certificate.pem"),
+                { exec: failing, env: {} }
+            )
+        ).toThrow(
+            "keytool could not export the upload certificate: keytool error: java.lang.Exception: bad dname"
+        )
+
+        const silent = () => {
+            throw new Error("spawn keytool EACCES")
+        }
+        expect(() =>
+            exportUploadCertificate(
+                { storeFile: "/k/upload.jks", keyAlias: "upload", storePassword: "pw" },
+                path.join(dir, "out", "upload_certificate.pem"),
+                { exec: silent, env: {} }
+            )
+        ).toThrow("keytool could not export the upload certificate: spawn keytool EACCES")
+    })
+
+    it("appends to a .gitignore without a trailing newline through one descriptor", () => {
+        const app = tempDir()
+        fs.writeFileSync(path.join(app, ".gitignore"), "node_modules\r\ndist")
+        expect(ensureGitignored(app)).toBe(true)
+        expect(fs.readFileSync(path.join(app, ".gitignore"), "utf8")).toBe(
+            "node_modules\r\ndist\ncredentials/\n"
+        )
+        expect(ensureGitignored(app)).toBe(false)
+    })
+
     it("detects passwords in either legacy config shape", () => {
         expect(configHasPasswords({ keystore: { storePassword: "x" } })).toBe(true)
         expect(configHasPasswords({ keystoreConfig: { organizationInfo: {} } })).toBe(false)

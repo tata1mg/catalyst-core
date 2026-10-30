@@ -23,18 +23,18 @@ import { getLastTarget, saveLastTarget } from "./localState.js"
 const DEFAULT_SIMULATOR_NAME = "Catalyst iPhone"
 
 /** Exit status and output of a probe; never throws. */
-function probe(command, args) {
+function probe(command, args, { spawn = spawnSync } = {}) {
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed Xcode probe commands with argv arrays.
-    const result = spawnSync(command, args, { encoding: "utf8", timeout: 60000 })
+    const result = spawn(command, args, { encoding: "utf8", timeout: 60000 })
     return {
         status: result.error ? null : result.status,
         output: `${result.stdout || ""}${result.stderr || ""}`.trim(),
     }
 }
 
-function simctlJson(args) {
+function simctlJson(args, { exec = execFileSync } = {}) {
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed simctl queries with argv arrays.
-    return JSON.parse(execFileSync("xcrun", ["simctl", ...args, "-j"], { encoding: "utf8" }))
+    return JSON.parse(exec("xcrun", ["simctl", ...args, "-j"], { encoding: "utf8" }))
 }
 
 /**
@@ -370,19 +370,23 @@ function parseDevicectlDevices(json) {
         .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
 }
 
-/** `xcrun devicectl list devices` into a temp file (Apple's scripting guidance), parsed. */
-function runDevicectlList() {
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fixed name under the OS temp dir.
-    const file = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
+/**
+ * `xcrun devicectl list devices` into a temp file (Apple's scripting
+ * guidance), parsed. The file goes in a fresh owner-only folder from
+ * mkdtemp, so no other user can predict or pre-create its path.
+ */
+function runDevicectlList({ exec = execFileSync } = {}) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalyst-devicectl-"))
+    const file = path.join(dir, "devices.json")
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed argv.
-        execFileSync("xcrun", ["devicectl", "list", "devices", "--json-output", file], {
+        exec("xcrun", ["devicectl", "list", "devices", "--json-output", file], {
             stdio: ["ignore", "ignore", "ignore"],
             timeout: 30000,
         })
         return JSON.parse(fs.readFileSync(file, "utf8"))
     } finally {
-        fs.rmSync(file, { force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
     }
 }
 
@@ -537,6 +541,8 @@ async function prepareIosDebugTarget({
 
 export {
     DEFAULT_SIMULATOR_NAME,
+    probe,
+    runDevicectlList,
     assertFullXcode,
     pendingXcodeSetup,
     ensureXcodeReady,

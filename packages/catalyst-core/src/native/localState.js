@@ -31,6 +31,25 @@ function localStatePath(cwd = process.cwd()) {
 }
 
 /**
+ * Create .catalyst/ (owner only) with its own `*` .gitignore, and return its
+ * path. An existing .gitignore is left as it is.
+ *
+ * @param {string} [cwd]
+ * @returns {string}
+ */
+function ensureLocalStateDir(cwd = process.cwd()) {
+    const dir = path.dirname(localStatePath(cwd))
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+    try {
+        // "wx": create it only when it is not there, in one step.
+        fs.writeFileSync(path.join(dir, ".gitignore"), "*\n", { flag: "wx" })
+    } catch (error) {
+        if (error.code !== "EEXIST") throw error
+    }
+    return dir
+}
+
+/**
  * The whole state object, or {} when the file is missing or unreadable.
  *
  * @param {object} [options]
@@ -58,11 +77,7 @@ function readLocalState({ cwd = process.cwd() } = {}) {
  */
 function writeLocalState(patch, { cwd = process.cwd() } = {}) {
     try {
-        const file = localStatePath(cwd)
-        const dir = path.dirname(file)
-        fs.mkdirSync(dir, { recursive: true })
-        const ignore = path.join(dir, ".gitignore")
-        if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, "*\n")
+        const file = path.join(ensureLocalStateDir(cwd), FILE_NAME)
         const next = { ...readLocalState({ cwd }), ...patch }
         fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n")
         return true
@@ -98,4 +113,4 @@ function saveLastTarget(platform, target, { cwd = process.cwd() } = {}) {
     return writeLocalState({ [platform]: target }, { cwd })
 }
 
-export { localStatePath, readLocalState, writeLocalState, getLastTarget, saveLastTarget }
+export { localStatePath, ensureLocalStateDir, readLocalState, writeLocalState, getLastTarget, saveLastTarget }

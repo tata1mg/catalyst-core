@@ -1436,6 +1436,9 @@ jobs:
         needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests, android-release-build, ios-release-archive]
         if: always()
         runs-on: ubuntu-latest
+        # Reads only the needs.* results and outputs: no checkout, no API calls.
+        permissions:
+            contents: read
         steps:
             - name: Report per-platform coverage and verify no regression
               run: |

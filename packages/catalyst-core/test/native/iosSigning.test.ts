@@ -16,6 +16,7 @@ import {
     planIosSigning,
     profileMatchesBundleId,
     readIosCredentials,
+    readProvisioningProfile,
     resolveExportMethod,
     setupP12Signing,
     signingSetupError,
@@ -146,6 +147,19 @@ describe("readIosCredentials", () => {
         expect(thrown(() => readIosCredentials(credentialsFolder({ "AuthKey_A.p8": PEM }))).hint).toMatch(
             /CATALYST_IOS_CREDENTIALS/
         )
+    })
+
+    it("fails a key ID that is not letters and digits with IOS-011", () => {
+        const error = thrown(() =>
+            readIosCredentials(
+                credentialsFolder({
+                    "store.p8": PEM,
+                    "signing.properties": "ascKeyId=KEY-42 x\nascIssuerId=issuer\n",
+                })
+            )
+        )
+        expect(error.code).toBe("IOS-011")
+        expect(error.message).toContain('the key ID "KEY-42 x" should be letters and digits only')
     })
 
     it("pairs the .p12 with its profile and masks the password", () => {
@@ -303,6 +317,64 @@ describe("security output parsing", () => {
     })
 })
 
+describe("readProvisioningProfile", () => {
+    it("fails with IOS-012 for a file security cannot decode", () => {
+        const error = thrown(() =>
+            readProvisioningProfile("/creds/store.mobileprovision", {
+                workDir: tempDir(),
+                run: () => {
+                    throw new Error("security: SecCmsDecoder failed")
+                },
+            })
+        )
+        expect(error.code).toBe("IOS-012")
+        expect(error.message).toContain("store.mobileprovision is not a provisioning profile")
+    })
+
+    it("fails with IOS-012 when the profile has no usable UUID", () => {
+        const noFields = (command: string) => {
+            if (command === "plutil") throw new Error("No value at that key path")
+            return ""
+        }
+        const missing = thrown(() =>
+            readProvisioningProfile("/creds/a.mobileprovision", { workDir: tempDir(), run: noFields })
+        )
+        expect(missing.code).toBe("IOS-012")
+        expect(missing.message).toContain("no UUID")
+
+        const odd = (command: string, args: string[]) =>
+            command === "plutil" && args[1] === "UUID" ? "not-a-uuid!\n" : ""
+        expect(
+            thrown(() =>
+                readProvisioningProfile("/creds/a.mobileprovision", { workDir: tempDir(), run: odd })
+            ).message
+        ).toContain("no UUID")
+    })
+
+    it("reads the fields it can and leaves the rest undefined", () => {
+        const workDir = tempDir()
+        const calls: string[][] = []
+        const run = (command: string, args: string[]) => {
+            calls.push([command, ...args])
+            if (command !== "plutil") return ""
+            if (args[1] === "UUID") return "AAAA-BBBB\n"
+            if (args[1] === "Name") return "Acme Dev\n"
+            throw new Error("No value at that key path")
+        }
+        const profile = readProvisioningProfile("/creds/a.mobileprovision", { workDir, run })
+        expect(profile).toMatchObject({ uuid: "AAAA-BBBB", name: "Acme Dev", teamId: undefined })
+        expect(calls[0]).toEqual([
+            "security",
+            "cms",
+            "-D",
+            "-i",
+            "/creds/a.mobileprovision",
+            "-o",
+            path.join(workDir, "profile.plist"),
+        ])
+    })
+})
+
 describe("setupP12Signing", () => {
     const P12_PASSWORD = "p12-s3cret-value"
     const SHA = "B".repeat(40)
@@ -449,6 +521,34 @@ describe("setupP12Signing", () => {
         expect(tail[1][0]).toBe("delete-keychain")
         expect(fs.readdirSync(fake.tmpRoot)).toEqual([])
         expect(fake.handlers).toEqual({})
+    })
+
+    it("warns, without the passwords, when a cleanup step fails, and still runs the others", () => {
+        const fake = fakeSigning()
+        const options = {
+            ...fake.options,
+            run: (command: string, args: string[]) => {
+                if (args[0] === "delete-keychain") {
+                    throw Object.assign(
+                        new Error(`Command failed: security delete-keychain ${P12_PASSWORD}`),
+                        {
+                            stderr: "security: SecKeychainDelete: The specified keychain could not be found.",
+                        }
+                    )
+                }
+                return fake.options.run(command, args)
+            },
+        }
+        const result = setupP12Signing(options)
+        result.cleanup()
+        const warning = fake.logs.find((line) =>
+            line.includes("Signing cleanup could not delete the temporary keychain")
+        )
+        expect(warning).toBeDefined()
+        expect(warning).not.toContain(P12_PASSWORD)
+        // The steps after the failed one still ran.
+        for (const file of profilePaths(fake.homeDir)) expect(fs.existsSync(file)).toBe(false)
+        expect(fs.readdirSync(fake.tmpRoot)).toEqual([])
     })
 
     it("cleans up and exits on SIGINT", () => {
@@ -864,6 +964,26 @@ describe("localhost.p12", () => {
         })
         expect(used).toEqual(["openssl req", "/usr/bin/openssl req", "/usr/bin/openssl pkcs12"])
         expect(fs.readFileSync(dest, "utf8")).toBe("p12")
+    })
+
+    it("names openssl's last error line when every openssl fails, and writes nothing", () => {
+        const dest = path.join(tempDir(), "out", "localhost.p12")
+        const tmpBefore = fs
+            .readdirSync(os.tmpdir())
+            .filter((n) => n.startsWith("catalyst-localhost-cert-")).length
+        expect(() =>
+            generateLocalhostP12(dest, {
+                run: () => {
+                    throw Object.assign(new Error("Command failed"), {
+                        stderr: "req: Use -help for summary.\nreq: Unrecognized flag addext\n",
+                    })
+                },
+            })
+        ).toThrow("Could not create the localhost certificate with openssl: req: Unrecognized flag addext")
+        expect(fs.existsSync(dest)).toBe(false)
+        expect(
+            fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("catalyst-localhost-cert-")).length
+        ).toBe(tmpBefore)
     })
 
     it.skipIf(!isMac)("writes a localhost identity openssl reads with an empty passphrase", () => {

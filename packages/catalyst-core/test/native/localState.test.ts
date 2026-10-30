@@ -4,6 +4,7 @@ import path from "path"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    ensureLocalStateDir,
     getLastTarget,
     localStatePath,
     readLocalState,
@@ -54,6 +55,16 @@ describe("local state", () => {
         const cwd = tempDir()
         writeLocalState({ migrations: { lanAddresses: "now" } }, { cwd })
         expect(fs.readFileSync(path.join(cwd, ".catalyst", ".gitignore"), "utf8")).toBe("*\n")
+    })
+
+    it("keeps a .gitignore the folder already has", () => {
+        const cwd = tempDir()
+        fs.mkdirSync(path.join(cwd, ".catalyst"))
+        fs.writeFileSync(path.join(cwd, ".catalyst", ".gitignore"), "*\n!keep.txt\n")
+        expect(writeLocalState({ a: 1 }, { cwd })).toBe(true)
+        expect(fs.readFileSync(path.join(cwd, ".catalyst", ".gitignore"), "utf8")).toBe("*\n!keep.txt\n")
+        expect(ensureLocalStateDir(cwd)).toBe(path.join(cwd, ".catalyst"))
+        expect(readLocalState({ cwd })).toEqual({ a: 1 })
     })
 
     it("never throws when it cannot write", () => {

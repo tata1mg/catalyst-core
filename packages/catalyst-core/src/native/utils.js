@@ -1,4 +1,4 @@
-import { execSync, spawn } from "child_process"
+import { execFileSync, execSync, spawn } from "child_process"
 import readline from "readline"
 import fs from "fs"
 import os from "os"
@@ -86,6 +86,38 @@ function runCommand(command, { timeout } = {}) {
         console.error(`Error executing command: ${secretScrubber(command)(command)}`)
         console.error(`Error message: ${error.message}`)
         throw error
+    }
+}
+
+/**
+ * runCommand for a program and its arguments, with no shell in between. For
+ * tools whose path comes from the environment or config (an SDK's adb or
+ * emulator): a path holding quotes or `$(...)` is just a file name here.
+ *
+ * @param {string} file - the program; must be a non-empty path with no NUL or newline
+ * @param {string[]} args
+ * @param {object} [options]
+ * @param {number} [options.timeout] - ms before the program is killed
+ */
+function runFile(file, args = [], { timeout } = {}) {
+    assertToolPath(file)
+    const display = [file, ...args].join(" ")
+    try {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - argv array, no shell; the path is validated above.
+        return execFileSync(file, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout })
+    } catch (error) {
+        if (timeout && isTimeout(error)) throw toolTimeoutError(path.basename(file), timeout)
+        redactError(error, display)
+        console.error(`Error executing command: ${secretScrubber(display)(display)}`)
+        console.error(`Error message: ${error.message}`)
+        throw error
+    }
+}
+
+/** A tool path from config or the environment: a non-empty string with no NUL or line break. */
+function assertToolPath(file) {
+    if (typeof file !== "string" || !file.trim() || /[\0\r\n]/.test(file)) {
+        throw new Error(`Not a valid tool path: ${JSON.stringify(file)}`)
     }
 }
 
@@ -192,8 +224,11 @@ function detectAndroidSdk(env = process.env) {
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process, javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
-        const out = execSync(`"${path.join(expandHome(sdkPath), "emulator", "emulator")}" -list-avds`, {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        const emulator = path.join(expandHome(sdkPath), "emulator", "emulator")
+        assertToolPath(emulator)
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - argv array, no shell.
+        const out = execFileSync(emulator, ["-list-avds"], {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
             timeout: 15000,
@@ -701,6 +736,7 @@ export {
     askConsent,
     select,
     runCommand,
+    runFile,
     commandExists,
     promptUser,
     detectAndroidSdk,

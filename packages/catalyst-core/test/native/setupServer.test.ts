@@ -1,5 +1,8 @@
+import { spawnSync } from "child_process"
+import { EventEmitter } from "events"
 import fs from "fs"
 import http from "http"
+import net from "net"
 import os from "os"
 import path from "path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -9,10 +12,13 @@ import {
     ensureDevServer,
     getDeviceReachableHost,
     getLocalIPAddress,
+    isProcessAlive,
     isServerAnswering,
     migrateLanAddresses,
     planLanAddressMigration,
     readHmrPort,
+    readLocalHostName,
+    startDevServerProcess,
 } from "../../src/native/setupServer.js"
 import { readLocalState, writeLocalState } from "../../src/native/localState.js"
 
@@ -67,6 +73,22 @@ describe("getDeviceReachableHost", () => {
     })
 })
 
+describe("readLocalHostName", () => {
+    it("asks scutil on macOS only", () => {
+        const calls: any[] = []
+        const exec = ((...args: any[]) => {
+            calls.push(args)
+            return "Janes-Mac\n"
+        }) as any
+        expect(readLocalHostName({ platform: "linux", exec })).toBe("")
+        expect(calls).toHaveLength(0)
+        expect(readLocalHostName({ platform: "darwin", exec })).toBe("Janes-Mac\n")
+        expect(calls[0][0]).toBe("scutil")
+        expect(calls[0][1]).toEqual(["--get", "LocalHostName"])
+        expect(calls[0][2]).toMatchObject({ encoding: "utf8", timeout: 5000 })
+    })
+})
+
 describe("devServerPorts", () => {
     it("lists the server port, the HMR port and every localhost port in config", () => {
         const config = {
@@ -88,6 +110,70 @@ describe("devServerPorts", () => {
             "module.exports = { devServer: { hmr: { port: 24999 } } }\n"
         )
         expect(await readHmrPort({ cwd })).toBe(24999)
+    })
+
+    it("falls back to the default HMR port for a buildConfig.js that does not load or names a bad port", async () => {
+        const broken = tempDir()
+        fs.writeFileSync(path.join(broken, "buildConfig.js"), "module.exports = {\n")
+        expect(await readHmrPort({ cwd: broken })).toBe(24678)
+        const outOfRange = tempDir()
+        fs.writeFileSync(
+            path.join(outOfRange, "webpackConfig.js"),
+            "module.exports = { devServer: { hmr: { port: 70000 } } }\n"
+        )
+        expect(await readHmrPort({ cwd: outOfRange })).toBe(24678)
+    })
+})
+
+describe("startDevServerProcess", () => {
+    it("starts catalyst start detached, logging to an owner-only file under .catalyst/", () => {
+        const cwd = tempDir()
+        let spawned: any
+        let unrefs = 0
+        const child = Object.assign(new EventEmitter(), {
+            pid: 4242,
+            unref: () => void unrefs++,
+        })
+        const { child: returned, logFile } = startDevServerProcess({
+            cwd,
+            port: 3005,
+            overrides: { NODE_SERVER_HOSTNAME: "0.0.0.0", PORT: 3005 },
+            spawnProcess: ((command: string, args: string[], options: any) => {
+                spawned = { command, args, options }
+                return child
+            }) as any,
+        })
+        expect(returned).toBe(child)
+        expect(logFile).toBe(path.join(cwd, ".catalyst", "dev-server-3005.log"))
+        expect(logFile.startsWith(os.tmpdir() + path.sep + "catalyst-dev-server")).toBe(false)
+        expect(fs.statSync(logFile).mode & 0o777).toBe(0o600)
+        expect(fs.readFileSync(path.join(cwd, ".catalyst", ".gitignore"), "utf8")).toBe("*\n")
+        expect(spawned.command).toBe(process.execPath)
+        expect(path.basename(spawned.args[0])).toBe("catalyst.js")
+        expect(spawned.args.slice(1)).toEqual(["start", "NODE_SERVER_HOSTNAME=0.0.0.0", "PORT=3005"])
+        expect(spawned.options).toMatchObject({ cwd, detached: true })
+        expect(spawned.options.env.PWD).toBe(cwd)
+        expect(spawned.options.stdio[0]).toBe("ignore")
+        expect(unrefs).toBe(1)
+        // A spawn failure after the fact is swallowed, not an unhandled error.
+        expect(() => child.emit("error", new Error("ENOENT"))).not.toThrow()
+
+        // Without a port the file says so.
+        const second = startDevServerProcess({
+            cwd,
+            spawnProcess: (() => Object.assign(new EventEmitter(), { unref() {} })) as any,
+        })
+        expect(path.basename(second.logFile)).toBe("dev-server-default.log")
+    })
+})
+
+describe("isProcessAlive", () => {
+    it("is true for a running process and false once it has exited", () => {
+        expect(isProcessAlive(process.pid)).toBe(true)
+        const done = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+            encoding: "utf8",
+        })
+        expect(isProcessAlive(Number(done.stdout))).toBe(false)
     })
 })
 
@@ -230,6 +316,31 @@ describe("ensureDevServer", () => {
         expect(result).toEqual({ started: false, url: "http://localhost:3005", port: 3005 })
     })
 
+    it("fails with NATIVE-006 when catalyst start exits before the server answers", async () => {
+        const exitWith = (code: number | null) => {
+            const child = new EventEmitter()
+            setTimeout(() => child.emit("exit", code), 5)
+            return child
+        }
+        for (const [code, shown] of [
+            [1, "exited (1)"],
+            [null, "exited (signal)"],
+        ] as const) {
+            const error = await ensureDevServer({
+                config,
+                intervalMs: 2,
+                probe: async () => false,
+                start: (() => ({
+                    child: exitWith(code),
+                    logFile: "/app/.catalyst/dev-server-3005.log",
+                })) as any,
+            }).catch((e) => e)
+            expect(error.code).toBe("NATIVE-006")
+            expect(error.message).toContain(shown)
+            expect(error.message).toContain("/app/.catalyst/dev-server-3005.log")
+        }
+    })
+
     it("times out with NATIVE-006", async () => {
         const error = await ensureDevServer({
             config,
@@ -255,6 +366,19 @@ describe("ensureDevServer", () => {
             await new Promise((resolve) => server.close(resolve))
         }
         expect(await isServerAnswering({ host: "127.0.0.1", port, timeoutMs: 200 })).toBe(false)
+    })
+
+    it("gives up on a server that accepts but never answers", async () => {
+        const sockets: net.Socket[] = []
+        const server = net.createServer((socket) => void sockets.push(socket))
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+        const { port } = server.address() as any
+        try {
+            expect(await isServerAnswering({ host: "127.0.0.1", port, timeoutMs: 50 })).toBe(false)
+        } finally {
+            for (const socket of sockets) socket.destroy()
+            await new Promise((resolve) => server.close(resolve))
+        }
     })
 })
 

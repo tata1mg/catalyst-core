@@ -9,12 +9,15 @@ import {
     CMDLINE_TOOLS,
     applyJavaHome,
     cleanSdkTemp,
+    cmdlineTool,
     cmdlineToolsArchive,
+    defaultSdkPath,
     ensureAndroidSdk,
     ensureJava,
     halfInstalledPaths,
     installCmdlineTools,
     installSdkPackages,
+    knownAvds,
     missingAndroidPackages,
     parseJavaMajor,
     requiredAndroidPackages,
@@ -323,6 +326,30 @@ describe("installCmdlineTools", () => {
         expect(fs.existsSync(path.join(sdk, "cmdline-tools", "latest"))).toBe(false)
     })
 
+    it("fails with ANDROID-009 when the archive does not unpack, or has no cmdline-tools folder", async () => {
+        const sdk = tempDir()
+        const broken = await rejection(
+            installCmdlineTools(sdk, {
+                archive,
+                download,
+                unzip: () => {
+                    throw Object.assign(new Error("Command failed: unzip"), {
+                        stderr: "End-of-central-directory signature not found",
+                    })
+                },
+            })
+        )
+        expect(broken.code).toBe("ANDROID-009")
+        expect(broken.message).toContain("could not unpack commandlinetools-test.zip")
+        expect(broken.message).toContain("End-of-central-directory")
+
+        const empty = await rejection(installCmdlineTools(sdk, { archive, download, unzip: () => {} }))
+        expect(empty.code).toBe("ANDROID-009")
+        expect(empty.message).toContain("has no cmdline-tools folder")
+        // Neither failure leaves a staging folder or a half-made latest/.
+        expect(fs.readdirSync(path.join(sdk, "cmdline-tools"))).toEqual([])
+    })
+
     it("fails with ANDROID-009 when the download fails", async () => {
         const error = await rejection(
             installCmdlineTools(tempDir(), {
@@ -337,6 +364,49 @@ describe("installCmdlineTools", () => {
         )
         expect(error.code).toBe("ANDROID-009")
         expect(error.message).toContain("Could not resolve host")
+    })
+})
+
+describe("SDK locations", () => {
+    it("puts a new SDK at ANDROID_HOME, ANDROID_SDK_ROOT, or the platform default", () => {
+        expect(defaultSdkPath({ ANDROID_HOME: "/a", ANDROID_SDK_ROOT: "/b" }, "linux")).toBe("/a")
+        expect(defaultSdkPath({ ANDROID_SDK_ROOT: "/b" }, "linux")).toBe("/b")
+        expect(defaultSdkPath({}, "darwin")).toBe(path.join(os.homedir(), "Library", "Android", "sdk"))
+        expect(defaultSdkPath({}, "linux")).toBe(path.join(os.homedir(), "Android", "Sdk"))
+    })
+
+    it("finds sdkmanager in cmdline-tools/latest, else the newest versioned folder, else nothing", () => {
+        const sdk = tempDir()
+        expect(cmdlineTool(sdk, "sdkmanager", { platform: "linux" })).toBeNull()
+        for (const version of ["9.0", "11.0"]) {
+            fs.mkdirSync(path.join(sdk, "cmdline-tools", version, "bin"), { recursive: true })
+        }
+        expect(cmdlineTool(sdk, "sdkmanager", { platform: "linux" })).toBeNull()
+        fs.writeFileSync(path.join(sdk, "cmdline-tools", "9.0", "bin", "sdkmanager"), "")
+        fs.writeFileSync(path.join(sdk, "cmdline-tools", "11.0", "bin", "sdkmanager.bat"), "")
+        expect(cmdlineTool(sdk, "sdkmanager", { platform: "linux" })).toBe(
+            path.join(sdk, "cmdline-tools", "9.0", "bin", "sdkmanager")
+        )
+        expect(cmdlineTool(sdk, "sdkmanager", { platform: "win32" })).toBe(
+            path.join(sdk, "cmdline-tools", "11.0", "bin", "sdkmanager.bat")
+        )
+    })
+
+    it("knows AVDs from the AVD folder when the emulator is not installed yet", () => {
+        const avdHome = tempDir()
+        fs.writeFileSync(path.join(avdHome, "Pixel_8.ini"), "")
+        fs.mkdirSync(path.join(avdHome, "Pixel_8.avd"))
+        fs.writeFileSync(path.join(avdHome, "notes.txt"), "")
+        // The SDK has no emulator binary, so only the folder answers.
+        const sdk = tempDir()
+        expect(knownAvds(sdk, { env: { ANDROID_AVD_HOME: avdHome } })).toEqual(["Pixel_8"])
+
+        const userHome = tempDir()
+        fs.mkdirSync(path.join(userHome, "avd"))
+        fs.writeFileSync(path.join(userHome, "avd", "Tablet.ini"), "")
+        expect(knownAvds(sdk, { env: { ANDROID_USER_HOME: userHome } })).toEqual(["Tablet"])
+
+        expect(knownAvds(sdk, { env: { ANDROID_AVD_HOME: path.join(avdHome, "missing") } })).toEqual([])
     })
 })
 
@@ -551,6 +621,73 @@ describe("ensureAndroidSdk", () => {
         })
         expect(result).toMatchObject({ emulatorName: AVD_NAME, createdAvd: true, installed: [] })
         expect(logs.some((line) => line.includes('"Gone_Phone" does not exist'))).toBe(true)
+    })
+})
+
+describe("ensureAndroidSdk failures after consent", () => {
+    const ci = { flags: { yes: true, acceptLicenses: true }, isTTY: false, arch: "arm64" }
+
+    it("fails with ANDROID-009 when the tools install leaves no sdkmanager", async () => {
+        const sdk = tempDir()
+        const error = await rejection(
+            ensureAndroidSdk({
+                sdkPath: sdk,
+                ...ci,
+                listAvds: () => [],
+                installTools: async () => {},
+                run: async () => "",
+            })
+        )
+        expect(error.code).toBe("ANDROID-009")
+        expect(error.message).toContain("no sdkmanager under")
+    })
+
+    it("fails with ANDROID-008 when sdkmanager --licenses does not record the licence", async () => {
+        const sdk = tempDir()
+        installTools(sdk)
+        const ran: string[][] = []
+        const error = await rejection(
+            ensureAndroidSdk({
+                sdkPath: sdk,
+                ...ci,
+                listAvds: () => ["Pixel_7"],
+                emulatorName: "Pixel_7",
+                run: async (_command: string, args: string[]) => {
+                    ran.push(args)
+                    return ""
+                },
+            })
+        )
+        expect(error.code).toBe("ANDROID-008")
+        expect(error.message).toContain("licences were not accepted")
+        expect(ran).toHaveLength(1)
+        expect(ran[0]).toContain("--licenses")
+    })
+
+    it("fails with ANDROID-009 when an AVD is needed and there is no avdmanager", async () => {
+        const sdk = tempDir()
+        const bin = path.join(sdk, "cmdline-tools", "latest", "bin")
+        fs.mkdirSync(bin, { recursive: true })
+        fs.writeFileSync(path.join(bin, "sdkmanager"), "")
+        acceptLicences(sdk)
+        const error = await rejection(
+            ensureAndroidSdk({
+                sdkPath: sdk,
+                ...ci,
+                listAvds: () => [],
+                run: async (command: string, args: string[]) => {
+                    if (path.basename(command) === "sdkmanager") {
+                        installPackages(
+                            sdk,
+                            args.filter((arg) => !arg.startsWith("-"))
+                        )
+                    }
+                    return ""
+                },
+            })
+        )
+        expect(error.code).toBe("ANDROID-009")
+        expect(error.message).toContain("no avdmanager under")
     })
 })
 

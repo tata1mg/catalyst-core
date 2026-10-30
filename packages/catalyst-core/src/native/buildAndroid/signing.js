@@ -95,15 +95,22 @@ function writeKeystoreProperties(file, { keyAlias, storePassword, keyPassword })
 function ensureGitignored(appRoot) {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the local app directory; the file name is fixed.
     const file = path.join(appRoot, ".gitignore")
-    const content = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : ""
-    const covered = content
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .some((line) => ["credentials", "credentials/", "/credentials", "/credentials/"].includes(line))
-    if (covered) return false
-    const prefix = content && !content.endsWith("\n") ? "\n" : ""
-    fs.writeFileSync(file, `${content}${prefix}${GITIGNORE_ENTRY}\n`)
-    return true
+    // One descriptor for the read and the append ("a+" creates the file when
+    // it is missing), so nothing can swap the file between the two.
+    const fd = fs.openSync(file, "a+")
+    try {
+        const content = fs.readFileSync(fd, "utf8")
+        const covered = content
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .some((line) => ["credentials", "credentials/", "/credentials", "/credentials/"].includes(line))
+        if (covered) return false
+        const prefix = content && !content.endsWith("\n") ? "\n" : ""
+        fs.writeSync(fd, `${prefix}${GITIGNORE_ENTRY}\n`)
+        return true
+    } finally {
+        fs.closeSync(fd)
+    }
 }
 
 function generatePassword() {

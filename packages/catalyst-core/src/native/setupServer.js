@@ -6,7 +6,7 @@ import os from "os"
 import path from "path"
 import { nativeError } from "./utils.js"
 import { isPrivateIPv4, localMachineHosts } from "./nativeConfig.js"
-import { readLocalState, writeLocalState } from "./localState.js"
+import { ensureLocalStateDir, readLocalState, writeLocalState } from "./localState.js"
 
 // The dev server for debug native builds. The CLI never rewrites
 // config.json to reach it: Android emulators and USB phones get
@@ -69,10 +69,10 @@ function getDeviceReachableHost({ localHostName = readLocalHostName, interfaces 
     return ip ? { host: ip, source: "lan" } : null
 }
 
-function readLocalHostName() {
-    if (process.platform !== "darwin") return ""
+function readLocalHostName({ platform = process.platform, exec = execFileSync } = {}) {
+    if (platform !== "darwin") return ""
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed argv.
-    return execFileSync("scutil", ["--get", "LocalHostName"], {
+    return exec("scutil", ["--get", "LocalHostName"], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
         timeout: 5000,
@@ -167,20 +167,27 @@ function catalystBin() {
 
 /**
  * Start `catalyst start KEY=value ...` detached, output in a log file. It has
- * to outlive this process, so it gets no pipe back to it.
+ * to outlive this process, so it gets no pipe back to it. The log goes to the
+ * app's .catalyst/ folder (owner only, kept out of git), not a shared temp
+ * directory where another user could plant a file or link at that name.
  *
+ * @param {object} options
+ * @param {string} options.cwd - the app root
+ * @param {number} [options.port]
+ * @param {Record<string, string | number>} [options.overrides]
+ * @param {typeof spawn} [options.spawnProcess] - for tests
  * @returns {{ child: import("child_process").ChildProcess, logFile: string }}
  */
-function startDevServerProcess({ cwd, port, overrides = {} }) {
-    const logFile = path.join(os.tmpdir(), `catalyst-dev-server-${port || "default"}.log`)
-    const out = fs.openSync(logFile, "a")
+function startDevServerProcess({ cwd, port, overrides = {}, spawnProcess = spawn }) {
+    const logFile = path.join(ensureLocalStateDir(cwd), `dev-server-${port || "default"}.log`)
+    const out = fs.openSync(logFile, "a", 0o600)
     const args = [
         catalystBin(),
         "start",
         ...Object.entries(overrides).map(([key, value]) => `${key}=${value}`),
     ]
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed command with an argv array.
-    const child = spawn(process.execPath, args, {
+    const child = spawnProcess(process.execPath, args, {
         cwd,
         detached: true,
         stdio: ["ignore", out, out],
@@ -454,6 +461,8 @@ export {
     DEFAULT_HMR_PORT,
     getLocalIPAddress,
     getDeviceReachableHost,
+    readLocalHostName,
+    isProcessAlive,
     readHmrPort,
     devServerPorts,
     isServerAnswering,

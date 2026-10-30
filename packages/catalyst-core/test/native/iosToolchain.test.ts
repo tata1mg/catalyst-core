@@ -1,3 +1,5 @@
+import fs from "fs"
+import path from "path"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -10,9 +12,13 @@ import {
     ensureSimulator,
     ensureXcodeReady,
     newestIphoneDeviceType,
+    listConnectedIphones,
     parseDevicectlDevices,
     pendingXcodeSetup,
     prepareIosDebugTarget,
+    probe,
+    runDevicectlList,
+    simctlJson,
 } from "../../src/native/iosToolchain.js"
 
 async function rejection(promise: Promise<unknown>): Promise<any> {
@@ -183,6 +189,37 @@ describe("iOS runtime", () => {
             ],
         })
         expect(runtimes.map((r) => r.version)).toEqual(["26.0", "18.2"])
+    })
+
+    it("orders equal versions stably and treats a missing part as 0", () => {
+        const runtimes = availableIosRuntimes({
+            runtimes: [
+                runtime("26.0", { name: "first" }),
+                runtime("26", { name: "second" }),
+                runtime("26.0.1"),
+                {
+                    ...runtime("18.0"),
+                    platform: undefined,
+                    availability: "(available)",
+                    isAvailable: undefined,
+                },
+            ],
+        })
+        expect(runtimes.map((r: any) => r.version)).toEqual(["26.0.1", "26.0", "26", "18.0"])
+        expect(availableIosRuntimes(undefined)).toEqual([])
+    })
+
+    it("fails with IOS-004 when the download leaves no runtime", async () => {
+        const error = await rejection(
+            ensureIosRuntime({
+                flags: { yes: true },
+                isTTY: false,
+                listRuntimes: () => ({ runtimes: [] }),
+                runInherited: async () => {},
+            })
+        )
+        expect(error.code).toBe("IOS-004")
+        expect(error.message).toContain("without an available runtime")
     })
 
     it("fails with NATIVE-005 naming --yes without a terminal, without downloading", async () => {
@@ -440,6 +477,48 @@ describe("simulator", () => {
         })
     })
 
+    it("falls back to the newest other runtime, wherever it sits in simctl's list", async () => {
+        const sim = (name: string, udid: string) => ({
+            name,
+            udid,
+            isAvailable: true,
+            deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-15",
+        })
+        const simulator = await ensureSimulator({
+            runtime: rt,
+            devicesJson: {
+                devices: {
+                    "com.apple.CoreSimulator.SimRuntime.iOS-17-0": [sim("iPhone 15", "OLD-17")],
+                    [rt.identifier]: [],
+                    "com.apple.CoreSimulator.SimRuntime.iOS-18-2": [sim("iPhone 15", "NEW-18")],
+                    "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [sim("iPhone 15", "MID-18")],
+                },
+            },
+            deviceTypesJson: {},
+            isTTY: false,
+        })
+        expect(simulator).toEqual({ name: "iPhone 15", udid: "NEW-18", created: false })
+    })
+
+    it("fails when the user declines to create one, pointing to Xcode", async () => {
+        let created = false
+        const error = await rejection(
+            ensureSimulator({
+                runtime: rt,
+                devicesJson: devices([]),
+                deviceTypesJson: {},
+                isTTY: true,
+                ask: async () => false,
+                create: () => {
+                    created = true
+                    return ""
+                },
+            })
+        )
+        expect(error.message).toContain("Devices and Simulators")
+        expect(created).toBe(false)
+    })
+
     it("fails with NATIVE-005 naming --yes when it would create one without a terminal", async () => {
         const error = await rejection(
             ensureSimulator({ runtime: rt, devicesJson: devices([]), deviceTypesJson: {}, isTTY: false })
@@ -478,6 +557,76 @@ describe("connected iPhones", () => {
             { name: "Jane's iPhone", udid: "00008110-001A2B3C4D5E", version: "26.0" },
         ])
         expect(parseDevicectlDevices({})).toEqual([])
+    })
+
+    it("lists through devicectl's JSON file, and is empty when devicectl fails", () => {
+        const json = { result: { devices: [entry("Jane's iPhone", "00008110-001A2B3C4D5E")] } }
+        let written = ""
+        const devices = listConnectedIphones({
+            list: () =>
+                runDevicectlList({
+                    exec: ((command: string, args: string[], options: any) => {
+                        expect(command).toBe("xcrun")
+                        expect(args.slice(0, 4)).toEqual(["devicectl", "list", "devices", "--json-output"])
+                        expect(options.timeout).toBe(30000)
+                        written = args[4]
+                        // A private folder from mkdtemp, not a guessable name in tmp.
+                        expect(fs.statSync(path.dirname(written)).mode & 0o077).toBe(0)
+                        fs.writeFileSync(written, JSON.stringify(json))
+                        return ""
+                    }) as any,
+                }),
+        })
+        expect(devices).toEqual([{ name: "Jane's iPhone", udid: "00008110-001A2B3C4D5E", version: "26.0" }])
+        expect(fs.existsSync(path.dirname(written))).toBe(false)
+
+        const logs: string[] = []
+        let failedFile = ""
+        expect(
+            listConnectedIphones({
+                list: () =>
+                    runDevicectlList({
+                        exec: ((_c: string, args: string[]) => {
+                            failedFile = args[4]
+                            throw new Error("xcrun: error: unable to find utility devicectl")
+                        }) as any,
+                    }),
+                log: ((message: string) => void logs.push(message)) as any,
+            })
+        ).toEqual([])
+        expect(logs[0]).toContain("unable to find utility devicectl")
+        expect(fs.existsSync(path.dirname(failedFile))).toBe(false)
+    })
+})
+
+describe("process probes", () => {
+    it("reports the exit status and both streams, and null when the tool cannot start", () => {
+        const ok = probe("xcode-select", ["-p"], {
+            spawn: (() => ({
+                status: 0,
+                stdout: "/Applications/Xcode.app/Contents/Developer\n",
+                stderr: "",
+            })) as any,
+        })
+        expect(ok).toEqual({ status: 0, output: "/Applications/Xcode.app/Contents/Developer" })
+        const missing = probe("xcodebuild", ["-license", "check"], {
+            spawn: (() => ({ error: new Error("ENOENT"), status: null, stdout: null, stderr: null })) as any,
+        })
+        expect(missing).toEqual({ status: null, output: "" })
+        const real = probe(process.execPath, ["-e", "process.stderr.write('warn'); process.exit(2)"])
+        expect(real).toEqual({ status: 2, output: "warn" })
+    })
+
+    it("reads simctl JSON with -j appended", () => {
+        const calls: any[] = []
+        const json = simctlJson(["list", "runtimes"], {
+            exec: ((...args: any[]) => {
+                calls.push(args)
+                return '{"runtimes":[]}'
+            }) as any,
+        })
+        expect(json).toEqual({ runtimes: [] })
+        expect(calls[0].slice(0, 2)).toEqual(["xcrun", ["simctl", "list", "runtimes", "-j"]])
     })
 })
 

@@ -44,7 +44,7 @@ function createBuildPhase(ctx) {
     async function checkEmulator(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
+            const devices = ctx.runFile(ADB_PATH, ["devices"], { timeout: ADB_TIMEOUT_MS })
             const onlineEmulator = devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/))
@@ -125,7 +125,7 @@ function createBuildPhase(ctx) {
     function listEmulatorSerials(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
+            const devices = ctx.runFile(ADB_PATH, ["devices"], { timeout: ADB_TIMEOUT_MS })
             return devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/)[0])

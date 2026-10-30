@@ -4,7 +4,7 @@ const path = require("path")
 const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
 const { execFileSync } = require("child_process")
-const { runCommand, runInteractiveCommand, isInteractive, select } = require("../utils.js")
+const { runCommand, runFile, runInteractiveCommand, isInteractive, select } = require("../utils.js")
 const { buildFailure } = require("../../cli/diagnostic.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
@@ -73,6 +73,7 @@ function createAndroidBuild(
         progress,
         ANDROID_PACKAGE,
         runCommand,
+        runFile,
         runInteractiveCommand,
     }
 
