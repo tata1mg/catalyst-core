@@ -25,6 +25,8 @@ jobs:
             ios: ${{ steps.filter.outputs.ios }}
             docs: ${{ steps.filter.outputs.docs }}
             ai_android: ${{ steps.filter.outputs.ai_android }}
+            android_release: ${{ steps.filter.outputs.android_release }}
+            ios_release: ${{ steps.filter.outputs.ios_release }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -102,6 +104,35 @@ jobs:
                         - 'packages/catalyst-core/src/native/androidProject/app/build.gradle.kts'
                         - 'packages/catalyst-core/src/native/androidProject/gradle/**'
                         - 'packages/catalyst-core/src/native/buildAndroid/**'
+                      # The release-build jobs run the CLI end to end on a
+                      # fixture app, so besides the native projects they
+                      # depend on the native build JS, the CLI, the error
+                      # registry and the core's own build. Each excludes the
+                      # other platform's project and build code.
+                      android_release:
+                        - *shared
+                        - *node_deps
+                        - 'packages/catalyst-core/src/native/**'
+                        - '!packages/catalyst-core/src/native/iosnativeWebView/**'
+                        - '!packages/catalyst-core/src/native/buildIos/**'
+                        - 'packages/catalyst-core/src/cli/**'
+                        - 'packages/catalyst-core/src/errors/**'
+                        - 'packages/catalyst-core/bin/**'
+                        - 'packages/catalyst-core/scripts/**'
+                        - 'packages/catalyst-core/package.json'
+                        - 'examples/catalyst-core-test/**'
+                      ios_release:
+                        - *shared
+                        - *node_deps
+                        - 'packages/catalyst-core/src/native/**'
+                        - '!packages/catalyst-core/src/native/androidProject/**'
+                        - '!packages/catalyst-core/src/native/buildAndroid/**'
+                        - 'packages/catalyst-core/src/cli/**'
+                        - 'packages/catalyst-core/src/errors/**'
+                        - 'packages/catalyst-core/bin/**'
+                        - 'packages/catalyst-core/scripts/**'
+                        - 'packages/catalyst-core/package.json'
+                        - 'examples/catalyst-core-test/**'
                       docs:
                         - 'docs/**'
 
@@ -656,6 +687,69 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
+    # Release build through the CLI, the way an app runs it: the packed
+    # local catalyst-core installed into examples/catalyst-core-test, then
+    # scripts/native-release-check.mjs (runnable locally too). It expects
+    # NATIVE-001 for a LAN release url and NATIVE-003 for a com.example app
+    # id, then builds two signed AABs with a throwaway keytool key packed
+    # the way CATALYST_ANDROID_CREDENTIALS is: one from WEBVIEW_CONFIG.url
+    # (asserting buildType=release, the prod LOCAL_IP, the fixture's
+    # apiBaseUrl, no private IP in webview_config.properties, the upload
+    # certificate PEM beside the AAB and 16 KB aligned native libraries) and
+    # one legacy config with the prod host in LOCAL_IP and buildType
+    # "release", which must pass with the deprecation warning.
+    #
+    # Standalone on its own filter (needs: detect-changes), like the
+    # catalyst-ai jobs: it is about the native build JS as much as the
+    # Android project, and a JS-only change should not pay for the Gradle
+    # lint and coverage chain.
+    android-release-build:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.android_release == 'true'
+        runs-on: ubuntu-latest
+        # actions: write for the fail-fast cancel step only -- see lint.
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Set up JDK 17
+              uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+                  # Same Gradle cache as android-lint: the CLI builds a copy
+                  # of the same androidProject, so the dependencies match.
+                  cache: gradle
+
+            # Same install as scripts/test-catalyst-core.sh: the fixture gets
+            # the tarball npm would publish, not a workspace symlink.
+            - name: Install the packed local catalyst-core into the fixture
+              run: |
+                  npm ci
+                  npm run prepare --workspace packages/catalyst-core
+                  npm pack --workspace packages/catalyst-core --pack-destination "$RUNNER_TEMP" --ignore-scripts --silent
+                  cd examples/catalyst-core-test
+                  npm install --no-save --package-lock=false "$RUNNER_TEMP"/catalyst-core-*.tgz
+
+            # ubuntu-latest ships the API 36 platform and build-tools, and
+            # ANDROID_HOME points at them.
+            - name: Release build checks
+              run: node scripts/native-release-check.mjs android examples/catalyst-core-test
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     # SwiftLint gate -- first job in the iOS chain
     # (ios-swiftlint -> ios-corelogic-and-coverage -> ios-app-simulator-tests).
     # Runs on ubuntu (SwiftLint ships a Linux binary) in the official
@@ -699,6 +793,61 @@ jobs:
             actions: write
         steps:
             - name: Cancel the run
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
+    # iOS counterpart of android-release-build: `buildApp:ios --release` on
+    # the same fixture through scripts/native-release-check.mjs. Expects
+    # NATIVE-001 for a LAN release url, NATIVE-003 for a com.example app id
+    # and IOS-010 for a release with no signing team. There is no unsigned
+    # release, so the signed IPA check (CFBundleVersion,
+    # CFBundleShortVersionString, CFBundleIdentifier,
+    # ITSAppUsesNonExemptEncryption, PrivacyInfo.xcprivacy and the generated
+    # ConfigConstants url) runs only when the repository has the
+    # CATALYST_IOS_CREDENTIALS and RELEASE_CHECK_IOS_APP_ID secrets (plus
+    # RELEASE_CHECK_IOS_TEAM_ID for cloud signing); without them, as on fork
+    # pull requests, it is skipped with a note. Standalone on its own
+    # filter, for the same reason as the Android job.
+    ios-release-archive:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ios_release == 'true'
+        runs-on: macos-26
+        # actions: write for the fail-fast cancel step only -- see lint.
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            # Pinned like the other iOS jobs: an image update must not change
+            # the SDK under the tests.
+            - name: Select Xcode 26.5
+              run: sudo xcode-select -s /Applications/Xcode_26.5.app && xcodebuild -version
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Install the packed local catalyst-core into the fixture
+              run: |
+                  npm ci
+                  npm run prepare --workspace packages/catalyst-core
+                  npm pack --workspace packages/catalyst-core --pack-destination "$RUNNER_TEMP" --ignore-scripts --silent
+                  cd examples/catalyst-core-test
+                  npm install --no-save --package-lock=false "$RUNNER_TEMP"/catalyst-core-*.tgz
+
+            - name: Release build checks
+              env:
+                  CATALYST_IOS_CREDENTIALS: ${{ secrets.CATALYST_IOS_CREDENTIALS }}
+                  RELEASE_CHECK_IOS_APP_ID: ${{ secrets.RELEASE_CHECK_IOS_APP_ID }}
+                  RELEASE_CHECK_IOS_TEAM_ID: ${{ secrets.RELEASE_CHECK_IOS_TEAM_ID }}
+              run: node scripts/native-release-check.mjs ios examples/catalyst-core-test
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
               env:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
@@ -890,7 +1039,7 @@ jobs:
     # is the only iOS target that can produce a real coverage percentage
     # today. ios-app-simulator-tests (below) depends on this job passing before it
     # pays for the much more expensive simulator boot + full UIKit build.
-    # This does cost a second macos-latest runner spin-up versus running
+    # This does cost a second macOS runner spin-up versus running
     # both in one job's steps (a real wall-clock/minutes trade-off -- see
     # the original single-job version's reasoning in git history) but
     # gives CoreLogic its own pass/fail check and lets it feed the
@@ -903,7 +1052,7 @@ jobs:
         # lint skipped ⇒ this skips too.
         needs: [ios-swiftlint]
         if: needs.ios-swiftlint.result == 'success'
-        runs-on: macos-latest
+        runs-on: macos-26
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as android-unit-and-coverage.
         permissions:
@@ -914,6 +1063,12 @@ jobs:
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            # macos-26 carries several Xcodes and its default moves with
+            # image updates; pin one (listed in actions/runner-images'
+            # macos-26 readme) so results do not change under us.
+            - name: Select Xcode 26.5
+              run: sudo xcode-select -s /Applications/Xcode_26.5.app && xcodebuild -version
 
             # CatalystCoreLogic (#432): the UIKit-free nested SPM package
             # split out of CatalystCore. Zero dependencies, no simulator,
@@ -1037,7 +1192,7 @@ jobs:
         # (lint failed / iOS unchanged) ⇒ this skips too.
         needs: [ios-corelogic-and-coverage]
         if: needs.ios-corelogic-and-coverage.result == 'success'
-        runs-on: macos-latest
+        runs-on: macos-26
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as the other coverage-gated jobs.
         permissions:
@@ -1048,6 +1203,12 @@ jobs:
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            # macos-26 carries several Xcodes and its default moves with
+            # image updates; pin one (listed in actions/runner-images'
+            # macos-26 readme) so results do not change under us.
+            - name: Select Xcode 26.5
+              run: sudo xcode-select -s /Applications/Xcode_26.5.app && xcodebuild -version
 
             # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
             # keyed on Package.resolved -- avoids re-fetching them from
@@ -1144,6 +1305,12 @@ jobs:
             # writes an .xcresult bundle carrying per-target line coverage,
             # parsed below via `xcrun xccov`. resultBundlePath must not
             # already exist, which is guaranteed here (fresh checkout).
+            # localhost.p12 (the in-app HTTPS server's self-signed identity) is
+            # generated per build and not committed; the app target bundles
+            # it, so create one before Xcode builds.
+            - name: Generate localhost.p12
+              run: node packages/catalyst-core/src/native/buildIos/localhostCert.js
+
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
@@ -1266,9 +1433,12 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests]
+        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests, android-release-build, ios-release-archive]
         if: always()
         runs-on: ubuntu-latest
+        # Reads only the needs.* results and outputs: no checkout, no API calls.
+        permissions:
+            contents: read
         steps:
             - name: Report per-platform coverage and verify no regression
               run: |
@@ -1284,6 +1454,8 @@ jobs:
                   ios_swiftlint_status="${{ needs.ios-swiftlint.result }}"
                   ios_corelogic_status="${{ needs.ios-corelogic-and-coverage.result }}"
                   ios_app_status="${{ needs.ios-app-simulator-tests.result }}"
+                  android_release_status="${{ needs.android-release-build.result }}"
+                  ios_release_status="${{ needs.ios-release-archive.result }}"
                   web_pct="${{ needs.unit-and-contract-tests.outputs.line_pct }}"
                   android_pct="${{ needs.android-unit-and-coverage.outputs.line_pct }}"
                   ios_corelogic_pct="${{ needs.ios-corelogic-and-coverage.outputs.line_pct }}"
@@ -1311,6 +1483,8 @@ jobs:
                   report_platform "ios-swiftlint (SwiftLint gate, pass/fail only)" "$ios_swiftlint_status" ""
                   report_platform "ios-corelogic (CatalystCoreLogic, llvm-cov)" "$ios_corelogic_status" "$ios_corelogic_pct"
                   report_platform "ios-app (iosnativeWebView.app target, xccov)" "$ios_app_status" "$ios_app_pct"
+                  report_platform "android-release-build (CLI release AAB checks, pass/fail only)" "$android_release_status" ""
+                  report_platform "ios-release-archive (CLI release IPA checks, pass/fail only)" "$ios_release_status" ""
 
                   # detect-changes itself failing/erroring (not just "nothing
                   # changed") means the per-platform jobs below were skipped
@@ -1324,7 +1498,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status"; do
+                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status" "android-release-build:$android_release_status" "ios-release-archive:$ios_release_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

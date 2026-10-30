@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 75 error codes, then assert the dev
+mistake** for every one of the framework's 104 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`** — runs all 75, one block per code: the mistake, what
+- **`npm run test:error`**: runs all 104, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-75 / 75 codes accounted for: **62 reproduced by a scenario**, **13 in the
+104 / 104 codes accounted for: **69 reproduced by a scenario**, **35 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 75-code ledger
+## The 104-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -71,6 +71,13 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `AI-009`             | —                                                                            | —              | Web AI worker crashed                                                   | **LEDGER: not-example-reproducible** |
 | `ANDROID-000`        | Android build failed in upstream toolchain step                              | build-native   | Android build failed in an upstream toolchain step                      | scenario                             |
 | `ANDROID-001`        | —                                                                            | —              | Timed out waiting for the Android emulator to boot                      | **LEDGER: not-example-reproducible** |
+| `ANDROID-005`        | —                                                                            | —              | No upload key for the release build                                     | **LEDGER: not-example-reproducible** |
+| `ANDROID-006`        | —                                                                            | —              | Upload key settings are incomplete or wrong                             | **LEDGER: not-example-reproducible** |
+| `ANDROID-007`        | -                                                                            | -              | No JDK 17 to 23 found                                                   | **LEDGER: not-example-reproducible** |
+| `ANDROID-008`        | -                                                                            | -              | Android SDK setup was declined                                          | **LEDGER: not-example-reproducible** |
+| `ANDROID-009`        | —                                                                            | —              | Could not install the Android command-line tools                        | **LEDGER: not-example-reproducible** |
+| `ANDROID-010`        | —                                                                            | —              | App icon is not usable                                                  | **LEDGER: not-example-reproducible** |
+| `ANDROID-011`        | -                                                                            | -              | No Android phone connected                                              | **LEDGER: not-example-reproducible** |
 | `BUNDLE-000`         | Syntax error in a source file during production build                        | build          | Build failed in an upstream bundler step                                | scenario                             |
 | `CCA-000`            | —                                                                            | —              | An upstream command failed                                              | **LEDGER: not-example-reproducible** |
 | `CCA-001`            | Invalid project name provided to create-catalyst-app                         | cca-cli        | Invalid project name                                                    | scenario                             |
@@ -84,6 +91,28 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `CCA-009`            | .gitignore file already exists warning in create-catalyst-app                | cca-cli        | .gitignore already exists                                               | scenario                             |
 | `IOS-000`            | iOS build failed in upstream toolchain step                                  | build-native   | iOS build failed in an upstream toolchain step                          | scenario                             |
 | `IOS-001`            | —                                                                            | —              | Could not find an installed iOS Simulator app                           | **LEDGER: not-example-reproducible** |
+| `IOS-002`            | —                                                                            | —              | Full Xcode is not installed or selected                                 | **LEDGER: not-example-reproducible** |
+| `IOS-003`            | —                                                                            | —              | Xcode setup is not finished                                             | **LEDGER: not-example-reproducible** |
+| `IOS-004`            | —                                                                            | —              | No iOS simulator runtime installed                                      | **LEDGER: not-example-reproducible** |
+| `IOS-005`            | —                                                                            | —              | App icon is not usable                                                  | **LEDGER: not-example-reproducible** |
+| `IOS-006`            | —                                                                            | —              | App icon has transparency                                               | **LEDGER: not-example-reproducible** |
+| `IOS-010`            | Signed release build with no development team                                | build-native   | iOS code signing is not set up                                          | scenario                             |
+| `IOS-011`            | App Store Connect API key in credentials/ios/ with no issuer ID              | build-native   | App Store Connect API key settings are incomplete or wrong              | scenario                             |
+| `IOS-012`            | —                                                                            | —              | Manual signing inputs are incomplete or wrong                           | **LEDGER: not-example-reproducible** |
+| `IOS-013`            | Unknown ios.exportMethod                                                     | build-native   | Unknown iOS export method                                               | scenario                             |
+| `IOS-014`            | -                                                                            | -              | No connected iPhone found                                               | **LEDGER: not-example-reproducible** |
+| `IOS-015`            | -                                                                            | -              | No address the iPhone can reach this Mac on                             | **LEDGER: not-example-reproducible** |
+| `NATIVE-001`         | Release build whose url is a LAN address                                     | build-native   | Release build points at a local or private host                         | scenario                             |
+| `NATIVE-002`         | -                                                                            | -              | Invalid build number                                                    | **LEDGER: not-example-reproducible** |
+| `NATIVE-003`         | Release build with the template's app id                                     | build-native   | Release build uses a placeholder app id                                 | scenario                             |
+| `NATIVE-004`         | Production url with a path                                                   | build-native   | Invalid production URL                                                  | scenario                             |
+| `NATIVE-005`         | -                                                                            | -              | A step needs your answer and there is no terminal to ask on             | **LEDGER: not-example-reproducible** |
+| `NATIVE-006`         | -                                                                            | -              | The dev server did not answer                                           | **LEDGER: not-example-reproducible** |
+| `NATIVE-007`         | -                                                                            | -              | The credentials secret could not be unpacked                            | **LEDGER: not-example-reproducible** |
+| `NATIVE-008`         | -                                                                            | -              | No credentials to export                                                | **LEDGER: not-example-reproducible** |
+| `NATIVE-009`         | -                                                                            | -              | Credentials are too large for one secret                                | **LEDGER: not-example-reproducible** |
+| `NATIVE-010`         | App id with a Java keyword in it                                             | build-native   | Invalid app id                                                          | scenario                             |
+| `NATIVE-011`         | -                                                                            | -              | A release with this version and build number already exists             | **LEDGER: not-example-reproducible** |
 | `PREFLIGHT-001`      | config/config.json deleted                                                   | cli (halts)    | config not found in config folder                                       | scenario                             |
 | `PREFLIGHT-002`      | config/config.json is a JSON string                                          | cli (halts)    | config export is not an object                                          | scenario                             |
 | `PREFLIGHT-003`      | Removed a required key from config/config.json                               | cli (halts)    | required key missing inside config.json                                 | scenario                             |
@@ -143,7 +172,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 75, human-readable
+# All 104, human-readable
 npm run test:error
 
 # One code

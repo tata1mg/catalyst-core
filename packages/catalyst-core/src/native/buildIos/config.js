@@ -84,6 +84,48 @@ function generateSwiftProperty(key, value, indent = "    ") {
     return `${indent}public static let ${key} = "${value}"`
 }
 
+// ios.* keys that only steer the build and never reach ConfigConstants.
+// ascApiKey is no longer read (the key lives in credentials/ios/), but an
+// older config that still has it must not ship it in the binary either.
+const BUILD_ONLY_IOS_KEYS = new Set(["ascApiKey", "exportMethod"])
+
+// WEBVIEW_CONFIG keys the generic emitter skips: the platform blocks, and
+// nativeConfig.js RESOLVER_ONLY_KEYS, which only the resolver reads (it turns
+// url, appId and appName into the legacy keys, so ConfigConstants gets one
+// url). Copied, not required: this CJS file is loaded with plain require in
+// tests, which cannot load the ESM resolver.
+const SKIPPED_TOP_LEVEL_KEYS = new Set(["ios", "android", "url", "appId", "appName", "allowPrivateHost"])
+
+/**
+ * The xcconfig signing block. Manual (an explicit profile) keeps the
+ * settings existing ios.provisioningProfile users had; everything else is
+ * Automatic for DEVELOPMENT_TEAM, with no identity or profile pinned, so
+ * Xcode (or -allowProvisioningUpdates) picks them.
+ *
+ * @param {object} signing
+ * @param {"manual"|"automatic"|"none"} [signing.style]
+ * @param {string} [signing.provisioningProfile]
+ * @param {string} [signing.identity] - CODE_SIGN_IDENTITY for device builds
+ */
+function xcconfigSigningBlock({ style, provisioningProfile, identity } = {}) {
+    if (style === "manual" && provisioningProfile) {
+        return [
+            "CODE_SIGN_STYLE = Manual",
+            "CODE_SIGN_IDENTITY = Apple Development",
+            `CODE_SIGN_IDENTITY[sdk=iphoneos*] = ${identity || "iPhone Developer"}`,
+            "PROVISIONING_PROFILE_SPECIFIER =",
+            `PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*] = ${provisioningProfile}`,
+        ].join("\n")
+    }
+    return "CODE_SIGN_STYLE = Automatic"
+}
+
+/** MARKETING_VERSION must be one to three dot-separated integers; "2.5.0-beta.1" becomes "2.5.0". */
+function marketingVersionOf(versionName) {
+    const match = /^\d+(?:\.\d+){0,2}/.exec(String(versionName || ""))
+    return match ? match[0] : null
+}
+
 // ─── Module factory ───────────────────────────────────────────────────────────
 
 module.exports = function createConfigPhase(ctx) {
@@ -98,6 +140,22 @@ module.exports = function createConfigPhase(ctx) {
         readPlistObject,
         writePlistObject,
     } = ctx
+
+    /**
+     * CFBundleShortVersionString and CFBundleVersion: package.json's version
+     * and the build number (nativeConfig.js resolveAppVersion), falling back
+     * to ios.version as shipped.
+     */
+    function appVersion(version) {
+        const resolvedVersion = version || ctx.version
+        const configuredVersion = iosConfig.version
+            ? `${iosConfig.version.major || 1}.${iosConfig.version.minor || 0}.${iosConfig.version.patch || 0}`
+            : "1.0.0"
+        return {
+            marketingVersion: marketingVersionOf(resolvedVersion?.versionName) || configuredVersion,
+            buildNumber: resolvedVersion?.buildNumber || iosConfig.version?.buildNumber || 1,
+        }
+    }
 
     function mergeIntoTopLevelObject(target, source, fieldName) {
         for (const [key, value] of Object.entries(source || {})) {
@@ -170,7 +228,7 @@ public enum ConfigConstants {
 
             if (WEBVIEW_CONFIG && typeof WEBVIEW_CONFIG === "object") {
                 for (const [key, value] of Object.entries(WEBVIEW_CONFIG)) {
-                    if (key === "ios" || key === "android") continue
+                    if (SKIPPED_TOP_LEVEL_KEYS.has(key)) continue
                     if (key === "notifications")
                         progress.log(`Processing notifications config: ${JSON.stringify(value)}`, "info")
                     configContent += "\n" + generateSwiftProperty(key, value)
@@ -182,6 +240,9 @@ public enum ConfigConstants {
                 configContent += "\n    \n    // iOS-specific configuration"
                 for (const [key, value] of Object.entries(iosConfig)) {
                     if (addedKeys.has(key)) continue
+                    // Build-machine signing settings, not app config: key paths
+                    // and IDs have no business in the shipped binary.
+                    if (BUILD_ONLY_IOS_KEYS.has(key)) continue
                     configContent += "\n" + generateSwiftProperty(key, value)
                     addedKeys.add(key)
                 }
@@ -306,7 +367,12 @@ public enum ConfigConstants {
         }
     }
 
-    async function generateXCConfig() {
+    /**
+     * @param {object} [options]
+     * @param {object} [options.signing] - from planIosSigning (plus the CI profile and identity); defaults to ios.provisioningProfile or Automatic
+     * @param {{ versionName?: string, buildNumber?: number }} [options.version] - from resolveAppVersion
+     */
+    async function generateXCConfig({ signing, version } = {}) {
         try {
             const xconfigPath = path.join(PROJECT_DIR, "Configurations", "Shared.xcconfig") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
             const configDir = path.dirname(xconfigPath)
@@ -314,14 +380,14 @@ public enum ConfigConstants {
             const bundleId =
                 iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
             const appName = iosConfig.appName || "Catalyst App"
-            const teamId = iosConfig.developmentTeam || ""
+            const signingPlan = signing || {
+                style: iosConfig.provisioningProfile ? "manual" : "automatic",
+                provisioningProfile: iosConfig.provisioningProfile,
+            }
+            const teamId = signingPlan.teamId || iosConfig.developmentTeam || ""
             const swiftVersion = iosConfig.deployment?.swiftVersion || "5.9"
             const deploymentTarget = iosConfig.deployment?.target || "17.0"
-            const marketingVersion = iosConfig.version
-                ? `${iosConfig.version.major || 1}.${iosConfig.version.minor || 0}.${iosConfig.version.patch || 0}`
-                : "1.0.0"
-            const buildNumber = iosConfig.version?.buildNumber || 1
-            const provisioningProfile = iosConfig.provisioningProfile || ""
+            const { marketingVersion, buildNumber } = appVersion(version)
             const xconfigContent = `// This file is auto-generated by buildAppIos.js. Do not edit.
 //
 // Shared configuration for both Debug and Release builds
@@ -353,11 +419,7 @@ ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
 
 // Code signing
-CODE_SIGN_IDENTITY = Apple Development
-CODE_SIGN_IDENTITY[sdk=iphoneos*] = iPhone Developer
-CODE_SIGN_STYLE = Manual
-PROVISIONING_PROFILE_SPECIFIER =
-PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*] = ${provisioningProfile}
+${xcconfigSigningBlock(signingPlan)}
 
 // Module settings
 CLANG_ENABLE_MODULES = NO
@@ -423,6 +485,7 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
         }
 
         const plistTargets = [infoPlistPath, infoReleasePlistPath]
+        const { marketingVersion, buildNumber } = appVersion()
         const pluginUrlSchemes = pluginComposition.urlSchemes || []
         const pluginQuerySchemes = pluginComposition.querySchemes || []
         const pluginInfoPlist = pluginComposition.infoPlist || {}
@@ -439,17 +502,61 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPo
             }
             mergeUrlSchemes(plistObject, pluginUrlSchemes)
             mergeQuerySchemes(plistObject, pluginQuerySchemes)
+            // Literal values, so the plist says what the IPA carries.
+            plistObject.CFBundleShortVersionString = String(marketingVersion)
+            plistObject.CFBundleVersion = String(buildNumber)
+            if (plistPath === infoReleasePlistPath) {
+                // Without it App Store Connect asks the export compliance
+                // questions for every upload. A plugin that ships non-exempt
+                // encryption sets it to true through its infoPlist.
+                if (plistObject.ITSAppUsesNonExemptEncryption === undefined) {
+                    plistObject.ITSAppUsesNonExemptEncryption = false
+                }
+            } else {
+                applyDebugTransportSecurity(plistObject)
+            }
             writePlistObject(plistPath, plistObject)
         })
     }
 
+    /**
+     * Info.plist is the Debug configuration's plist. When a debug build loads
+     * the dev server (ctx.localNetworking), NSAllowsLocalNetworking lets it
+     * reach `<mac>.local`, a LAN IP or localhost over plain HTTP. On iOS 10
+     * and later its presence makes the OS ignore NSAllowsArbitraryLoads, so
+     * it is added only when the plist does not already allow arbitrary loads
+     * (the template's debug plist does, and that already covers local hosts).
+     * Release builds use Info-Release.plist and never get it.
+     */
+    function applyDebugTransportSecurity(plistObject) {
+        const ats = isPlainObject(plistObject.NSAppTransportSecurity)
+            ? { ...plistObject.NSAppTransportSecurity }
+            : {}
+        if (ctx.localNetworking && ats.NSAllowsArbitraryLoads !== true) ats.NSAllowsLocalNetworking = true
+        else delete ats.NSAllowsLocalNetworking
+        plistObject.NSAppTransportSecurity = ats
+    }
+
+    /**
+     * The app's entitlements: the template, the plugins' additions, and
+     * aps-environment only when notifications are on. A push entitlement
+     * nobody uses makes App Store Connect warn and needs a push-enabled
+     * profile for nothing. The value follows the signing profile (see
+     * planIosSigning): "development", or "production" for a manually signed
+     * release.
+     */
     async function updateEntitlements(pluginComposition = {}) {
         const PROJECT_NAME = ctx.PROJECT_NAME
         const entitlementsPath = path.join(PROJECT_DIR, PROJECT_NAME, `${PROJECT_NAME}.entitlements`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
         if (!fs.existsSync(entitlementsPath)) return
         restoreManagedFileFromBaseline(entitlementsPath)
         const entitlementsObject = readPlistObject(entitlementsPath)
+        // A baseline saved by an older Catalyst still has the key.
+        delete entitlementsObject["aps-environment"]
         mergeIntoTopLevelObject(entitlementsObject, pluginComposition.entitlements || {}, "ios.entitlements")
+        if (WEBVIEW_CONFIG.notifications?.enabled) {
+            entitlementsObject["aps-environment"] = ctx.apsEnvironment || "development"
+        }
         writePlistObject(entitlementsPath, entitlementsObject)
     }
 

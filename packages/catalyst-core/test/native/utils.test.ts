@@ -1,4 +1,4 @@
-import { execSync, spawn } from "child_process"
+import { execFileSync, execSync, spawn } from "child_process"
 import fs from "fs"
 import os from "os"
 import path from "path"
@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // utils.js is ESM, so it is imported here the same way redactSecrets.test.ts
 // imports it: one module copy for v8 coverage to merge.
 //
-// execSync and spawn are wrapped so each test can fake a tool's answer, while
+// execSync, execFileSync and spawn are wrapped so each test can fake a tool's answer, while
 // anything a test does not stub still runs for real (node itself, never adb
 // or an emulator).
 vi.mock("child_process", async (importOriginal) => {
@@ -17,6 +17,7 @@ vi.mock("child_process", async (importOriginal) => {
         ...actual,
         default: actual,
         execSync: vi.fn(actual.execSync),
+        execFileSync: vi.fn(actual.execFileSync),
         spawn: vi.fn(actual.spawn),
     }
 })
@@ -31,12 +32,13 @@ import {
     redactError,
     redactSecrets,
     runCommand,
+    runFile,
+    runInheritedCommand,
     runInteractiveCommand,
-    runSdkManagerCommand,
-    validateAndCompleteConfig,
 } from "../../src/native/utils.js"
 
 const mockedExec = vi.mocked(execSync)
+const mockedExecFile = vi.mocked(execFileSync)
 const mockedSpawn = vi.mocked(spawn)
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, "g")
 const plain = (text: unknown) => String(text).replace(ANSI, "")
@@ -71,6 +73,7 @@ afterEach(() => {
     vi.restoreAllMocks()
     // mockReset puts back the real implementation vi.fn was given.
     mockedExec.mockReset()
+    mockedExecFile.mockReset()
     mockedSpawn.mockReset()
     setTTY(originalTTY)
     for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
@@ -144,6 +147,89 @@ describe("runCommand", () => {
             throw killed
         })
         expect(() => runCommand("adb devices")).toThrow(killed)
+    })
+})
+
+describe("runFile", () => {
+    it("runs the program with an argv array and no shell", () => {
+        mockedExecFile.mockImplementationOnce(() => "List of devices attached\n" as any)
+        const adb = "/sdk dir/$(touch x)/adb"
+        expect(runFile(adb, ["devices"], { timeout: 15000 })).toBe("List of devices attached\n")
+        expect(mockedExecFile).toHaveBeenCalledWith(adb, ["devices"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+            timeout: 15000,
+        })
+        expect(mockedExec).not.toHaveBeenCalled()
+    })
+
+    it("refuses an empty path or one with a NUL or line break", () => {
+        for (const bad of ["", "   ", "/sdk/adb\nrm -rf /", "/sdk/adb\u0000", undefined]) {
+            expect(() => runFile(bad as any, ["version"])).toThrow(/Not a valid tool path/)
+        }
+        expect(mockedExecFile).not.toHaveBeenCalled()
+    })
+
+    it("names the tool on a timeout, even when its folder has spaces", () => {
+        mockedExecFile.mockImplementationOnce(() => {
+            throw Object.assign(new Error("spawnSync ETIMEDOUT"), { code: "ETIMEDOUT" })
+        })
+        let error: any
+        try {
+            runFile("/Android Sdk/platform-tools/adb", ["devices"], { timeout: 10000 })
+        } catch (caught) {
+            error = caught
+        }
+        expect(error.message).toBe("adb did not respond within 10s")
+        expect(error.hint).toContain("adb kill-server")
+        expect(console.error).not.toHaveBeenCalled()
+    })
+
+    it("logs the failure with passwords redacted and rethrows", () => {
+        const failure = Object.assign(new Error("Command failed: keytool -storepass hunter2"), { status: 1 })
+        mockedExecFile.mockImplementationOnce(() => {
+            throw failure
+        })
+        expect(() => runFile("keytool", ["-storepass", "hunter2"])).toThrow(failure)
+        expect(failure.message).toBe("Command failed: keytool -storepass ***")
+        const logged = vi.mocked(console.error).mock.calls.flat().join("\n")
+        expect(logged).toContain("Error executing command: keytool -storepass ***")
+        expect(logged).not.toContain("hunter2")
+    })
+
+    it("runs a real program", () => {
+        expect(runFile(process.execPath, ["-e", "process.stdout.write('ok')"])).toBe("ok")
+    })
+})
+
+describe("runInheritedCommand", () => {
+    it("resolves on exit code 0 and passes env and cwd through", async () => {
+        const cwd = tempDir()
+        await runInheritedCommand(process.execPath, ["-e", "process.exit(0)"], {
+            env: { ...process.env },
+            cwd,
+        })
+        expect(mockedSpawn).toHaveBeenLastCalledWith(process.execPath, ["-e", "process.exit(0)"], {
+            stdio: "inherit",
+            env: expect.any(Object),
+            cwd,
+        })
+    })
+
+    it("rejects with the exit code", async () => {
+        const error: any = await runInheritedCommand(process.execPath, ["-e", "process.exit(3)"]).catch(
+            (caught) => caught
+        )
+        expect(error.message).toBe(`${process.execPath} exited with code 3`)
+        expect(error.code).toBe(3)
+    })
+
+    it("names a command that is not installed", async () => {
+        const error: any = await runInheritedCommand("catalyst-no-such-tool-xyz", []).catch(
+            (caught) => caught
+        )
+        expect(error.message).toBe("Command not found: catalyst-no-such-tool-xyz")
+        expect(error.cause.code).toBe("ENOENT")
     })
 })
 
@@ -237,23 +323,30 @@ describe("listAvds", () => {
     it("asks the SDK's emulator, expanding ~ and dropping INFO noise", () => {
         const home = tempDir()
         vi.spyOn(os, "homedir").mockReturnValue(home)
-        mockedExec.mockImplementationOnce(() => "INFO    | Storing crashdata\nPixel_7_API_34\n\n  Tablet  \n")
+        mockedExecFile.mockImplementationOnce(
+            () => "INFO    | Storing crashdata\nPixel_7_API_34\n\n  Tablet  \n" as any
+        )
 
         expect(listAvds("~/sdk")).toEqual(["Pixel_7_API_34", "Tablet"])
-        expect(mockedExec).toHaveBeenLastCalledWith(
-            `"${path.join(home, "sdk", "emulator", "emulator")}" -list-avds`,
+        // The path is one argv entry, never a shell string.
+        expect(mockedExecFile).toHaveBeenLastCalledWith(
+            path.join(home, "sdk", "emulator", "emulator"),
+            ["-list-avds"],
             { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 }
         )
     })
 
     it("returns [] without an SDK or when the emulator cannot be run", () => {
         expect(listAvds(null)).toEqual([])
-        expect(mockedExec).not.toHaveBeenCalled()
+        expect(mockedExecFile).not.toHaveBeenCalled()
 
-        mockedExec.mockImplementationOnce(() => {
+        mockedExecFile.mockImplementationOnce(() => {
             throw new Error("ENOENT")
         })
         expect(listAvds("/no/sdk")).toEqual([])
+        // A path with a line break is refused before anything runs.
+        expect(listAvds("/sdk\nrm")).toEqual([])
+        expect(mockedExecFile).toHaveBeenCalledTimes(1)
     })
 })
 
@@ -410,123 +503,5 @@ describe("runInteractiveCommand", () => {
         expect(output.length).toBeLessThanOrEqual(1024 * 1024)
         expect(output.endsWith("END\n")).toBe(true)
         expect(output).not.toContain("got:")
-    })
-
-    it("feeds sdkmanager's licence prompts a yes", async () => {
-        const script = `
-            process.stdout.write("Accept? (y/N): ")
-            process.stdin.once("data", (answer) => { console.log("answer=" + String(answer).trim()); process.stdin.destroy() })
-        `
-        await expect(runSdkManagerCommand(node, ["-e", script])).resolves.toContain("answer=y")
-    })
-})
-
-describe("validateAndCompleteConfig", () => {
-    function writeConfig(config: unknown) {
-        const file = path.join(tempDir(), "config.json")
-        fs.writeFileSync(file, typeof config === "string" ? config : JSON.stringify(config))
-        return file
-    }
-    const read = (file: string) => JSON.parse(fs.readFileSync(file, "utf8"))
-
-    it("returns a complete config untouched", async () => {
-        const android = { buildType: "release", sdkPath: "/sdk", emulatorName: "Pixel" }
-        const file = writeConfig({ WEBVIEW_CONFIG: { port: "3005", android } })
-        mockedExec.mockImplementation(() => "Pixel\n")
-        const before = fs.readFileSync(file, "utf8")
-
-        await expect(validateAndCompleteConfig("android", file)).resolves.toEqual({ port: "3005", android })
-        expect(fs.readFileSync(file, "utf8")).toBe(before)
-    })
-
-    it("fills what it can work out for Android and saves it without asking", async () => {
-        const sdk = fakeSdk()
-        const file = writeConfig({ NODE_SERVER_PORT: 3005, WEBVIEW_CONFIG: { android: { sdkPath: sdk } } })
-        mockedExec.mockImplementation(() => "Pixel_7_API_34\n")
-        setTTY(false)
-
-        const result = await validateAndCompleteConfig("android", file)
-
-        expect(result).toEqual({
-            port: "3005",
-            android: { sdkPath: sdk, buildType: "debug", emulatorName: "Pixel_7_API_34" },
-        })
-        expect(read(file).WEBVIEW_CONFIG).toEqual(result)
-        const saved = plain(vi.mocked(console.log).mock.calls.flat().join("\n"))
-        expect(saved).toContain("Saved port, buildType, emulatorName to config/config.json")
-    })
-
-    it("detects the SDK when none is configured", async () => {
-        const sdk = fakeSdk()
-        vi.stubEnv("ANDROID_HOME", sdk)
-        mockedExec.mockImplementation(() => {
-            throw new Error("no emulator")
-        })
-        const file = writeConfig({
-            WEBVIEW_CONFIG: { port: "3005", android: { buildType: "debug", emulatorName: "Pixel" } },
-        })
-        setTTY(false)
-        try {
-            const result = await validateAndCompleteConfig("android", file)
-            expect(result.android.sdkPath).toBe(sdk)
-        } finally {
-            vi.unstubAllEnvs()
-        }
-    })
-
-    it("fails with ENOTTY for an iOS field it cannot guess in CI", async () => {
-        const file = writeConfig({ WEBVIEW_CONFIG: { port: "3005", ios: { buildType: "debug" } } })
-        setTTY(false)
-        const error: any = await validateAndCompleteConfig("ios", file).catch((caught) => caught)
-        expect(error.code).toBe("ENOTTY")
-        expect(error.message).toContain("iOS bundle ID")
-    })
-
-    it("asks on the terminal for what it cannot guess", async () => {
-        const file = writeConfig({ WEBVIEW_CONFIG: { port: "3005", ios: { buildType: "debug" } } })
-        setTTY(true)
-        const answers = ["com.example.app", "iPhone 16 Pro"]
-        vi.spyOn(readline, "createInterface").mockImplementation(
-            () =>
-                ({
-                    question: (_text: string, callback: (answer: string) => void) =>
-                        callback(answers.shift()!),
-                    close: () => {},
-                }) as any
-        )
-        vi.spyOn(process.stdout, "write").mockImplementation(() => true)
-
-        await expect(validateAndCompleteConfig("ios", file)).resolves.toEqual({
-            port: "3005",
-            ios: { buildType: "debug", appBundleId: "com.example.app", simulatorName: "iPhone 16 Pro" },
-        })
-        expect(read(file).WEBVIEW_CONFIG.ios.simulatorName).toBe("iPhone 16 Pro")
-    })
-
-    it("starts from an empty config when the file is unreadable, then rejects an unknown platform", async () => {
-        const file = writeConfig("{ not json")
-        await expect(validateAndCompleteConfig("windows", file)).rejects.toThrow(
-            'Invalid platform. Must be either "android" or "ios"'
-        )
-        expect(plain(vi.mocked(console.error).mock.calls.flat().join("\n"))).toContain(
-            "Error reading config file"
-        )
-    })
-
-    it("surfaces a config file it cannot save", async () => {
-        const file = writeConfig({
-            WEBVIEW_CONFIG: {
-                port: "3005",
-                ios: { buildType: "", appBundleId: "a.b", simulatorName: "iPhone" },
-            },
-        })
-        vi.spyOn(fs, "writeFileSync").mockImplementation(() => {
-            throw new Error("EROFS: read-only file system")
-        })
-
-        await expect(validateAndCompleteConfig("ios", file)).rejects.toThrow("EROFS")
-        expect(plain(vi.mocked(console.error).mock.calls.flat().join("\n"))).toContain(
-            "Error saving config file: EROFS"
-        )
     })
 })

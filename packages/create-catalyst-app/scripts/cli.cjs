@@ -21,6 +21,7 @@ const {
     resolveOutputMode,
     getDebugEnvInfo,
 } = require("./errors.cjs")
+const { applyAppIdentity } = require("./appIdentity.cjs")
 const outputMode = resolveOutputMode(process.argv)
 // Colored (red) prefix only applies in default mode — verbose/debug boxes
 // own their coloring internally (see errors.cjs#box).
@@ -157,6 +158,8 @@ const program = new Commander.Command()
 
                     extractSubdirectory(packageFilePath)
                     createGitignore(projectName)
+                    // appId and appName in config/config.json, from the project name.
+                    applyAppIdentity(projectPath, projectName)
 
                     // npm's install output is hundreds of lines nobody reads
                     // when it works. Fold it behind a spinner, and print it in
@@ -568,7 +571,16 @@ function deleteDirectory(dirPath) {
 
 // Function to create a .gitignore file with the hardcoded patterns
 function createGitignore(projectName) {
-    const gitiIgnorePatterns = ["node_modules", "build", "logs"]
+    // credentials/ holds signing keys, .catalyst/ per-machine CLI state, and
+    // build-output/ the signed store builds.
+    const gitiIgnorePatterns = [
+        "node_modules",
+        "build",
+        "logs",
+        "credentials/",
+        ".catalyst/",
+        "build-output/",
+    ]
 
     const gitignorePath = `${process.cwd()}${path.sep}${projectName}${path.sep}.gitignore`
 

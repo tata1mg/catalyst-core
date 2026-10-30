@@ -17,6 +17,7 @@ const platformScripts = {
     "setupEmulator:android": "../dist/native/androidSetup.js",
     "buildApp:ios": "../dist/native/buildAppIos.js",
     "buildApp:android": "../dist/native/buildAppAndroid.js",
+    "credentials:export": "../dist/native/exportCredentials.js",
 }
 const validCommands = new Set([...webCommands, "buildApp", "setupEmulator", ...Object.keys(platformScripts)])
 
@@ -46,10 +47,11 @@ const HELP = [
     [
         "Native",
         [
-            ["setupEmulator:android", "Configure and boot the Android emulator"],
-            ["setupEmulator:ios", "Configure and boot the iOS simulator"],
+            ["setupEmulator:android", "Install the Android tools and start the emulator"],
+            ["setupEmulator:ios", "Install the iOS simulator and finish Xcode setup"],
             ["buildApp:android", "Build and install the Android app"],
             ["buildApp:ios", "Build and install the iOS app"],
+            ["credentials:export", "Print credentials/<android|ios>/ as one CI secret"],
         ],
     ],
     [
@@ -78,6 +80,21 @@ function printHelp() {
     )
     lines.push(
         `${GUTTER}  ${"--debug".padEnd(width)}${paint("dim", "Also print stacks and the environment")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--release".padEnd(width)}${paint("dim", "buildApp: build the signed store release")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--device".padEnd(width)}${paint("dim", "buildApp: run on the connected phone")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--url <url>".padEnd(width)}${paint("dim", "buildApp: the release's production URL")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--yes".padEnd(width)}${paint("dim", "Confirm installs and downloads without asking")}`
+    )
+    lines.push(
+        `${GUTTER}  ${"--accept-licenses".padEnd(width)}${paint("dim", "Accept the Android SDK and Xcode licences")}`
     )
     lines.push(`${GUTTER}  ${"-h, --help".padEnd(width)}${paint("dim", "Show this help")}`)
     lines.push(`${GUTTER}  ${"-v, --version".padEnd(width)}${paint("dim", "Print the version")}`)
@@ -117,10 +134,41 @@ if (args[0] === "--version" || args[0] === "-v") {
     process.exit(0)
 }
 
-const scriptIndex = args.findIndex((arg) => validCommands.has(arg))
-const script = scriptIndex === -1 ? args[0] : args[scriptIndex]
-const nodeArgs = scriptIndex > 0 ? args.slice(0, scriptIndex) : []
-const scriptArgs = args.slice(scriptIndex + 1)
+// Native flags, with how many values each takes. They are pulled out before
+// dispatch wherever they appear, so `--url build` can't be read as the build
+// command and a flag before the command isn't handed to node. Agents and CI
+// answer every question with these; nothing else is ever asked.
+const nativeFlags = {
+    "--release": 0,
+    "--device": 0,
+    "--url": 1,
+    "--yes": 0,
+    "--accept-licenses": 0,
+}
+const forwardedFlags = []
+const commandArgs = []
+for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    const name = arg.split("=")[0]
+    if (name in nativeFlags) {
+        const takesValue = nativeFlags[name] > 0 && !arg.includes("=")
+        forwardedFlags.push(...args.slice(i, i + 1 + (takesValue ? 1 : 0)))
+        if (takesValue) i++
+    } else {
+        commandArgs.push(arg)
+    }
+}
+
+const scriptIndex = commandArgs.findIndex((arg) => validCommands.has(arg))
+const script = scriptIndex === -1 ? commandArgs[0] : commandArgs[scriptIndex]
+const nodeArgs = scriptIndex > 0 ? commandArgs.slice(0, scriptIndex) : []
+const scriptArgs = [...forwardedFlags, ...commandArgs.slice(scriptIndex + 1)]
+
+if (!script) {
+    // Only flags, no command.
+    printHelp()
+    process.exit(1)
+}
 
 function handleProcessResult(result) {
     if (result.signal) {
