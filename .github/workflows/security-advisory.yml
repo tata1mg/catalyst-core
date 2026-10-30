@@ -1,0 +1,103 @@
+# Drafts a GitHub Security Advisory for a release, from the "## Security" block of the PRs in it.
+#
+# Manual only. Run it from the Actions tab, or from an AI tool (see .github/SECURITY_ADVISORY.md):
+#   gh workflow run security-advisory.yml -f release_tag=catalyst-core@1.0.2
+# It starts as a dry run: the advisory is printed to the job summary and nothing is created.
+# Re-run with dry_run=false to create the DRAFT advisory. Publishing it, and the CVE
+# request unless request_cve is set, stay manual in the GitHub UI.
+#
+# Needs the SECURITY_ADVISORY_TOKEN secret (fine-grained PAT or GitHub App token with
+# "Repository security advisories: read and write"), kept in the "security-advisory" environment.
+name: Security Advisory
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_tag:
+                description: "Release tag, e.g. catalyst-core@1.0.2"
+                required: true
+                type: string
+            pr_numbers:
+                description: "PR numbers, space or comma separated. Empty: PRs referenced in the release notes"
+                required: false
+                type: string
+            summary:
+                description: "Override: advisory title"
+                required: false
+                type: string
+            description:
+                description: "Override: advisory description (markdown)"
+                required: false
+                type: string
+            severity:
+                description: "Override: severity (low, medium, high, critical)"
+                required: false
+                type: string
+            cwe:
+                description: "Override: CWE ids, e.g. CWE-79, CWE-400"
+                required: false
+                type: string
+            affected_range:
+                description: "Override: affected versions. Default: < the released version"
+                required: false
+                type: string
+            patched_version:
+                description: "Override: patched version. Default: the released version"
+                required: false
+                type: string
+            request_cve:
+                description: "Also request a CVE from GitHub (only with dry_run off)"
+                required: false
+                type: boolean
+                default: false
+            dry_run:
+                description: "Print the advisory only, create nothing"
+                required: false
+                type: boolean
+                default: true
+
+permissions: {}
+
+jobs:
+    advisory:
+        runs-on: ubuntu-latest
+        environment: security-advisory
+        permissions:
+            contents: read
+            pull-requests: read
+        steps:
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+              with:
+                  persist-credentials: false
+
+            - name: Build advisory from release PRs
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  PR_NUMBERS: ${{ inputs.pr_numbers }}
+                  SUMMARY: ${{ inputs.summary }}
+                  DESCRIPTION: ${{ inputs.description }}
+                  SEVERITY: ${{ inputs.severity }}
+                  CWE: ${{ inputs.cwe }}
+                  AFFECTED_RANGE: ${{ inputs.affected_range }}
+                  PATCHED_VERSION: ${{ inputs.patched_version }}
+              run: bash .github/scripts/security-advisory.sh | tee -a "$GITHUB_STEP_SUMMARY"
+
+            - name: Create draft advisory
+              if: ${{ !inputs.dry_run }}
+              env:
+                  GH_TOKEN: ${{ secrets.SECURITY_ADVISORY_TOKEN }}
+                  REPO: ${{ github.repository }}
+                  REQUEST_CVE: ${{ inputs.request_cve }}
+              run: |
+                  if [ -z "$GH_TOKEN" ]; then
+                      echo "::error::SECURITY_ADVISORY_TOKEN is not set in the security-advisory environment"
+                      exit 1
+                  fi
+                  ghsa=$(gh api -X POST "repos/$REPO/security-advisories" --input advisory-payload.json --jq .ghsa_id)
+                  echo "Draft advisory: https://github.com/$REPO/security/advisories/$ghsa" | tee -a "$GITHUB_STEP_SUMMARY"
+                  if [ "$REQUEST_CVE" = "true" ]; then
+                      gh api -X POST "repos/$REPO/security-advisories/$ghsa/cve"
+                      echo "CVE requested from GitHub for $ghsa" | tee -a "$GITHUB_STEP_SUMMARY"
+                  fi

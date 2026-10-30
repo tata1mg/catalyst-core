@@ -25,6 +25,16 @@ Closes #
 - [ ] Added a test that fails without this fix and passes with it: `<path>`
 - [ ] No regression test added — reason:
 
+## Security
+
+<!-- Only for security fixes: keep and fill in. Otherwise delete this section. Feeds the Security Advisory
+     workflow, see .github/SECURITY_ADVISORY.md. Only Summary is required. -->
+
+Summary:
+CVE:
+Severity:
+CWE:
+
 ## Affected error codes
 
 <!-- Any CatalystError codes whose behaviour or wording this touches, or "none". -->
