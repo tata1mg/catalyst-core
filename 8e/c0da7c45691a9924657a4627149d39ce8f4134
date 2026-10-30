@@ -1,0 +1,27 @@
+.github/workflows/security-advisory.yml
+  s_518627d33c8918::t_92d8aba44bed4b 1-32,34,36-103
+  s_518627d33c8918::t_60f75174ca5da7 33,35
+.github/SECURITY_ADVISORY.md
+  s_518627d33c8918::t_b0e82d654a4fe7 1-56
+.github/scripts/security-advisory.sh
+  s_518627d33c8918::t_3942bcefd99b7d 1-104
+  s_518627d33c8918::t_02ee1855ac8922 105-111
+.github/PULL_REQUEST_TEMPLATE/fix.md
+  s_518627d33c8918::t_a9f970a29f03b7 28-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ec0da7c45691a9924657a4627149d39ce8f4134",
+  "prompts": {},
+  "sessions": {
+    "s_518627d33c8918": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b5b1a02-f66b-4b4b-9be0-65c141b8fff3",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
