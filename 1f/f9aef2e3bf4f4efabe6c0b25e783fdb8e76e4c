@@ -1,0 +1,49 @@
+packages/catalyst-ai/src/metrics.js
+  s_5c4ceb8b5ee5d2::t_b05a031d68ef43 23-45,49,107
+packages/catalyst-ai/package.json
+  s_5c4ceb8b5ee5d2::t_72d3d537bf3536 10-11
+  s_5c4ceb8b5ee5d2::t_d293ac34ea8e01 12
+packages/catalyst-ai/scripts/pricing-cli.js
+  s_5c4ceb8b5ee5d2::t_f8f516b3de22e3 1-84,86-91,93-169,172,174-193
+  s_5c4ceb8b5ee5d2::t_8bc798a2d1d888 85,92,170-171,173
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_5c4ceb8b5ee5d2::t_2f83319320ad2e 289-326
+packages/catalyst-core/src/vite/vite.config.js
+  s_5c4ceb8b5ee5d2::t_684b701dd862c4 223,238-239
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_5c4ceb8b5ee5d2::t_2f83319320ad2e 496,520-564
+  s_5c4ceb8b5ee5d2::t_5b628a971b5cf1 565
+packages/catalyst-ai/src/pricing.js
+  s_5c4ceb8b5ee5d2::t_b05a031d68ef43 29-64
+packages/catalyst-ai/test/pricingConfig.test.ts
+  s_5c4ceb8b5ee5d2::t_4e4081c6c95327 1-147
+packages/catalyst-ai/scripts/cli.js
+  s_5c4ceb8b5ee5d2::t_72d3d537bf3536 1-17
+packages/catalyst-ai/src/index.js
+  s_5c4ceb8b5ee5d2::t_b05a031d68ef43 7
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_5c4ceb8b5ee5d2::t_684b701dd862c4 30-38,122-123
+  s_5c4ceb8b5ee5d2::t_cdc926eb7261ce 201-202
+"docs/content/11-API Reference/01-Hooks.md"
+  s_5c4ceb8b5ee5d2::t_53c5a963fb8794 741
+packages/catalyst-ai/README.md
+  s_5c4ceb8b5ee5d2::t_a767dfe30a1631 22-43
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_5c4ceb8b5ee5d2::t_b97cdd24db91f9 1468
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ff9aef2e3bf4f4efabe6c0b25e783fdb8e76e4c",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
