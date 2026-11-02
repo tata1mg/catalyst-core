@@ -1,0 +1,42 @@
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_5c4ceb8b5ee5d2::t_529c9a608cb741 42
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_5c4ceb8b5ee5d2::t_e4d3e873f16c92 214-226
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_af97bbb95759d6 37-38,40,104,156-157,276
+  s_5c4ceb8b5ee5d2::t_2ec5964d5dbab2 8
+packages/catalyst-ai/src/index.js
+  s_5c4ceb8b5ee5d2::t_529c9a608cb741 5
+packages/catalyst-ai/src/promptApiEngine.js
+  s_5c4ceb8b5ee5d2::t_6cac5ff25fdf5c 1-150
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_5c4ceb8b5ee5d2::t_2ec6cce5328e00 281-325
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_5c4ceb8b5ee5d2::t_e4d3e873f16c92 569-577
+packages/catalyst-ai/test/promptApiEngine.test.ts
+  s_5c4ceb8b5ee5d2::t_2ec5964d5dbab2 1-140
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_5c4ceb8b5ee5d2::t_529c9a608cb741 30-32,54,100-101,186-190,195,331-336,378
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_5c4ceb8b5ee5d2::t_529c9a608cb741 140-141,197
+"docs/content/11-API Reference/01-Hooks.md"
+  s_5c4ceb8b5ee5d2::t_2e645a515752c6 739
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_5c4ceb8b5ee5d2::t_2e645a515752c6 1468
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9c3ca540ab763cd302be1622253ab553661b0409",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
