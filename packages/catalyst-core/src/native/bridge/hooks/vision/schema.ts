@@ -69,8 +69,43 @@ export interface Extracted {
 }
 
 /**
+ * Fixes the two slips small models make most when writing JSON, outside string values only (text inside a string is
+ * never touched): a key left without a value (`"title":,` -> `"title":null`) and a trailing comma (`[1,2,]`).
+ * Used only after a strict parse has failed, and the result is still validated against the schema, so a `null` that the
+ * schema does not allow is reported as a problem rather than accepted.
+ */
+export function repairJson(text: string): string {
+    let out = ""
+    let inString = false
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i]
+        if (inString) {
+            out += ch
+            if (ch === "\\") out += text[++i] ?? ""
+            else if (ch === '"') inString = false
+            continue
+        }
+        if (ch === '"') {
+            inString = true
+            out += ch
+            continue
+        }
+        const next = () => {
+            let j = i + 1
+            while (j < text.length && /\s/.test(text[j])) j++
+            return text[j]
+        }
+        if (ch === ":" && (next() === "," || next() === "}" || next() === "]")) out += ":null"
+        else if (ch === "," && (next() === "}" || next() === "]")) continue
+        else out += ch
+    }
+    return out
+}
+
+/**
  * Pulls one JSON value out of a model reply: the whole text, a fenced block, or the first balanced {...} / [...]
- * (a model that explains itself before or after the JSON still yields it).
+ * (a model that explains itself before or after the JSON still yields it). If none parses as it stands, the same
+ * candidates are tried again after repairJson.
  */
 export function extractJson(text: string): Extracted {
     const trimmed = (text ?? "").trim()
@@ -87,7 +122,14 @@ export function extractJson(text: string): Extracted {
             // try the next candidate
         }
     }
-    return { ok: false, error: "the reply did not contain valid JSON" }
+    for (const candidate of candidates) {
+        try {
+            return { ok: true, value: JSON.parse(repairJson(candidate)) }
+        } catch {
+            // nothing usable in this one either
+        }
+    }
+    return { ok: false, error: "the reply was not valid JSON (every field needs a value: use null or an empty string, never leave one blank)" }
 }
 
 function firstBalanced(text: string): string | null {

@@ -29,7 +29,7 @@
       "policy": {
         "objective": "balanced",
         "order": ["onDevice", "cost", "latency"],
-        "constraints": { "maxLatencyMs": 15000 },
+        "constraints": { "maxLatencyMs": 60000 },
         "cloud": "ask",
         "cloudMedia": "deny"
       },

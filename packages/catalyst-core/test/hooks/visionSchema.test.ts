@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildPrompt, correctionPrompt, extractJson, validate, type Schema } from "../../src/native/bridge/hooks/vision/schema"
+import { buildPrompt, correctionPrompt, extractJson, repairJson, validate, type Schema } from "../../src/native/bridge/hooks/vision/schema"
 import { toImageDataUrl } from "../../src/native/bridge/hooks/vision/source"
 
 const report: Schema = {
@@ -126,5 +126,37 @@ describe("toImageDataUrl", () => {
         const url = await toImageDataUrl(big)
         expect(url.startsWith("data:image/jpeg;base64,")).toBe(true)
         expect(url.length).toBeGreaterThan(4_000_000)
+    })
+})
+
+describe("repairJson / extractJson with the slips small models make", () => {
+    it("a key left without a value becomes null (the real reply from the in-browser model)", () => {
+        const reply = '{"visibleText":"Contact us.","isLabReport":false,"title":,"results":[]}'
+        expect(() => JSON.parse(reply)).toThrow()
+        expect(extractJson(reply)).toEqual({ ok: true, value: { visibleText: "Contact us.", isLabReport: false, title: null, results: [] } })
+    })
+    it("also handles a blank value before } or ], with whitespace, and trailing commas", () => {
+        expect(extractJson('{"a":  \n}').value).toEqual({ a: null })
+        expect(extractJson('{"a":[1,2,],"b":3,}').value).toEqual({ a: [1, 2], b: 3 })
+        expect(extractJson('{"a":[1,,2]}').ok).toBe(false) // not repaired: a hole in an array is not a missing value
+    })
+    it("never touches text inside a string value", () => {
+        const text = '{"note":"Name: , x, ]","t":,"u":"a\\"b: ,"}'
+        expect(extractJson(text).value).toEqual({ note: "Name: , x, ]", t: null, u: 'a"b: ,' })
+        expect(repairJson('{"k":"v: ,"}')).toBe('{"k":"v: ,"}')
+    })
+    it("valid JSON is returned untouched, and a repaired null still has to satisfy the schema", () => {
+        expect(extractJson('{"a":1}').value).toEqual({ a: 1 })
+        const strict: Schema = { type: "object", required: ["title"], properties: { title: { type: "string" } } }
+        const parsed = extractJson('{"title":}')
+        expect(parsed.ok).toBe(true)
+        expect(validate(strict, parsed.value).length).toBeGreaterThan(0) // null is not a string here
+        const lenient: Schema = { type: "object", properties: { title: { type: "string", nullable: true } } }
+        expect(validate(lenient, parsed.value)).toEqual([])
+    })
+    it("still reports text with no JSON in it, with a hint the model can act on", () => {
+        const r = extractJson("I cannot read this image")
+        expect(r.ok).toBe(false)
+        expect(correctionPrompt([r.error as string])).toContain("never leave one blank")
     })
 })
