@@ -52,8 +52,25 @@ const ATTACHMENT_COMPONENTS = {
 }
 const SYSTEM_PROMPT = "You are a helpful assistant. Describe or transcribe exactly what you are given, then structure your answer clearly."
 
-// Web fallback (no native module): Gemma 4 E2B in Transformers.js on WebGPU. About 3.4 GB on first use, cached after.
-const WEB_MODEL = "onnx-community/gemma-4-E2B-it-ONNX"
+// Web fallback (no native module): models run in Transformers.js. Sizes are what the first Run downloads (cached after),
+// measured from the model repos' files for the dtypes the worker loads. "speech" models only transcribe: they return
+// plain text and ignore the prompt, so compare them on transcript accuracy, not on structure.
+const WEB_MODELS = [
+    { id: "onnx-community/gemma-4-E2B-it-ONNX", label: "Gemma 4 E2B (image + audio + text)", size: "~3.4 GB", kind: "multimodal" },
+    { id: "onnx-community/gemma-4-E4B-it-ONNX", label: "Gemma 4 E4B (bigger, may not fit in GPU memory)", size: "~4.4 GB", kind: "multimodal" },
+    { id: "onnx-community/whisper-tiny", label: "Whisper tiny (speech only)", size: "~120 MB", kind: "speech" },
+    { id: "onnx-community/whisper-base", label: "Whisper base (speech only)", size: "~210 MB", kind: "speech" },
+    { id: "onnx-community/whisper-small", label: "Whisper small (speech only)", size: "~590 MB", kind: "speech" },
+    { id: "onnx-community/whisper-large-v3-turbo", label: "Whisper large-v3-turbo (speech only, needs fp16 GPU)", size: "~570 MB", kind: "speech" },
+    { id: "onnx-community/moonshine-tiny-ONNX", label: "Moonshine tiny (speech only, English)", size: "~80 MB", kind: "speech" },
+    { id: "onnx-community/moonshine-base-ONNX", label: "Moonshine base (speech only, English)", size: "~155 MB", kind: "speech" },
+    // Two steps in two workers: a small speech model hears the clip, then Gemma 4 E2B (text only) lays the transcript out.
+    { id: "pipeline:whisper-base+gemma-4-e2b", label: "Whisper base → Gemma 4 E2B (two steps)", size: "~3.6 GB (210 MB + 3.4 GB)", kind: "pipeline", asr: "onnx-community/whisper-base", structure: "onnx-community/gemma-4-E2B-it-ONNX" },
+]
+
+// Step 2 of the pipeline. The model gets the exact words, so it only has to format them (the part a 2B model is good at).
+const pipelinePrompt = (transcript) =>
+    `Below is the exact transcript of a spoken audio clip.\n\nTranscript:\n"""\n${transcript}\n"""\n\nRepeat the transcript exactly, then list every number in it as a table with the item and its value. Do not add anything that is not in the transcript.`
 
 const TABS = {
     native: { label: "📱 Native", hint: "The platform picks its own model: Gemma 4 via LiteRT-LM on Android, the best available on iOS." },
@@ -87,15 +104,24 @@ export default function Multimodal() {
 
     // No native module in this build -> the "native" tab becomes on-device web inference (Transformers.js).
     const [cloudProvider, setCloudProvider] = useState("gemini")
+    const [webModelId, setWebModelId] = useState(WEB_MODELS[0].id)
+    const webModel = WEB_MODELS.find((m) => m.id === webModelId) ?? WEB_MODELS[0]
     const provider = tab === "cloud" ? cloudProvider : nativeAvailable ? "native" : "transformers"
+    const isPipeline = provider === "transformers" && webModel.kind === "pipeline"
     const ai = useAI({
         provider,
-        ...(provider === "transformers" && { model: WEB_MODEL }),
+        ...(provider === "transformers" && { model: isPipeline ? webModel.structure : webModel.id }),
         sessionMode: "stateless",
         genConfig: { stream: true },
         systemPrompt: SYSTEM_PROMPT,
         attachmentComponents: ATTACHMENT_COMPONENTS,
     })
+
+    // Step 1 of the pipeline. A second hook means a second worker, so the speech model and Gemma stay loaded side by side
+    // (one worker swapping between them would reload Gemma's 3.4 GB on every call). Nothing loads until it is used.
+    const speech = useAI({ provider: "transformers", model: WEB_MODELS.find((m) => m.kind === "pipeline").asr, sessionMode: "stateless", genConfig: { stream: true } })
+    const [pipe, setPipe] = useState(null)
+    const busy = ai.loading || ai.streaming || speech.loading || speech.streaming || pipe?.step === "transcribing" || pipe?.step === "structuring"
 
     const engineLabel = ai.isNative ? "native model" : ai.isLocal ? "web (Transformers.js)" : "cloud"
     const percent = ai.nativeDownloadProgress?.percent ?? ai.downloadProgress?.percent ?? null
@@ -141,7 +167,40 @@ export default function Multimodal() {
         picker.execute({ mimeType: `${kind}/*` })
     }
 
+    const runPipeline = async () => {
+        if (!audio) {
+            setPickError("This pipeline starts from speech: pick an audio clip first")
+            return
+        }
+        setPickError(null)
+        ai.reset?.()
+        const t0 = performance.now()
+        setPipe({ step: "transcribing", transcript: null, asrMs: null, structMs: null })
+        const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
+        const transcript = heard?.output?.trim()
+        if (!transcript) {
+            setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
+            return
+        }
+        const asrMs = Math.round(performance.now() - t0)
+        setPipe({ step: "structuring", transcript, asrMs, structMs: null })
+        const t1 = performance.now()
+        await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
+        setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
+    }
+
+    const stop = () => {
+        speech.cancel?.()
+        ai.cancel?.()
+        setPipe((p) => (p && (p.step === "transcribing" || p.step === "structuring") ? { ...p, step: "stopped" } : p))
+    }
+
     const run = () => {
+        if (isPipeline) {
+            runPipeline()
+            return
+        }
+        setPipe(null)
         const content = []
         if (image) content.push({ type: "image", data: image.data })
         if (audio) content.push({ type: "audio", data: audio.data })
@@ -158,7 +217,7 @@ export default function Multimodal() {
             : ai.modelReady || tab === "cloud"
               ? "ready"
               : provider === "transformers"
-                ? "not loaded yet (downloads ~3.4 GB on first Run, cached after)"
+                ? `not loaded yet (downloads ${webModel.size} on first Run, cached after)`
                 : "preparing model"
 
     const chip = "px-3 py-1.5 rounded-lg border border-[var(--border)] text-[12px]"
@@ -169,7 +228,7 @@ export default function Multimodal() {
                 ← Back
             </Link>
             <h1 className="text-3xl font-semibold text-white mt-4 mb-2">Image / audio input</h1>
-            <p className="mb-5 text-[14px]">{TABS[tab].hint}{tab === "native" && !nativeAvailable && " (No native module in this build, so this runs Gemma 4 in the browser on WebGPU. The first Run downloads about 3.4 GB and loading takes minutes. One image and one audio clip per request.)"}</p>
+            <p className="mb-5 text-[14px]">{TABS[tab].hint}{tab === "native" && !nativeAvailable && ` (No native module in this build, so this runs in the browser on WebGPU. Pick the model below; the first Run downloads ${webModel.size}. One image and one audio clip per request.)`}</p>
 
             <div className="flex gap-2 mb-5">
                 {Object.entries(TABS).map(([key, t]) => (
@@ -182,6 +241,30 @@ export default function Multimodal() {
                     </button>
                 ))}
             </div>
+
+            {tab === "native" && !nativeAvailable && (
+                <div className="mb-4">
+                    <label className="block font-mono text-[11px] uppercase mb-1" htmlFor="web-model">Model</label>
+                    <select
+                        id="web-model"
+                        data-testid="web-model"
+                        value={webModelId}
+                        onChange={(e) => setWebModelId(e.target.value)}
+                        disabled={busy}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-neutral-900 text-white text-[13px]"
+                    >
+                        {WEB_MODELS.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label} · {m.size}</option>
+                        ))}
+                    </select>
+                    {webModel.kind === "pipeline" && (
+                        <p className="mt-1 text-[12px]">Two steps: Whisper base writes the transcript, then Gemma 4 E2B lays it out as components. Needs an audio clip; the prompt box and any image are ignored. Both models stay loaded after the first Run.</p>
+                    )}
+                    {webModel.kind === "speech" && (
+                        <p className="mt-1 text-[12px]">Speech model: returns a plain transcript of the audio clip and ignores the prompt and any image. Judge it on transcript accuracy.</p>
+                    )}
+                </div>
+            )}
 
             {tab === "cloud" && (
                 <div className="flex gap-2 mb-4">
@@ -227,10 +310,10 @@ export default function Multimodal() {
                 className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-[13px] text-white mb-3"
             />
             <div className="flex items-center gap-3">
-                <button onClick={run} disabled={ai.loading || ai.streaming} className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-[13px] font-semibold disabled:opacity-50">
+                <button onClick={run} disabled={busy} className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-[13px] font-semibold disabled:opacity-50">
                     Run
                 </button>
-                {(ai.loading || ai.streaming) && <button onClick={ai.cancel} className={chip}>Stop</button>}
+                {busy && <button onClick={isPipeline ? stop : ai.cancel} className={chip}>Stop</button>}
             </div>
 
             <div className="mt-4 font-mono text-[12px]" data-testid="status">
@@ -240,6 +323,25 @@ export default function Multimodal() {
                 {typeof ai.metrics?.cost === "number" && ` · cost $${ai.metrics.cost.toFixed(5)}${ai.metrics.audioCostUnknown ? " (audio not priced)" : ""}`}
                 {ai.metrics?.cloudEquivalent && ` · ≈ $${ai.metrics.cloudEquivalent.cost.toFixed(5)} on ${ai.metrics.cloudEquivalent.model} (estimate)`}
             </div>
+            {pipe && (
+                <div className="mt-2 font-mono text-[12px]" data-testid="pipeline-status">
+                    step 1 · Whisper base: {pipe.step === "transcribing" ? `transcribing${speech.downloadProgress?.percent != null && speech.downloadProgress.percent < 100 ? ` (download ${speech.downloadProgress.percent}%)` : ""}…` : pipe.asrMs != null ? `${(pipe.asrMs / 1000).toFixed(1)} s` : "failed"}
+                    {" · "}step 2 · Gemma 4 E2B: {pipe.step === "structuring" ? `structuring${percent != null && percent < 100 ? ` (download ${percent}%)` : ""}…` : pipe.structMs != null ? `${(pipe.structMs / 1000).toFixed(1)} s` : pipe.step === "transcribing" ? "waiting" : pipe.step}
+                </div>
+            )}
+            {pipe?.transcript && (
+                <div className="mt-2 text-[12px]" data-testid="pipeline-transcript">
+                    <div className="font-mono uppercase text-[11px]">Step 1 transcript (Whisper base)</div>
+                    <div className="mt-1 whitespace-pre-wrap text-neutral-300">{pipe.transcript}</div>
+                </div>
+            )}
+            {speech.error && isPipeline && (
+                <div className="mt-2 text-[13px] text-red-400" data-testid="speech-error">
+                    step 1: {speech.error.reason ? `[${speech.error.reason}] ` : ""}{speech.error.message}
+                    <button onClick={speech.clearError} className="ml-2 underline">dismiss</button>
+                </div>
+            )}
+            {ai.inputInfo && <div className="mt-1 font-mono text-[11px]" data-testid="input-info">model input: {ai.inputInfo}</div>}
             {(pickError || picker.error) && (
                 <div className="mt-2 text-[13px] text-red-400" data-testid="pick-error">
                     {pickError ?? picker.error?.message ?? String(picker.error)}
