@@ -160,3 +160,17 @@ describe("repairJson / extractJson with the slips small models make", () => {
         expect(correctionPrompt([r.error as string])).toContain("never leave one blank")
     })
 })
+
+describe("a reply that ran out of room", () => {
+    it("is reported as cut off, not as a missing value", () => {
+        const cut = '```json\n{"visibleText":["A","B"],"isLabReport":true,"results":[{"name":"GLUCOSE","value":112,'
+        const r = extractJson(cut)
+        expect(r.ok).toBe(false)
+        expect(r.error).toContain("cut off")
+        expect(r.error).toContain("maxTokens")
+        expect(correctionPrompt([r.error as string])).toContain("cut off")
+    })
+    it("a complete reply with a typo still gets the typo message", () => {
+        expect(extractJson('{"a": 1 "b": 2}').error).toContain("not valid JSON")
+    })
+})
