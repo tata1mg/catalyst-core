@@ -129,6 +129,11 @@ export function extractJson(text: string): Extracted {
             // nothing usable in this one either
         }
     }
+    // A reply that opens a JSON value and never closes it ran out of room (the model's output limit), which needs a different
+    // fix from a typo: say so, so neither the developer nor the retry is told to "fill in a blank field".
+    if (trimmed.search(/[{[]/) !== -1 && !firstBalanced(trimmed)) {
+        return { ok: false, error: "the reply was cut off before the JSON was complete (it hit the output limit): raise genConfig.maxTokens, and keep text fields short" }
+    }
     return { ok: false, error: "the reply was not valid JSON (every field needs a value: use null or an empty string, never leave one blank)" }
 }
 
