@@ -295,7 +295,10 @@ export function useWebAI({
     const cancel = useCallback(() => {
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        // Only a running generation has to be killed to stop it. An idle worker holds the loaded model (~3.4 GB for
+        // Gemma 4) and is kept for the next call: useVision cancels any older scan before every new one, and
+        // terminating here made each new image reload the whole model.
+        if (busyRef.current && workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         busyRef.current = false
         setStreaming(false)
         settle()
