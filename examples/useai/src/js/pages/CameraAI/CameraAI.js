@@ -6,9 +6,10 @@ import PhoneFrame from "../../components/PhoneFrame";
 // exactly this shape, the reply is validated against it, and anything else is retried once and then reported.
 const LAB_SCHEMA = {
     type: "object",
-    required: ["title", "results"],
+    required: ["isLabReport", "title", "results"],
     properties: {
-        title: { type: "string", description: "Name of the panel or report" },
+        isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
+        title: { type: "string", description: "Name of the panel or report; empty when it is not a lab report" },
         lab: { type: "string", nullable: true },
         results: {
             type: "array",
@@ -26,7 +27,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Read this laboratory report. List every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range.";
+const INSTRUCTIONS = "Look at the image. If it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read in the image; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -85,6 +86,18 @@ const FLAG_STYLE = {
     normal: "text-teal-400 bg-teal-500/10 border-teal-500/20",
 };
 
+// What the on-device model is doing, in words. The model loads on the first scan, so "not loaded" is normal before it.
+function modelStatus(engine, model, running) {
+    if (engine === "cloud") return "Model: cloud, nothing to download";
+    if (model.downloadPaused) return `Model: download paused (${model.downloadPauseReason || "waiting"})`;
+    const p = model.downloadProgress;
+    if (p && typeof p.percent === "number" && p.percent < 100) return `Model: downloading ${Math.round(p.percent)}%${p.file ? ` (${String(p.file).split("/").pop()})` : ""}`;
+    const n = model.nativeDownloadProgress;
+    if (n && n.phase) return `Model: ${n.phase}${typeof n.percent === "number" ? ` ${Math.round(n.percent)}%` : ""}`;
+    if (!model.ready) return running ? "Model: loading into memory…" : "Model: not loaded yet. It downloads (first time only) and loads when you scan.";
+    return engine === "auto" ? "Model: ready (or not needed for this route)" : "Model: downloaded and ready";
+}
+
 const buttonClass = "flex-1 font-mono text-[10px] font-semibold px-2 py-2 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40";
 
 export default function CameraAI() {
@@ -97,7 +110,7 @@ export default function CameraAI() {
 
     const camera = useCamera();
     const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, ...ENGINES[engine].options });
-    const { scan, approve, clear, status, data, route, error, attempts, partial } = vision;
+    const { scan, approve, clear, status, data, route, error, attempts, partial, model } = vision;
 
     const run = async (image, shown) => {
         setPreview(shown);
@@ -172,6 +185,7 @@ export default function CameraAI() {
                             {Object.entries(ENGINES).map(([key, e]) => <option key={key} value={key}>{e.label}</option>)}
                         </select>
                         <div className="text-[12px] text-neutral-400 leading-relaxed">{ENGINES[engine].note}</div>
+                        <div className="mt-2 font-mono text-[10.5px] text-neutral-300" data-testid="model-status">{modelStatus(engine, model, running)}</div>
                     </div>
                 </div>
 
@@ -243,7 +257,13 @@ export default function CameraAI() {
 
                                 {status === "error" && error && <p className="text-[11px] text-rose-400 leading-relaxed" data-testid="error">{error.message}</p>}
 
-                                {status === "done" && (
+                                {status === "done" && data.isLabReport === false && (
+                                    <div className="text-[11.5px] text-neutral-300 leading-relaxed" data-testid="not-a-report">
+                                        This does not look like a laboratory report, so nothing was extracted.
+                                    </div>
+                                )}
+
+                                {status === "done" && data.isLabReport !== false && (
                                     <div data-testid="rows">
                                         <div className="text-[13px] font-semibold text-white">{data.title}</div>
                                         {data.lab && <div className="font-mono text-[9.5px] text-neutral-500 mb-1">{data.lab}</div>}
