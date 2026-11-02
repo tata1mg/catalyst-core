@@ -283,6 +283,19 @@ export function estimate(c: Candidate, policy: Policy, observed: Observed | unde
     return { latencyMs, tps, costUsd, source }
 }
 
+/**
+ * Why `e` breaks the policy's limits, or null. `waivedLoadMs` is a one-time model load the user has already agreed to
+ * (download consent or autoDownload): it is part of the first call's wait, but not of how long a call takes, so the
+ * latency limit does not count it. The estimate and the scoring still do.
+ */
+function limitViolation(e: Estimate, k: Policy["constraints"], waivedLoadMs = 0): string | null {
+    const latencyMs = e.latencyMs - waivedLoadMs
+    if (k.maxLatencyMs !== undefined && latencyMs > k.maxLatencyMs) return `latency ~${Math.round(latencyMs)}ms over limit`
+    if (k.minTps !== undefined && e.tps < k.minTps) return `${e.tps.toFixed(1)} tps under limit`
+    if (k.maxCostUsd !== undefined && e.costUsd > k.maxCostUsd) return "cost over limit"
+    return null
+}
+
 /** Min-max across the survivors so cost ($), latency (ms) and tps are comparable; lower score is better. */
 function scoreAll(rows: { c: Candidate; e: Estimate }[], policy: Policy) {
     const span = (f: (e: Estimate) => number) => {
@@ -305,6 +318,11 @@ export function rankCandidates(candidates: Candidate[], order: string[]): Map<st
     for (const entry of order) for (const c of candidates) if (c.id === entry || c.target === entry) add(c)
     for (const c of candidates) add(c)
     return rank
+}
+
+/** The load time estimate() adds for this candidate (0 when it is the model already loaded). */
+function loadMsOf(c: Candidate, signals: Signals): number {
+    return c.target === "onDevice" && signals.loadedId !== c.id ? (c.priors.loadMs ?? DEFAULT_LOAD_MS) : 0
 }
 
 export function chooseCandidate(
@@ -332,10 +350,25 @@ export function chooseCandidate(
             // Chrome owns the model and its download; there is no WebGPU requirement.
             const state = signals.promptApi ?? "unavailable"
             if (state === "unavailable") { skipped.push({ id: c.id, why: "Chrome Prompt API unavailable" }); continue }
-            if (state !== "available" && !policy.autoDownload && !consent.download) { askDownload.push(c); skipped.push({ id: c.id, why: "model not downloaded" }); continue }
+            if (state !== "available" && !policy.autoDownload && !consent.download) {
+                // Same rule as for the Transformers.js model: do not ask to download what the limits would reject anyway.
+                const why = limitViolation(estimate(c, policy, observed[c.id], signals.loadedId), policy.constraints, loadMsOf(c, signals))
+                if (why) { skipped.push({ id: c.id, why }); continue }
+                askDownload.push(c)
+                skipped.push({ id: c.id, why: "model not downloaded" })
+                continue
+            }
         } else if (c.mode === "local") {
             if (!signals.webgpu) { skipped.push({ id: c.id, why: "WebGPU unavailable" }); continue }
-            if (!signals.webModelLoaded && !policy.autoDownload && !consent.download) { askDownload.push(c); skipped.push({ id: c.id, why: "model not downloaded" }); continue }
+            if (!signals.webModelLoaded && !policy.autoDownload && !consent.download) {
+                // Never ask permission for a download of a model the limits would reject anyway (the user would agree to 3.4 GB and
+                // then be told no). The load is waived here because that is exactly what they would be agreeing to.
+                const why = limitViolation(estimate(c, policy, observed[c.id], signals.loadedId), policy.constraints, loadMsOf(c, signals))
+                if (why) { skipped.push({ id: c.id, why }); continue }
+                askDownload.push(c)
+                skipped.push({ id: c.id, why: "model not downloaded" })
+                continue
+            }
         }
         if (c.mode === "cloud") {
             if (!signals.online) { skipped.push({ id: c.id, why: "offline" }); continue }
@@ -344,10 +377,9 @@ export function chooseCandidate(
             if (cloudPolicy === "ask" && !consent.cloud) { askCloud.push(c); skipped.push({ id: c.id, why: "needs consent" }); continue }
         }
         const e = estimate(c, policy, observed[c.id], signals.loadedId)
-        const k = policy.constraints
-        if (k.maxLatencyMs !== undefined && e.latencyMs > k.maxLatencyMs) { skipped.push({ id: c.id, why: `latency ~${Math.round(e.latencyMs)}ms over limit` }); continue }
-        if (k.minTps !== undefined && e.tps < k.minTps) { skipped.push({ id: c.id, why: `${e.tps.toFixed(1)} tps under limit` }); continue }
-        if (k.maxCostUsd !== undefined && e.costUsd > k.maxCostUsd) { skipped.push({ id: c.id, why: "cost over limit" }); continue }
+        // An in-browser model only gets here once its download was agreed to (or it is loaded), so its load is not held against the limit.
+        const why = limitViolation(e, policy.constraints, c.mode === "local" ? loadMsOf(c, signals) : 0)
+        if (why) { skipped.push({ id: c.id, why }); continue }
         viable.push({ c, e })
     }
 
