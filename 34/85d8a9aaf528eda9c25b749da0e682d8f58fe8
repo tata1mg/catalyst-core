@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_5c4ceb8b5ee5d2::t_27d68647043e9b 241-253,278-282,304-312,321-323
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_5c4ceb8b5ee5d2::t_27d68647043e9b 182-214
+examples/useai/config/config.template.json
+  s_5c4ceb8b5ee5d2::t_bece0e76711b54 32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3485d8a9aaf528eda9c25b749da0e682d8f58fe8",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
