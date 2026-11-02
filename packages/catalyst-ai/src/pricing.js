@@ -26,4 +26,39 @@ function getPricing(model) {
     return PRICING[model] ?? DEFAULT_PRICING
 }
 
-module.exports = { PRICING, getPricing }
+// ─── developer-set prices ─────────────────────────────────────────────────────
+// The table above is best-effort and goes stale; AI_CONFIG.pricing is the developer's own and wins over it:
+//   "pricing": { "<model id>": { "input": 2, "output": 10, "cachedInput": 0.2, "audioInput": null } }
+// USD per 1M tokens. `catalyst-ai pricing` builds it by asking. cachedInput defaults to the input price (no discount
+// assumed), audioInput to null (audio cost reported as unknown rather than priced as text).
+
+const num = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
+
+/** -> { pricing, errors }: valid entries normalised, bad ones left out and described. Never throws. */
+function normalizePricing(raw) {
+    const pricing = {}
+    const errors = []
+    if (raw === undefined || raw === null) return { pricing, errors }
+    if (typeof raw !== "object" || Array.isArray(raw)) return { pricing, errors: ["pricing must be an object keyed by model id"] }
+    for (const [model, p] of Object.entries(raw)) {
+        if (!p || typeof p !== "object" || Array.isArray(p)) { errors.push(`${model}: needs { input, output }`); continue }
+        if (!num(p.input) || !num(p.output)) { errors.push(`${model}: input and output must be non-negative numbers (USD per 1M tokens)`); continue }
+        if (p.cachedInput !== undefined && !num(p.cachedInput)) { errors.push(`${model}: cachedInput must be a non-negative number`); continue }
+        if (p.audioInput !== undefined && p.audioInput !== null && !num(p.audioInput)) { errors.push(`${model}: audioInput must be a number or null`); continue }
+        pricing[model] = { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null }
+    }
+    return { pricing, errors }
+}
+
+/** Where a model's price comes from: "configured" (AI_CONFIG.pricing), "built-in", or "missing". */
+function priceSource(model, configured = {}) {
+    if (Object.prototype.hasOwnProperty.call(configured, model)) return "configured"
+    return Object.prototype.hasOwnProperty.call(PRICING, model) ? "built-in" : "missing"
+}
+
+/** The price to use for `model`, or undefined when nothing is known. Developer-set prices win. */
+function lookupPricing(model, configured = {}) {
+    return priceSource(model, configured) === "configured" ? configured[model] : PRICING[model]
+}
+
+module.exports = { PRICING, getPricing, normalizePricing, priceSource, lookupPricing }

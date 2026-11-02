@@ -220,7 +220,7 @@ export const getClientEnvVariables = () => {
         process.env["PUBLIC_STATIC_ASSET_URL"]
     )
 
-    // Derive AI_PUBLIC_CONFIG: only the browser and routing blocks from AI_CONFIG, no API keys
+    // Derive AI_PUBLIC_CONFIG: only the browser, routing and pricing blocks from AI_CONFIG, no API keys
     let aiConfig = {}
     try {
         const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
@@ -235,6 +235,8 @@ export const getClientEnvVariables = () => {
     const aiPublicConfig = {}
     if (aiConfig.browser) aiPublicConfig.browser = aiConfig.browser
     if (aiConfig.routing && typeof aiConfig.routing === "object") aiPublicConfig.routing = aiConfig.routing
+    // Per-model prices set by the developer (catalyst-ai pricing). Not secret; the browser needs them for cost metrics and routing.
+    if (aiConfig.pricing && typeof aiConfig.pricing === "object" && !Array.isArray(aiConfig.pricing)) aiPublicConfig.pricing = aiConfig.pricing
     envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))
 
     // Detect which catalyst-* AI packages are installed for the app, including

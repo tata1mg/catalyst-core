@@ -20,10 +20,33 @@ Object.assign(PRICING, {
     "claude-haiku-5-5": { input: 0.1, cachedInput: 0.01, output: 0.5, audioInput: null },
 })
 
+// Prices the developer set in AI_CONFIG.pricing (mirrors pricing.js's normalizePricing). They win over the table above.
+let configuredPricing = {}
+const validPrice = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
+
+/** Called with AI_CONFIG.pricing from the public config; anything malformed is ignored, never thrown. */
+export function setPricingOverrides(raw) {
+    const next = {}
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        for (const [model, p] of Object.entries(raw)) {
+            if (!p || typeof p !== "object" || !validPrice(p.input) || !validPrice(p.output)) continue
+            if (p.cachedInput !== undefined && !validPrice(p.cachedInput)) continue
+            if (p.audioInput !== undefined && p.audioInput !== null && !validPrice(p.audioInput)) continue
+            next[model] = { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null }
+        }
+    }
+    configuredPricing = next
+}
+
+/** The price for a model (developer-set first, then the built-in table), or undefined when none is known. */
+export function lookupPricing(model) {
+    return Object.prototype.hasOwnProperty.call(configuredPricing, model) ? configuredPricing[model] : PRICING[model]
+}
+
 const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0, audioInput: null }
 
 function getPricing(model) {
-    return PRICING[model] ?? DEFAULT_PRICING
+    return lookupPricing(model) ?? DEFAULT_PRICING
 }
 
 // usage: normalized { model, promptTokens, cachedTokens, completionTokens, reasoningTokens }
@@ -81,7 +104,7 @@ export function computeMetrics(usage, timing = {}) {
  */
 export function estimateCloudEquivalent({ inputTokens, outputTokens }, model = "gemini-3.5-flash") {
     if (typeof inputTokens !== "number" || typeof outputTokens !== "number") return null
-    const price = PRICING[model]
+    const price = lookupPricing(model)
     if (!price) return null
     return { model, cost: (inputTokens / 1e6) * price.input + (outputTokens / 1e6) * price.output, estimated: true }
 }

@@ -286,3 +286,41 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
         expect(bridge(mixed).warn).toBeDefined()
     })
 })
+
+describe("check_config: AI_CONFIG.pricing", () => {
+    const providers = { openai: { apiKey: "k", defaultModel: "brand-new-model" }, gemini: { apiKey: "k", defaultModel: "gemini-3.5-flash" } }
+    // A catalyst-ai whose built-in table knows only gemini-3.5-flash, so which models are "covered" is deterministic.
+    function projectWithBuiltIns(aiConfig: unknown): string {
+        const root = makeProject({ enabled: true }, aiConfig, true)
+        fs.mkdirSync(path.join(root, "node_modules", "catalyst-ai", "src"), { recursive: true })
+        fs.writeFileSync(path.join(root, "node_modules", "catalyst-ai", "src", "pricing.js"), 'module.exports = { PRICING: { "gemini-3.5-flash": {} } }')
+        return root
+    }
+    const fieldsOf = (r: ReturnType<typeof handle_check_config>) => [...r.issues, ...r.warnings].map((f) => f.field)
+
+    it("warns about a cloud model nobody has priced, but not about built-in or configured ones", () => {
+        const r = handle_check_config({ project_path: projectWithBuiltIns({ providers }) })
+        expect(fieldsOf(r)).toContain("AI_CONFIG.pricing.brand-new-model")
+        expect(fieldsOf(r)).not.toContain("AI_CONFIG.pricing.gemini-3.5-flash")
+        const priced = handle_check_config({ project_path: projectWithBuiltIns({ providers, pricing: { "brand-new-model": { input: 2, output: 10 } } }) })
+        expect(fieldsOf(priced)).not.toContain("AI_CONFIG.pricing.brand-new-model")
+        expect(priced.passed.some((p) => p.field === "AI_CONFIG.pricing")).toBe(true)
+    })
+    it("also checks models named in routing.cloud", () => {
+        const r = handle_check_config({ project_path: projectWithBuiltIns({ providers: { openai: { apiKey: "k" } }, routing: { cloud: [{ id: "x", provider: "openai", model: "routed-model" }] } }) })
+        expect(fieldsOf(r)).toContain("AI_CONFIG.pricing.routed-model")
+    })
+    it("rejects a non-object block and bad numbers", () => {
+        expect(handle_check_config({ project_path: projectWithBuiltIns({ providers, pricing: [] }) }).issues.map((i) => i.field)).toContain("AI_CONFIG.pricing")
+        const bad = handle_check_config({ project_path: projectWithBuiltIns({ providers, pricing: { a: { input: -1, output: 2 }, b: { input: 1 }, c: "x", d: { input: 1, output: 2, cachedInput: "y" } } }) })
+        const fields = bad.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.pricing.a.input")
+        expect(fields).toContain("AI_CONFIG.pricing.b.output")
+        expect(fields).toContain("AI_CONFIG.pricing.c")
+        expect(fields).toContain("AI_CONFIG.pricing.d.cachedInput")
+    })
+    it("says nothing about unpriced models when catalyst-ai is not installed (it cannot know what is covered)", () => {
+        const r = handle_check_config({ project_path: makeProject({ enabled: true }, { providers }, false) })
+        expect(fieldsOf(r).filter((f) => f.startsWith("AI_CONFIG.pricing"))).toEqual([])
+    })
+})

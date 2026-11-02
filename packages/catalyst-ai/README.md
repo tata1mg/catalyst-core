@@ -19,6 +19,28 @@ trusted internal network, add authentication and per-caller rate limiting in you
 provider using your app's API key, so an unauthenticated deployment is an open proxy to
 your provider account.
 
+## Model prices
+
+Cost metrics and cost-based routing need a price per model. catalyst-ai ships a best-effort table that goes stale, so
+the prices that count are yours, in `AI_CONFIG.pricing` (USD per 1M tokens, they win over the built-in table):
+
+```json
+"pricing": { "gemini-3.8-flash": { "input": 0.75, "output": 3.75, "cachedInput": 0.075 } }
+```
+
+Do not edit it by hand: run the command from your app root and it asks.
+
+```bash
+npx catalyst-ai pricing            # lists the cloud models in AI_CONFIG, asks for the ones with no price
+npx catalyst-ai pricing --all      # walk every model; Enter keeps the current price
+npx catalyst-ai pricing --check    # print the table, exit 1 if a model has no price (CI)
+npx catalyst-ai pricing --set gpt-x=2,10,0.2   # input,output[,cachedInput] without asking
+```
+
+A cloud model with no price anywhere is costed as free, which makes cost-weighted routing prefer it, so `check_config`
+warns about it. Look prices up on your provider's pricing page; they change, and some models have introductory rates.
+`cachedInput` defaults to the input price. The file also holds API keys; the command never prints them.
+
 ## Claude (`anthropic`)
 
 Add `"anthropic": { "apiKey": "...", "defaultModel": "claude-opus-5-5" }` under `AI_CONFIG.providers` and use

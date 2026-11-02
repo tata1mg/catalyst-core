@@ -7,6 +7,9 @@
         ".": "./src/index.js",
         "./route": "./src/route.js"
     },
+    "bin": {
+        "catalyst-ai": "scripts/cli.js"
+    },
     "files": [
         "src",
         "scripts",
