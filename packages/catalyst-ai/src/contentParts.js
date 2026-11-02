@@ -132,7 +132,8 @@ export function toWebTemplate(messages) {
     const audios = []
     const mapped = normalizeMessages(messages).map((message) => ({
         role: message.role,
-        content: message.parts.map((part) => {
+        // The chat template runs `| trim` on a system message, which the template engine only accepts on a string.
+        content: message.role === "system" ? textOf(message.parts) : message.parts.map((part) => {
             if (part.type === "text") return { type: "text", text: part.text }
             const url = `data:${part.mimeType};base64,${part.base64}`
             ;(part.type === "image" ? images : audios).push(url)

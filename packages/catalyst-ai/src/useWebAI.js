@@ -5,6 +5,8 @@ import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
+import { convertAttachmentTags } from "./attachmentTags.js"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -29,6 +31,8 @@ export function useWebAI({
     genConfig: genConfigProp = {},
     defaultGenConfig = {},
     sessionMode = "stateless",
+    systemPrompt,
+    attachmentComponents = {},
 } = {}) {
     // stable merged genConfig — only changes when values actually change
     const hookGenConfig = useMemo(
@@ -73,6 +77,11 @@ export function useWebAI({
 
     const formatPromptRef = useRef(formatPrompt)
     formatPromptRef.current = formatPrompt
+    // Read at call time so an inline attachmentComponents object does not rebuild generate() on every render.
+    const systemPromptRef = useRef(systemPrompt)
+    systemPromptRef.current = systemPrompt
+    const attachmentComponentsRef = useRef(attachmentComponents)
+    attachmentComponentsRef.current = attachmentComponents
 
     // Ends the pending generate() promise (done, error, crash, cancel or reset).
     const settle = useCallback(() => {
@@ -84,6 +93,12 @@ export function useWebAI({
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const resolvedModel = callModel || modelProp
+            // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
+            // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
+            const systemText = buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
+            const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw) : raw)
+            const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
@@ -97,7 +112,7 @@ export function useWebAI({
                 assertEngineSupports(getModalities(messages), mediaModel ? { text: true, image: true, audio: true } : { text: true }, "web")
                 if (mediaModel) {
                     const prepared = await prepareImageParts(
-                        await prepareAudioParts(messages, {
+                        await prepareAudioParts(withSystem(messages), {
                             onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
                         }),
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
@@ -175,14 +190,14 @@ export function useWebAI({
                         if (!rafRef.current) {
                             rafRef.current = schedule(() => {
                                 rafRef.current = null
-                                setOutput(outputAccRef.current)
+                                setOutput(shown(outputAccRef.current))
                             })
                         }
                         break
                     case "done":
                         if (rafRef.current) { cancelSchedule(rafRef.current) }
                         rafRef.current = null
-                        setOutput(outputAccRef.current)
+                        setOutput(shown(outputAccRef.current))
                         metricsAcc.tps = msg.tps
                         metricsAcc.totalTokens = msg.totalTokens
                         metricsAcc.genMs = msg.genMs
@@ -241,7 +256,7 @@ export function useWebAI({
             worker.postMessage({
                 type: "generate",
                 model: resolvedModel,
-                messages: template ? template.messages : resolvedMessages,
+                messages: template ? template.messages : withSystem(resolvedMessages),
                 media: template ? { images: template.images, audios: template.audios } : null,
                 genConfig,
                 formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
