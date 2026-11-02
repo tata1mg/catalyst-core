@@ -1,0 +1,34 @@
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_5c4ceb8b5ee5d2::t_100ea34730d34b 4-5
+packages/catalyst-core/test/hooks/useAgent.test.ts
+  s_5c4ceb8b5ee5d2::t_362d8019b164cc 1-115
+packages/catalyst-core/src/native/bridge/hooks/useAgent.ts
+  s_5c4ceb8b5ee5d2::t_100ea34730d34b 1-159
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_5c4ceb8b5ee5d2::t_bc5a132d09b2fd 1480
+  s_5c4ceb8b5ee5d2::t_811e16d412d4ce 1475-1479
+  s_5c4ceb8b5ee5d2::t_be42883ab08978 1473-1474
+packages/catalyst-core/src/native/bridge/hooks/aiAgent.ts
+  s_5c4ceb8b5ee5d2::t_100ea34730d34b 121-123
+  s_5c4ceb8b5ee5d2::t_6fe5259a0058c5 1-120,124-208
+"docs/content/11-API Reference/01-Hooks.md"
+  s_5c4ceb8b5ee5d2::t_bea01a9e451fe1 942-984
+packages/catalyst-core/test/hooks/aiAgent.test.ts
+  s_5c4ceb8b5ee5d2::t_56c547dda34510 1-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6151bc1424b4dea120ee339999c099d50ae60bb4",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
