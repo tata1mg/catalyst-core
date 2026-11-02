@@ -9,6 +9,7 @@ const LAB_SCHEMA = {
     required: ["isLabReport", "title", "results"],
     properties: {
         isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
+        imageDescription: { type: "string", description: "What the image shows, in under 15 words" },
         title: { type: "string", description: "Name of the panel or report; empty when it is not a lab report" },
         lab: { type: "string", nullable: true },
         results: {
@@ -27,7 +28,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Look at the image. If it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read in the image; never make up a test or a number.";
+const INSTRUCTIONS = "Look at the image and say in imageDescription, in under 15 words, what it shows. If it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read in the image; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -257,9 +258,23 @@ export default function CameraAI() {
 
                                 {status === "error" && error && <p className="text-[11px] text-rose-400 leading-relaxed" data-testid="error">{error.message}</p>}
 
-                                {status === "done" && data.isLabReport === false && (
-                                    <div className="text-[11.5px] text-neutral-300 leading-relaxed" data-testid="not-a-report">
-                                        This does not look like a laboratory report, so nothing was extracted.
+                                {/* The verdict, for any image: is it a lab report, and what did the model say it sees. */}
+                                {status === "done" && (
+                                    <div className="mb-2" data-testid="verdict" data-valid={String(data.isLabReport !== false && results.length > 0)}>
+                                        {data.isLabReport === false ? (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20" data-testid="not-a-report">
+                                                ✗ NOT A LAB REPORT, nothing extracted
+                                            </div>
+                                        ) : results.length === 0 ? (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                                ? LOOKS LIKE A LAB REPORT, but no tests could be read
+                                            </div>
+                                        ) : (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-teal-400 bg-teal-500/10 border-teal-500/20">
+                                                ✓ VALID LAB REPORT, {results.length} test{results.length === 1 ? "" : "s"} read
+                                            </div>
+                                        )}
+                                        {data.imageDescription && <div className="mt-1.5 font-mono text-[9.5px] text-neutral-400" data-testid="description">The model sees: {data.imageDescription}</div>}
                                     </div>
                                 )}
 
