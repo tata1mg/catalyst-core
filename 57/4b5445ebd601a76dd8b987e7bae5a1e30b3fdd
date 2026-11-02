@@ -1,0 +1,23 @@
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_be56c4f46ebb0e 9,11-12,30,89-100,113,188,260-266
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_5c4ceb8b5ee5d2::t_be56c4f46ebb0e 3
+packages/catalyst-core/src/native/bridge/hooks/useVision.ts
+  s_5c4ceb8b5ee5d2::t_be56c4f46ebb0e 52-57,61-71,214-220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "574b5445ebd601a76dd8b987e7bae5a1e30b3fdd",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
