@@ -211,6 +211,19 @@ describe("check_config: AI_CONFIG.routing", () => {
         const webOnly = { providers, routing: { onDevice: { "web-mobile": [{ id: "w", modalities: ["text"] }] } } }
         expect(run(webOnly).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(true)
     })
+    it("accepts prompt-api and transformers for browser entries, flags unknown engines and native engines on the web", () => {
+        const ok = run({ providers, routing: { onDevice: { "web-desktop": [{ id: "c", engine: "prompt-api" }, { id: "t", engine: "transformers", model: "m" }] } } })
+        expect(routingFields(ok).filter((f) => f.field.includes(".engine"))).toEqual([])
+        const bad = run({ providers, routing: { onDevice: { "web-desktop": [{ id: "a", engine: "litert" }, { id: "b", engine: "wasm" }] } } })
+        const fields = bad.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[0].engine")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[1].engine")
+    })
+    it("warns that prompt-api is desktop-only and text-only", () => {
+        const r = run({ providers, routing: { onDevice: { "web-mobile": [{ id: "m", engine: "prompt-api" }], web: [{ id: "i", engine: "prompt-api", modalities: ["text", "image"] }] } } })
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web-mobile[0].engine")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web[0].modalities")).toBe(true)
+    })
     it("rejects a non-object routing block and negative numbers", () => {
         expect(run({ providers, routing: [] }).issues.some((i) => i.field === "AI_CONFIG.routing")).toBe(true)
         const r = run({ providers, routing: { policy: { constraints: { maxLatencyMs: -1 } }, onDevice: { web: [{ id: "w", tps: -5 }] } } })

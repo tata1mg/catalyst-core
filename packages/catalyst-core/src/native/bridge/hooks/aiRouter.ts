@@ -27,6 +27,9 @@ export function tasksFromModalities(modalities: Modality[]): Task[] {
         ...(modalities.includes("audio") ? (["speech.transcribe"] as Task[]) : []),
     ]
 }
+/** Chrome's built-in model (Prompt API), as reported by LanguageModel.availability(). */
+export type PromptApiState = "unavailable" | "downloadable" | "downloading" | "available"
+export const PROMPT_API = "prompt-api"
 export type CloudPolicy = "allow" | "ask" | "deny"
 export type Objective = "balanced" | "cost" | "latency" | "speed" | "order"
 
@@ -48,7 +51,7 @@ export interface Candidate {
     id: string
     target: Target
     mode: "native" | "local" | "cloud"
-    /** On-device: native engine ("litert" | "foundation-models") or omitted for web. */
+    /** On-device: native engine ("litert" | "foundation-models"); in a browser "prompt-api" (Chrome's built-in model) or omitted (Transformers.js). */
     engine?: string
     model?: string
     modelPath?: string
@@ -94,6 +97,8 @@ export interface Signals {
     webModelLoaded: boolean
     /** Candidate currently loaded on device (a different on-device pick pays loadMs). */
     loadedId?: string | null
+    /** Chrome Prompt API availability (desktop Chrome). Undefined = not checked, treated as unavailable. */
+    promptApi?: PromptApiState
     /** Providers the server has keys for. Undefined = unknown, assume all configured. */
     cloudProviders?: string[]
 }
@@ -178,11 +183,16 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
         return { id: raw.id, target, mode: "cloud", provider: raw.provider, model: raw.model, modalities, tasks, priors, price }
     }
     const web = isWebPlatform(platform)
+    // Chrome's built-in model is a desktop-only candidate: phones and tablets do not get it.
+    if (web && raw.engine === PROMPT_API && platform === "web-mobile") {
+        warn(`routing: "${raw.id}" uses the Chrome Prompt API, which is desktop-only; dropped from web-mobile`)
+        return null
+    }
     return {
         id: raw.id,
         target,
         mode: web ? "local" : "native",
-        engine: web ? undefined : raw.engine,
+        engine: web ? (raw.engine === PROMPT_API ? PROMPT_API : undefined) : raw.engine,
         model: raw.model,
         modelPath: raw.modelPath,
         modalities,
@@ -318,7 +328,12 @@ export function chooseCandidate(
         const miss = modalities.find((m) => !c.modalities.includes(m))
         if (miss) { skipped.push({ id: c.id, why: `no ${miss} support` }); continue }
         if (c.mode === "native" && !signals.nativeAvailable) { skipped.push({ id: c.id, why: "native bridge unavailable" }); continue }
-        if (c.mode === "local") {
+        if (c.mode === "local" && c.engine === PROMPT_API) {
+            // Chrome owns the model and its download; there is no WebGPU requirement.
+            const state = signals.promptApi ?? "unavailable"
+            if (state === "unavailable") { skipped.push({ id: c.id, why: "Chrome Prompt API unavailable" }); continue }
+            if (state !== "available" && !policy.autoDownload && !consent.download) { askDownload.push(c); skipped.push({ id: c.id, why: "model not downloaded" }); continue }
+        } else if (c.mode === "local") {
             if (!signals.webgpu) { skipped.push({ id: c.id, why: "WebGPU unavailable" }); continue }
             if (!signals.webModelLoaded && !policy.autoDownload && !consent.download) { askDownload.push(c); skipped.push({ id: c.id, why: "model not downloaded" }); continue }
         }
@@ -360,6 +375,6 @@ export function chooseCandidate(
     }
     // Nothing can run. Never silently send data out or start a big download: say what would unblock the call.
     if (askCloud.length) return { action: "ask", candidate: askCloud[0], reason: "only the cloud can serve this call and it needs consent", scores: [], skipped }
-    if (askDownload.length) return { action: "ask", candidate: askDownload[0], reason: "the in-browser model must be downloaded first", scores: [], skipped }
+    if (askDownload.length) return { action: "ask", candidate: askDownload[0], reason: askDownload[0].engine === PROMPT_API ? "Chrome's built-in model must be downloaded first" : "the in-browser model must be downloaded first", scores: [], skipped }
     return { action: "deny", candidate: null, reason: "no model can serve this call", scores: [], skipped }
 }

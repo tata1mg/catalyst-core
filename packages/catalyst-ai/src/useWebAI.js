@@ -5,6 +5,7 @@ import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+import { createPromptApiEngine, PROMPT_API_MODEL } from "./promptApiEngine.js"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -33,7 +34,10 @@ export function useWebAI({
     network,
     // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries.
     download,
+    // "transformers" (default: Transformers.js in a Worker) or "prompt-api" (Chrome's built-in model, desktop Chrome).
+    engine = "transformers",
 } = {}) {
+    const promptApi = engine === "prompt-api"
     // stable merged genConfig — only changes when values actually change
     const hookGenConfig = useMemo(
         () => ({ ...defaultGenConfig, ...genConfigProp }),
@@ -97,7 +101,7 @@ export function useWebAI({
 
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
-            const resolvedModel = callModel || modelProp
+            const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
@@ -149,7 +153,8 @@ export function useWebAI({
             let worker = reuseWorker ? workerRef.current : null
             if (!worker) {
                 try {
-                    worker = new Worker(getWorkerBlobUrl(), { type: "module" })
+                    // The Prompt API cannot run in a Worker, so its engine speaks the worker protocol on the main thread.
+                    worker = promptApi ? createPromptApiEngine() : new Worker(getWorkerBlobUrl(), { type: "module" })
                 } catch (err) {
                     setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
                     setLoading(false)
@@ -268,7 +273,7 @@ export function useWebAI({
             })
             return true
         },
-        [modelProp, hookGenConfig, sessionMode]
+        [modelProp, hookGenConfig, sessionMode, promptApi]
     )
 
     /**

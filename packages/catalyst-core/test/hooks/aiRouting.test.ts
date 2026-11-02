@@ -278,3 +278,48 @@ describe("web desktop and mobile", () => {
         expect(ids("android")).toEqual([])
     })
 })
+
+describe("Chrome Prompt API candidate", () => {
+    const chrome = {
+        onDevice: {
+            "web-desktop": [
+                { id: "chrome-ai", engine: "prompt-api", modalities: ["text"], ttftMs: 300, tps: 30 },
+                { id: "gemma-web", model: "onnx/gemma", modalities: ["text"] },
+            ],
+            "web-mobile": [{ id: "chrome-ai", engine: "prompt-api", modalities: ["text"] }, { id: "gemma-web", model: "onnx/gemma", modalities: ["text"] }],
+        },
+        cloud: [],
+    }
+    const desktop = (s: Partial<Signals> = {}, consent = {}) =>
+        pick(["text"], sig({ platform: "web-desktop", nativeAvailable: false, webgpu: false, ...s }), { objective: "order" }, consent, {}, chrome)
+
+    it("runs when Chrome reports the model available, with no WebGPU needed", () => {
+        const d = desktop({ promptApi: "available" })
+        expect(d).toMatchObject({ action: "run", candidate: { id: "chrome-ai", engine: "prompt-api", mode: "local" } })
+    })
+    it("is skipped when the API is missing or was not checked", () => {
+        for (const promptApi of [undefined, "unavailable"] as const) {
+            const d = desktop({ promptApi })
+            expect(d.skipped.find((s) => s.id === "chrome-ai")?.why).toBe("Chrome Prompt API unavailable")
+            expect(d.candidate?.id).not.toBe("chrome-ai")
+        }
+    })
+    it("asks for download consent while Chrome still has to fetch the model, then runs", () => {
+        for (const promptApi of ["downloadable", "downloading"] as const) {
+            const asked = desktop({ promptApi, webgpu: false })
+            expect(asked).toMatchObject({ action: "ask", candidate: { id: "chrome-ai" }, reason: "Chrome's built-in model must be downloaded first" })
+            expect(desktop({ promptApi }, { download: true })).toMatchObject({ action: "run", candidate: { id: "chrome-ai" } })
+        }
+    })
+    it("stays desktop-only: dropped from the mobile list with a warning", () => {
+        const warnings: string[] = []
+        const ids = normalizeRouting(chrome, "web-mobile", null, (m) => warnings.push(m)).candidates.map((c) => c.id)
+        expect(ids).toEqual(["gemma-web"])
+        expect(warnings.join()).toMatch(/desktop-only/)
+        expect(normalizeRouting(chrome, "web-desktop", null, () => {}).candidates.map((c) => c.id)).toEqual(["chrome-ai", "gemma-web"])
+    })
+    it("the Transformers.js candidate beside it still needs WebGPU", () => {
+        const d = desktop({ promptApi: "unavailable", webgpu: false })
+        expect(d.skipped.find((s) => s.id === "gemma-web")?.why).toBe("WebGPU unavailable")
+    })
+})
