@@ -49,7 +49,24 @@ export interface UseVisionResult<T> {
     attempts: number
     /** Text arriving from the model while a scan runs. */
     partial: string
+    /**
+     * State of the on-device model behind the scan, so a page can say whether it is downloaded, loading or ready.
+     * `ready` is false until the model is loaded (it loads on the first scan); progress is null when nothing is
+     * downloading. Cloud engines have nothing to download and report `ready: true`.
+     */
+    model: VisionModelState
     clear: () => void
+}
+
+export interface VisionModelState {
+    ready: boolean
+    /** In-browser model download: { file, percent, status }. */
+    downloadProgress: { file?: string; percent?: number; status?: string } | null
+    /** Native model download or engine start: { phase, percent, bytesLoaded, bytesTotal, detail }. */
+    nativeDownloadProgress: { phase?: string; percent?: number } | null
+    downloadPaused: boolean
+    /** "offline", "weak" or "error" while paused. */
+    downloadPauseReason: string | null
 }
 
 export class VisionError extends Error {
@@ -194,6 +211,13 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
         route: state.route ?? ai.route ?? null,
         attempts: state.attempts,
         partial: ai.output ?? "",
+        model: {
+            ready: ai.modelReady !== false,
+            downloadProgress: ai.downloadProgress ?? null,
+            nativeDownloadProgress: ai.nativeDownloadProgress ?? null,
+            downloadPaused: !!ai.downloadPaused,
+            downloadPauseReason: ai.downloadPauseReason ?? null,
+        },
         clear,
     }
 }

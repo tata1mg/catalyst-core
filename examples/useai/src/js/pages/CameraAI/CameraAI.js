@@ -6,9 +6,17 @@ import PhoneFrame from "../../components/PhoneFrame";
 // exactly this shape, the reply is validated against it, and anything else is retried once and then reported.
 const LAB_SCHEMA = {
     type: "object",
-    required: ["title", "results"],
+    // Key order matters: the model writes the reply top to bottom, so the transcription comes first and everything after
+    // it is derived from text it has already copied out of the image. All of these are required, so a small model cannot
+    // answer with the shortest valid object and skip the transcription.
+    required: ["visibleText", "imageDescription", "isLabReport", "title", "results"],
     properties: {
-        title: { type: "string", description: "Name of the panel or report" },
+        // A list, one string per line: small models naturally write the lines as separate strings, and a list is far easier
+        // for them to get right than one string with escaped newlines.
+        visibleText: { type: "array", items: { type: "string" }, description: "Every line of text you can read in the image, exactly as written, one string per line, top to bottom. Never leave this empty if any text is visible." },
+        imageDescription: { type: "string", description: "What the image shows, in under 15 words" },
+        isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
+        title: { type: "string", nullable: true, description: "Name of the panel or report; null when it is not a lab report" },
         lab: { type: "string", nullable: true },
         results: {
             type: "array",
@@ -26,7 +34,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Read this laboratory report. List every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range.";
+const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: a list with one string per line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. List each distinct line of text once and never repeat a line; at most 30 lines. Only copy values you can actually read; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -85,6 +93,18 @@ const FLAG_STYLE = {
     normal: "text-teal-400 bg-teal-500/10 border-teal-500/20",
 };
 
+// What the on-device model is doing, in words. The model loads on the first scan, so "not loaded" is normal before it.
+function modelStatus(engine, model, running) {
+    if (engine === "cloud") return "Model: cloud, nothing to download";
+    if (model.downloadPaused) return `Model: download paused (${model.downloadPauseReason || "waiting"})`;
+    const p = model.downloadProgress;
+    if (p && typeof p.percent === "number" && p.percent < 100) return `Model: downloading ${Math.round(p.percent)}%${p.file ? ` (${String(p.file).split("/").pop()})` : ""}`;
+    const n = model.nativeDownloadProgress;
+    if (n && n.phase) return `Model: ${n.phase}${typeof n.percent === "number" ? ` ${Math.round(n.percent)}%` : ""}`;
+    if (!model.ready) return running ? "Model: loading into memory…" : "Model: not loaded yet. It downloads (first time only) and loads when you scan.";
+    return engine === "auto" ? "Model: ready (or not needed for this route)" : "Model: downloaded and ready";
+}
+
 const buttonClass = "flex-1 font-mono text-[10px] font-semibold px-2 py-2 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 disabled:opacity-40";
 
 export default function CameraAI() {
@@ -96,8 +116,8 @@ export default function CameraAI() {
     const startedAt = useRef(0);
 
     const camera = useCamera();
-    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, ...ENGINES[engine].options });
-    const { scan, approve, clear, status, data, route, error, attempts, partial } = vision;
+    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, genConfig: { maxTokens: 1024, repetitionPenalty: 1.1 }, ...ENGINES[engine].options });
+    const { scan, approve, clear, status, data, route, error, attempts, partial, model, raw } = vision;
 
     const run = async (image, shown) => {
         setPreview(shown);
@@ -172,6 +192,7 @@ export default function CameraAI() {
                             {Object.entries(ENGINES).map(([key, e]) => <option key={key} value={key}>{e.label}</option>)}
                         </select>
                         <div className="text-[12px] text-neutral-400 leading-relaxed">{ENGINES[engine].note}</div>
+                        <div className="mt-2 font-mono text-[10.5px] text-neutral-300" data-testid="model-status">{modelStatus(engine, model, running)}</div>
                     </div>
                 </div>
 
@@ -214,6 +235,9 @@ export default function CameraAI() {
                                     </span>
                                 </div>
 
+                                {running && (
+                                    <button className="font-mono text-[10px] font-semibold px-2 py-1 rounded border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20" onClick={reset} data-testid="stop">■ Stop</button>
+                                )}
                                 {running && partial && <p className="font-mono text-[9.5px] text-neutral-500 break-all max-h-[60px] overflow-hidden">{partial.slice(-160)}</p>}
 
                                 {status === "needs-consent" && route && (
@@ -243,7 +267,35 @@ export default function CameraAI() {
 
                                 {status === "error" && error && <p className="text-[11px] text-rose-400 leading-relaxed" data-testid="error">{error.message}</p>}
 
+                                {/* The verdict, for any image: is it a lab report, and what did the model say it sees. */}
                                 {status === "done" && (
+                                    <div className="mb-2" data-testid="verdict" data-valid={String(data.isLabReport !== false && results.length > 0)}>
+                                        {data.isLabReport === false ? (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20" data-testid="not-a-report">
+                                                ✗ NOT A LAB REPORT, nothing extracted
+                                            </div>
+                                        ) : results.length === 0 ? (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-amber-400 bg-amber-500/10 border-amber-500/20">
+                                                ? LOOKS LIKE A LAB REPORT, but no tests could be read
+                                            </div>
+                                        ) : (
+                                            <div className="inline-block font-mono text-[10px] font-bold px-2 py-1 rounded border text-teal-400 bg-teal-500/10 border-teal-500/20">
+                                                ✓ VALID LAB REPORT, {results.length} test{results.length === 1 ? "" : "s"} read
+                                            </div>
+                                        )}
+                                        {data.imageDescription && <div className="mt-1.5 font-mono text-[9.5px] text-neutral-400" data-testid="description">The model sees: {data.imageDescription}</div>}
+                                    </div>
+                                )}
+
+                                {/* The image as text, so the parsed rows below can be checked against what was actually read. */}
+                                {status === "done" && (
+                                    <div className="mb-2" data-testid="transcription">
+                                        <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500 mb-1">Text read from the image</div>
+                                        <pre className="font-mono text-[10px] text-neutral-300 whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{(Array.isArray(data.visibleText) ? data.visibleText.join("\n") : String(data.visibleText ?? "")).trim() || "(the model returned no text for this image)"}</pre>
+                                    </div>
+                                )}
+
+                                {status === "done" && data.isLabReport !== false && (
                                     <div data-testid="rows">
                                         <div className="text-[13px] font-semibold text-white">{data.title}</div>
                                         {data.lab && <div className="font-mono text-[9.5px] text-neutral-500 mb-1">{data.lab}</div>}
@@ -274,6 +326,12 @@ export default function CameraAI() {
                                     <div className="mt-2 font-mono text-[9px] text-neutral-600">
                                         {route.reason} · est. {Math.round(route.estimate.latencyMs / 1000)}s, {route.estimate.tps.toFixed(0)} tok/s ({route.estimate.source})
                                     </div>
+                                )}
+                                {raw && !running && (
+                                    <details className="mt-2" data-testid="raw">
+                                        <summary className="font-mono text-[9.5px] text-neutral-500 cursor-pointer">raw model reply ({attempts} {attempts === 1 ? "try" : "tries"})</summary>
+                                        <pre className="mt-1 font-mono text-[9px] text-neutral-400 whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{raw}</pre>
+                                    </details>
                                 )}
                                 {status !== "idle" && !running && (
                                     <button className="mt-2.5 font-mono text-[9.5px] text-neutral-500 underline" onClick={reset}>clear</button>
