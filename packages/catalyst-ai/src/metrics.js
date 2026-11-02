@@ -10,6 +10,16 @@ export const PRICING = {
     "gemini-3.5-flash": { input: 1.50, cachedInput: 0.15, output: 9.00, audioInput: 1.50 },
 }
 
+// Claude (Anthropic): keep in sync with pricing.js (see the notes there on cache writes and Haiku 5.5's long-prompt tier).
+Object.assign(PRICING, {
+    "claude-fable-5-1": { input: 10.0, cachedInput: 0.25, output: 50.0, audioInput: null },
+    "claude-opus-5-5": { input: 4.0, cachedInput: 0.2, output: 20.0, audioInput: null },
+    "claude-opus-5": { input: 5.0, cachedInput: 0.5, output: 25.0, audioInput: null },
+    "claude-sonnet-5-5": { input: 2.0, cachedInput: 0.2, output: 10.0, audioInput: null },
+    "claude-sonnet-5": { input: 2.0, cachedInput: 0.2, output: 10.0, audioInput: null },
+    "claude-haiku-5-5": { input: 0.1, cachedInput: 0.01, output: 0.5, audioInput: null },
+})
+
 const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0, audioInput: null }
 
 function getPricing(model) {

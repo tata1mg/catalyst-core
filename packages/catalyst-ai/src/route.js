@@ -484,11 +484,134 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
     }
 }
 
+// ─── Anthropic (Claude) adapters ──────────────────────────────────────────────
+// Messages API, stateless: the full history is sent every time and `conversationId` is ignored (returned as null).
+// Supports text, images, PDFs (see cloudMedia.mapAnthropicMessages) and structured outputs. Claude takes no audio input
+// and does no image generation or embeddings, so those stay with the other providers.
+
+const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages"
+const ANTHROPIC_VERSION = "2023-06-01"
+// max_tokens is required by the API. Streaming can afford a high default (no HTTP timeout to hit); callers cap it
+// with genConfig.maxTokens.
+const ANTHROPIC_DEFAULT_MAX_TOKENS = 16_000
+const ANTHROPIC_DEFAULT_STREAM_MAX_TOKENS = 64_000
+
+// Sampling parameters were removed on the current models: sending temperature/top_p to them is a 400. Older models still
+// take them, so only the newer families are excluded (Fable, Mythos, Opus 4.7+/5, Sonnet 5+, Haiku 5+).
+const NO_SAMPLING_RE = /^claude-(fable|mythos|opus-(4-[78]|5)|sonnet-5|haiku-5)/
+
+// usage: input_tokens EXCLUDES cached reads and cache writes, which Anthropic reports separately. promptTokens is
+// normalized to include them (as OpenAI and Gemini do) with cachedTokens the cached-read subset. output_tokens includes
+// thinking tokens and the API does not break them out, so reasoningTokens stays 0 and thinking is billed as output.
+function normalizeAnthropicUsage(usage, model) {
+    if (!usage) return null
+    const cacheRead = usage.cache_read_input_tokens ?? 0
+    return {
+        model,
+        promptTokens: (usage.input_tokens ?? 0) + cacheRead + (usage.cache_creation_input_tokens ?? 0),
+        cachedTokens: cacheRead,
+        completionTokens: usage.output_tokens ?? 0,
+        reasoningTokens: 0,
+    }
+}
+
+function anthropicBody({ model, messages, genConfig, stream }) {
+    const { system, messages: turns } = media.mapAnthropicMessages(messages)
+    const sampling = !NO_SAMPLING_RE.test(model)
+    return {
+        model,
+        max_tokens: genConfig?.maxTokens || (stream ? ANTHROPIC_DEFAULT_STREAM_MAX_TOKENS : ANTHROPIC_DEFAULT_MAX_TOKENS),
+        messages: turns,
+        ...(system && { system }),
+        ...(stream && { stream: true }),
+        ...(sampling && genConfig?.temperature != null && { temperature: genConfig.temperature }),
+        ...(sampling && genConfig?.topP != null && { top_p: genConfig.topP }),
+        // Structured outputs: genConfig.responseSchema is a JSON Schema object the reply must match.
+        ...(genConfig?.responseSchema && typeof genConfig.responseSchema === "object" && {
+            output_config: { format: { type: "json_schema", schema: genConfig.responseSchema } },
+        }),
+    }
+}
+
+function anthropicHeaders(apiKey) {
+    return { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION }
+}
+
+// A safety decline arrives as a normal 200 with stop_reason "refusal", not as an HTTP error.
+function anthropicRefusal(stopReason, stopDetails) {
+    if (stopReason !== "refusal") return null
+    const category = stopDetails?.category ? ` (${stopDetails.category})` : ""
+    return new Error(`The model declined this request${category}`)
+}
+
+async function anthropicStream({ apiKey, model, messages, genConfig, res, signal }) {
+    const response = await fetch(ANTHROPIC_ENDPOINT, {
+        method: "POST",
+        headers: anthropicHeaders(apiKey),
+        body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: true })),
+        signal,
+    })
+    if (!response.ok) await throwProviderError("anthropic", response)
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let usage = {}
+    let stopReason = null
+    let stopDetails = null
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
+        for (const line of lines) {
+            const trimmed = line.trim()
+            // Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data lines matter.
+            if (!trimmed.startsWith("data:")) continue
+            let parsed
+            try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { continue }
+            if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
+            if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
+            else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
+            } else if (parsed.type === "message_delta") {
+                usage = { ...usage, ...parsed.usage }
+                stopReason = parsed.delta?.stop_reason ?? stopReason
+                stopDetails = parsed.delta?.stop_details ?? stopDetails
+            }
+        }
+    }
+
+    const refusal = anthropicRefusal(stopReason, stopDetails)
+    if (refusal) throw refusal
+    const normalized = normalizeAnthropicUsage(usage, model)
+    if (normalized) res.write(`data: ${JSON.stringify({ usage: normalized })}\n\n`)
+    res.write("data: [DONE]\n\n")
+    res.end()
+}
+
+async function anthropicGenerate({ apiKey, model, messages, genConfig }) {
+    const response = await fetch(ANTHROPIC_ENDPOINT, {
+        method: "POST",
+        headers: anthropicHeaders(apiKey),
+        body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: false })),
+    })
+    if (!response.ok) await throwProviderError("anthropic", response)
+    const data = await response.json()
+    const refusal = anthropicRefusal(data.stop_reason, data.stop_details)
+    if (refusal) throw refusal
+    const output = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("")
+    return { output, conversationId: null, usage: normalizeAnthropicUsage(data.usage, model) }
+}
+
 // ─── provider registry ────────────────────────────────────────────────────────
 
 const PROVIDERS = {
     openai: { stream: openaiStream, generate: openaiGenerate },
     gemini: { stream: geminiStream, generate: geminiGenerate },
+    anthropic: { stream: anthropicStream, generate: anthropicGenerate },
 }
 
 // ─── routes ───────────────────────────────────────────────────────────────────
@@ -646,5 +769,7 @@ router._internal = {
     normalizeOpenAIResponsesUsage,
     normalizeGeminiUsage,
     normalizeGeminiInteractionUsage,
+    normalizeAnthropicUsage,
+    anthropicBody,
     throwProviderError,
 }
