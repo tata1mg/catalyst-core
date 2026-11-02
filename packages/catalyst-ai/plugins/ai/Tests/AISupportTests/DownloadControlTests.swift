@@ -8,14 +8,16 @@ final class DownloadPolicyTests: XCTestCase {
         XCTAssertEqual(p.windowSec, 20)
         XCTAssertEqual(p.resumeDelaySec, 10)
         XCTAssertEqual(p.maxIdleRetries, 8)
+        XCTAssertEqual(p.heldRetrySec, 30)
     }
 
     func testReadsConfigAndClampsOutOfRangeValues() {
-        let p = DownloadPolicy(object: ["minBytesPerSec": 100_000, "windowSec": 1, "resumeDelaySec": 9999, "maxIdleRetries": 500])
+        let p = DownloadPolicy(object: ["minBytesPerSec": 100_000, "windowSec": 1, "resumeDelaySec": 9999, "maxIdleRetries": 500, "heldRetrySec": 1])
         XCTAssertEqual(p.minBytesPerSec, 100_000)
         XCTAssertEqual(p.windowSec, 5, "too short a window would flag every hiccup")
         XCTAssertEqual(p.resumeDelaySec, 600)
         XCTAssertEqual(p.maxIdleRetries, 50)
+        XCTAssertEqual(p.heldRetrySec, 5)
         XCTAssertGreaterThanOrEqual(p.maxDelaySec, p.resumeDelaySec)
     }
 

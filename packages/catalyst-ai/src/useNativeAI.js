@@ -49,7 +49,7 @@ export function useNativeAI({
     modelPath,
     // useNetworkStatus() of the page: offline pauses the model download, back online resumes it.
     network,
-    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries.
+    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries, heldRetrySec.
     download,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }

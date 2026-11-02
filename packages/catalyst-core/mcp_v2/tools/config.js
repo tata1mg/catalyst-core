@@ -481,7 +481,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                 issues.push({
                     field: "AI_CONFIG.browser.download",
                     severity: "error",
-                    message: "AI_CONFIG.browser.download must be an object: { minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries }.",
+                    message: "AI_CONFIG.browser.download must be an object: { minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries, heldRetrySec }.",
                 })
             } else {
                 const limits = {
@@ -489,6 +489,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                     windowSec: [5, 300],
                     resumeDelaySec: [1, 600],
                     maxIdleRetries: [1, 50],
+                    heldRetrySec: [5, 600],
                 }
                 for (const key of Object.keys(dl)) {
                     if (!(key in limits)) {

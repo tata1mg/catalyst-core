@@ -116,7 +116,7 @@ describe("check_config: AI_CONFIG.browser.download", () => {
     const fields = (r: ReturnType<typeof handle_check_config>) => [...r.issues, ...r.warnings].filter((f) => f.field.includes("download"))
 
     it("accepts a valid policy", () => {
-        expect(fields(run({ minBytesPerSec: 50000, windowSec: 20, resumeDelaySec: 10, maxIdleRetries: 8 }))).toEqual([])
+        expect(fields(run({ minBytesPerSec: 50000, windowSec: 20, resumeDelaySec: 10, maxIdleRetries: 8, heldRetrySec: 30 }))).toEqual([])
     })
     it("is silent when absent", () => {
         const r = handle_check_config({ project_path: makeProject({ enabled: true }, { browser: { provider: "native" } }, true) })
@@ -128,10 +128,11 @@ describe("check_config: AI_CONFIG.browser.download", () => {
         expect(run({ windowSec: "20" }).issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
     })
     it("warns about out-of-range values (clamped) and unknown keys (ignored)", () => {
-        const r = run({ windowSec: 1, maxIdleRetries: 999, minBytesPerSecond: 5 })
+        const r = run({ windowSec: 1, maxIdleRetries: 999, heldRetrySec: 1, minBytesPerSecond: 5 })
         const w = r.warnings.map((x) => x.field)
         expect(w).toContain("AI_CONFIG.browser.download.windowSec")
         expect(w).toContain("AI_CONFIG.browser.download.maxIdleRetries")
+        expect(w).toContain("AI_CONFIG.browser.download.heldRetrySec")
         expect(w).toContain("AI_CONFIG.browser.download.minBytesPerSecond")
         expect(r.issues.filter((i) => i.field.includes("download"))).toEqual([])
     })

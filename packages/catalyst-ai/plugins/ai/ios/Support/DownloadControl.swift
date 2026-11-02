@@ -31,7 +31,7 @@ struct DownloadPolicy: Equatable {
     /// Attempts in a row that moved no bytes before the download gives up (the partial stays on disk).
     var maxIdleRetries: Int = 8
     /// While the page says "offline", try again on this interval anyway, in case the page never hears the network return.
-    var heldRetrySec: TimeInterval = 120
+    var heldRetrySec: TimeInterval = 30
 
     static let `default` = DownloadPolicy()
 
@@ -43,6 +43,7 @@ struct DownloadPolicy: Equatable {
         if let v = number("minBytesPerSec") { minBytesPerSec = min(max(v, 0), 50_000_000) }
         if let v = number("windowSec") { windowSec = min(max(v, 5), 300) }
         if let v = number("resumeDelaySec") { resumeDelaySec = min(max(v, 1), 600) }
+        if let v = number("heldRetrySec") { heldRetrySec = min(max(v, 5), 600) }
         if let v = number("maxIdleRetries") { maxIdleRetries = Int(min(max(v, 1), 50)) }
         maxDelaySec = max(maxDelaySec, resumeDelaySec)
     }

@@ -36,7 +36,7 @@ internal class DownloadPolicy(
     /** Attempts in a row that moved no bytes before the download gives up (the partial stays on disk). */
     var maxIdleRetries: Int = 8,
     /** While the page says "offline", try again on this interval anyway, in case it never hears the network return. */
-    var heldRetrySec: Double = 120.0,
+    var heldRetrySec: Double = 30.0,
 ) {
     companion object {
         fun from(obj: JSONObject?): DownloadPolicy {
@@ -46,6 +46,7 @@ internal class DownloadPolicy(
             number("minBytesPerSec")?.let { p.minBytesPerSec = min(max(it, 0.0), 50_000_000.0) }
             number("windowSec")?.let { p.windowSec = min(max(it, 5.0), 300.0) }
             number("resumeDelaySec")?.let { p.resumeDelaySec = min(max(it, 1.0), 600.0) }
+            number("heldRetrySec")?.let { p.heldRetrySec = min(max(it, 5.0), 600.0) }
             number("maxIdleRetries")?.let { p.maxIdleRetries = min(max(it, 1.0), 50.0).toInt() }
             p.maxDelaySec = max(p.maxDelaySec, p.resumeDelaySec)
             return p

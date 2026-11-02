@@ -100,7 +100,7 @@ Tune it in `config/config.json`; every key is optional and out-of-range values a
 ```json
 "AI_CONFIG": {
   "browser": {
-    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8 }
+    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8, "heldRetrySec": 30 }
   }
 }
 ```
@@ -111,6 +111,7 @@ Tune it in `config/config.json`; every key is optional and out-of-range values a
 | `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
 | `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
 | `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
+| `heldRetrySec` | `30` | While the page reports offline, retry on this interval anyway (5-600), in case the page never hears the network return |
 
 Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.
 
