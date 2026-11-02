@@ -939,3 +939,46 @@ await scan(photo); // a captured photo, a File or Blob, or a data:, blob: or htt
 Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
 
 Small on-device models sometimes answer with prose or a wrong field. The reply is parsed leniently (bare JSON, a fenced block, or the first JSON value inside prose) and validated; an unusable reply is retried once with the specific problems, and a second failure is reported as a `VisionError` with code `VISION_INVALID_OUTPUT`, `problems`, and the raw reply in `raw`.
+
+### `useAgent`
+
+A runtime agent: the model picks a tool from the list you give it, your code runs the tool, the result goes back to the model, and this repeats until the model answers or a limit stops it. Steps stream into `steps` while it runs. Built on `useAI` with `provider: "auto"`, so nothing leaves the device unless your routing policy allows it.
+
+```jsx
+import { useAgent } from "catalyst-core/hooks"
+
+const agent = useAgent({
+    instructions: "You help the user file a lab report.",
+    limits: { maxSteps: 6, maxSpendUsd: 0.05 },
+    tools: [
+        { name: "scan_report", description: "Read the lab report on screen", run: () => scan() },
+        { name: "fill_form", description: "Fill the form fields", parameters: { type: "object", required: ["values"], properties: { values: { type: "object" } } }, run: ({ values }) => setForm(values) },
+        { name: "submit_form", description: "Submit the form", sideEffect: true, run: () => submit() },
+    ],
+})
+
+await agent.run("Scan this report and fill in the form")
+// agent.pendingConfirmation → { tool: "submit_form", ... }: show a button, then agent.approve() or agent.deny()
+```
+
+| Option | Description |
+|--------|-------------|
+| `tools` | `{ name, description, parameters?, sideEffect?, run(args, { signal }) }`. `parameters` is a JSON Schema subset (the same one `useVision` uses) and every call is checked against it before `run` |
+| `instructions` | Who the agent is and what it may do; the tool protocol is added after it |
+| `limits` | `maxSteps` (model turns, default 8), `maxSpendUsd` (estimated, off by default), `maxInvalid` (unusable replies in a row, default 2), `maxResultChars` (tool results are cut to this, default 4000) |
+| everything else | passed to `useAI` (`model`, `routing`, ...) |
+
+| Result | Description |
+|--------|-------------|
+| `run(goal, consent?)` | Resolves with `{ status, output, steps, spentUsd }` when the agent stops. `consent` is `{ cloud, download }`, as for `useAI` |
+| `status` | `idle`, `running`, `awaiting-confirmation`, then how it ended: `done`, `max-steps`, `max-spend`, `needs-consent`, `denied`, `cancelled` or `error` |
+| `steps` | `{ type: "tool", tool, args, outcome: "ok" \| "error" \| "declined", result }`, `{ type: "invalid", problems }` or `{ type: "final", output }` |
+| `pendingConfirmation`, `approve()`, `deny()` | A tool marked `sideEffect` waits here for a yes |
+| `cancel()`, `output`, `error`, `spentUsd`, `route` | |
+
+What is enforced in code, not left to the prompt:
+
+- **Caps.** Turns and estimated spend stop the run; the spend figure sums the router's per-call cost estimates, so it is only as good as your prices (see `npx catalyst-ai pricing`).
+- **Side effects need a yes.** A `sideEffect` tool never runs without `approve()`. With no answer (cancel, unmount, error in your UI) it does not run.
+- **Tool results are data.** They are size-capped, shown to the model as quoted untrusted data and never promoted to instructions. Only the model's own reply can pick the next tool, and an unknown tool or arguments that fail the schema never reach `run`.
+- **Small models.** Tool use is a JSON protocol with one corrective retry rather than a provider feature, because on-device models do not call native tools reliably. Expect more `invalid` steps with small models.
