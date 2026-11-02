@@ -720,7 +720,7 @@ Generate text through one of three providers, chosen with the `provider` option 
 
 | `provider` | Implementation | Where it runs |
 |------------|-----------------|----------------|
-| `"openai"` \| `"gemini"` (default) | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
+| `"openai"` \| `"gemini"` (default) \| `"anthropic"` | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
 | `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
 
@@ -755,7 +755,7 @@ import { useAI } from "catalyst-core/hooks";
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, `"transformers"`, or `"auto"` (routes each call, see below). Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
+| `provider` | `string` | `"openai"`, `"gemini"`, `"anthropic"` (Claude), `"native"`, `"transformers"`, or `"auto"` (routes each call, see below). Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
 | `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native. |
 | `genConfig` | `object` | Default generation config, merged with any per-call `genConfig` passed to `generate()`. See below. |
 | `systemPrompt` | `string` | System prompt prepended to every generation. |
