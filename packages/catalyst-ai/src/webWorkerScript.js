@@ -7,6 +7,7 @@ export const WORKER_SCRIPT = `
 const TRANSFORMERS_CDN = "${TRANSFORMERS_CDN}";
 let pipe = null;
 let TextStreamer = null;
+let InterruptableStoppingCriteria = null;
 let loadedModel = null;
 let loadedDevice = null;
 let gemma = null; // { processor, model } for media-capable models (Gemma 4), loaded with AutoProcessor + Gemma4ForConditionalGeneration
@@ -38,6 +39,7 @@ async function loadGemma(model) {
     const mod = await import(TRANSFORMERS_CDN);
     mod.env.allowLocalModels = false;
     TextStreamer = mod.TextStreamer;
+    InterruptableStoppingCriteria = mod.InterruptableStoppingCriteria || null;
     if (!self.isSecureContext) {
         throw new Error("WebGPU is only available on secure origins (https:// or localhost), and this page is served from " + self.location.origin + ". Open it via https or http://localhost to use image and audio input in the browser.");
     }
@@ -118,6 +120,20 @@ async function loadPipeline(model) {
     throw lastErr || new Error("All backends failed");
 }
 
+// A small model that falls into a loop ("QR inside", "QR inside", ...) keeps going until max_new_tokens, which on a
+// phone-sized GPU is minutes of garbage. True when the end of the text is one short unit repeated many times.
+function isLooping(text) {
+    for (let w = 2; w <= 80; w++) {
+        const repeats = w < 8 ? 12 : 6;
+        const n = w * repeats;
+        if (text.length < n) break;
+        const tail = text.slice(-n);
+        const unit = tail.slice(-w);
+        if (unit.trim() && tail === unit.repeat(repeats)) return true;
+    }
+    return false;
+}
+
 async function generateWithMedia(model, messages, genConfig, media) {
     await loadGemma(model);
     const { processor, model: net, load_image } = gemma;
@@ -130,6 +146,9 @@ async function generateWithMedia(model, messages, genConfig, media) {
 
     let tokenCount = 0;
     let ttftFired = false;
+    let acc = "";
+    let looped = false;
+    const stopper = InterruptableStoppingCriteria ? new InterruptableStoppingCriteria() : null;
     const tGen = performance.now();
     const streamer = new TextStreamer(processor.tokenizer, {
         skip_prompt: true,
@@ -141,19 +160,29 @@ async function generateWithMedia(model, messages, genConfig, media) {
             }
             tokenCount++;
         },
-        callback_function: (text) => self.postMessage({ type: "token", text }),
+        callback_function: (text) => {
+            self.postMessage({ type: "token", text });
+            acc += text;
+            if (stopper && !looped && isLooping(acc)) {
+                looped = true;
+                self.postMessage({ type: "log", msg: "[worker] the model is repeating itself, stopping generation" });
+                stopper.interrupt();
+            }
+        },
     });
-    const { maxTokens, temperature, topP } = genConfig;
+    const { maxTokens, temperature, topP, repetitionPenalty } = genConfig;
     await net.generate({
         ...inputs,
         max_new_tokens: maxTokens ?? 512,
         do_sample: temperature > 0,
         ...(temperature > 0 && { temperature, top_p: topP }),
+        ...(repetitionPenalty && { repetition_penalty: repetitionPenalty }),
+        ...(stopper && { stopping_criteria: stopper }),
         streamer,
     });
     const genMs = Math.round(performance.now() - tGen);
     const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0;
-    self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps, promptTokens: inputs.input_ids.dims.at(-1) });
+    self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps, promptTokens: inputs.input_ids.dims.at(-1), stopped: looped ? "repetition" : undefined });
 }
 
 self.onmessage = async (e) => {

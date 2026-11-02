@@ -34,7 +34,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: a list with one string per line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. Only copy values you can actually read; never make up a test or a number.";
+const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: a list with one string per line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. List each distinct line of text once and never repeat a line; at most 30 lines. Only copy values you can actually read; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -116,7 +116,7 @@ export default function CameraAI() {
     const startedAt = useRef(0);
 
     const camera = useCamera();
-    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, genConfig: { maxTokens: 1536 }, ...ENGINES[engine].options });
+    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, genConfig: { maxTokens: 1024, repetitionPenalty: 1.1 }, ...ENGINES[engine].options });
     const { scan, approve, clear, status, data, route, error, attempts, partial, model, raw } = vision;
 
     const run = async (image, shown) => {
@@ -235,6 +235,9 @@ export default function CameraAI() {
                                     </span>
                                 </div>
 
+                                {running && (
+                                    <button className="font-mono text-[10px] font-semibold px-2 py-1 rounded border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20" onClick={reset} data-testid="stop">■ Stop</button>
+                                )}
                                 {running && partial && <p className="font-mono text-[9.5px] text-neutral-500 break-all max-h-[60px] overflow-hidden">{partial.slice(-160)}</p>}
 
                                 {status === "needs-consent" && route && (
