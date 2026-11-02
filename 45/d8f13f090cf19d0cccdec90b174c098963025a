@@ -1,0 +1,35 @@
+packages/catalyst-ai/plugins/ai/ios/Support/EngineFallback.swift
+  s_5c4ceb8b5ee5d2::t_ff109e59cf4f0c 5-7,15-17,19,25,27-28,30
+  s_5c4ceb8b5ee5d2::t_585f8c45605114 1-4,8-14,18,20-24,26,29,31-66
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_5c4ceb8b5ee5d2::t_ff109e59cf4f0c 5-8,17-20,23,34,41,48-56,70-72,97-116,125,130,134,139,143-149
+  s_5c4ceb8b5ee5d2::t_24d3a552c917c3 1-4,9-16,21-22,24-33,35-40,42-47,57-69,73-96,117-124,126-129,131-133,135-138,140-142,152-153
+  s_5c4ceb8b5ee5d2::t_f7b67fdb535ee0 150-151
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_5c4ceb8b5ee5d2::t_2629b436d42341 106,114,120
+  s_5c4ceb8b5ee5d2::t_ff109e59cf4f0c 111-112,116-117
+  s_5c4ceb8b5ee5d2::t_2dd424466863a3 113,115,118-119,121
+  s_5c4ceb8b5ee5d2::t_5ed20eac581cc3 123,130,133,135
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/EngineFallbackTests.swift
+  s_5c4ceb8b5ee5d2::t_f7b67fdb535ee0 10,13,16,19,23-24,28-29,36-37,44-46
+  s_5c4ceb8b5ee5d2::t_83596b51ebc9ac 52-55,59-63,67-70,74-77
+  s_5c4ceb8b5ee5d2::t_a82728d8607769 1-9,11-12,14-15,17-18,20-22,25-27,30-35,38-43,47-51,56-58,64-66,71-73,78-79
+packages/catalyst-ai/README.md
+  s_5c4ceb8b5ee5d2::t_d3fd93389cf742 63-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45d8f13f090cf19d0cccdec90b174c098963025a",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
