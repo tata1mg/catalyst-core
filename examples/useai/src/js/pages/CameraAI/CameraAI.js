@@ -80,11 +80,17 @@ const normalize = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "")
 const matchesSample = (results) =>
     SAMPLE_ROWS.filter(([name, value]) => results.some((r) => normalize(r.name).includes(normalize(name).slice(0, 6)) && Number(r.value) === value)).length;
 
+// Output budgets differ by engine. The in-browser model is capped low and penalised for repeating itself because a 2B model
+// can loop until the limit; a cloud thinking model (Gemini) spends its thinking tokens from the same limit, so 1024 cut a
+// transcription plus the rows off mid-JSON, and it needs a far larger one.
+const LOCAL_GEN = { maxTokens: 1024, repetitionPenalty: 1.1 };
+const CLOUD_GEN = { maxTokens: 4096 };
+
 const ENGINES = {
-    auto: { label: "Auto (routing)", options: { provider: "auto" }, note: "Picks a model per call from AI_CONFIG.routing. A photo is never sent to a cloud model unless the policy allows it." },
-    native: { label: "On-device (native)", options: { provider: "native" }, note: "Gemma 4 on this phone through the native module." },
-    web: { label: "In-browser (WebGPU)", options: { provider: "transformers", model: "onnx-community/gemma-4-E2B-it-ONNX" }, note: "Gemma 4 E2B in this browser. About 3.4 GB on first use." },
-    cloud: { label: "Cloud (Gemini)", options: { provider: "gemini" }, note: "Sends the photo to Gemini. Pick this only for a document you are happy to upload." },
+    auto: { label: "Auto (routing)", options: { provider: "auto", genConfig: { maxTokens: 2048, repetitionPenalty: 1.1 } }, note: "Picks a model per call from AI_CONFIG.routing. A photo is never sent to a cloud model unless the policy allows it." },
+    native: { label: "On-device (native)", options: { provider: "native", genConfig: LOCAL_GEN }, note: "Gemma 4 on this phone through the native module." },
+    web: { label: "In-browser (WebGPU)", options: { provider: "transformers", model: "onnx-community/gemma-4-E2B-it-ONNX", genConfig: LOCAL_GEN }, note: "Gemma 4 E2B in this browser. About 3.4 GB on first use." },
+    cloud: { label: "Cloud (Gemini)", options: { provider: "gemini", genConfig: CLOUD_GEN }, note: "Sends the photo to Gemini. Pick this only for a document you are happy to upload." },
 };
 
 const FLAG_STYLE = {
@@ -123,7 +129,7 @@ export default function CameraAI() {
     const startedAt = useRef(0);
 
     const camera = useCamera();
-    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, genConfig: { maxTokens: 1024, repetitionPenalty: 1.1 }, ...ENGINES[engine].options });
+    const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, ...ENGINES[engine].options });
     const { scan, approve, clear, status, data, route, error, attempts, partial, model, raw } = vision;
 
     const run = async (image, shown) => {
