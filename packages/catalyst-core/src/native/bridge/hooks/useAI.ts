@@ -103,7 +103,7 @@ export function useAI(options: any = {}) {
     // nothing downloads) until a call is routed to it.
     const [selected, setSelected] = useState<Candidate | null>(null)
     const [route, setRoute] = useState<RouteDecision | null>(null)
-    const pending = useRef<{ args: any; id: string } | null>(null)
+    const pending = useRef<{ args: any; id: string; settle: (result: any) => void } | null>(null)
     const loadedId = useRef<string | null>(null)
     const observed = useRef<Record<string, Observed> | null>(null)
     const lastMetrics = useRef<any>(null)
@@ -141,7 +141,7 @@ export function useAI(options: any = {}) {
         if (!p || selected?.id !== p.id || !ready) return
         pending.current = null
         loadedId.current = selected.target === "onDevice" ? selected.id : loadedId.current
-        active.generate(p.args)
+        Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
     })
 
     // Feed each finished call's metrics (the same ones useAI reports) back into the router.
@@ -178,16 +178,23 @@ export function useAI(options: any = {}) {
             observed.current = observed.current || loadObserved()
             const decision = chooseCandidate(modalitiesOf(args?.messages), priced, signals, policy, observed.current, consent)
             setRoute(decision)
-            if (decision.action !== "run" || !decision.candidate) return
+            // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
+            // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
+            const withRoute = (result: any) => ({ ...(result || { output: "", error: null }), route: decision })
+            if (decision.action !== "run" || !decision.candidate) return withRoute(null)
             const chosen = decision.candidate
             const same = selected?.id === chosen.id
             if (same && (chosen.mode !== "native" || nativeResult.modelReady)) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
-                return active.generate(args)
+                return withRoute(await active.generate(args))
             }
             // The hooks are configured from `selected`; switch it and run once the new model is ready.
-            pending.current = { args, id: chosen.id }
-            setSelected(chosen)
+            // A call still waiting for an earlier switch is superseded, not left hanging.
+            pending.current?.settle({ output: "", error: null })
+            return new Promise((resolve) => {
+                pending.current = { args, id: chosen.id, settle: (result) => resolve(withRoute(result)) }
+                setSelected(chosen)
+            })
         }
         return { ...active, generate, route, generateWithConsent: generate }
     }

@@ -33,6 +33,7 @@ Catalyst exposes two groups of hooks:
 | `useDataProtection` | Use native data protection and encryption helpers | No | Yes | Yes |
 | `useSafeArea` | Read native safe-area insets | Yes | Yes | Yes |
 | `useAI` | Generate text via cloud, native on-device, or in-browser models | Partial | Yes | Yes |
+| `useVision` | Read an image into typed data, on the device when it can | Partial | Yes | Yes |
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
@@ -685,7 +686,7 @@ Several hooks carry alias keys kept from earlier releases. Both names work and r
 
 `useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
 
-`useAI`'s shape — including its error handling — is owned by the `catalyst-ai` package and is outside this contract.
+`useAI`'s and `useVision`'s shapes — including their error handling — are owned by the `catalyst-ai` package and are outside this contract.
 
 ### Hooks and bridge methods with the same name
 
@@ -859,3 +860,65 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
 
 `useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.
+
+#### `generate()` resolves with the result
+
+`generate(args)` returns a promise that settles when the call has finished, with `{ output, error }`: the final text, or the error that ended it (both empty when the call was cancelled). The hook state (`output`, `loading`, `error`) updates as before, so code that ignores the return value keeps working. With `provider: "auto"` the result also carries `route`, the routing decision for that call.
+
+```js
+const { generate } = useAI({ provider: "auto" });
+const { output, error, route } = await generate({ messages });
+```
+
+### `useVision`
+
+Read an image into typed data. Give it a schema, hand it a photo, and get back an object that has been checked against that schema.
+
+```js
+import { useVision } from "catalyst-core/hooks";
+
+const schema = {
+  type: "object",
+  required: ["title", "results"],
+  properties: {
+    title: { type: "string" },
+    results: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["name", "value", "unit"],
+        properties: { name: { type: "string" }, value: { type: "number" }, unit: { type: "string" } },
+      },
+    },
+  },
+};
+
+const { scan, data, status, route, error } = useVision({
+  schema,
+  instructions: "Read this lab report.",
+});
+
+await scan(photo); // a captured photo, a File or Blob, or a data:, blob: or https URL
+```
+
+`useVision` does not open the camera itself. Capture with `useCamera` (or a file input) and pass the result to `scan`, so it works the same on web and native and never competes with another hook for the native camera callback.
+
+| Option | Description |
+|--------|-------------|
+| `schema` | The shape of the answer: a JSON-Schema subset (`type`, `properties`, `required`, `items`, `enum`, `nullable`) |
+| `instructions` | What to read from the image |
+| `maxAttempts` | Tries per scan (default `2`). After an unusable reply the model is told what was wrong and asked once more |
+| `provider` and other `useAI` options | `provider` defaults to `"auto"` (see Auto routing above). `routing` overrides the policy for this hook |
+
+| Result | Description |
+|--------|-------------|
+| `scan(source)` | Resolves with the validated data, or `null` when the scan did not complete (read `status`) |
+| `approve(consent)` | After `status: "needs-consent"`, allow what the router asked for (`{ cloud: true }` or `{ download: true }`) and run the same scan again |
+| `data`, `raw` | The validated result, and the model's last raw reply |
+| `status` | `"idle"`, `"running"`, `"done"`, `"error"`, `"needs-consent"` or `"denied"` |
+| `route` | Which model was picked and why, or why nothing ran |
+| `error`, `attempts`, `partial`, `clear()` | Last error (`VisionError` with `code` and `problems` for an unusable answer), tries used, text arriving while running, reset |
+
+Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
+
+Small on-device models sometimes answer with prose or a wrong field. The reply is parsed leniently (bare JSON, a fenced block, or the first JSON value inside prose) and validated; an unusable reply is retried once with the specific problems, and a second failure is reported as a `VisionError` with code `VISION_INVALID_OUTPUT`, `problems`, and the raw reply in `raw`.

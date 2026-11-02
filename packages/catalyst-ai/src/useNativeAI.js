@@ -59,10 +59,20 @@ export function useNativeAI({
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
-    const [output, setOutput] = useState("")
+    const [output, setOutputState] = useState("")
     const [streaming, setStreaming] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setErrorState] = useState(null)
+    // What the latest generate() call produced, so callers can await a result instead of watching state.
+    const outcomeRef = useRef({ output: "", error: null })
+    const setOutput = useCallback((value) => {
+        outcomeRef.current.output = value
+        setOutputState(value)
+    }, [])
+    const setError = useCallback((value) => {
+        outcomeRef.current.error = value
+        setErrorState(value)
+    }, [])
     const [modelReady, setModelReady] = useState(false)
     const [nativeDownloadProgress, setNativeDownloadProgress] = useState(null)
     const [nativeLogs, setNativeLogs] = useState([])
@@ -177,7 +187,7 @@ export function useNativeAI({
         // recreate every render, so they stay out of the dependencies and apply on the next (re)init.
     }, [enabled, engine, model, modelPath])
 
-    const generate = useCallback(
+    const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
             const url = nativeStreamUrlRef.current
             if (!url) {
@@ -340,6 +350,20 @@ export function useNativeAI({
             }
         },
         [hookGenConfig, sessionMode, engine]
+    )
+
+    /**
+     * Starts a generation and resolves when it has finished with `{ output, error }`: the final text, or the error
+     * that ended it (both empty when it was cancelled or superseded). The hook state updates as before.
+     */
+    const generate = useCallback(
+        async (args) => {
+            const outcome = { output: "", error: null }
+            outcomeRef.current = outcome
+            await run(args)
+            return outcome
+        },
+        [run]
     )
 
     const cancelRaf = () => {
