@@ -115,7 +115,8 @@ function toolTimeoutError(command, timeout) {
     // The first word, which may be a quoted path with spaces in it, named the way
     // the hints below name it: adb.exe is still adb.
     const [, quoted, bare] = /^\s*(?:"([^"]+)"|(\S+))/.exec(String(command)) || []
-    const tool = path.basename(quoted ?? bare ?? "").replace(/\.(exe|bat|cmd)$/i, "")
+    // path.win32 splits on both separators, wherever this runs.
+    const tool = path.win32.basename(quoted ?? bare ?? "").replace(/\.(exe|bat|cmd)$/i, "")
     const seconds = Math.round(timeout / 1000)
     const error = new Error(`${tool} did not respond within ${seconds}s`)
     error.code = "ETOOLTIMEOUT"

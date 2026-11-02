@@ -11,7 +11,7 @@ Common commands: `npm run core:build`, `npm run core:test`, `npm run cca:test`,
 
 On Windows, everything except `core:test`, `cca:test` and `test:example` runs from any
 terminal. Those three are shell scripts, so run them from Git Bash, or use
-`node scripts/test-windows-smoke.js`, which is what the Windows CI job runs. iOS builds
+`node scripts/test-windows-smoke.js`, which scaffolds, builds and runs an app. iOS builds
 need a Mac.
 
 ## Filing an issue
