@@ -11,7 +11,9 @@ const LAB_SCHEMA = {
     // answer with the shortest valid object and skip the transcription.
     required: ["visibleText", "imageDescription", "isLabReport", "title", "results"],
     properties: {
-        visibleText: { type: "string", description: "Copy ALL the text you can read in the image, exactly as written, one line per line of the image. Never leave this empty if any text is visible." },
+        // A list, one string per line: small models naturally write the lines as separate strings, and a list is far easier
+        // for them to get right than one string with escaped newlines.
+        visibleText: { type: "array", items: { type: "string" }, description: "Every line of text you can read in the image, exactly as written, one string per line, top to bottom. Never leave this empty if any text is visible." },
         imageDescription: { type: "string", description: "What the image shows, in under 15 words" },
         isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
         title: { type: "string", nullable: true, description: "Name of the panel or report; null when it is not a lab report" },
@@ -32,7 +34,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: copy every line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. Only copy values you can actually read; never make up a test or a number.";
+const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: a list with one string per line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. Only copy values you can actually read; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -286,7 +288,7 @@ export default function CameraAI() {
                                 {status === "done" && (
                                     <div className="mb-2" data-testid="transcription">
                                         <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500 mb-1">Text read from the image</div>
-                                        <pre className="font-mono text-[10px] text-neutral-300 whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{data.visibleText?.trim() || "(the model returned no text for this image)"}</pre>
+                                        <pre className="font-mono text-[10px] text-neutral-300 whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{(Array.isArray(data.visibleText) ? data.visibleText.join("\n") : String(data.visibleText ?? "")).trim() || "(the model returned no text for this image)"}</pre>
                                     </div>
                                 )}
 
