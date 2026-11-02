@@ -198,6 +198,87 @@ describe("recordObserved", () => {
     })
 })
 
+describe("tasks", () => {
+    const tasked = {
+        onDevice: {
+            ios: [
+                { id: "gemma", engine: "litert", modalities: ["text", "image", "audio"], tasks: ["text.generate", "vision.read", "speech.transcribe"] },
+                { id: "kokoro", modalities: ["text"], tasks: ["speech.synthesize"] },
+            ],
+        },
+        cloud: [
+            { id: "gemini", provider: "gemini", modalities: ["text"], tasks: ["text.generate", "image.generate", "embed"] },
+            { id: "legacy", provider: "openai", modalities: ["text", "image"] },
+        ],
+    }
+    const first = { cloud: "allow", objective: "order" }
+    const run = (mods: any[] = ["text"]) => pick(mods, sig(), first, {}, {}, tasked)
+
+    it("a candidate that lists no tasks serves what its modalities imply", () => {
+        const byId = Object.fromEntries(setup("ios", null, tasked).candidates.map((c) => [c.id, c.tasks]))
+        expect(byId.legacy).toEqual(["text.generate", "vision.read"])
+        expect(setup("ios", null, config).candidates.find((c) => c.id === "gemma-e2b")?.tasks).toEqual(["text.generate", "vision.read", "speech.transcribe"])
+    })
+    it("routes by the requested task, not just by modalities", () => {
+        const r = setup("ios", first, tasked)
+        const ask = (task: any) => chooseCandidate(["text"], r.candidates, sig(), r.policy, {}, {}, task)
+        expect(ask("speech.synthesize").candidate?.id).toBe("kokoro")
+        expect(ask("image.generate").candidate?.id).toBe("gemini")
+        expect(ask("embed").candidate?.id).toBe("gemini")
+        expect(ask("text.generate").candidate?.id).toBe("gemma")
+        expect(ask("speech.synthesize").skipped.find((s) => s.id === "gemma")?.why).toBe("does not do speech.synthesize")
+    })
+    it("with no task, a call is text generation, as before", () => {
+        expect(run().candidate?.id).toBe("gemma")
+    })
+    it("nothing declares the task: denied rather than sent to a model that cannot do it", () => {
+        const r = setup("ios", first, tasked)
+        expect(chooseCandidate(["text"], r.candidates, sig(), r.policy, {}, {}, "vision.read" as any).candidate?.id).toBe("gemma")
+        const none = normalizeRouting({ cloud: [{ id: "c", provider: "p", modalities: ["text"], tasks: ["text.generate"] }] }, "ios", { cloud: "allow" }, () => {})
+        expect(chooseCandidate(["text"], none.candidates, sig(), none.policy, {}, {}, "embed")).toMatchObject({ action: "deny", candidate: null })
+    })
+    it("drops unknown task names with a warning and keeps the valid ones", () => {
+        const warnings: string[] = []
+        const r = normalizeRouting({ cloud: [{ id: "a", provider: "p", tasks: ["embed", "telepathy"] }, { id: "b", provider: "p", tasks: ["telepathy"] }] }, "ios", null, (m) => warnings.push(m))
+        expect(r.candidates.find((c) => c.id === "a")?.tasks).toEqual(["embed"])
+        expect(r.candidates.find((c) => c.id === "b")?.tasks).toEqual(["text.generate"])
+        expect(warnings).toHaveLength(2)
+    })
+})
+
+describe("web desktop and mobile", () => {
+    const split = {
+        onDevice: {
+            "web-desktop": [{ id: "prompt-api", modalities: ["text"] }, { id: "gemma-web", modalities: ["text", "image"] }],
+            "web-mobile": [{ id: "small-web", modalities: ["text"] }],
+            web: [{ id: "shared-web", modalities: ["text"] }],
+        },
+        cloud: [],
+    }
+    const ids = (platform: any, c: any = split) => normalizeRouting(c, platform, null, () => {}).candidates.map((x) => x.id)
+
+    it("each browser reads its own list", () => {
+        expect(ids("web-desktop")).toEqual(["prompt-api", "gemma-web"])
+        expect(ids("web-mobile")).toEqual(["small-web"])
+    })
+    it("falls back to the shared web list, and plain \"web\" means that list", () => {
+        const onlyShared = { onDevice: { web: [{ id: "shared-web" }] } }
+        expect(ids("web-desktop", onlyShared)).toEqual(["shared-web"])
+        expect(ids("web-mobile", onlyShared)).toEqual(["shared-web"])
+        expect(ids("web", onlyShared)).toEqual(["shared-web"])
+    })
+    it("web entries run in the browser (local mode), never the native bridge", () => {
+        const [c] = normalizeRouting(split, "web-mobile", null, () => {}).candidates
+        expect(c.mode).toBe("local")
+        const native = normalizeRouting({ onDevice: { ios: [{ id: "x" }] } }, "ios", null, () => {}).candidates[0]
+        expect(native.mode).toBe("native")
+    })
+    it("a native app never reads either browser list", () => {
+        expect(ids("ios")).toEqual([])
+        expect(ids("android")).toEqual([])
+    })
+})
+
 describe("a download the user agreed to does not count against the latency limit", () => {
     const web = (tps: number) => ({
         onDevice: { web: [{ id: "gemma-web", model: "m", modalities: ["text", "image"], ttftMs: 2000, tps, loadMs: 260000 }] },
