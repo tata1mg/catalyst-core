@@ -31,6 +31,10 @@ export function useWebAI({
     genConfig: genConfigProp = {},
     defaultGenConfig = {},
     sessionMode = "stateless",
+    // useNetworkStatus() of the page: offline pauses a model download in the worker, back online resumes it.
+    network,
+    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries.
+    download,
     systemPrompt,
     attachmentComponents = {},
 } = {}) {
@@ -57,6 +61,16 @@ export function useWebAI({
     }, [])
     const [modelReady, setModelReady] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(null)
+    // Latest status per file from the worker's resumable fetch ("paused" while it waits for the connection).
+    const [fileStatus, setFileStatus] = useState({})
+    const pausedFiles = Object.values(fileStatus).filter((s) => s.state === "paused")
+    const downloadPaused = pausedFiles.length > 0
+    const downloadPauseReason = downloadPaused ? pausedFiles[0].reason || "error" : null
+    const online = network ? network.online !== false : undefined
+    const onlineRef = useRef(online)
+    onlineRef.current = online
+    const downloadPolicyRef = useRef(download)
+    downloadPolicyRef.current = download
     const [metrics, setMetrics] = useState(null)
     // What the worker reports it fed the model ("gemma inputs: promptTokens=… audio=true"), so a page can show it.
     const [inputInfo, setInputInfo] = useState(null)
@@ -147,6 +161,7 @@ export function useWebAI({
             setOutput("")
             setError(null)
             setDownloadProgress(null)
+            setFileStatus({})
             setMetrics(null)
             setInputInfo(null)
             setModelReady(!!reuseWorker)
@@ -169,6 +184,8 @@ export function useWebAI({
             workerRef.current = worker
             workerModelRef.current = resolvedModel
             busyRef.current = true
+            // Tell the worker how to treat a bad connection and what the page believes right now, before it starts loading.
+            worker.postMessage({ type: "configure", policy: downloadPolicyRef.current || {}, online: onlineRef.current })
 
             worker.onmessage = (e) => {
                 const msg = e.data
@@ -176,6 +193,9 @@ export function useWebAI({
                     case "log":
                         console.log(msg.msg)
                         if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
+                        break
+                    case "download_status":
+                        setFileStatus((prev) => ({ ...prev, [msg.file]: { state: msg.state, reason: msg.reason, retryInSec: msg.retryInSec } }))
                         break
                     case "progress":
                         setDownloadProgress({ file: msg.file, percent: msg.percent, status: msg.status })
@@ -327,6 +347,11 @@ export function useWebAI({
         settle()
     }, [settle])
 
+    // The page's connection state follows the worker: offline interrupts its transfers, back online resumes them.
+    useEffect(() => {
+        if (online !== undefined && workerRef.current) workerRef.current.postMessage({ type: "network", online })
+    }, [online])
+
     return {
         output,
         streaming,
@@ -334,6 +359,9 @@ export function useWebAI({
         error,
         modelReady,
         downloadProgress,
+        // True while a model file waits for the connection; the reason is "offline", "weak" or "error".
+        downloadPaused,
+        downloadPauseReason,
         nativeDownloadProgress: null,
         nativeLogs: [],
         metrics,

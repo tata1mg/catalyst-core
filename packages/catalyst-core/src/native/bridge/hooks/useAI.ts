@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { allowCloudMedia, resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { useNetworkStatus } from "./useNetworkStatus.js"
 import { chooseCandidate, normalizeRouting, recordObserved } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
@@ -98,6 +99,9 @@ export function useAI(options: any = {}) {
     const resolvedProvider = provider || config?.provider
     const auto = resolvedProvider === "auto"
     const mode = auto ? "cloud" : resolveMode(resolvedProvider)
+    // The page's own view of the connection. It pauses a model download when the device goes offline and resumes it
+    // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
+    const network = useNetworkStatus()
 
     // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
     // nothing downloads) until a call is routed to it.
@@ -121,7 +125,14 @@ export function useAI(options: any = {}) {
               allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
           })
         : emptyHook()
-    const webResult = _pkg ? _pkg.useWebAI({ ...options, ...(webSel?.model && { model: webSel.model }) }) : emptyHook()
+    const webResult = _pkg
+        ? _pkg.useWebAI({
+              ...options,
+              ...(webSel?.model && { model: webSel.model }),
+              network: { online: network.online, type: network.type },
+              ...(config?.download && { download: config.download }),
+          })
+        : emptyHook()
     const nativeResult = _pkg
         ? _pkg.useNativeAI({
               ...options,
