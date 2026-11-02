@@ -10,6 +10,7 @@ const LAB_SCHEMA = {
     properties: {
         isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
         imageDescription: { type: "string", description: "What the image shows, in under 15 words" },
+        visibleText: { type: "string", description: "All the text visible in the image, copied exactly, one line per line of the image; empty if there is none" },
         title: { type: "string", description: "Name of the panel or report; empty when it is not a lab report" },
         lab: { type: "string", nullable: true },
         results: {
@@ -28,7 +29,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Look at the image and say in imageDescription, in under 15 words, what it shows. If it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read in the image; never make up a test or a number.";
+const INSTRUCTIONS = "Look at the image. Say in imageDescription, in under 15 words, what it shows, and copy all the text you can read into visibleText, line by line. If it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read in the image; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
@@ -111,7 +112,7 @@ export default function CameraAI() {
 
     const camera = useCamera();
     const vision = useVision({ schema: LAB_SCHEMA, instructions: INSTRUCTIONS, ...ENGINES[engine].options });
-    const { scan, approve, clear, status, data, route, error, attempts, partial, model } = vision;
+    const { scan, approve, clear, status, data, route, error, attempts, partial, model, raw } = vision;
 
     const run = async (image, shown) => {
         setPreview(shown);
@@ -278,6 +279,14 @@ export default function CameraAI() {
                                     </div>
                                 )}
 
+                                {/* The image as text, so the parsed rows below can be checked against what was actually read. */}
+                                {status === "done" && (
+                                    <div className="mb-2" data-testid="transcription">
+                                        <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-500 mb-1">Text read from the image</div>
+                                        <pre className="font-mono text-[10px] text-neutral-300 whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{data.visibleText?.trim() || "(the model returned no text for this image)"}</pre>
+                                    </div>
+                                )}
+
                                 {status === "done" && data.isLabReport !== false && (
                                     <div data-testid="rows">
                                         <div className="text-[13px] font-semibold text-white">{data.title}</div>
@@ -309,6 +318,12 @@ export default function CameraAI() {
                                     <div className="mt-2 font-mono text-[9px] text-neutral-600">
                                         {route.reason} · est. {Math.round(route.estimate.latencyMs / 1000)}s, {route.estimate.tps.toFixed(0)} tok/s ({route.estimate.source})
                                     </div>
+                                )}
+                                {raw && !running && (
+                                    <details className="mt-2" data-testid="raw">
+                                        <summary className="font-mono text-[9.5px] text-neutral-500 cursor-pointer">raw model reply ({attempts} {attempts === 1 ? "try" : "tries"})</summary>
+                                        <pre className="mt-1 font-mono text-[9px] text-neutral-400 whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto bg-black/30 border border-white/5 rounded p-2">{raw}</pre>
+                                    </details>
                                 )}
                                 {status !== "idle" && !running && (
                                     <button className="mt-2.5 font-mono text-[9.5px] text-neutral-500 underline" onClick={reset}>clear</button>
