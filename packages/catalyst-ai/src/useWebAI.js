@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { assertEngineSupports, getModalities, supportsWebMedia, toWebTemplate } from "./contentParts.js"
+import { assertEngineSupports, getModalities, toWebTemplate, webModelKind } from "./contentParts.js"
 import { prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 import { createPromptApiEngine, PROMPT_API_MODEL } from "./promptApiEngine.js"
+import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
+import { convertAttachmentTags } from "./attachmentTags.js"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -36,6 +38,8 @@ export function useWebAI({
     download,
     // "transformers" (default: Transformers.js in a Worker) or "prompt-api" (Chrome's built-in model, desktop Chrome).
     engine = "transformers",
+    systemPrompt,
+    attachmentComponents = {},
 } = {}) {
     const promptApi = engine === "prompt-api"
     // stable merged genConfig — only changes when values actually change
@@ -72,6 +76,8 @@ export function useWebAI({
     const downloadPolicyRef = useRef(download)
     downloadPolicyRef.current = download
     const [metrics, setMetrics] = useState(null)
+    // What the worker reports it fed the model ("gemma inputs: promptTokens=… audio=true"), so a page can show it.
+    const [inputInfo, setInputInfo] = useState(null)
 
     const workerRef = useRef(null)
     const workerModelRef = useRef(null)
@@ -91,6 +97,11 @@ export function useWebAI({
 
     const formatPromptRef = useRef(formatPrompt)
     formatPromptRef.current = formatPrompt
+    // Read at call time so an inline attachmentComponents object does not rebuild generate() on every render.
+    const systemPromptRef = useRef(systemPrompt)
+    systemPromptRef.current = systemPrompt
+    const attachmentComponentsRef = useRef(attachmentComponents)
+    attachmentComponentsRef.current = attachmentComponents
 
     // Ends the pending generate() promise (done, error, crash, cancel or reset).
     const settle = useCallback(() => {
@@ -102,20 +113,33 @@ export function useWebAI({
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
+            const kind = webModelKind(resolvedModel)
+            // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
+            // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
+            // A speech-to-text model has no use for it: it only transcribes.
+            const systemText = kind === "asr" ? null : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
+            const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw) : raw)
+            const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
             }
 
-            // Only Gemma 4 takes image/audio in the browser; other models are text-only and refuse media loudly.
-            // Gemma 4 always goes through the media path (it needs AutoProcessor + Gemma4ForConditionalGeneration).
-            const mediaModel = supportsWebMedia(resolvedModel)
+            // Gemma 4 takes image and audio, Whisper / Moonshine take audio only, other models are text-only and refuse
+            // media loudly. Gemma 4 always goes through the media path (it needs AutoProcessor +
+            // Gemma4ForConditionalGeneration); speech models use it to receive the clip.
+            const mediaModel = kind !== "text"
+            const caps = kind === "gemma4" ? { text: true, image: true, audio: true } : kind === "asr" ? { text: true, audio: true } : { text: true }
             let template = null
             try {
-                assertEngineSupports(getModalities(messages), mediaModel ? { text: true, image: true, audio: true } : { text: true }, "web")
+                assertEngineSupports(getModalities(messages), caps, "web")
+                if (kind === "asr" && !getModalities(messages).has("audio")) {
+                    throw new Error(`${resolvedModel} is a speech-to-text model: attach an audio clip`)
+                }
                 if (mediaModel) {
                     const prepared = await prepareImageParts(
-                        await prepareAudioParts(messages, {
+                        await prepareAudioParts(withSystem(messages), {
                             onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
                         }),
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
@@ -127,7 +151,7 @@ export function useWebAI({
                 return
             }
 
-            // A media-capable worker holds ~3.4 GB of weights, so it is kept alive between calls (same model, idle).
+            // A media-capable worker holds up to ~3.4 GB of weights (speech models far less), so it is kept alive between calls (same model, idle).
             const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
             if (!reuseWorker && workerRef.current) {
                 workerRef.current.terminate()
@@ -143,6 +167,7 @@ export function useWebAI({
             setDownloadProgress(null)
             setFileStatus({})
             setMetrics(null)
+            setInputInfo(null)
             setModelReady(!!reuseWorker)
             cancelledRef.current = false
             outputAccRef.current = ""
@@ -172,6 +197,7 @@ export function useWebAI({
                 switch (msg.type) {
                     case "log":
                         console.log(msg.msg)
+                        if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
                         break
                     case "download_status":
                         setFileStatus((prev) => ({ ...prev, [msg.file]: { state: msg.state, reason: msg.reason, retryInSec: msg.retryInSec } }))
@@ -200,14 +226,14 @@ export function useWebAI({
                         if (!rafRef.current) {
                             rafRef.current = schedule(() => {
                                 rafRef.current = null
-                                setOutput(outputAccRef.current)
+                                setOutput(shown(outputAccRef.current))
                             })
                         }
                         break
                     case "done":
                         if (rafRef.current) { cancelSchedule(rafRef.current) }
                         rafRef.current = null
-                        setOutput(outputAccRef.current)
+                        setOutput(shown(outputAccRef.current))
                         metricsAcc.tps = msg.tps
                         metricsAcc.totalTokens = msg.totalTokens
                         metricsAcc.genMs = msg.genMs
@@ -266,7 +292,7 @@ export function useWebAI({
             worker.postMessage({
                 type: "generate",
                 model: resolvedModel,
-                messages: template ? template.messages : resolvedMessages,
+                messages: template ? template.messages : withSystem(resolvedMessages),
                 media: template ? { images: template.images, audios: template.audios } : null,
                 genConfig,
                 formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
@@ -344,6 +370,7 @@ export function useWebAI({
         nativeDownloadProgress: null,
         nativeLogs: [],
         metrics,
+        inputInfo,
         isLocal: true,
         isNative: false,
         isWeb: true,
