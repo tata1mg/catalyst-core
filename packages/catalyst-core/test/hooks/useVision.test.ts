@@ -52,7 +52,7 @@ describe("useVision", () => {
         const second = ai.generate.mock.calls[1][0].messages
         expect(second).toHaveLength(3)
         expect(second[1]).toEqual({ role: "assistant", content: "I cannot read this" })
-        expect(second[2].content).toContain("did not contain valid JSON")
+        expect(second[2].content).toContain("was not valid JSON")
     })
 
     it("fails with the problems and the raw reply when every attempt is unusable", async () => {

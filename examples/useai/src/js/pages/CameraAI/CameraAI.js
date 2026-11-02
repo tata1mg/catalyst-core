@@ -14,7 +14,7 @@ const LAB_SCHEMA = {
         visibleText: { type: "string", description: "Copy ALL the text you can read in the image, exactly as written, one line per line of the image. Never leave this empty if any text is visible." },
         imageDescription: { type: "string", description: "What the image shows, in under 15 words" },
         isLabReport: { type: "boolean", description: "true only if the image is a laboratory test report with test names and numeric results" },
-        title: { type: "string", description: "Name of the panel or report; empty when it is not a lab report" },
+        title: { type: "string", nullable: true, description: "Name of the panel or report; null when it is not a lab report" },
         lab: { type: "string", nullable: true },
         results: {
             type: "array",
@@ -32,7 +32,7 @@ const LAB_SCHEMA = {
         },
     },
 };
-const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: copy every line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to an empty string and results to an empty array. Only copy values you can actually read; never make up a test or a number.";
+const INSTRUCTIONS = "Fill the fields in the order given. First visibleText: copy every line of text you can read in the image, exactly as written, even if the image is not a lab report. Then imageDescription: what the image shows in under 15 words. Then, if it is a laboratory report, set isLabReport to true and list every test with its numeric value and unit, the reference range if printed, and flag it low, normal or high against that range. If it is anything else (a screenshot, a photo, a different document), set isLabReport to false, title to null and results to an empty array. Only copy values you can actually read; never make up a test or a number.";
 
 // What the sample report below says, so a run can be checked rather than just looked at.
 const SAMPLE_ROWS = [
