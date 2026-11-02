@@ -76,4 +76,13 @@ class CatalystAIBridge : AIBridge {
     override fun clearConversation() {
         aiModule?.clearConversation()
     }
+
+    /** Anything but a known reason is treated as offline, the case the page reports. */
+    override fun pauseDownload(reason: String?) {
+        DownloadGate.shared.pause(PauseReason.from(reason) ?: PauseReason.OFFLINE)
+    }
+
+    override fun resumeDownload() {
+        DownloadGate.shared.resume()
+    }
 }

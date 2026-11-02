@@ -1,6 +1,7 @@
 /* global __CATALYST_PACKAGES__ */
 
 import { resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { useNetworkStatus } from "./useNetworkStatus.js"
 
 function getBrowserConfig() {
     try {
@@ -52,6 +53,9 @@ export function useAI(options: any = {}) {
     const config = getBrowserConfig()
     const resolvedProvider = provider || config?.provider
     const mode = resolveMode(resolvedProvider)
+    // The page's own view of the connection. It pauses a model download when the device goes offline and resumes it
+    // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
+    const network = useNetworkStatus()
 
     const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
     const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
@@ -60,6 +64,8 @@ export function useAI(options: any = {}) {
               ...options,
               enabled: mode === "native",
               engine: resolveNativeEngine(resolvedProvider, options.engine, config),
+              network: { online: network.online, type: network.type },
+              ...(config?.download && { download: config.download }),
           })
         : emptyHook()
 

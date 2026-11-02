@@ -162,7 +162,7 @@ class NativeBridgeAI(
             ?: throw Exception("Unknown model '$modelKey'. Available: ${MODEL_REGISTRY.keys.joinToString()}")
         log("Model registry lookup: $modelKey")
         progress("lookup", 0, 0, 0, modelKey)
-        return downloadModel(entry)
+        return downloadModel(entry, DownloadPolicy.from(options.optJSONObject("download")))
     }
 
     private fun ensureEngine(modelPath: String) {
@@ -204,7 +204,7 @@ class NativeBridgeAI(
         }
     }
 
-    private fun downloadModel(entry: ModelEntry): String {
+    private fun downloadModel(entry: ModelEntry, policy: DownloadPolicy): String {
         val modelsDir = File(context.filesDir, "ai_models").also { it.mkdirs() }
         val modelFile = File(modelsDir, entry.filename)
 
@@ -217,58 +217,54 @@ class NativeBridgeAI(
         log("Downloading model: ${entry.filename} from HuggingFace (~${entry.sizeHint / 1_000_000}MB)")
         progress("download", 0, 0, entry.sizeHint, "starting")
 
+        // The partial and its ETag stay on disk across failures and launches so the next attempt resumes.
         val tempFile = File(modelsDir, "${entry.filename}.tmp")
-        try {
-            val conn = (URL(entry.url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 30_000
-                readTimeout = 60_000
-                setRequestProperty("User-Agent", "CatalystCore/1.0 LiteRT-LM")
-                instanceFollowRedirects = true
-                connect()
-            }
-
-            val responseCode = conn.responseCode
-            if (responseCode !in 200..299) throw Exception("HTTP $responseCode from model server")
-
-            val contentLength = conn.contentLengthLong.takeIf { it > 0 } ?: entry.sizeHint
-            log("Content-Length: ${contentLength / 1_000_000}MB — downloading...")
-
-            conn.inputStream.use { input ->
-                tempFile.outputStream().use { output ->
-                    val buf = ByteArray(128 * 1024)
-                    var loaded = 0L
-                    var lastPct = -1
-                    var lastEmitMs = System.currentTimeMillis()
-
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n == -1) break
-                        output.write(buf, 0, n)
-                        loaded += n
-
-                        val pct = if (contentLength > 0) ((loaded * 100) / contentLength).toInt() else -1
-                        val now = System.currentTimeMillis()
-                        if (pct != lastPct || now - lastEmitMs >= 200) {
-                            lastPct = pct
-                            lastEmitMs = now
-                            val mb = loaded / 1_000_000
-                            val totalMb = contentLength / 1_000_000
-                            progress("download", maxOf(pct, 0), loaded, contentLength, "${mb}MB / ${totalMb}MB")
-                            log("Download: $pct% (${mb}MB / ${totalMb}MB)")
-                        }
-                    }
+        val etagFile = File(modelsDir, "${entry.filename}.tmp.etag")
+        var lastPct = -1
+        var lastEmitMs = System.currentTimeMillis()
+        var knownTotal = entry.sizeHint
+        val downloader = ResumableDownloader(
+            userAgent = "CatalystCore/1.0 LiteRT-LM",
+            policy = policy,
+            gate = DownloadGate.shared,
+            log = { log(it) },
+            onBytes = { loaded, announced ->
+                val total = if (announced > 0) announced else entry.sizeHint
+                knownTotal = total
+                val pct = if (total > 0) minOf(100, ((loaded * 100) / total).toInt()) else -1
+                val now = System.currentTimeMillis()
+                if (pct != lastPct || now - lastEmitMs >= 200) {
+                    lastPct = pct
+                    lastEmitMs = now
+                    val mb = loaded / 1_000_000
+                    val totalMb = total / 1_000_000
+                    progress("download", maxOf(pct, 0), loaded, total, "${mb}MB / ${totalMb}MB")
+                    log("Download: $pct% (${mb}MB / ${totalMb}MB)")
                 }
+            },
+        )
+        // Weak link, dropped connection or a pause from the page: wait, then resume from the partial.
+        fun partialSize() = if (tempFile.exists()) tempFile.length() else 0L
+        val resilient = ResilientDownload(policy, DownloadGate.shared, ::partialSize, log = { log(it) }) { status ->
+            val loaded = partialSize()
+            val pct = minOf(100, ((loaded * 100) / maxOf(knownTotal, 1)).toInt())
+            when (status) {
+                is DownloadStatus.Paused -> progress(
+                    "paused", pct, loaded, knownTotal,
+                    status.retryInSec?.let { "${status.reason.wire}, retrying in ${it}s" } ?: status.reason.wire,
+                )
+                DownloadStatus.Resuming -> progress("download", pct, loaded, knownTotal, "resuming")
             }
-
-            conn.disconnect()
-            if (tempFile.length() == 0L) throw Exception("Downloaded file is empty")
-            tempFile.renameTo(modelFile)
-            log("Download complete: ${modelFile.length() / 1_000_000}MB saved to ${modelFile.absolutePath}")
-            progress("download", 100, modelFile.length(), modelFile.length(), "complete")
-
+        }
+        try {
+            val size = resilient.run { downloader.download(entry.url, tempFile, etagFile) }
+            modelFile.delete()
+            if (!tempFile.renameTo(modelFile)) throw Exception("could not move the model into place")
+            etagFile.delete()
+            log("Download complete: ${size / 1_000_000}MB saved to ${modelFile.absolutePath}")
+            progress("download", 100, size, size, "complete")
         } catch (e: Exception) {
-            tempFile.delete()
+            if ((e as? DownloadException)?.discardPartial == true) downloader.discard(tempFile, etagFile)
             throw Exception("Model download failed: ${e.message}", e)
         }
 

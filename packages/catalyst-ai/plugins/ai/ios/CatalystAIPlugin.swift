@@ -23,6 +23,10 @@ final class CatalystAIPlugin: CatalystPlugin {
             ai.initAI(optionsRaw: Self.optionsString(from: data))
         case "clearConversation":
             ai.clearConversation()
+        case "pauseDownload":
+            ai.pauseDownload(reason: (data as? [String: Any])?["reason"] as? String)
+        case "resumeDownload":
+            ai.resumeDownload()
         default:
             bridge.callback(eventName: "ON_AI_ERROR", data: [
                 "message": "Unsupported command: \(command)",

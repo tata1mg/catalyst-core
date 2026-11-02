@@ -1387,6 +1387,20 @@ class NativeBridge(
         }
     }
 
+    @JavascriptInterface
+    fun pauseAIDownload(reason: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "pause AI model download") {
+            aiBridge?.javaClass?.getMethod("pauseDownload", String::class.java)?.invoke(aiBridge, reason)
+        }
+    }
+
+    @JavascriptInterface
+    fun resumeAIDownload() {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.ON_AI_ERROR, "resume AI model download") {
+            aiBridge?.javaClass?.getMethod("resumeDownload")?.invoke(aiBridge)
+        }
+    }
+
     /**
      * Cleanup method to be called when the bridge is being destroyed
      */
