@@ -512,6 +512,8 @@ function _checkWebBridgeInit(root, warnings, passed) {
 
 const ROUTING_OBJECTIVES = ["balanced", "cost", "latency", "speed", "order"]
 const ROUTING_POLICIES = ["allow", "ask", "deny"]
+const ROUTING_TASKS = ["text.generate", "vision.read", "speech.transcribe", "speech.synthesize", "image.generate", "embed"]
+const ROUTING_PLATFORMS = ["ios", "android", "web-desktop", "web-mobile", "web"]
 const ROUTING_MODALITIES = ["text", "image", "audio"]
 
 // AI_CONFIG.routing drives useAI({ provider: "auto" }). Mistakes here do not crash: the browser drops bad entries
@@ -552,6 +554,11 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
             if (m.modalities !== undefined && (!Array.isArray(m.modalities) || m.modalities.some((x) => !ROUTING_MODALITIES.includes(x)))) {
                 err(`${at}.modalities`, `modalities must be a subset of ${ROUTING_MODALITIES.join(", ")}.`)
             }
+            if (m.tasks !== undefined) {
+                if (!Array.isArray(m.tasks) || !m.tasks.length || m.tasks.some((x) => !ROUTING_TASKS.includes(x))) {
+                    err(`${at}.tasks`, `tasks must be a non-empty subset of ${ROUTING_TASKS.join(", ")}. Leave it out to follow the modalities.`)
+                }
+            }
             for (const key of ["ttftMs", "tps", "loadMs"]) {
                 if (m[key] !== undefined && !(typeof m[key] === "number" && m[key] >= 0)) err(`${at}.${key}`, `${key} must be a non-negative number.`)
             }
@@ -569,7 +576,7 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     }
     const onDevice = routing.onDevice || {}
     for (const key of Object.keys(onDevice)) {
-        if (!["ios", "android", "web"].includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ios, android or web.`)
+        if (!ROUTING_PLATFORMS.includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ${ROUTING_PLATFORMS.join(", ")}.`)
         else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key)
     }
     collect(routing.cloud, "cloud", "AI_CONFIG.routing.cloud", "cloud")
@@ -601,7 +608,7 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     }
     // A native app (WebView build) only ever uses onDevice.ios / onDevice.android; onDevice.web is for plain browsers.
     const hasNativeModels = candidates.some((c) => c.group === "onDevice" && /\.(ios|android)\[/.test(c.where))
-    const hasWebModels = candidates.some((c) => c.group === "onDevice" && /\.web\[/.test(c.where))
+    const hasWebModels = candidates.some((c) => c.group === "onDevice" && /\.web(-desktop|-mobile)?\[/.test(c.where))
     if (wc.ai && wc.ai.enabled && hasWebModels && !hasNativeModels) {
         warn(
             "AI_CONFIG.routing.onDevice",

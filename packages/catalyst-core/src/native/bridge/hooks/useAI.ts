@@ -1,10 +1,10 @@
 /* global __CATALYST_PACKAGES__ */
 
 import { useEffect, useRef, useState } from "react"
-import { allowCloudMedia, resolveMode, resolveNativeEngine, resolvePlatform } from "./aiProviders.js"
+import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolveRoutingPlatform } from "./aiProviders.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
-import { chooseCandidate, normalizeRouting, recordObserved } from "./aiRouter.js"
+import { chooseCandidate, DEFAULT_TASK, isTask, normalizeRouting, recordObserved } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
 function getBrowserConfig() {
@@ -36,10 +36,18 @@ function modalitiesOf(messages: any): Modality[] {
     return [...set]
 }
 
-// Live checks, not the user agent: an iPhone Safari tab is "web" (it has no native module), a WebView build is not.
+// What the call asks for: generate({ task }) wins over useAI({ task }); anything unrecognised is plain text generation.
+function taskOf(args: any, options: any) {
+    return isTask(args?.task) ? args.task : isTask(options?.task) ? options.task : DEFAULT_TASK
+}
+
+// Live checks, not the user agent: an iPhone Safari tab is a web target (it has no native module), a WebView build is not.
+// A plain browser is further split into desktop and mobile, which is the only place the user agent is consulted.
 function detectPlatform(): Platform {
-    if (typeof window === "undefined") return "web"
-    return resolvePlatform({ android: nativeBridge._detectAndroid(), ios: nativeBridge._detectIOS() })
+    if (typeof window === "undefined") return "web-desktop"
+    const nav: any = typeof navigator !== "undefined" ? navigator : {}
+    const mobileWeb = isMobileWeb({ uaMobile: nav.userAgentData?.mobile, userAgent: nav.userAgent, platform: nav.platform, maxTouchPoints: nav.maxTouchPoints })
+    return resolveRoutingPlatform({ android: nativeBridge._detectAndroid(), ios: nativeBridge._detectIOS() }, mobileWeb)
 }
 
 // Observed ttft/tps per candidate, kept per device so routing improves with use. Best-effort: no storage, no memory.
@@ -187,7 +195,7 @@ export function useAI(options: any = {}) {
                 loadedId: loadedId.current,
             }
             observed.current = observed.current || loadObserved()
-            const decision = chooseCandidate(modalitiesOf(args?.messages), priced, signals, policy, observed.current, consent)
+            const decision = chooseCandidate(modalitiesOf(args?.messages), priced, signals, policy, observed.current, consent, taskOf(args, options))
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.

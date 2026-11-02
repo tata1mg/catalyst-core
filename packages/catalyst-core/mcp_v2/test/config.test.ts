@@ -185,6 +185,32 @@ describe("check_config: AI_CONFIG.routing", () => {
         const a = run({ providers, routing: { onDevice: { android: [{ id: "fm", engine: "foundation-models" }] } } })
         expect(a.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.android[0].engine")).toBe(true)
     })
+    it("accepts the four on-device targets and tasks", () => {
+        const r = run({
+            providers,
+            routing: {
+                onDevice: {
+                    ios: [{ id: "g", tasks: ["text.generate", "vision.read"] }],
+                    "web-desktop": [{ id: "prompt-api", tasks: ["text.generate"] }],
+                    "web-mobile": [{ id: "small", tasks: ["text.generate"] }],
+                },
+                cloud: [{ id: "flash", provider: "gemini", tasks: ["image.generate", "embed"] }],
+            },
+        })
+        expect(routingFields(r).filter((f) => !f.field.endsWith("routing.onDevice"))).toEqual([])
+    })
+    it("rejects unknown or empty tasks and warns about an unknown platform key", () => {
+        const r = run({ providers, routing: { onDevice: { tvos: [{ id: "a" }], ios: [{ id: "b", tasks: ["telepathy"] }, { id: "c", tasks: [] }, { id: "d", tasks: "embed" }] } } })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[0].tasks")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[1].tasks")
+        expect(fields).toContain("AI_CONFIG.routing.onDevice.ios[2].tasks")
+        expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.tvos")).toBe(true)
+    })
+    it("web-desktop / web-mobile models count as in-browser, never used in a native build", () => {
+        const webOnly = { providers, routing: { onDevice: { "web-mobile": [{ id: "w", modalities: ["text"] }] } } }
+        expect(run(webOnly).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(true)
+    })
     it("rejects a non-object routing block and negative numbers", () => {
         expect(run({ providers, routing: [] }).issues.some((i) => i.field === "AI_CONFIG.routing")).toBe(true)
         const r = run({ providers, routing: { policy: { constraints: { maxLatencyMs: -1 } }, onDevice: { web: [{ id: "w", tps: -5 }] } } })

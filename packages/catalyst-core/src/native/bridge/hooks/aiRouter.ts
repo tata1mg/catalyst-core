@@ -1,16 +1,32 @@
 // Auto routing for useAI ({ provider: "auto" }).
 //
-// Candidates come from AI_CONFIG.routing in config.json, split into on-device (per platform: ios, android, web; each
+// Candidates come from AI_CONFIG.routing in config.json, split into on-device (per platform: ios, android, web-desktop, web-mobile, or web for both; each
 // may list several models) and cloud (provider + model). Every call is decided in three steps:
-//   1. availability: can this candidate run right now, and does it take the call's modalities?
+//   1. availability: can this candidate run right now, does it do the call's task, and does it take its modalities?
 //   2. privacy:      may this call leave the device? (cloud / cloudMedia policy, download consent)
 //   3. preference:   score the survivors on cost, latency and tokens/sec and take the best.
 // Config values are priors. Metrics observed from real calls (the same ones useAI reports) replace them as samples
 // accumulate. Everything here is pure; useAI supplies the signals and stores the observed metrics.
 
-export type Platform = "ios" | "android" | "web"
+/** "web" is accepted as "a plain browser, either kind"; the router itself resolves to web-desktop / web-mobile. */
+export type Platform = "ios" | "android" | "web" | "web-desktop" | "web-mobile"
 export type Target = "onDevice" | "cloud"
 export type Modality = "text" | "image" | "audio"
+/** What a call asks a model to do. Candidates declare the tasks they can serve; modalities say what goes in. */
+export type Task = "text.generate" | "vision.read" | "speech.transcribe" | "speech.synthesize" | "image.generate" | "embed"
+export const TASKS: Task[] = ["text.generate", "vision.read", "speech.transcribe", "speech.synthesize", "image.generate", "embed"]
+export const DEFAULT_TASK: Task = "text.generate"
+export const isTask = (v: unknown): v is Task => typeof v === "string" && (TASKS as string[]).includes(v)
+export const isWebPlatform = (p: string) => p === "web" || p === "web-desktop" || p === "web-mobile"
+
+/** A candidate that lists no tasks serves what its modalities imply, so configs written before tasks existed keep working. */
+export function tasksFromModalities(modalities: Modality[]): Task[] {
+    return [
+        "text.generate",
+        ...(modalities.includes("image") ? (["vision.read"] as Task[]) : []),
+        ...(modalities.includes("audio") ? (["speech.transcribe"] as Task[]) : []),
+    ]
+}
 export type CloudPolicy = "allow" | "ask" | "deny"
 export type Objective = "balanced" | "cost" | "latency" | "speed" | "order"
 
@@ -39,6 +55,7 @@ export interface Candidate {
     /** Cloud only. */
     provider?: string
     modalities: Modality[]
+    tasks: Task[]
     priors: Priors
     price?: Price
 }
@@ -139,6 +156,15 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
         warn(`routing: "${raw.id}" lists no valid modalities`)
         return null
     }
+    let tasks = tasksFromModalities(modalities)
+    if (raw.tasks !== undefined) {
+        const listed = Array.isArray(raw.tasks) ? raw.tasks : []
+        const valid = listed.filter(isTask)
+        if (valid.length !== listed.length || !Array.isArray(raw.tasks)) {
+            warn(`routing: "${raw.id}" has unknown tasks (use ${TASKS.join(", ")})${valid.length ? "" : "; using what its modalities imply"}`)
+        }
+        if (valid.length) tasks = valid
+    }
     const priors: Priors = { ttftMs: num(raw.ttftMs), tps: num(raw.tps), loadMs: num(raw.loadMs) }
     const price =
         raw.price && num(raw.price.input) !== undefined && num(raw.price.output) !== undefined
@@ -149,9 +175,9 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
             warn(`routing: cloud candidate "${raw.id}" needs a "provider"`)
             return null
         }
-        return { id: raw.id, target, mode: "cloud", provider: raw.provider, model: raw.model, modalities, priors, price }
+        return { id: raw.id, target, mode: "cloud", provider: raw.provider, model: raw.model, modalities, tasks, priors, price }
     }
-    const web = platform === "web"
+    const web = isWebPlatform(platform)
     return {
         id: raw.id,
         target,
@@ -160,8 +186,14 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
         model: raw.model,
         modelPath: raw.modelPath,
         modalities,
+        tasks,
         priors,
     }
+}
+
+/** onDevice lists a page may use, most specific first: a phone browser reads web-mobile, then the shared "web". */
+function onDeviceKeys(platform: Platform): string[] {
+    return platform === "web-desktop" || platform === "web-mobile" ? [platform, "web"] : [platform]
 }
 
 /**
@@ -170,8 +202,11 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
  *
  *   routing: {
  *     policy: { objective, weights, constraints: { maxLatencyMs, minTps, maxCostUsd }, cloud, cloudMedia, autoDownload },
- *     onDevice: { ios: [...], android: [...], web: [...] },
- *     cloud: [{ id, provider, model, modalities, ttftMs, tps, price: { input, output } }]
+ *     onDevice: { ios: [...], android: [...], "web-desktop": [...], "web-mobile": [...], web: [...] },
+ *     cloud: [{ id, provider, model, modalities, tasks, ttftMs, tps, price: { input, output } }]
+ *
+ * `tasks` (text.generate, vision.read, speech.transcribe, speech.synthesize, image.generate, embed) is optional; left
+ * out, it follows from `modalities`. A browser reads onDevice["web-desktop"] or ["web-mobile"] and falls back to ["web"].
  *   }
  */
 export function normalizeRouting(
@@ -203,7 +238,7 @@ export function normalizeRouting(
     const candidates: Candidate[] = [
         // One list per target. Inside a native app (a WebView build) the on-device model is the native one, loaded by the
         // native module; the in-browser list is for plain browsers only and is never consulted there.
-        ...list(raw?.onDevice?.[platform]).map((x: any) => normalizeCandidate(x, "onDevice", platform, warn)),
+        ...list(raw?.onDevice?.[onDeviceKeys(platform).find((k) => Array.isArray(raw?.onDevice?.[k])) as string]).map((x: any) => normalizeCandidate(x, "onDevice", platform, warn)),
         ...list(raw?.cloud).map((x: any) => normalizeCandidate(x, "cloud", "cloud", warn)),
     ].filter(Boolean) as Candidate[]
     const seen = new Set<string>()
@@ -268,7 +303,8 @@ export function chooseCandidate(
     signals: Signals,
     policy: Policy,
     observed: Record<string, Observed> = {},
-    consent: Consent = {}
+    consent: Consent = {},
+    task: Task = DEFAULT_TASK
 ): RouteDecision {
     const skipped: Skipped[] = []
     const media = modalities.some((m) => m !== "text")
@@ -278,6 +314,7 @@ export function chooseCandidate(
     const viable: { c: Candidate; e: Estimate }[] = []
 
     for (const c of candidates) {
+        if (!c.tasks.includes(task)) { skipped.push({ id: c.id, why: `does not do ${task}` }); continue }
         const miss = modalities.find((m) => !c.modalities.includes(m))
         if (miss) { skipped.push({ id: c.id, why: `no ${miss} support` }); continue }
         if (c.mode === "native" && !signals.nativeAvailable) { skipped.push({ id: c.id, why: "native bridge unavailable" }); continue }

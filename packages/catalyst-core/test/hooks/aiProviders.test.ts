@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { allowCloudMedia, resolveMode, resolveNativeEngine, resolvePlatform } from "../../src/native/bridge/hooks/aiProviders"
+import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolvePlatform, resolveRoutingPlatform } from "../../src/native/bridge/hooks/aiProviders"
 
 describe("useAI provider resolution", () => {
     it("maps on-device provider names to native mode", () => {
@@ -48,5 +48,25 @@ describe("resolvePlatform", () => {
     })
     it("is web in any browser, including a phone's: there is no native module there", () => {
         expect(resolvePlatform({ android: false, ios: false })).toBe("web")
+    })
+})
+
+describe("isMobileWeb / resolveRoutingPlatform", () => {
+    it("trusts Client Hints when the browser sends them", () => {
+        expect(isMobileWeb({ uaMobile: true, userAgent: "Macintosh" })).toBe(true)
+        expect(isMobileWeb({ uaMobile: false, userAgent: "iPhone" })).toBe(false)
+    })
+    it("falls back to the user agent, including iPadOS posing as a Mac", () => {
+        expect(isMobileWeb({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari" })).toBe(true)
+        expect(isMobileWeb({ userAgent: "Mozilla/5.0 (Linux; Android 15; Pixel) Chrome Mobile" })).toBe(true)
+        expect(isMobileWeb({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X) Safari", platform: "MacIntel", maxTouchPoints: 5 })).toBe(true)
+        expect(isMobileWeb({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X) Safari", platform: "MacIntel", maxTouchPoints: 0 })).toBe(false)
+        expect(isMobileWeb({ userAgent: "Mozilla/5.0 (Windows NT 10.0) Chrome" })).toBe(false)
+    })
+    it("only a plain browser is split; a native shell stays ios/android even on a phone", () => {
+        expect(resolveRoutingPlatform({ android: false, ios: false }, true)).toBe("web-mobile")
+        expect(resolveRoutingPlatform({ android: false, ios: false }, false)).toBe("web-desktop")
+        expect(resolveRoutingPlatform({ android: false, ios: true }, true)).toBe("ios")
+        expect(resolveRoutingPlatform({ android: true, ios: false }, true)).toBe("android")
     })
 })
