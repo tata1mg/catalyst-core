@@ -169,6 +169,12 @@ describe("check_config: AI_CONFIG.routing", () => {
         const clash = run({ providers, routing: { onDevice: { ios: [{ id: "cost" }] } } })
         expect(clash.warnings.some((x) => x.message.includes("collides"))).toBe(true)
     })
+    it("warns when only web models are listed but the app is a native build (they are never used there)", () => {
+        const webOnly = { providers, routing: { onDevice: { web: [{ id: "w", model: "m", modalities: ["text"] }] } } }
+        expect(run(webOnly).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(true)
+        expect(run(good).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // has an ios entry
+        expect(run(webOnly, { enabled: false }).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // not a native build
+    })
     it("warns when cloud is allowed for media", () => {
         const r = run({ ...good, routing: { ...good.routing, policy: { cloud: "allow" } } })
         expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.policy")).toBe(true)

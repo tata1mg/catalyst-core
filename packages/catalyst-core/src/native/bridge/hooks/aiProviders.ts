@@ -8,6 +8,16 @@ const NATIVE_ENGINE_BY_PROVIDER: Record<string, string | undefined> = {
     "foundation-models": "foundation-models",
 }
 
+/**
+ * Which on-device target this page runs on. A page inside a native app (a WebView build) is that app's platform and is
+ * never "web", whatever its user agent says; a phone browser (Safari, Chrome) has no native module and is "web".
+ */
+export function resolvePlatform(shell: { android: boolean; ios: boolean }): "ios" | "android" | "web" {
+    if (shell.android) return "android"
+    if (shell.ios) return "ios"
+    return "web"
+}
+
 export function resolveMode(provider: string | undefined): "local" | "native" | "cloud" {
     if (provider === "transformers") return "local"
     if (provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
