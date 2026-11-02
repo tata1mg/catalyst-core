@@ -138,7 +138,7 @@ final class CatalystAIBridge: AIBridge {
             cb.onError("FrameworkServer stopped before the AI stream was ready", code: NativeAIErrorCode.streamNotReady)
             return
         }
-        cb.onReady(streamUrl: streamUrl, port: cb.getFrameworkServerPort(), sessionId: cb.getFrameworkServerSessionId(), engine: kind.rawValue)
+        cb.onReady(streamUrl: streamUrl, port: cb.getFrameworkServerPort(), sessionId: cb.getFrameworkServerSessionId(), engine: served.kind.rawValue)
     }
 
     /// Engines are kept warm per kind so a second initAI reuses a loaded model. Their log/progress sinks

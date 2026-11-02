@@ -12,7 +12,8 @@ import Foundation
 import CatalystCoreLogic
 
 final class FallbackEngine: NativeAIEngine {
-    let kind: EngineKind
+    /// The engine that is answering right now: the primary until it has fallen back, then the fallback.
+    var kind: EngineKind { lock.withLock { fallback?.kind ?? primary.kind } }
 
     /// What the framework server prepends to every prompt. Fixed when prepare() returns, because the bridge reads
     /// it once, right after, and the server keeps applying that value even if a later request falls back.
@@ -36,7 +37,6 @@ final class FallbackEngine: NativeAIEngine {
         onLog: @escaping AILogHandler
     ) {
         self.primary = primary
-        self.kind = primary.kind
         self.requested = requested
         self.fallbackAvailable = fallbackAvailable
         self.makeFallback = makeFallback
