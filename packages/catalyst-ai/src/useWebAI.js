@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { assertEngineSupports, getModalities, supportsWebMedia, toWebTemplate } from "./contentParts.js"
+import { assertEngineSupports, getModalities, toWebTemplate, webModelKind } from "./contentParts.js"
 import { prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
@@ -58,6 +58,8 @@ export function useWebAI({
     const [modelReady, setModelReady] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(null)
     const [metrics, setMetrics] = useState(null)
+    // What the worker reports it fed the model ("gemma inputs: promptTokens=… audio=true"), so a page can show it.
+    const [inputInfo, setInputInfo] = useState(null)
 
     const workerRef = useRef(null)
     const workerModelRef = useRef(null)
@@ -93,9 +95,11 @@ export function useWebAI({
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const resolvedModel = callModel || modelProp
+            const kind = webModelKind(resolvedModel)
             // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
             // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
-            const systemText = buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            // A speech-to-text model has no use for it: it only transcribes.
+            const systemText = kind === "asr" ? null : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
             const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
             const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw) : raw)
             const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
@@ -104,12 +108,17 @@ export function useWebAI({
                 return
             }
 
-            // Only Gemma 4 takes image/audio in the browser; other models are text-only and refuse media loudly.
-            // Gemma 4 always goes through the media path (it needs AutoProcessor + Gemma4ForConditionalGeneration).
-            const mediaModel = supportsWebMedia(resolvedModel)
+            // Gemma 4 takes image and audio, Whisper / Moonshine take audio only, other models are text-only and refuse
+            // media loudly. Gemma 4 always goes through the media path (it needs AutoProcessor +
+            // Gemma4ForConditionalGeneration); speech models use it to receive the clip.
+            const mediaModel = kind !== "text"
+            const caps = kind === "gemma4" ? { text: true, image: true, audio: true } : kind === "asr" ? { text: true, audio: true } : { text: true }
             let template = null
             try {
-                assertEngineSupports(getModalities(messages), mediaModel ? { text: true, image: true, audio: true } : { text: true }, "web")
+                assertEngineSupports(getModalities(messages), caps, "web")
+                if (kind === "asr" && !getModalities(messages).has("audio")) {
+                    throw new Error(`${resolvedModel} is a speech-to-text model: attach an audio clip`)
+                }
                 if (mediaModel) {
                     const prepared = await prepareImageParts(
                         await prepareAudioParts(withSystem(messages), {
@@ -124,7 +133,7 @@ export function useWebAI({
                 return
             }
 
-            // A media-capable worker holds ~3.4 GB of weights, so it is kept alive between calls (same model, idle).
+            // A media-capable worker holds up to ~3.4 GB of weights (speech models far less), so it is kept alive between calls (same model, idle).
             const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
             if (!reuseWorker && workerRef.current) {
                 workerRef.current.terminate()
@@ -139,6 +148,7 @@ export function useWebAI({
             setError(null)
             setDownloadProgress(null)
             setMetrics(null)
+            setInputInfo(null)
             setModelReady(!!reuseWorker)
             cancelledRef.current = false
             outputAccRef.current = ""
@@ -165,6 +175,7 @@ export function useWebAI({
                 switch (msg.type) {
                     case "log":
                         console.log(msg.msg)
+                        if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
                         break
                     case "progress":
                         setDownloadProgress({ file: msg.file, percent: msg.percent, status: msg.status })
@@ -326,6 +337,7 @@ export function useWebAI({
         nativeDownloadProgress: null,
         nativeLogs: [],
         metrics,
+        inputInfo,
         isLocal: true,
         isNative: false,
         isWeb: true,

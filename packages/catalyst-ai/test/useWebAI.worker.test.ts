@@ -159,3 +159,41 @@ describe("useWebAI turns attachment tags into renderable sentinels", () => {
         expect(result.current.output).toContain("<tool:create_attachment")
     })
 })
+
+describe("useWebAI runs speech-to-text models (Whisper, Moonshine)", () => {
+    const WHISPER = "onnx-community/whisper-base"
+    // 44-byte WAV header with no samples: enough to be a well-formed audio data URL.
+    const WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA="
+    const clip = [{ role: "user", content: [{ type: "audio", data: WAV }, { type: "text", text: "Describe audio" }] }]
+    beforeEach(() => {
+        instances = []
+        FakeWorker.autoFinish = true
+        vi.stubGlobal("Worker", FakeWorker)
+        vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:fake" }))
+    })
+    afterEach(() => vi.unstubAllGlobals())
+
+    it("sends the clip, adds no system prompt, and keeps the worker loaded for the next clip", async () => {
+        const { useWebAI } = await mod
+        const { result } = renderHook(() => useWebAI({ model: WHISPER, systemPrompt: "Be brief.", attachmentComponents: { Header: {} } }))
+        await act(async () => { await result.current.generate({ messages: clip }) })
+        const sent = instances[0].sent[0]
+        expect(sent.media.audios).toHaveLength(1)
+        expect(sent.messages.map((m: any) => m.role)).toEqual(["user"])
+        expect(instances[0].terminated).toBe(false)
+        await act(async () => { await result.current.generate({ messages: clip }) })
+        expect(instances).toHaveLength(1)
+        expect(instances[0].generations).toBe(2)
+    })
+
+    it("refuses an image, and a request with no audio, before starting a worker", async () => {
+        const { useWebAI } = await mod
+        const { result } = renderHook(() => useWebAI({ model: WHISPER }))
+        await act(async () => { await result.current.generate({ messages: ask }) })
+        expect(result.current.error?.message).toMatch(/attach an audio clip/)
+        const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        await act(async () => { await result.current.generate({ messages: [{ role: "user", content: [{ type: "image", data: png }, { type: "text", text: "x" }] }] }) })
+        expect(result.current.error?.message).toMatch(/does not support image/)
+        expect(instances).toHaveLength(0)
+    })
+})

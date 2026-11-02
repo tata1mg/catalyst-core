@@ -75,6 +75,71 @@ async function wavToFloat32(dataUrl) {
     return samples;
 }
 
+// Speech-to-text models (Whisper, Moonshine): the ASR pipeline, not text generation. Same pattern as webModelKind() in
+// contentParts.js. They take the 16 kHz clip the main thread prepared and answer with the transcript only.
+const ASR_RE = /whisper|moonshine/i;
+let asrPipe = null;
+
+// Per-module dtypes: the full-precision encoder with a q4 decoder is the recipe that is both small and accurate
+// (a quantised encoder loses accuracy). large-v3-turbo's full-precision encoder alone is 2.5 GB, so it uses q4f16 (needs
+// fp16 support on the GPU). The CPU fallback is the 8-bit build.
+function asrAttempts(model, hasGpu) {
+    const dtype = /large-v3-turbo/i.test(model)
+        ? { encoder_model: "q4f16", decoder_model_merged: "q4f16" }
+        : { encoder_model: "fp32", decoder_model_merged: "q4" };
+    return [...(hasGpu ? [{ device: "webgpu", dtype }] : []), { device: "wasm", dtype: "q8" }];
+}
+
+async function loadAsr(model) {
+    if (asrPipe && loadedModel === model) {
+        self.postMessage({ type: "log", msg: "[worker] asr cache hit — " + model });
+        return;
+    }
+    self.postMessage({ type: "log", msg: "[worker] importing transformers from CDN..." });
+    const mod = await import(TRANSFORMERS_CDN);
+    mod.env.allowLocalModels = false;
+    const hasGpu = !!(self.isSecureContext && navigator.gpu && (await navigator.gpu.requestAdapter()));
+    let lastErr = null;
+    for (const { device, dtype } of asrAttempts(model, hasGpu)) {
+        try {
+            self.postMessage({ type: "log", msg: "[worker] asr trying device=" + device + " dtype=" + JSON.stringify(dtype) });
+            const fileTotals = {};
+            const dlStart = performance.now();
+            asrPipe = await mod.pipeline("automatic-speech-recognition", model, { device, dtype, progress_callback: makeProgress(fileTotals) });
+            loadedModel = model;
+            loadedDevice = device;
+            const totalBytes = Object.values(fileTotals).reduce((sum, n) => sum + n, 0);
+            self.postMessage({ type: "model_ready", device, dtype: typeof dtype === "string" ? dtype : "mixed", loadMs: Math.round(performance.now() - dlStart), totalBytes });
+            return;
+        } catch (err) {
+            self.postMessage({ type: "log", msg: "[worker] asr " + device + " failed (" + err.message + "), trying next..." });
+            lastErr = err;
+            asrPipe = null;
+        }
+    }
+    throw lastErr || new Error("All backends failed");
+}
+
+async function generateSpeech(model, media, genConfig) {
+    if (!media.audios[0]) throw new Error("A speech-to-text model needs an audio clip");
+    await loadAsr(model);
+    const audio = await wavToFloat32(media.audios[0]);
+    self.postMessage({ type: "log", msg: "[worker] asr inputs: seconds=" + (audio.length / 16000).toFixed(1) + " model=" + model });
+    self.postMessage({ type: "streaming_start" });
+    const tGen = performance.now();
+    // 30 s windows with overlap cover longer clips. Whisper is multilingual: pin the language so it neither guesses nor translates.
+    const options = { chunk_length_s: 30, stride_length_s: 5 };
+    if (/whisper/i.test(model)) Object.assign(options, { language: (genConfig && genConfig.language) || "english", task: "transcribe" });
+    const out = await asrPipe(audio, options);
+    const text = (Array.isArray(out) ? out.map((o) => o.text).join(" ") : out.text || "").trim();
+    const genMs = Math.max(1, Math.round(performance.now() - tGen));
+    self.postMessage({ type: "ttft", ms: genMs });
+    self.postMessage({ type: "token", text });
+    // The model reports no token count; words are the closest honest unit for a transcript.
+    const words = text ? text.split(/\s+/).length : 0;
+    self.postMessage({ type: "done", totalTokens: words, genMs, tps: parseFloat((words / (genMs / 1000)).toFixed(1)), promptTokens: null });
+}
+
 async function loadPipeline(model) {
     if (loadedModel === model && pipe) {
         self.postMessage({ type: "log", msg: "[worker] pipeline cache hit — " + model + " on " + loadedDevice });
@@ -191,7 +256,8 @@ self.onmessage = async (e) => {
 
     try {
         if (media) {
-            await generateWithMedia(model, messages, genConfig, media);
+            if (ASR_RE.test(model)) await generateSpeech(model, media, genConfig);
+            else await generateWithMedia(model, messages, genConfig, media);
             return;
         }
         await loadPipeline(model);

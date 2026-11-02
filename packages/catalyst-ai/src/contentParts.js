@@ -124,6 +124,20 @@ export function supportsWebMedia(model) {
 }
 
 /**
+ * What a web model name runs as:
+ *   "gemma4" - image + audio + text through AutoProcessor / Gemma4ForConditionalGeneration;
+ *   "asr"    - a speech-to-text model (Whisper, Moonshine): takes audio, returns the transcript, ignores the prompt;
+ *   "text"   - everything else, the text-generation pipeline.
+ * The worker repeats the "asr" pattern (it is a separate script), keep the two in step.
+ */
+export function webModelKind(model) {
+    if (typeof model !== "string") return "text"
+    if (/gemma-?4/i.test(model)) return "gemma4"
+    if (/whisper|moonshine/i.test(model)) return "asr"
+    return "text"
+}
+
+/**
  * -> { messages, images, audios }. `messages` use the chat-template shape ({type:"image"|"audio"} placeholders);
  * the media itself travels beside them as data URLs, in order, for the worker to decode.
  */
