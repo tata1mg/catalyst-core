@@ -1,0 +1,30 @@
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 2,61-62,98,101-102,111-115,118-121,136,151,178,340
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 55-73,107-108,110,113,120-125,170-197,199-203,220,231,245-268,313,316,326-344
+packages/catalyst-ai/test/contentParts.test.ts
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 153-162
+packages/catalyst-ai/src/contentParts.js
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 127-139
+  s_5c4ceb8b5ee5d2::t_d299029ab64bdf 126
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 162-199
+packages/catalyst-ai/src/webWorkerScript.js
+  s_5c4ceb8b5ee5d2::t_75d326750f14ae 78-142,259-260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "381a13a787706b42ba5b81e4a2e6a368aa61e8e5",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

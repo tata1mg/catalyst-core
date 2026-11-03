@@ -1,0 +1,29 @@
+packages/catalyst-ai/src/contentParts.js
+  s_5c4ceb8b5ee5d2::t_d3b96ab59be7d6 135-136
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_d3b96ab59be7d6 114
+  s_5c4ceb8b5ee5d2::t_693aa231bb173c 17,28,130-161
+  s_5c4ceb8b5ee5d2::t_857c391f44f0d9 20,23,86-113,115-129
+packages/catalyst-ai/src/attachmentTags.js
+  s_5c4ceb8b5ee5d2::t_724d36acc28ff5 1-17
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_724d36acc28ff5 9,99-100,193,200
+  s_5c4ceb8b5ee5d2::t_7496972660155c 98
+  s_5c4ceb8b5ee5d2::t_ce0b2691be7239 8,34-35,80-84,96-97,101,115,259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbbce4299e102690577164a53a48bb1d0afc9589",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
