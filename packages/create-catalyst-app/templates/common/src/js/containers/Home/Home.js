@@ -15,7 +15,7 @@ const NEXT_STEPS = [
     },
     {
         title: "Load data",
-        body: "Run a fetcher on the server, then read the result in your component.",
+        body: "Add a serverFetcher to this page, then read the result in your component.",
         code: "useCurrentRouteData()",
         href: `${DOCS}/data-fetching`,
     },
@@ -41,7 +41,8 @@ const HOOKS = [
 function Home() {
     const [hydratedIn, setHydratedIn] = useState(null)
 
-    // Effects never run on the server, so this reports the real hydration time.
+    // Effects never run on the server, so this fires once the page is hydrated.
+    // performance.now() counts from the start of navigation.
     useEffect(() => {
         setHydratedIn(Math.round(performance.now()))
     }, [])
@@ -79,7 +80,7 @@ function Home() {
                             <span>
                                 {hydratedIn === null
                                     ? "Hydrating in your browser"
-                                    : `Hydrated in ${hydratedIn} ms`}
+                                    : `Interactive in ${hydratedIn} ms`}
                             </span>
                         </p>
                     </div>
