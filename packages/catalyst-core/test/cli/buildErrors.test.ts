@@ -115,6 +115,19 @@ describe("extractBuildErrors (vite)", () => {
             { file: "src/Home.js", line: 3, column: 14, message: "Unexpected token" },
         ])
     })
+
+    it("points a missing named export at the importing line", () => {
+        const output =
+            '../../src/Header.js (3:9): "Link" is not exported by "node_modules/catalyst-core/dist/index.jsx", imported by "../../src/Header.js".'
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            {
+                file: "../../src/Header.js",
+                line: 3,
+                column: 9,
+                message: '"Link" is not exported by "node_modules/catalyst-core/dist/index.jsx"',
+            },
+        ])
+    })
 })
 
 describe("outputTail", () => {

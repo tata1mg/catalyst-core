@@ -52,6 +52,8 @@ const VITE_ERROR_PATTERNS = [
     /^(?<message>Failed to resolve (?:import|entry)[^.]*)\.?$/i,
     // file.js:12:3: error: message   (esbuild transform failures)
     /^(?<file>[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*ERROR:\s*(?<message>.+)$/i,
+    // file.js (3:9): "X" is not exported by "y", imported by "file.js"   (rollup MISSING_EXPORT)
+    /^(?<file>\S.*?) \((?<line>\d+):(?<column>\d+)\): (?<message>"[^"]+" is not exported by "[^"]+")/,
     // Bare "error during build:" is a header, not a message -- see NOISE.
 ]
 
