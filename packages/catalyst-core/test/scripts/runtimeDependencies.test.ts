@@ -3,9 +3,10 @@ import { builtinModules } from "node:module"
 import { fileURLToPath } from "node:url"
 import { expect, it } from "vitest"
 
-// `catalyst start`, `build` and `serve` load src/vite/node-loader.mjs into the
-// app's Node process (--import), so every package it imports must be installed
-// for the app. A package that is only reachable through npm hoisting (esbuild
+// `catalyst start`, `build` and `serve` load dist/vite/node-loader.mjs into the
+// app's Node process (--import). scripts/build-dist.mjs copies .mjs files
+// byte-for-byte, so this test reads the source, src/vite/node-loader.mjs. Every
+// package it imports must be installed for the app. A package that is only reachable through npm hoisting (esbuild
 // via vite) disappears after `npm prune --omit=dev` and the server fails with
 // ERR_MODULE_NOT_FOUND. Issue #539.
 const read = (relative: string) => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), "utf8")
