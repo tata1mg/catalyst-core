@@ -49,9 +49,13 @@ const VITE_ERROR_PATTERNS = [
     // [plugin:name] Could not load /path (imported by other/path): ENOENT...
     /\[(?:vite|plugin)[^\]]*\]\s*(?<message>Could not (?:load|resolve)[^:]*)(?::.*)?$/i,
     // Failed to resolve import "x" from "y"
-    /^(?<message>Failed to resolve (?:import|entry)[^.]*)\.?$/i,
+    /^(?<message>Failed to resolve (?:import|entry).+?)\.?$/i,
+    // Rollup unresolved relative import, with the importing file.
+    /^(?<message>Could not resolve "[^"]+") from "(?<file>[^"]+)"$/,
     // file.js:12:3: error: message   (esbuild transform failures)
     /^(?<file>[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*ERROR:\s*(?<message>.+)$/i,
+    // file.js (3:9): "X" is not exported by "y", imported by "file.js"   (rollup MISSING_EXPORT)
+    /^(?<file>\S.*?) \((?<line>\d+):(?<column>\d+)\): (?<message>"[^"]+" is not exported by "[^"]+")/,
     // Bare "error during build:" is a header, not a message -- see NOISE.
 ]
 

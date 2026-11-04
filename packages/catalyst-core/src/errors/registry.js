@@ -28,6 +28,8 @@ export const ERROR_CODES = {
     PROCESS_USER_HOOK_FAILED: "PROCESS-002",
 
     BUNDLE_UPSTREAM_ERROR: "BUNDLE-000",
+    BUNDLE_MISSING_EXPORT: "BUNDLE-001",
+    BUNDLE_UNRESOLVED_IMPORT: "BUNDLE-002",
     IOS_UPSTREAM_ERROR: "IOS-000",
     IOS_SIMULATOR_APP_NOT_FOUND: "IOS-001",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
@@ -234,6 +236,22 @@ export const ERROR_DEFINITIONS = {
         defaultDetails:
             "This is a wrapper around an error from Vite/Rollup or another upstream build tool. See the printed upstream code/message for the actual cause — catalyst-core does not reinterpret it.",
         suggestedAction: "Read the upstream error message/code printed above and fix the underlying issue.",
+    },
+    [ERROR_CODES.BUNDLE_MISSING_EXPORT]: {
+        category: "BUNDLE",
+        defaultMessage: "Build failed: an import names something its module does not export",
+        defaultDetails:
+            "Usually happens with a Vite-based (Rollup) dependency whose published build no longer exports that name, for example after a version change or rename.",
+        suggestedAction:
+            "Check the module's exports and update the import name, or install a dependency version that exports it.",
+    },
+    [ERROR_CODES.BUNDLE_UNRESOLVED_IMPORT]: {
+        category: "BUNDLE",
+        defaultMessage: "Build failed: an import could not be resolved",
+        defaultDetails:
+            "Wrong path, an alias missing from `package.json` `_moduleAliases`, or a dependency (including a Vite-based one) that is not installed.",
+        suggestedAction:
+            "Check the import path and package.json _moduleAliases, or install the missing dependency.",
     },
     [ERROR_CODES.IOS_UPSTREAM_ERROR]: {
         category: "IOS",

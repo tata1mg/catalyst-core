@@ -115,6 +115,38 @@ describe("extractBuildErrors (vite)", () => {
             { file: "src/Home.js", line: 3, column: 14, message: "Unexpected token" },
         ])
     })
+
+    it("reads a Rollup unresolved relative import", () => {
+        expect(
+            extractBuildErrors('Could not resolve "./missing" from "../../src/App.js"', {
+                toolchain: "vite",
+            })
+        ).toEqual([
+            {
+                file: "../../src/App.js",
+                line: undefined,
+                column: undefined,
+                message: 'Could not resolve "./missing"',
+            },
+        ])
+    })
+
+    it("does not treat a non-Rollup location line as an error", () => {
+        expect(extractBuildErrors('foo (1:2): "x" is fine', { toolchain: "vite" })).toEqual([])
+    })
+
+    it("points a missing named export at the importing line", () => {
+        const output =
+            '../../src/Header.js (3:9): "Link" is not exported by "node_modules/catalyst-core/dist/index.jsx", imported by "../../src/Header.js".'
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            {
+                file: "../../src/Header.js",
+                line: 3,
+                column: 9,
+                message: '"Link" is not exported by "node_modules/catalyst-core/dist/index.jsx"',
+            },
+        ])
+    })
 })
 
 describe("outputTail", () => {
