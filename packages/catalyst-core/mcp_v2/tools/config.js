@@ -566,6 +566,15 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
                 const providers = (config.AI_CONFIG && config.AI_CONFIG.providers) || {}
                 if (typeof m.provider !== "string") err(`${at}.provider`, `Cloud models need a "provider".`)
                 else if (!providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
+            } else if (platformKey && platformKey.startsWith("web")) {
+                // In a browser: Transformers.js (default) or Chrome's built-in model.
+                if (m.engine !== undefined && !["transformers", "prompt-api"].includes(m.engine)) {
+                    err(`${at}.engine`, `Unknown web engine "${m.engine}". Use prompt-api (Chrome's built-in model) or transformers.`)
+                } else if (m.engine === "prompt-api" && platformKey === "web-mobile") {
+                    warn(`${at}.engine`, "prompt-api is desktop-only; this web-mobile entry is dropped and will never run.")
+                } else if (m.engine === "prompt-api" && Array.isArray(m.modalities) && m.modalities.some((x) => x !== "text")) {
+                    warn(`${at}.modalities`, "Chrome's built-in model takes text only here; image/audio calls will not be routed to it correctly.")
+                }
             } else if (m.engine !== undefined && !["auto", "litert", "foundation-models"].includes(m.engine)) {
                 err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert or foundation-models.`)
             } else if (m.engine === "foundation-models" && platformKey === "android") {

@@ -39,7 +39,7 @@ export function resolveRoutingPlatform(shell: { android: boolean; ios: boolean }
 }
 
 export function resolveMode(provider: string | undefined): "local" | "native" | "cloud" {
-    if (provider === "transformers") return "local"
+    if (provider === "transformers" || provider === "prompt-api") return "local"
     if (provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
     return "cloud"
 }

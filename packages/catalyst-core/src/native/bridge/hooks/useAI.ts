@@ -137,6 +137,8 @@ export function useAI(options: any = {}) {
         ? _pkg.useWebAI({
               ...options,
               ...(webSel?.model && { model: webSel.model }),
+              // "prompt-api" (Chrome's built-in model) from routing or provider: "prompt-api"; otherwise Transformers.js.
+              engine: webSel?.engine === "prompt-api" || resolvedProvider === "prompt-api" ? "prompt-api" : "transformers",
               network: { online: network.online, type: network.type },
               ...(config?.download && { download: config.download }),
           })
@@ -192,6 +194,7 @@ export function useAI(options: any = {}) {
                 webgpu: typeof navigator !== "undefined" && !!(navigator as any).gpu,
                 online: typeof navigator === "undefined" || navigator.onLine !== false,
                 webModelLoaded: !!webResult.modelReady,
+                promptApi: priced.some((c) => c.engine === "prompt-api") ? await _pkg.getPromptApiAvailability?.() : undefined,
                 loadedId: loadedId.current,
             }
             observed.current = observed.current || loadObserved()

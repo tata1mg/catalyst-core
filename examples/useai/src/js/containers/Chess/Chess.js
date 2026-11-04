@@ -124,7 +124,7 @@ export default function Chess() {
         provider,
         // Every prompt carries the full position and legal moves, so on-device models (small context
         // windows) start each move fresh instead of piling the whole game into one conversation.
-        sessionMode: provider === "native" ? "stateless" : "stateful",
+        sessionMode: provider === "native" || provider === "prompt-api" ? "stateless" : "stateful",
         genConfig: {
             stream: false,
             temperature: 0.1,
@@ -133,7 +133,7 @@ export default function Chess() {
         systemPrompt: "You are a chess engine playing as Black. Return only the selected move in SAN notation."
     });
 
-    const { generate, loading, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
+    const { generate, loading, streaming, error, output, reset, modelReady, nativeDownloadProgress, nativeLogs, isNative } = useAIResult;
 
     // The on-device model (LiteRT-LM / Apple Foundation Models) loads or downloads once; hold moves until it is
     // ready. If loading fails, latch the failure so the board unlocks (moves then fall back) instead of waiting forever.
@@ -256,7 +256,8 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
 
     // Listen to AI response
     useEffect(() => {
-        if (aiThinking && sawLoadingRef.current && !loading && !error && chessRef.current) {
+        // The web and Chrome engines drop `loading` when the first token starts, so also wait for `streaming` to end.
+        if (aiThinking && sawLoadingRef.current && !loading && !streaming && !error && chessRef.current) {
             sawLoadingRef.current = false;
             setAiThinking(false);
             const chess = chessRef.current;
@@ -281,7 +282,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                 makeFallbackMove(chessRef.current.moves());
             }
         }
-    }, [loading, error, output]);
+    }, [loading, streaming, error, output]);
 
     const executeAIMove = (moveStr) => {
         const chess = chessRef.current;
@@ -472,7 +473,7 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                         <div className="flex flex-col gap-5">
                             <div>
                                 <label className="text-[12px] font-semibold text-[var(--text-2)] block mb-2 font-mono">Select AI Engine</label>
-                                <div className="grid grid-cols-3 gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[var(--surface-2)] p-1 rounded-xl border border-[var(--border)]">
                                     <button
                                         type="button"
                                         onClick={() => setProvider("openai")}
@@ -506,6 +507,18 @@ IMPORTANT: Respond with ONLY the selected SAN move (e.g. "Nf6", "exd5", "O-O") e
                                         title="Native (On-Device)"
                                     >
                                         Native (On-Device)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setProvider("prompt-api")}
+                                        className={`py-2 rounded-lg font-semibold text-[12px] transition cursor-pointer ${
+                                            provider === "prompt-api"
+                                                ? "bg-indigo-500 text-white shadow-md"
+                                                : "text-[var(--text-2)] hover:text-white"
+                                        }`}
+                                        title="Chrome's built-in model (desktop Chrome only)"
+                                    >
+                                        Chrome (built-in)
                                     </button>
                                 </div>
                             </div>
