@@ -352,3 +352,197 @@ describe("useRouterState", () => {
         spy.mockRestore()
     })
 })
+
+describe("RouterDataProvider dev HMR and request ordering", () => {
+    // Mimics routeFetcherHmrPlugin's footer.
+    const hotUpdate = (prev, next, { fetcherChanged = true, serverFetcherChanged = false } = {}) => {
+        window.__CATALYST_HMR__.replaced.set(prev, next)
+        const detail = { prev, next, fetcherChanged, serverFetcherChanged, splits: [], reload: false }
+        act(() => {
+            window.__CATALYST_HMR__.splits.forEach((onUpdate) => onUpdate(detail))
+            window.dispatchEvent(new CustomEvent("catalyst:route-module-updated", { detail }))
+        })
+        return detail
+    }
+
+    beforeEach(() => {
+        window.__CATALYST_HMR__ ||= { replaced: new WeakMap(), splits: new Set() }
+    })
+
+    const pageModule = (name, clientFetcher) => {
+        function Page() {
+            const { data, refetch } = useCurrentRouteData()
+            return (
+                <div>
+                    <span data-testid={name}>{data ? data.v : "none"}</span>
+                    <button onClick={() => refetch()}>refetch {name}</button>
+                </div>
+            )
+        }
+        return { default: Object.assign(Page, { clientFetcher }) }
+    }
+
+    async function renderApp(pages, initialPath = "/a", initialState = {}) {
+        const { split } = await import("./Split.jsx")
+        const { Outlet, useNavigate } = await import("react-router")
+        const routes = Object.entries(pages).map(([path, mod]) => {
+            const Component = split(() => Promise.resolve(mod), {})
+            return { path, component: Component, element: <Component /> }
+        })
+        let navigate
+        function App() {
+            navigate = useNavigate()
+            return useRoutes([
+                {
+                    path: "/",
+                    element: (
+                        <RouterDataProvider initialState={initialState} config={{}}>
+                            <Outlet />
+                        </RouterDataProvider>
+                    ),
+                    children: routes,
+                },
+            ])
+        }
+        render(
+            <MemoryRouter initialEntries={[initialPath]}>
+                <App />
+            </MemoryRouter>
+        )
+        return { routes, go: (to) => act(() => navigate(to)) }
+    }
+
+    it("ignores an older in-flight fetch that resolves after a newer one", async () => {
+        const resolvers = []
+        const clientFetcher = vi.fn(() => new Promise((resolve) => resolvers.push(resolve)))
+        await renderApp({ "/a": pageModule("a", clientFetcher) })
+        await waitFor(() => expect(clientFetcher).toHaveBeenCalledTimes(1))
+        await act(async () => screen.getByText("refetch a").click())
+        await waitFor(() => expect(clientFetcher).toHaveBeenCalledTimes(2))
+        await act(async () => resolvers[1]({ v: "newer" }))
+        await act(async () => resolvers[0]({ v: "older" }))
+        expect(screen.getByTestId("a").textContent).toBe("newer")
+    })
+
+    it("refetches the visible page when its clientFetcher is hot-updated, not on component-only edits", async () => {
+        const v1 = pageModule("a", vi.fn().mockResolvedValue({ v: "v1" }))
+        await renderApp({ "/a": v1 })
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("v1"))
+
+        const jsxOnly = pageModule("a", v1.default.clientFetcher)
+        hotUpdate(v1, jsxOnly, { fetcherChanged: false })
+        await act(async () => {})
+        expect(v1.default.clientFetcher).toHaveBeenCalledTimes(1)
+
+        const v2 = pageModule("a", vi.fn().mockResolvedValue({ v: "v2" }))
+        hotUpdate(jsxOnly, v2)
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("v2"))
+    })
+
+    it("refetches a page whose clientFetcher was edited while it was not on screen", async () => {
+        const a1 = pageModule("a", vi.fn().mockResolvedValue({ v: "a1" }))
+        const b = pageModule("b", vi.fn().mockResolvedValue({ v: "b" }))
+        const { go } = await renderApp({ "/a": a1, "/b": b })
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("a1"))
+        go("/b")
+        await waitFor(() => expect(screen.getByTestId("b").textContent).toBe("b"))
+
+        const a2 = pageModule("a", vi.fn().mockResolvedValue({ v: "a2" }))
+        hotUpdate(a1, a2)
+        expect(a2.default.clientFetcher).not.toHaveBeenCalled()
+        go("/a")
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("a2"))
+
+        // Unedited pages keep their cached data.
+        go("/b")
+        await waitFor(() => expect(screen.getByTestId("b").textContent).toBe("b"))
+        expect(b.default.clientFetcher).toHaveBeenCalledTimes(1)
+    })
+
+    const ssrData = (v) => ({ data: { v }, error: null, isFetching: false, isFetched: true })
+
+    it("asks for a reload when the page on screen shows data from an edited serverFetcher", async () => {
+        const a1 = pageModule("a", vi.fn().mockResolvedValue({ v: "client" }))
+        await renderApp({ "/a": a1 }, "/a", { "/a": ssrData("ssr") })
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("ssr"))
+        const detail = hotUpdate(a1, pageModule("a", a1.default.clientFetcher), {
+            fetcherChanged: false,
+            serverFetcherChanged: true,
+        })
+        expect(detail.reload).toBe(true)
+    })
+
+    it("does not reload for a serverFetcher edit once the client has fetched that page", async () => {
+        const a1 = pageModule("a", vi.fn().mockResolvedValue({ v: "client" }))
+        await renderApp({ "/a": a1 }, "/a", { "/a": ssrData("ssr") })
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("ssr"))
+        await act(async () => screen.getByText("refetch a").click())
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("client"))
+        const detail = hotUpdate(a1, pageModule("a", a1.default.clientFetcher), {
+            fetcherChanged: false,
+            serverFetcherChanged: true,
+        })
+        expect(detail.reload).toBe(false)
+    })
+
+    it("drops cached SSR data of an off-screen page whose serverFetcher was edited", async () => {
+        const a1 = pageModule("a", vi.fn().mockResolvedValue({ v: "client" }))
+        const b = pageModule("b", vi.fn().mockResolvedValue({ v: "b" }))
+        const { go } = await renderApp({ "/a": a1, "/b": b }, "/a", { "/a": ssrData("ssr") })
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("ssr"))
+        go("/b")
+        await waitFor(() => expect(screen.getByTestId("b").textContent).toBe("b"))
+        const detail = hotUpdate(a1, pageModule("a", a1.default.clientFetcher), {
+            fetcherChanged: false,
+            serverFetcherChanged: true,
+        })
+        expect(detail.reload).toBe(false)
+        go("/a")
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("client"))
+    })
+
+    it("handles hot updates when the page module (and its footer) loads after the provider mounted", async () => {
+        // Pages rendered through React.lazy load after RouterDataProvider's effects ran,
+        // so the dev registry the footer creates doesn't exist yet at mount.
+        const hmr = window.__CATALYST_HMR__
+        delete window.__CATALYST_HMR__
+        const { split } = await import("./Split.jsx")
+        const { Outlet } = await import("react-router")
+        const v1 = pageModule("a", vi.fn().mockResolvedValue({ v: "v1" }))
+        let releasePage
+        const Page = split(
+            () =>
+                new Promise((resolve) => {
+                    releasePage = () => {
+                        window.__CATALYST_HMR__ = hmr // the footer runs as the module evaluates
+                        resolve(v1)
+                    }
+                }),
+            {}
+        )
+        function App() {
+            return useRoutes([
+                {
+                    path: "/",
+                    element: (
+                        <RouterDataProvider initialState={{}} config={{}}>
+                            <Outlet />
+                        </RouterDataProvider>
+                    ),
+                    children: [{ path: "a", component: Page, element: <Page /> }],
+                },
+            ])
+        }
+        render(
+            <MemoryRouter initialEntries={["/a"]}>
+                <App />
+            </MemoryRouter>
+        )
+        await waitFor(() => expect(releasePage).toBeTypeOf("function"))
+        await act(async () => releasePage())
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("v1"))
+        const v2 = pageModule("a", vi.fn().mockResolvedValue({ v: "v2" }))
+        hotUpdate(v1, v2)
+        await waitFor(() => expect(screen.getByTestId("a").textContent).toBe("v2"))
+    })
+})

@@ -36,6 +36,8 @@ export interface SplitComponent {
     clientFetcher?: any
     serverFetcher?: any
     setMetaData?: any
+    /** Dev HMR: bumped each time a hot update changes this page's clientFetcher. */
+    __fetcherVersion?: number
 }
 
 // Synchronous module cache: importFn → resolved module.
@@ -44,6 +46,23 @@ export interface SplitComponent {
 // tags in the HTML have already executed, so every .then() has already
 // resolved and the module is available here synchronously.
 const moduleCache = new Map<SplitImportFn, any>()
+
+// Dev HMR: routeFetcherHmrPlugin's footer creates window.__CATALYST_HMR__ when a
+// page module with a fetcher runs. It maps each old module namespace to its
+// replacement, and holds the splits to update when a page is hot-updated.
+// It never exists in production, so nothing here runs there.
+const hmrState = (): { replaced: WeakMap<any, any>; splits: Set<(detail: any) => void> } | undefined =>
+    typeof window !== "undefined" ? (window as any).__CATALYST_HMR__ : undefined
+// A module that was hot-updated before this split first loaded it resolves to its newest version.
+const newestVersion = (mod: any) => {
+    const replaced = hmrState()?.replaced
+    const visited = new Set()
+    while (replaced?.has(mod) && !visited.has(mod)) {
+        visited.add(mod)
+        mod = replaced.get(mod)
+    }
+    return mod
+}
 
 // Collects one promise per SSR-rendered split() call on the client.
 // loadableReady() waits for all of them before hydration begins.
@@ -149,7 +168,18 @@ export const split = (
           ? thirdArg
           : undefined
 
-    const LazyComponent = lazy(importFn)
+    // Newest module this split has loaded, or been hot-updated to in dev.
+    let latestModule: any = null
+    const loadModule = () =>
+        importFn().then((mod: any) => {
+            if (!latestModule) {
+                latestModule = newestVersion(mod)
+                hmrState()?.splits.add(onHotUpdate)
+            }
+            return latestModule
+        })
+
+    const LazyComponent = lazy(loadModule)
     let loadInFlight: Promise<any> | null = null
 
     // Per-split instance subscribers. Pending wrapper instances register their
@@ -166,12 +196,24 @@ export const split = (
         const Component = mod?.default || mod
         for (const key of ["clientFetcher", "serverFetcher", "setMetaData"]) {
             if (Component?.[key]) wrapper[key] = Component[key]
+            else delete wrapper[key]
         }
         return mod
     }
 
+    // Dev HMR: swap in the hot-updated module so load() and the statics stop
+    // returning stale code, and tell RouterDataProvider which split changed.
+    const onHotUpdate = (detail: any) => {
+        if (latestModule !== detail.prev) return
+        latestModule = detail.next
+        if (moduleCache.has(importFn)) moduleCache.set(importFn, detail.next)
+        copyRouteStatics(detail.next)
+        if (detail.fetcherChanged) wrapper.__fetcherVersion = (wrapper.__fetcherVersion || 0) + 1
+        detail.splits.push(wrapper)
+    }
+
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
-        const prefetch = importFn().then((mod: any) => {
+        const prefetch = loadModule().then((mod: any) => {
             moduleCache.set(importFn, mod)
             copyRouteStatics(mod)
         })
@@ -229,7 +271,7 @@ export const split = (
         const cached = moduleCache.get(importFn)
         if (cached) return Promise.resolve(cached)
         if (!loadInFlight) {
-            loadInFlight = importFn()
+            loadInFlight = loadModule()
                 .then((mod: any) => {
                     copyRouteStatics(mod)
                     if (typeof window !== "undefined") {
