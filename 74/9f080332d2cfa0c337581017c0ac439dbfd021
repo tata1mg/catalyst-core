@@ -1,0 +1,40 @@
+packages/create-catalyst-app/templates/common/server/index.js
+  e4e5de357933a184 1-7,9-16,18-37
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  e4e5de357933a184 9,11,13,15-24,27-31,33-39,42,44,46-47,50,52,56-58,65-67
+"docs/content/11-API Reference/03-File-Conventions.md"
+  e4e5de357933a184 138,142-145,147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "749f080332d2cfa0c337581017c0ac439dbfd021",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 591,
+      "overriden_lines": 0
+    },
+    "e4e5de357933a184": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa70c4ba-b226-4257-90e6-d86d92a933db",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 110,
+      "total_deletions": 59,
+      "accepted_lines": 85,
+      "overriden_lines": 1
+    }
+  }
+}
