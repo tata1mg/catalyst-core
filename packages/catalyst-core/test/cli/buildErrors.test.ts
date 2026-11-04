@@ -116,6 +116,21 @@ describe("extractBuildErrors (vite)", () => {
         ])
     })
 
+    it("reads a Rollup unresolved relative import", () => {
+        expect(
+            extractBuildErrors('Could not resolve "./missing" from "../../src/App.js"', {
+                toolchain: "vite",
+            })
+        ).toEqual([
+            {
+                file: "../../src/App.js",
+                line: undefined,
+                column: undefined,
+                message: 'Could not resolve "./missing"',
+            },
+        ])
+    })
+
     it("does not treat a non-Rollup location line as an error", () => {
         expect(extractBuildErrors('foo (1:2): "x" is fine', { toolchain: "vite" })).toEqual([])
     })
