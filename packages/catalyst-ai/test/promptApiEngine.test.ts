@@ -233,6 +233,28 @@ describe("useWebAI with the Chrome engine", () => {
     })
 })
 
+describe("useWebAI with the Chrome engine and attachment components", () => {
+    it("constrains the reply to a schema of the registered components and renders the blocks", async () => {
+        const { renderHook, act } = await import("@testing-library/react")
+        const { useWebAI } = await import("../src/useWebAI.js")
+        const reply = JSON.stringify({ blocks: [{ component: "Header", text: "Antigravity" }, { component: "InfoCard", text: "A framework." }] })
+        const { api, created } = fakeApi({ chunks: [reply.slice(0, 40), reply.slice(40)] })
+        vi.stubGlobal("LanguageModel", api)
+        try {
+            const { result } = renderHook(() => useWebAI({ engine: "prompt-api", attachmentComponents: { Header: {}, InfoCard: {} } }))
+            await act(async () => { await result.current.generate({ messages: [user("what is antigravity?")] }) })
+            const [prompt, options] = created[1].promptStreaming.mock.calls[0]
+            expect(options.responseConstraint.properties.blocks.items.properties.component.enum).toEqual(["Header", "InfoCard"])
+            expect(prompt).toBe("what is antigravity?")
+            const sentinels = result.current.output.match(/\x00SATTACH:[^\x00]*\x00/g)
+            expect(sentinels).toHaveLength(2)
+            expect(JSON.parse(sentinels![1].slice(9, -1))).toEqual({ component: "InfoCard", attrs: {}, body: "A framework." })
+        } finally {
+            vi.unstubAllGlobals()
+        }
+    })
+})
+
 describe("desktop only", () => {
     const phone = { userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/156 Mobile Safari/537.36", platform: "Linux armv8l", maxTouchPoints: 5 }
     const iphone = { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/156 Mobile/15E148", platform: "iPhone", maxTouchPoints: 5 }

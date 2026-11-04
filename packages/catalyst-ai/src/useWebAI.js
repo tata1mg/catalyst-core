@@ -8,6 +8,7 @@ import { ERROR_CODES, createError } from "catalyst-core/errors"
 import { createPromptApiEngine, PROMPT_API_MODEL } from "./promptApiEngine.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { convertAttachmentTags } from "./attachmentTags.js"
+import { blocksToSentinels, buildAttachmentSchema, buildSchemaSystemPrompt } from "./attachmentSchema.js"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -117,9 +118,20 @@ export function useWebAI({
             // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
             // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
             // A speech-to-text model has no use for it: it only transcribes.
-            const systemText = kind === "asr" ? null : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
             const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
-            const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current)) : raw)
+            // Chrome's built-in model cannot follow the tag syntax reliably, but it can be held to a JSON schema: the
+            // component is one of the registered names and the blocks are rendered by code (see attachmentSchema.js).
+            const useSchema = promptApi && wantsComponents
+            const systemText = kind === "asr"
+                ? null
+                : useSchema
+                    ? buildSchemaSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+                    : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            const shown = (raw) => {
+                if (!wantsComponents) return raw
+                if (useSchema) return blocksToSentinels(raw, attachmentComponentsRef.current) ?? (raw.trimStart().startsWith("{") ? "" : convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current)))
+                return convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current))
+            }
             const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
@@ -168,7 +180,11 @@ export function useWebAI({
                 workerRef.current = null
             }
 
-            const genConfig = { ...hookGenConfig, ...callGenConfig }
+            const genConfig = {
+                ...hookGenConfig,
+                ...(useSchema && { responseConstraint: buildAttachmentSchema(attachmentComponentsRef.current) }),
+                ...callGenConfig,
+            }
             const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...outgoing] : outgoing
 
             setLoading(true)

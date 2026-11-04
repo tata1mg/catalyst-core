@@ -175,7 +175,10 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
         let lastChangeAt = now()
         const watchdog = setInterval(() => {
             const idleS = Math.round((now() - lastChangeAt) / 1000)
-            if (idleS >= 15) log(`no download progress for ${idleS}s (last ${lastLoaded < 0 ? "none" : Math.round(lastLoaded * 100) + "%"}). Check chrome://on-device-internals and chrome://components (Optimization Guide On Device Model), and free disk space (~22 GB).`)
+            if (idleS < 15) return
+            // After the bytes arrive Chrome unpacks, verifies and loads the model, which can take minutes and sends no progress.
+            if (lastLoaded >= 0.9) log(`download finished (${Math.round(lastLoaded * 100)}%), Chrome is installing and loading the model: ${idleS}s so far. This can take a few minutes; chrome://on-device-internals shows the state.`)
+            else log(`no download progress for ${idleS}s (last ${lastLoaded < 0 ? "none" : Math.round(lastLoaded * 100) + "%"}). Check chrome://on-device-internals and chrome://components (Optimization Guide On Device Model), and free disk space.`)
         }, 15000)
         try {
             session = await api.create({
