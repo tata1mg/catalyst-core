@@ -1,4 +1,7 @@
-import Home from "@containers/Home/Home"
+import { split } from "catalyst-core"
+
+// split() lets Catalyst run the page's serverFetcher and clientFetcher.
+const Home = split(() => import("@containers/Home/Home"))
 
 const routes = [
     {

@@ -15,6 +15,13 @@
         },
         "ios": {
             "buildType": "debug"
+        },
+        "splashScreen": {
+            "backgroundColor": "#0b0a14",
+            "minDuration": 7000,
+            "imageWidth": 144,
+            "imageHeight": 144,
+            "cornerRadius": 0
         }
     }
 }
