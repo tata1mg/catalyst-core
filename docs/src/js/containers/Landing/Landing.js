@@ -183,7 +183,7 @@ function HomepageHero() {
                             <div className={styles.terminalLine}>
                                 <span className={styles.terminalPrompt}>$</span>
                                 <span className={styles.terminalCommand}>
-                                    npm run buildApp:android
+                                    npm run android
                                 </span>
                                 <span className={styles.terminalLabel}>
                                     Android
@@ -192,7 +192,7 @@ function HomepageHero() {
                             <div className={styles.terminalLine}>
                                 <span className={styles.terminalPrompt}>$</span>
                                 <span className={styles.terminalCommand}>
-                                    npm run buildApp:ios
+                                    npm run ios
                                 </span>
                                 <span className={styles.terminalLabel}>
                                     iOS

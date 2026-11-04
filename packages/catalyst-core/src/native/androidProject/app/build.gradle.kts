@@ -11,9 +11,19 @@ buildscript {
 }
 
 val configPath = findProperty("configPath") as? String
-val keystorePassword: String? by project.properties  // Changed from keyStorePassword to keystorePassword
-val keyAlias: String? by project.properties
-val keyPassword: String? by project.properties
+
+// Set by the Catalyst CLI (buildApp:android). -PcatalystBuildType decides the
+// build type for generateWebViewConfig; the task-name check is only the
+// fallback for a hand-run `./gradlew bundleRelease`. Version, application id
+// and signing values arrive as ORG_GRADLE_PROJECT_* environment variables so
+// that passwords never appear on a command line.
+val isCatalystReleaseBuild: Boolean = (findProperty("catalystBuildType") as? String)?.let { it == "release" }
+    ?: gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }
+val catalystApplicationId = (findProperty("catalystApplicationId") as? String)?.takeIf { it.isNotBlank() }
+    ?: "io.yourname.androidproject"
+val catalystVersionCode = (findProperty("catalystVersionCode") as? String)?.toIntOrNull() ?: 1
+val catalystVersionName = (findProperty("catalystVersionName") as? String)?.takeIf { it.isNotBlank() } ?: "1.1"
+val catalystStoreFile = findProperty("catalystStoreFile") as? String
 
 fun isAllowBackupEnabled(): Boolean {
     return try {
@@ -96,32 +106,28 @@ jacoco {
 
 android {
     namespace = "io.yourname.androidproject"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.yourname.androidproject"
+        applicationId = catalystApplicationId
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.1"
+        targetSdk = 36
+        versionCode = catalystVersionCode
+        versionName = catalystVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "LOCAL_IP", "\"${getLocalIpAddress()}\"")
         manifestPlaceholders["allowBackup"] = isAllowBackupEnabled()
     }
 
-    // Add signing configuration for app bundle
+    // The app's upload key, passed in by the Catalyst CLI. Without it a
+    // release build is unsigned.
     signingConfigs {
-        create("release") {
-            // Make sure the keystore file exists before referencing it
-            val keystoreFile = file("../keystore/release-key.jks")
-            if (keystoreFile.exists()) {
-               storeFile = file("../keystore/release-key.jks")
-                storePassword = "test@123"
-                keyAlias = "release"
-                keyPassword = "test@123"
-            } else {
-                // Log a warning if the keystore doesn't exist yet
-                logger.warn("Keystore file not found at ${keystoreFile.absolutePath}. Run the generateKeystore task first.")
+        if (catalystStoreFile != null) {
+            create("release") {
+                storeFile = file(catalystStoreFile)
+                storePassword = findProperty("catalystStorePassword") as? String
+                keyAlias = findProperty("catalystKeyAlias") as? String
+                keyPassword = findProperty("catalystKeyPassword") as? String
             }
         }
     }
@@ -145,10 +151,7 @@ android {
             buildConfigField("Boolean", "ALLOW_MIXED_CONTENT", "false")
             buildConfigField("String", "LOCAL_IP", "\"127.0.0.1\"")
 
-            // Only apply signing config if the keystore exists
-            if (file("../keystore/release-key.jks").exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
 
@@ -289,19 +292,27 @@ dependencies {
     }
 
     // Security detection dependencies
-    implementation("com.scottyab:rootbeer-lib:0.1.1")  // Root detection
+    // 0.1.2 ships libtoolChecker.so 16 KB aligned on every ABI (0.1.1 did on
+    // 64-bit only). #302; https://github.com/scottyab/rootbeer/releases
+    implementation("com.scottyab:rootbeer-lib:0.1.2")  // Root detection
     implementation("com.google.android.play:integrity:1.3.0")  // Play Integrity API
 
     // SLF4J simple logger for Ktor (optional, can be excluded if needed)
     implementation("org.slf4j:slf4j-simple:2.0.9")
 
-    // CameraX
-    implementation("androidx.camera:camera-core:1.3.4")
-    implementation("androidx.camera:camera-camera2:1.3.4")
-    implementation("androidx.camera:camera-lifecycle:1.3.4")
-    implementation("androidx.camera:camera-view:1.3.4")
+    // CameraX. 1.3.4's libimage_processing_util_jni.so has 4 KB LOAD
+    // segments; 1.4.0-alpha05 and later ship it 16 KB aligned (#302, checked
+    // in the AARs from Google Maven). 1.4.2 is the newest line that needs
+    // neither minSdk 23 nor Kotlin 2 (1.5.0 raised both; see
+    // https://developer.android.com/jetpack/androidx/releases/camera).
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
 
-    // ML Kit Barcode Scanning
+    // ML Kit Barcode Scanning. 17.3.0 is 16 KB aligned on 64-bit ABIs, which
+    // is what Play requires: https://developers.google.com/ml-kit/release-notes
+    // (August 7, 2024).
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // Notification dependencies - conditional based on config
@@ -483,11 +494,16 @@ tasks.register("generateWebViewConfig") {
         
         val properties = Properties()
 
-        // Set different IP based on build type
-        if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {
-            properties.setProperty("LOCAL_IP", "127.0.0.1") // Production
+        // Set different IP based on build type. A release takes LOCAL_IP from
+        // the config (the CLI resolves WEBVIEW_CONFIG.url into it first) and
+        // honours android.buildOptimisation instead of forcing it on.
+        if (isCatalystReleaseBuild) {
+            properties.setProperty("LOCAL_IP", "127.0.0.1") // Overridden by the config's LOCAL_IP
             properties.setProperty("buildType", "release")
-            properties.setProperty("buildOptimisation", "true")
+            val optimise = (findProperty("buildOptimisation") as? String)?.toBoolean()
+                ?: webviewConfig.optJSONObject("android")?.optBoolean("buildOptimisation", false)
+                ?: false
+            properties.setProperty("buildOptimisation", optimise.toString())
         } else {
             properties.setProperty("LOCAL_IP", getLocalIpAddress()) // Debug
             properties.setProperty("buildType", "debug")
@@ -568,12 +584,6 @@ tasks.register("generateWebViewConfig") {
             properties.setProperty("splashScreen.enabled", "false")
         }
 
-        // Set production-specific properties for release builds
-        if (gradle.startParameter.taskNames.any { it.contains("Release") || it.contains("release") }) {
-            properties.setProperty("PRODUCTION_URL", "https://yourwebapp.com") // Replace with your domain
-            properties.setProperty("apiBaseUrl", "https://api.yourdomain.com/") // Replace with your API URL
-        }
-
         // Create the assets directory if it doesn't exist
         val assetsDir = File("${project.projectDir}/src/main/assets")
         if (!assetsDir.exists()) {
@@ -591,45 +601,9 @@ if (isNotificationsEnabled()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-// Task to create key store if it doesn't exist
-// Add this task to your build.gradle.kts
-tasks.register("generateKeystore") {
-    doLast {
-        val keystoreDir = File(project.rootDir, "keystore")
-        if (!keystoreDir.exists()) {
-            keystoreDir.mkdirs()
-        }
-
-        val keystoreFile = File(keystoreDir, "release-key.jks")
-        if (!keystoreFile.exists()) {
-            val storePass = project.properties["keystorePassword"] as? String ?: System.getenv("KEYSTORE_PASSWORD") ?: "android"
-            val keyPass = project.properties["keyPassword"] as? String ?: System.getenv("KEY_PASSWORD") ?: "android"
-            val alias = project.properties["keyAlias"] as? String ?: System.getenv("KEY_ALIAS") ?: "release"
-
-            project.exec {
-                commandLine = listOf(
-                    "keytool",
-                    "-genkey",
-                    "-v",
-                    "-keystore", keystoreFile.absolutePath,
-                    "-alias", alias,
-                    "-keyalg", "RSA",
-                    "-keysize", "2048",
-                    "-validity", "10000",
-                    "-storepass", storePass,
-                    "-keypass", keyPass,
-                    "-dname", "CN=YourCompany, OU=YourDepartment, O=YourOrganization, L=YourCity, ST=YourState, C=US"
-                )
-            }
-            println("Generated keystore at: ${keystoreFile.absolutePath}")
-        } else {
-            println("Keystore already exists at: ${keystoreFile.absolutePath}")
-        }
-    }
-}
 // Task to build app bundle
 tasks.register("createAppBundle") {
-    dependsOn("generateKeystore", "bundleRelease")
+    dependsOn("bundleRelease")
     doLast {
         println("""
             =======================================================

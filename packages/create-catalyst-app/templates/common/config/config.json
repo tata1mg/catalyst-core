@@ -7,6 +7,8 @@
     "API_URL": "",
     "CLIENT_ENV_VARIABLES": ["API_URL"],
     "WEBVIEW_CONFIG": {
+        "appId": "com.example.app",
+        "appName": "Catalyst App",
         "LOCAL_IP": "localhost",
         "port": "3005",
         "appInfo": "",

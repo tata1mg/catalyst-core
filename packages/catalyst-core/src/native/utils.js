@@ -1,4 +1,4 @@
-import { execSync, spawn } from "child_process"
+import { execFileSync, execSync, spawn } from "child_process"
 import readline from "readline"
 import fs from "fs"
 import os from "os"
@@ -86,6 +86,38 @@ function runCommand(command, { timeout } = {}) {
         console.error(`Error executing command: ${secretScrubber(command)(command)}`)
         console.error(`Error message: ${error.message}`)
         throw error
+    }
+}
+
+/**
+ * runCommand for a program and its arguments, with no shell in between. For
+ * tools whose path comes from the environment or config (an SDK's adb or
+ * emulator): a path holding quotes or `$(...)` is just a file name here.
+ *
+ * @param {string} file - the program; must be a non-empty path with no NUL or newline
+ * @param {string[]} args
+ * @param {object} [options]
+ * @param {number} [options.timeout] - ms before the program is killed
+ */
+function runFile(file, args = [], { timeout } = {}) {
+    assertToolPath(file)
+    const display = [file, ...args].join(" ")
+    try {
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - argv array, no shell; the path is validated above.
+        return execFileSync(file, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout })
+    } catch (error) {
+        if (timeout && isTimeout(error)) throw toolTimeoutError(path.basename(file), timeout)
+        redactError(error, display)
+        console.error(`Error executing command: ${secretScrubber(display)(display)}`)
+        console.error(`Error message: ${error.message}`)
+        throw error
+    }
+}
+
+/** A tool path from config or the environment: a non-empty string with no NUL or line break. */
+function assertToolPath(file) {
+    if (typeof file !== "string" || !file.trim() || /[\0\r\n]/.test(file)) {
+        throw new Error(`Not a valid tool path: ${JSON.stringify(file)}`)
     }
 }
 
@@ -192,8 +224,11 @@ function detectAndroidSdk(env = process.env) {
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process, javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
-        const out = execSync(`"${path.join(expandHome(sdkPath), "emulator", "emulator")}" -list-avds`, {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        const emulator = path.join(expandHome(sdkPath), "emulator", "emulator")
+        assertToolPath(emulator)
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - argv array, no shell.
+        const out = execFileSync(emulator, ["-list-avds"], {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
             timeout: 15000,
@@ -217,7 +252,7 @@ function expandHome(dir) {
 
 /** The hint for a missing or wrong SDK path, naming the one field to set. */
 const ANDROID_SDK_HINT =
-    'Install Android Studio, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
+    'Run catalyst setupEmulator:android to install it, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
 
 /**
  * Write the SDK location gradle reads. `setupEmulator:android` used to be the
@@ -247,6 +282,8 @@ function ensureLocalProperties(projectDir, sdkPath) {
  * @param {string[]} args
  * @param {object} [promptResponses] - text to answer prompts with
  * @param {object} [options]
+ * @param {NodeJS.ProcessEnv} [options.env] - the child's environment (defaults to this process's)
+ * @param {string} [options.cwd] - the child's working directory
  * @param {(line: string) => void} [options.onLine] - called per output line.
  *   Without it the output is captured silently. Gradle and xcodebuild emit
  *   hundreds of lines that nobody reads on success and that are redundant on
@@ -254,12 +291,18 @@ function ensureLocalProperties(projectDir, sdkPath) {
  *   way. Callers that want progress pass a handler that summarises, rather
  *   than letting the raw stream scroll.
  */
-async function runInteractiveCommand(command, args, promptResponses = {}, { onLine } = {}) {
+async function runInteractiveCommand(command, args, promptResponses = {}, { onLine, env, cwd } = {}) {
     return new Promise((resolve, reject) => {
         // Named `child`, not `process`: the previous name shadowed the global
         // `process` for the whole function body.
+        // `env` is how secrets reach a child (ORG_GRADLE_PROJECT_*): never argv,
+        // where ps and the failure echo would show them.
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native build commands are fixed internal commands passed with argv arrays.
-        const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] })
+        const child = spawn(command, args, {
+            stdio: ["pipe", "pipe", "pipe"],
+            ...(env ? { env } : {}),
+            ...(cwd ? { cwd } : {}),
+        })
 
         let promptBuffer = ""
         let outputBuffer = ""
@@ -345,149 +388,364 @@ function handlePrompts(child, buffer, promptResponses) {
     return buffer
 }
 
-async function runSdkManagerCommand(sdkManagerPath, args) {
-    const promptResponses = {
-        "(y/N)": "y",
-        "Accept? (y/N):": "y",
-    }
-    return runInteractiveCommand(sdkManagerPath, args, promptResponses)
+/**
+ * Run a command on the user's own terminal: inherited stdio, so they see its
+ * progress and can answer it (a sudo password, a licence). The spinner is
+ * stood down for the duration. Only for steps a person has agreed to.
+ *
+ * @param {string} command
+ * @param {string[]} args
+ * @param {object} [options]
+ * @param {NodeJS.ProcessEnv} [options.env]
+ * @param {string} [options.cwd]
+ */
+async function runInheritedCommand(command, args, { env, cwd } = {}) {
+    return withSpinnersPaused(
+        () =>
+            new Promise((resolve, reject) => {
+                // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed setup commands with argv arrays, run after the user agreed.
+                const child = spawn(command, args, {
+                    stdio: "inherit",
+                    ...(env ? { env } : {}),
+                    ...(cwd ? { cwd } : {}),
+                })
+                child.on("error", (error) =>
+                    reject(
+                        error.code === "ENOENT"
+                            ? new Error(`Command not found: ${command}`, { cause: error })
+                            : error
+                    )
+                )
+                child.on("close", (code) => {
+                    if (code === 0) resolve()
+                    else reject(Object.assign(new Error(`${command} exited with code ${code}`), { code }))
+                })
+            })
+    )
 }
 
-async function validateAndCompleteConfig(platform, configPath) {
-    // Read existing config
-    let config
-    try {
-        const configContent = fs.readFileSync(configPath, "utf8")
-        config = JSON.parse(configContent)
-    } catch (error) {
-        console.error(`Error reading config file: ${error.message}`)
-        config = {}
-    }
+// ---------------------------------------------------------------------------
+// Coded errors shared by the Android and iOS builds.
+// ---------------------------------------------------------------------------
 
-    // Initialize WEBVIEW_CONFIG if it doesn't exist
-    if (!config.WEBVIEW_CONFIG) {
-        config.WEBVIEW_CONFIG = {}
-    }
+// Messages mirror errors/registry.js ERROR_DEFINITIONS (see errors/<CATEGORY>/*.md).
+// This CJS subtree can't import the ESM error registry (see
+// buildErrorFormat.js), so the strings are copied here; a test keeps them equal.
+const NATIVE_ERRORS = {
+    "ANDROID-005": {
+        message: "No upload key for the release build",
+        hint: "Run catalyst buildApp:android --release once in a terminal to create credentials/android/upload.jks, then back it up with catalyst credentials:export android. In CI, set the CATALYST_ANDROID_CREDENTIALS secret to the output of catalyst credentials:export android.",
+    },
+    "ANDROID-006": {
+        message: "Upload key settings are incomplete or wrong",
+        hint: "Check credentials/android/keystore.properties against credentials/android/upload.jks. In CI, run catalyst credentials:export android again and update the CATALYST_ANDROID_CREDENTIALS secret.",
+    },
+    "ANDROID-007": {
+        message: "No JDK 17 to 23 found",
+        hint: "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
+    },
+    "ANDROID-008": {
+        message: "Android SDK setup was declined",
+        hint: "Run the command again and answer yes, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences.",
+    },
+    "ANDROID-009": {
+        message: "Could not install the Android command-line tools",
+        hint: "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+    },
+    "ANDROID-010": {
+        message: "App icon is not usable",
+        hint: "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+    },
+    "ANDROID-011": {
+        message: "No Android phone connected",
+        hint: "Connect the phone, turn on USB debugging in Developer options, accept the Allow USB debugging prompt on the phone and check that adb devices lists it. Or drop --device to use the emulator.",
+    },
+    "IOS-002": {
+        message: "Full Xcode is not installed or selected",
+        hint: "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+    },
+    "IOS-003": {
+        message: "Xcode setup is not finished",
+        hint: "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+    },
+    "IOS-004": {
+        message: "No iOS simulator runtime installed",
+        hint: "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+    },
+    "IOS-005": {
+        message: "App icon is not usable",
+        hint: "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+    },
+    "IOS-006": {
+        message: "App icon has transparency",
+        hint: "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
+    "IOS-010": {
+        message: "iOS code signing is not set up",
+        hint: "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
+    },
+    "IOS-011": {
+        message: "App Store Connect API key settings are incomplete or wrong",
+        hint: "Put the AuthKey_*.p8 file in credentials/ios/, and an ascIssuerId line (plus ascKeyId when the file is renamed) in credentials/ios/signing.properties. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+    },
+    "IOS-012": {
+        message: "Manual signing inputs are incomplete or wrong",
+        hint: "Keep one distribution .p12 and the .mobileprovision for WEBVIEW_CONFIG.appId in credentials/ios/, with a p12Password line in credentials/ios/signing.properties, and check that they belong together. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+    },
+    "IOS-013": {
+        message: "Unknown iOS export method",
+        hint: "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
+    },
+    "IOS-014": {
+        message: "No connected iPhone found",
+        hint: "Connect the iPhone with a cable, unlock it, accept Trust This Computer and turn on Developer Mode (Settings > Privacy & Security), then retry; or leave out --device to use the simulator.",
+    },
+    "IOS-015": {
+        message: "No address the iPhone can reach this Mac on",
+        hint: "Join the Mac and the iPhone to the same Wi-Fi network and check the Local Hostname in System Settings > General > Sharing, then retry.",
+    },
+    "NATIVE-001": {
+        message: "Release build points at a local or private host",
+        hint: "Set WEBVIEW_CONFIG.url to your production origin (e.g. https://shop.acme.com) or pass --url, or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network.",
+    },
+    "NATIVE-002": {
+        message: "Invalid build number",
+        hint: "Unset CATALYST_BUILD_NUMBER to use the automatic build number, or set it to a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+    },
+    "NATIVE-003": {
+        message: "Release build uses a placeholder app id",
+        hint: "Set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id, e.g. com.acme.shop.",
+    },
+    "NATIVE-004": {
+        message: "Invalid production URL",
+        hint: "Use an origin such as https://shop.acme.com, without a path or a port other than 443.",
+    },
+    "NATIVE-005": {
+        message: "A step needs your answer and there is no terminal to ask on",
+        hint: "Pass the flag named in the message, or run the command in an interactive terminal.",
+    },
+    "NATIVE-006": {
+        message: "The dev server did not answer",
+        hint: "Run npm start on its own to see why the server does not start, then run the build again.",
+    },
+    "NATIVE-007": {
+        message: "The credentials secret could not be unpacked",
+        hint: "Run catalyst credentials:export <android|ios> where credentials/<platform>/ exists and paste the whole value into the secret again.",
+    },
+    "NATIVE-008": {
+        message: "No credentials to export",
+        hint: "Run the command from the app root after a release build has created credentials/<platform>/.",
+    },
+    "NATIVE-009": {
+        message: "Credentials are too large for one secret",
+        hint: "Remove files the build does not need from credentials/<platform>/ (only signing keys, profiles and their settings belong there), then export again.",
+    },
+    "NATIVE-010": {
+        message: "Invalid app id",
+        hint: "Set WEBVIEW_CONFIG.appId in config/config.json to a reverse-DNS id such as com.acme.shop: letters and digits only, each part starting with a letter.",
+    },
+    "NATIVE-011": {
+        message: "A release with this version and build number already exists",
+        hint: "Wait a minute and run the release again, or set CATALYST_BUILD_NUMBER to a higher number. To rebuild the same build on purpose, delete that folder first.",
+    },
+}
 
-    // Check if WEBVIEW_CONFIG already has all required fields
-    const webviewConfig = config.WEBVIEW_CONFIG
+const ERROR_DOC_BASE = "https://github.com/tata1mg/catalyst-core/blob/main/errors"
 
-    const commonFields = {
-        port: "Port the app is served on",
-    }
+/**
+ * A coded error the build diagnostic prints with its code, hint and doc link.
+ *
+ * @param {string} code
+ * @param {string} [detail]
+ * @param {{ hint?: string }} [options]
+ * @returns {Error & { code: string, hint?: string, docUrl: string }}
+ */
+function nativeError(code, detail, { hint } = {}) {
+    const def = NATIVE_ERRORS[code] || { message: "Native build failed" }
+    /** @type {any} */
+    const error = new Error(detail ? `${def.message}: ${detail}` : def.message)
+    error.code = code
+    error.hint = hint || def.hint
+    error.docUrl = `${ERROR_DOC_BASE}/${code.replace(/-\d{3}$/, "")}/${code}.md`
+    return error
+}
 
-    // cachePattern is optional -- the iOS build emits an empty pattern list
-    // when it is absent and Android never required it -- so asking for it on
-    // every first setup only stalled people on a question they could not answer.
-    const platformConfigs = {
-        android: {
-            buildType: "Android build type (debug/release)",
-            sdkPath: "Android SDK path",
-            emulatorName: "Android emulator (AVD) name",
-        },
-        ios: {
-            buildType: "iOS build type (debug/release)",
-            appBundleId: "iOS bundle ID (e.g. com.example.app)",
-            simulatorName: "iOS simulator name (e.g. iPhone 16 Pro)",
-        },
-    }
+// ---------------------------------------------------------------------------
+// Flags and questions. Agents and CI never get a prompt: without a terminal,
+// a question that needs an answer fails at once with NATIVE-005 naming the
+// flag that answers it.
+// ---------------------------------------------------------------------------
 
-    // Answers we can work out are filled in rather than asked; the rest are
-    // asked with the best guess offered as the default.
-    const sdkGuess = platform === "android" ? webviewConfig.android?.sdkPath || detectAndroidSdk() : null
-    const defaults = {
-        port: config.NODE_SERVER_PORT ? String(config.NODE_SERVER_PORT) : undefined,
-        buildType: "debug",
-        sdkPath: sdkGuess || undefined,
-        emulatorName: platform === "android" ? listAvds(sdkGuess)[0] : undefined,
-    }
-    const filled = []
-
-    if (!platformConfigs[platform]) {
-        throw new Error('Invalid platform. Must be either "android" or "ios"')
-    }
-
-    // Check if all required fields are present
-    let hasAllFields = true
-
-    // Check common fields
-    for (const key of Object.keys(commonFields)) {
-        if (!webviewConfig[key]) {
-            hasAllFields = false
-            break
-        }
-    }
-
-    // Check platform-specific fields
-    if (!webviewConfig[platform]) {
-        webviewConfig[platform] = {}
-        hasAllFields = false
-    } else {
-        for (const key of Object.keys(platformConfigs[platform])) {
-            if (!webviewConfig[platform][key]) {
-                hasAllFields = false
-                break
+/**
+ * The native flags the CLI forwards (bin/catalyst.js keeps them out of
+ * command dispatch; this reads them back in the platform script):
+ * `--release` (signed store build), `--device` (the connected phone instead
+ * of the emulator/simulator), `--url <u>` / `--url=<u>` (the release's
+ * production URL, over WEBVIEW_CONFIG.url), `--yes` (confirms installs and
+ * downloads, never licences or key creation) and `--accept-licenses`.
+ *
+ * @param {string[]} [argv]
+ * @returns {{ release: boolean, device: boolean, url: string | undefined, yes: boolean, acceptLicenses: boolean }}
+ */
+function parseNativeArgs(argv = process.argv.slice(2)) {
+    const result = { release: false, device: false, url: undefined, yes: false, acceptLicenses: false }
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i]
+        if (arg === "--release") result.release = true
+        else if (arg === "--device") result.device = true
+        else if (arg === "--yes") result.yes = true
+        else if (arg === "--accept-licenses") result.acceptLicenses = true
+        else if (arg === "--url" || arg.startsWith("--url=")) {
+            const value = arg === "--url" ? argv[++i] : arg.slice("--url=".length)
+            if (!value || value.startsWith("--")) {
+                throw nativeError("NATIVE-004", "--url needs a value, e.g. --url https://shop.acme.com")
             }
+            result.url = value
         }
     }
+    return result
+}
 
-    // If all fields are present, return the platform-specific config
-    if (hasAllFields) {
-        return {
-            port: webviewConfig.port,
-            [platform]: webviewConfig[platform],
+/**
+ * True when a person can answer a question here: stdin and stdout are both
+ * terminals and `CI` is not set.
+ *
+ * @param {object} [options]
+ * @param {{ isTTY?: boolean }} [options.stdin]
+ * @param {{ isTTY?: boolean }} [options.stdout]
+ * @param {Record<string, string | undefined>} [options.env]
+ */
+function isInteractive({ stdin = process.stdin, stdout = process.stdout, env = process.env } = {}) {
+    const ci = env.CI !== undefined && env.CI !== "" && env.CI !== "0" && env.CI.toLowerCase() !== "false"
+    return Boolean(stdin?.isTTY && stdout?.isTTY && !ci)
+}
+
+/**
+ * The error for a question that needs an answer when there is no terminal.
+ *
+ * @param {string} question - what would have been asked
+ * @param {object} [options]
+ * @param {string | null} [options.flag] - the flag that answers it; null when only a person can (key creation)
+ * @param {string} [options.hint] - replaces the generated hint
+ */
+function needsAnswerError(question, { flag = null, hint } = {}) {
+    const label = String(question).replace(/[?:\s]+$/, "")
+    return nativeError("NATIVE-005", flag ? `${label} (pass ${flag})` : label, {
+        hint:
+            hint ||
+            (flag
+                ? `Pass ${flag} to answer yes without a terminal, or run the command in an interactive terminal.`
+                : "Run the command once in an interactive terminal. No flag answers this, not even --yes."),
+    })
+}
+
+/**
+ * A yes/no question. Enter takes the default. Without a terminal it returns
+ * false, so callers decide (usually needsAnswerError naming the flag).
+ */
+async function confirm(question, { defaultYes = true, prompt = promptUser, isTTY } = {}) {
+    if (!(isTTY ?? isInteractive())) return false
+    const answer = await prompt(`${question.replace(/[?\s]+$/, "")}? ${defaultYes ? "[Y/n]" : "[y/N]"}`, {
+        defaultValue: defaultYes ? "y" : "n",
+    })
+    return /^y(es)?$/i.test(String(answer || "").trim())
+}
+
+// What each kind of consent accepts in place of a typed yes.
+const CONSENT_FLAGS = { install: "--yes", licence: "--accept-licenses", key: null }
+
+/**
+ * Ask for consent to a step, following the rules for every native command:
+ * - "install": an install or download. `--yes` answers it.
+ * - "licence": accepting a licence. Only `--accept-licenses` answers it.
+ * - "key": creating a signing key. Only a person at a terminal answers it.
+ *
+ * Returns true when allowed, false when the person said no. Without a
+ * terminal and without the answering flag it throws NATIVE-005.
+ *
+ * @param {"install" | "licence" | "key"} kind
+ * @param {string} question
+ * @param {object} [options]
+ * @param {{ yes?: boolean, acceptLicenses?: boolean }} [options.flags] - from parseNativeArgs
+ * @param {boolean} [options.defaultYes] - Enter's answer; defaults to true, false for "key"
+ * @param {boolean} [options.isTTY] - defaults to isInteractive()
+ * @param {typeof promptUser} [options.prompt]
+ * @returns {Promise<boolean>}
+ */
+async function askConsent(kind, question, { flags = {}, defaultYes, isTTY, prompt = promptUser } = {}) {
+    if (!(kind in CONSENT_FLAGS)) throw new Error(`Unknown consent kind "${kind}"`)
+    if (kind === "install" && flags.yes) return true
+    if (kind === "licence" && flags.acceptLicenses) return true
+    const interactive = isTTY ?? isInteractive()
+    if (!interactive) throw needsAnswerError(question, { flag: CONSENT_FLAGS[kind] })
+    return confirm(question, { defaultYes: defaultYes ?? kind !== "key", prompt, isTTY: true })
+}
+
+/**
+ * Pick one of several choices on the terminal (a numbered list; Enter takes
+ * the default). Without a terminal it returns the default, or throws
+ * NATIVE-005 naming `flag` when there is none.
+ *
+ * @template T
+ * @param {string} question
+ * @param {{ label: string, value: T, hint?: string }[]} choices
+ * @param {object} [options]
+ * @param {T} [options.defaultValue]
+ * @param {string} [options.flag] - the flag that makes this choice without a terminal
+ * @param {boolean} [options.isTTY]
+ * @param {typeof promptUser} [options.prompt]
+ * @param {(text: string) => void} [options.write]
+ * @returns {Promise<T>}
+ */
+async function select(
+    question,
+    choices,
+    { defaultValue, flag, isTTY, prompt = promptUser, write = (text) => process.stdout.write(text) } = {}
+) {
+    if (!choices.length) throw new Error("select() needs at least one choice")
+    const defaultIndex = Math.max(
+        0,
+        choices.findIndex((choice) => choice.value === defaultValue)
+    )
+    if (!(isTTY ?? isInteractive())) {
+        if (defaultValue !== undefined) return defaultValue
+        throw needsAnswerError(question, { flag: flag || null })
+    }
+    return withSpinnersPaused(async () => {
+        write(`${GUTTER}${t.warn("?")} ${String(question).replace(/[?:\s]+$/, "")}\n`)
+        choices.forEach((choice, index) => {
+            const hint = choice.hint ? t.dim(`  ${choice.hint}`) : ""
+            write(`${GUTTER}  ${index + 1}. ${choice.label}${hint}\n`)
+        })
+        for (;;) {
+            const answer = await prompt(`Choose 1-${choices.length}`, {
+                defaultValue: String(defaultIndex + 1),
+            })
+            const index = Number(String(answer).trim()) - 1
+            if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index].value
         }
-    }
-
-    // Fields with a sure answer (detected or conventional) are filled without
-    // asking; only genuinely unknown ones reach the prompt.
-    const autoFill = new Set(["port", "buildType", "sdkPath"])
-    const fill = async (target, key, prompt) => {
-        if (target[key]) return
-        const guess = defaults[key]
-        target[key] = guess && autoFill.has(key) ? guess : await promptUser(prompt, { defaultValue: guess })
-        filled.push(key)
-    }
-
-    for (const [key, prompt] of Object.entries(commonFields)) await fill(webviewConfig, key, prompt)
-    for (const [key, prompt] of Object.entries(platformConfigs[platform])) {
-        await fill(webviewConfig[platform], key, prompt)
-    }
-
-    // Save updated config back to file
-    try {
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-        if (filled.length) {
-            // Under a live spinner a plain log lands on the spinner's own row.
-            await withSpinnersPaused(async () =>
-                console.log(
-                    `${GUTTER}${t.accent("›")} Saved ${filled.join(", ")} to ${t.accent("config/config.json")}`
-                )
-            )
-        }
-    } catch (error) {
-        console.error(`Error saving config file: ${error.message}`)
-        throw error
-    }
-
-    // Return only the platform-specific config
-    return {
-        port: webviewConfig.port,
-        [platform]: webviewConfig[platform],
-    }
+    })
 }
 
 export {
+    NATIVE_ERRORS,
+    nativeError,
+    parseNativeArgs,
+    isInteractive,
+    needsAnswerError,
+    askConsent,
+    select,
     runCommand,
+    runFile,
     commandExists,
     promptUser,
     detectAndroidSdk,
     listAvds,
     ensureLocalProperties,
     ANDROID_SDK_HINT,
-    runSdkManagerCommand,
     runInteractiveCommand,
-    validateAndCompleteConfig,
+    runInheritedCommand,
+    confirm,
     redactSecrets,
     redactError,
     expandHome,

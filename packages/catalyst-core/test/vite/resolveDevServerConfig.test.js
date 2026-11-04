@@ -6,6 +6,7 @@ import {
     toMountPathPrefix,
     resolveDevFsAllow,
     buildDevServer,
+    withExtraAllowedHosts,
 } from "../../src/vite/resolveDevServerConfig.js"
 
 // ─── resolveDevBase ───────────────────────────────────────────────────────────
@@ -113,4 +114,28 @@ test("buildDevServer: app cannot relax fs.strict or clobber fs via overrides", (
 test("buildDevServer: 'base' is not leaked into the server block", () => {
     const server = buildDevServer({ base: "/o-mweb" }, { frameworkPaths: FRAMEWORK, isProduction: false })
     assert.equal(server.base, undefined)
+})
+
+// ─── CATALYST_DEV_ALLOWED_HOSTS (buildApp:ios on a physical iPhone) ───────────
+
+test("withExtraAllowedHosts: adds the env hosts to the app's list", () => {
+    assert.deepEqual(withExtraAllowedHosts(undefined, "my-mac.local"), ["my-mac.local"])
+    assert.deepEqual(withExtraAllowedHosts(["a.test"], "my-mac.local, a.test"), ["a.test", "my-mac.local"])
+    assert.equal(withExtraAllowedHosts(true, "my-mac.local"), true)
+    assert.equal(withExtraAllowedHosts(undefined, ""), undefined)
+})
+
+test("buildDevServer: CATALYST_DEV_ALLOWED_HOSTS reaches server.allowedHosts", () => {
+    const before = process.env.CATALYST_DEV_ALLOWED_HOSTS
+    process.env.CATALYST_DEV_ALLOWED_HOSTS = "my-mac.local"
+    try {
+        const server = buildDevServer(
+            { allowedHosts: ["local.example.com"] },
+            { frameworkPaths: FRAMEWORK, isProduction: false }
+        )
+        assert.deepEqual(server.allowedHosts, ["local.example.com", "my-mac.local"])
+    } finally {
+        if (before === undefined) delete process.env.CATALYST_DEV_ALLOWED_HOSTS
+        else process.env.CATALYST_DEV_ALLOWED_HOSTS = before
+    }
 })

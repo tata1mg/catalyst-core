@@ -30,8 +30,38 @@ export const ERROR_CODES = {
     BUNDLE_UPSTREAM_ERROR: "BUNDLE-000",
     IOS_UPSTREAM_ERROR: "IOS-000",
     IOS_SIMULATOR_APP_NOT_FOUND: "IOS-001",
+    IOS_XCODE_NOT_INSTALLED: "IOS-002",
+    IOS_XCODE_SETUP_PENDING: "IOS-003",
+    IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
+    IOS_APP_ICON_INVALID: "IOS-005",
+    IOS_APP_ICON_HAS_ALPHA: "IOS-006",
+    IOS_SIGNING_NOT_SET_UP: "IOS-010",
+    IOS_ASC_API_KEY_INVALID: "IOS-011",
+    IOS_MANUAL_SIGNING_INVALID: "IOS-012",
+    IOS_EXPORT_METHOD_INVALID: "IOS-013",
+    IOS_DEVICE_NOT_FOUND: "IOS-014",
+    IOS_DEVICE_HOST_UNREACHABLE: "IOS-015",
     ANDROID_UPSTREAM_ERROR: "ANDROID-000",
     ANDROID_EMULATOR_BOOT_TIMEOUT: "ANDROID-001",
+    ANDROID_UPLOAD_KEY_MISSING: "ANDROID-005",
+    ANDROID_UPLOAD_KEY_INVALID: "ANDROID-006",
+    ANDROID_JDK_NOT_FOUND: "ANDROID-007",
+    ANDROID_SDK_SETUP_DECLINED: "ANDROID-008",
+    ANDROID_CMDLINE_TOOLS_INSTALL_FAILED: "ANDROID-009",
+    ANDROID_APP_ICON_INVALID: "ANDROID-010",
+    ANDROID_NO_DEVICE: "ANDROID-011",
+
+    NATIVE_RELEASE_PRIVATE_HOST: "NATIVE-001",
+    NATIVE_INVALID_BUILD_NUMBER: "NATIVE-002",
+    NATIVE_PLACEHOLDER_APP_ID: "NATIVE-003",
+    NATIVE_INVALID_URL: "NATIVE-004",
+    NATIVE_ANSWER_NEEDS_TERMINAL: "NATIVE-005",
+    NATIVE_DEV_SERVER_NOT_ANSWERING: "NATIVE-006",
+    NATIVE_CREDENTIALS_SECRET_INVALID: "NATIVE-007",
+    NATIVE_CREDENTIALS_MISSING: "NATIVE-008",
+    NATIVE_CREDENTIALS_TOO_LARGE: "NATIVE-009",
+    NATIVE_INVALID_APP_ID: "NATIVE-010",
+    NATIVE_RELEASE_OUTPUT_EXISTS: "NATIVE-011",
 
     RUNTIME_NATIVE_PERMISSION_DENIED: "RUNTIME-NATIVE-001",
     RUNTIME_NATIVE_PERMISSION_REQUIRED: "RUNTIME-NATIVE-002",
@@ -82,7 +112,8 @@ export const ERROR_DEFINITIONS = {
         category: "PREFLIGHT",
         defaultMessage: "config not found in config folder",
         defaultDetails: "A config object must be exported from the config folder in your project root.",
-        suggestedAction: "Create config/config.json (or config/index.js) exporting the required config object.",
+        suggestedAction:
+            "Create config/config.json (or config/index.js) exporting the required config object.",
     },
     [ERROR_CODES.PREFLIGHT_CONFIG_NOT_OBJECT]: {
         category: "PREFLIGHT",
@@ -137,7 +168,8 @@ export const ERROR_DEFINITIONS = {
         category: "PREFLIGHT",
         defaultMessage: "preServerInit named function should be defined in server/index.js",
         defaultDetails: "server/index.js must export a preServerInit function.",
-        suggestedAction: "Export a preServerInit function from server/index.js, or remove the reference to it.",
+        suggestedAction:
+            "Export a preServerInit function from server/index.js, or remove the reference to it.",
     },
     [ERROR_CODES.PREFLIGHT_PRE_SERVER_INIT_NOT_FUNCTION]: {
         category: "PREFLIGHT",
@@ -238,15 +270,109 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.IOS_UPSTREAM_ERROR]: {
         category: "IOS",
         defaultMessage: "iOS build failed in an upstream toolchain step",
-        defaultDetails: "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
-        suggestedAction: "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
+        defaultDetails:
+            "This wraps an error from Xcode/CocoaPods. See the printed upstream output for the cause.",
+        suggestedAction:
+            "Read the upstream Xcode/CocoaPods error printed above and fix the underlying issue.",
     },
     [ERROR_CODES.IOS_SIMULATOR_APP_NOT_FOUND]: {
         category: "IOS",
         defaultMessage: "Could not find an installed iOS Simulator app",
         defaultDetails:
             "Neither DeviceHub.app (Xcode 27+, bundle id com.apple.dt.Devices) nor the legacy Simulator.app (bundle id com.apple.iphonesimulator) is installed under Xcode's Contents/Applications. The simulator itself may still boot headlessly via simctl, but catalyst-core cannot open or focus its window.",
-        suggestedAction: "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
+        suggestedAction:
+            "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
+    },
+    // The messages and suggested actions of IOS-002..006 and IOS-010..015 are
+    // copied into src/native/utils.js NATIVE_ERRORS;
+    // test/native/nativeConfig.test.ts keeps the two equal.
+    [ERROR_CODES.IOS_XCODE_NOT_INSTALLED]: {
+        category: "IOS",
+        defaultMessage: "Full Xcode is not installed or selected",
+        defaultDetails:
+            "setupEmulator:ios and buildApp:ios need Xcode.app, not only the Command Line Tools. xcode-select -p does not point inside an Xcode app bundle, so there is no simulator, iOS SDK or app-building xcodebuild.",
+        suggestedAction:
+            "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+    },
+    [ERROR_CODES.IOS_XCODE_SETUP_PENDING]: {
+        category: "IOS",
+        defaultMessage: "Xcode setup is not finished",
+        defaultDetails:
+            "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password: in a terminal they run after a yes, and without one --accept-licenses (the licence) and --yes (first launch) run them with sudo -n, which works only where sudo needs no password.",
+        suggestedAction:
+            "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+    },
+    [ERROR_CODES.IOS_SIMULATOR_RUNTIME_MISSING]: {
+        category: "IOS",
+        defaultMessage: "No iOS simulator runtime installed",
+        defaultDetails:
+            "Xcode has no available iOS simulator runtime, so there is no simulator to create or boot. The runtime is a download of several gigabytes and is only fetched after a yes in an interactive terminal or with --yes.",
+        suggestedAction:
+            "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+    },
+    [ERROR_CODES.IOS_APP_ICON_INVALID]: {
+        category: "IOS",
+        defaultMessage: "App icon is not usable",
+        defaultDetails:
+            "public/icon.png becomes the app's single 1024x1024 universal AppIcon, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        suggestedAction:
+            "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+    },
+    [ERROR_CODES.IOS_APP_ICON_HAS_ALPHA]: {
+        category: "IOS",
+        defaultMessage: "App icon has transparency",
+        defaultDetails:
+            "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
+        suggestedAction:
+            "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
+    [ERROR_CODES.IOS_SIGNING_NOT_SET_UP]: {
+        category: "IOS",
+        defaultMessage: "iOS code signing is not set up",
+        defaultDetails:
+            "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key in credentials/ios/ (cloud signing) or an Apple account signed in to Xcode; manual signing needs a .p12 and its provisioning profile in credentials/ios/, or an installed ios.provisioningProfile. xcodebuild reported a signing failure, or a release build has no team to sign for.",
+        suggestedAction:
+            "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
+    },
+    [ERROR_CODES.IOS_ASC_API_KEY_INVALID]: {
+        category: "IOS",
+        defaultMessage: "App Store Connect API key settings are incomplete or wrong",
+        defaultDetails:
+            "Cloud signing uses an App Store Connect API key from credentials/ios/ (in CI, unpacked from CATALYST_IOS_CREDENTIALS), which takes three values: the AuthKey_*.p8 file, its key ID and the issuer ID. Some of them are there but not all, there is more than one .p8 file, or the key ID is not letters and digits.",
+        suggestedAction:
+            "Put the AuthKey_*.p8 file in credentials/ios/, and an ascIssuerId line (plus ascKeyId when the file is renamed) in credentials/ios/signing.properties. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+    },
+    [ERROR_CODES.IOS_MANUAL_SIGNING_INVALID]: {
+        category: "IOS",
+        defaultMessage: "Manual signing inputs are incomplete or wrong",
+        defaultDetails:
+            "Local signing imports the .p12 from credentials/ios/ into a temporary keychain and installs its provisioning profile for the build. Only one of the .p12 and the .mobileprovision is there, there are several of either, the p12Password in signing.properties is wrong, the p12 has no code signing identity, or the profile is unreadable, expired or for another bundle ID.",
+        suggestedAction:
+            "Keep one distribution .p12 and the .mobileprovision for WEBVIEW_CONFIG.appId in credentials/ios/, with a p12Password line in credentials/ios/signing.properties, and check that they belong together. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+    },
+    [ERROR_CODES.IOS_EXPORT_METHOD_INVALID]: {
+        category: "IOS",
+        defaultMessage: "Unknown iOS export method",
+        defaultDetails:
+            "WEBVIEW_CONFIG.ios.exportMethod picks how the release archive is exported to an IPA. Xcode 26 accepts app-store-connect, release-testing, enterprise and debugging; the older names app-store, ad-hoc and development are mapped to them with a warning.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
+    },
+    [ERROR_CODES.IOS_DEVICE_NOT_FOUND]: {
+        category: "IOS",
+        defaultMessage: "No connected iPhone found",
+        defaultDetails:
+            "buildApp:ios --device builds for a connected iPhone, and xcrun devicectl lists none that is paired and reachable. An iPhone shows up once it is unlocked, trusts this Mac and has Developer Mode on.",
+        suggestedAction:
+            "Connect the iPhone with a cable, unlock it, accept Trust This Computer and turn on Developer Mode (Settings > Privacy & Security), then retry; or leave out --device to use the simulator.",
+    },
+    [ERROR_CODES.IOS_DEVICE_HOST_UNREACHABLE]: {
+        category: "IOS",
+        defaultMessage: "No address the iPhone can reach this Mac on",
+        defaultDetails:
+            "A debug build on a physical iPhone loads the dev server from this Mac over the local network, at the Mac's Bonjour name (its Local Hostname plus .local) or its LAN IP address. This Mac has neither a Local Hostname nor a private IPv4 address on an active interface.",
+        suggestedAction:
+            "Join the Mac and the iPhone to the same Wi-Fi network and check the Local Hostname in System Settings > General > Sharing, then retry.",
     },
     [ERROR_CODES.ANDROID_UPSTREAM_ERROR]: {
         category: "ANDROID",
@@ -262,7 +388,156 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
     },
+    // The messages and suggested actions of ANDROID-005..011 are copied into
+    // src/native/utils.js NATIVE_ERRORS (the CJS native subtree can't import
+    // this module); test/native/nativeConfig.test.ts keeps the two equal.
+    [ERROR_CODES.ANDROID_UPLOAD_KEY_MISSING]: {
+        category: "ANDROID",
+        defaultMessage: "No upload key for the release build",
+        defaultDetails:
+            "A release build signs the app bundle with the app's upload key. None was found in credentials/android/ or in the CATALYST_ANDROID_CREDENTIALS secret. A new key is only created after a yes in an interactive terminal, and never for an app that is already on Google Play.",
+        suggestedAction:
+            "Run catalyst buildApp:android --release once in a terminal to create credentials/android/upload.jks, then back it up with catalyst credentials:export android. In CI, set the CATALYST_ANDROID_CREDENTIALS secret to the output of catalyst credentials:export android.",
+    },
+    [ERROR_CODES.ANDROID_UPLOAD_KEY_INVALID]: {
+        category: "ANDROID",
+        defaultMessage: "Upload key settings are incomplete or wrong",
+        defaultDetails:
+            "An upload key was found but cannot be used: the keystore or its keystore.properties is missing, no store password was given, or keytool rejected the password or alias.",
+        suggestedAction:
+            "Check credentials/android/keystore.properties against credentials/android/upload.jks. In CI, run catalyst credentials:export android again and update the CATALYST_ANDROID_CREDENTIALS secret.",
+    },
+    [ERROR_CODES.ANDROID_JDK_NOT_FOUND]: {
+        category: "ANDROID",
+        defaultMessage: "No JDK 17 to 23 found",
+        defaultDetails:
+            "Gradle 8.13 and the Android SDK tools need JDK 17 to 23. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime (a JDK 24 or newer is skipped), and none could be installed: this is not macOS, Homebrew is missing, or the install was declined.",
+        suggestedAction:
+            "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
+    },
+    [ERROR_CODES.ANDROID_SDK_SETUP_DECLINED]: {
+        category: "ANDROID",
+        defaultMessage: "Android SDK setup was declined",
+        defaultDetails:
+            "buildApp:android or setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept, and the answer was no. Without them the app cannot be built or run.",
+        suggestedAction:
+            "Run the command again and answer yes, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences.",
+    },
+    [ERROR_CODES.ANDROID_CMDLINE_TOOLS_INSTALL_FAILED]: {
+        category: "ANDROID",
+        defaultMessage: "Could not install the Android command-line tools",
+        defaultDetails:
+            "The pinned Android command-line tools archive could not be downloaded, did not match its published SHA-256, or could not be unpacked into <sdk>/cmdline-tools/latest.",
+        suggestedAction:
+            "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+    },
+    [ERROR_CODES.ANDROID_APP_ICON_INVALID]: {
+        category: "ANDROID",
+        defaultMessage: "App icon is not usable",
+        defaultDetails:
+            "public/icon.png becomes the Android launcher icon when public/android/appIcons has no per-density icons, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        suggestedAction:
+            "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+    },
+    [ERROR_CODES.ANDROID_NO_DEVICE]: {
+        category: "ANDROID",
+        defaultMessage: "No Android phone connected",
+        defaultDetails:
+            "buildApp:android --device installs the app on a phone that adb can reach, but adb lists none that is ready: no phone is connected, USB debugging is off, the phone has not allowed this computer yet (adb shows it as unauthorized), or ANDROID_SERIAL names a phone that is not connected.",
+        suggestedAction:
+            "Connect the phone, turn on USB debugging in Developer options, accept the Allow USB debugging prompt on the phone and check that adb devices lists it. Or drop --device to use the emulator.",
+    },
 
+    // NATIVE-001..009 are shared by the Android and iOS builds. Their messages and
+    // suggested actions are copied into src/native/utils.js NATIVE_ERRORS;
+    // test/native/nativeConfig.test.ts keeps the two equal.
+    [ERROR_CODES.NATIVE_RELEASE_PRIVATE_HOST]: {
+        category: "NATIVE",
+        defaultMessage: "Release build points at a local or private host",
+        defaultDetails:
+            "A release build (buildApp:android --release or buildApp:ios --release) would open a start URL on localhost, a loopback, private (RFC 1918), link-local or .local address, this machine's own address, or a reserved placeholder domain such as example.com. Users' devices cannot reach it, so the store build would open on an error page. The start URL comes from --url, then WEBVIEW_CONFIG.url, then the older LOCAL_IP, port and useHttps keys.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.url to your production origin (e.g. https://shop.acme.com) or pass --url, or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_BUILD_NUMBER]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid build number",
+        defaultDetails:
+            "The build number becomes the Android versionCode and the iOS CFBundleVersion. It is the whole minutes since 2024-01-01T00:00:00Z unless CATALYST_BUILD_NUMBER is set, and CATALYST_BUILD_NUMBER is not a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
+        suggestedAction:
+            "Unset CATALYST_BUILD_NUMBER to use the automatic build number, or set it to a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+    },
+    [ERROR_CODES.NATIVE_PLACEHOLDER_APP_ID]: {
+        category: "NATIVE",
+        defaultMessage: "Release build uses a placeholder app id",
+        defaultDetails:
+            "The app id becomes the Android application id and the iOS bundle id, and a store listing is tied to it for good. It is a com.example.* id or one of the template defaults (io.yourname.androidproject, com.catalyst.framework.app, com.debug.webview), or none is set, so the template's default would ship.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id, e.g. com.acme.shop.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_URL]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid production URL",
+        defaultDetails:
+            "WEBVIEW_CONFIG.url and --url take an origin: an http:// or https:// scheme, a host and an optional port, with no path, query, fragment or user name. HTTPS must use port 443, because the iOS app always loads HTTPS on 443.",
+        suggestedAction:
+            "Use an origin such as https://shop.acme.com, without a path or a port other than 443.",
+    },
+    [ERROR_CODES.NATIVE_ANSWER_NEEDS_TERMINAL]: {
+        category: "NATIVE",
+        defaultMessage: "A step needs your answer and there is no terminal to ask on",
+        defaultDetails:
+            "Native commands only ask questions when stdin and stdout are terminals and CI is not set. This step needs an answer: --yes confirms installs and downloads, --accept-licenses accepts licences, and creating a signing key always needs a person at a terminal.",
+        suggestedAction: "Pass the flag named in the message, or run the command in an interactive terminal.",
+    },
+    [ERROR_CODES.NATIVE_DEV_SERVER_NOT_ANSWERING]: {
+        category: "NATIVE",
+        defaultMessage: "The dev server did not answer",
+        defaultDetails:
+            "A debug build loads the app from the dev server. The CLI started it with catalyst start and waited for it to answer, but it exited, did not answer in time, or is running where the device cannot reach it.",
+        suggestedAction:
+            "Run npm start on its own to see why the server does not start, then run the build again.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_SECRET_INVALID]: {
+        category: "NATIVE",
+        defaultMessage: "The credentials secret could not be unpacked",
+        defaultDetails:
+            "CATALYST_ANDROID_CREDENTIALS and CATALYST_IOS_CREDENTIALS hold a base64 gzipped tar of credentials/<platform>/, as printed by catalyst credentials:export. The value is not one, is cut short, or holds links or paths outside the folder.",
+        suggestedAction:
+            "Run catalyst credentials:export <android|ios> where credentials/<platform>/ exists and paste the whole value into the secret again.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_MISSING]: {
+        category: "NATIVE",
+        defaultMessage: "No credentials to export",
+        defaultDetails:
+            "catalyst credentials:export packs credentials/<platform>/ in the app root, and that folder is missing or empty. A first release build creates it (the Android upload key), or you add the iOS signing files to it.",
+        suggestedAction:
+            "Run the command from the app root after a release build has created credentials/<platform>/.",
+    },
+    [ERROR_CODES.NATIVE_CREDENTIALS_TOO_LARGE]: {
+        category: "NATIVE",
+        defaultMessage: "Credentials are too large for one secret",
+        defaultDetails:
+            "A GitHub Actions secret holds at most 48 KB, and credentials/<platform>/ packs to more than that.",
+        suggestedAction:
+            "Remove files the build does not need from credentials/<platform>/ (only signing keys, profiles and their settings belong there), then export again.",
+    },
+    [ERROR_CODES.NATIVE_INVALID_APP_ID]: {
+        category: "NATIVE",
+        defaultMessage: "Invalid app id",
+        defaultDetails:
+            "The app id (WEBVIEW_CONFIG.appId, android.packageName or ios.bundleIdentifier / appBundleId) is not a valid id for the platform. Android needs a Java package name: two or more dot-separated parts, each starting with a letter and using only letters, digits and _, none a Java keyword. iOS needs two or more parts of letters, digits and -.",
+        suggestedAction:
+            "Set WEBVIEW_CONFIG.appId in config/config.json to a reverse-DNS id such as com.acme.shop: letters and digits only, each part starting with a letter.",
+    },
+    [ERROR_CODES.NATIVE_RELEASE_OUTPUT_EXISTS]: {
+        category: "NATIVE",
+        defaultMessage: "A release with this version and build number already exists",
+        defaultDetails:
+            "build-output/<platform>/<version>-<build>/ already holds a store artifact. The build number counts whole minutes, so two releases in the same minute get the same number, and a store refuses a build number it has already seen.",
+        suggestedAction:
+            "Wait a minute and run the release again, or set CATALYST_BUILD_NUMBER to a higher number. To rebuild the same build on purpose, delete that folder first.",
+    },
     [ERROR_CODES.RUNTIME_NATIVE_PERMISSION_DENIED]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Permission denied",
@@ -369,8 +644,10 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_CALLBACK]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Invalid callback interface",
-        defaultDetails: "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
-        suggestedAction: "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
+        defaultDetails:
+            "The native platform invoked WebBridge.callback() with an interface name that isn't recognized.",
+        suggestedAction:
+            "Check the interface name against the registered NATIVE_CALLBACKS list; this usually indicates a native/JS version mismatch.",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_NOT_REGISTERED]: {
         category: "RUNTIME-NATIVE",
@@ -382,13 +659,15 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_HANDLER_THREW]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "A registered bridge callback handler threw",
-        defaultDetails: "The JS handler registered for this native callback interface threw an error while processing the callback.",
+        defaultDetails:
+            "The JS handler registered for this native callback interface threw an error while processing the callback.",
         suggestedAction: "Fix the error thrown inside the registered handler (see the cause above).",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INVALID_REGISTRATION]: {
         category: "RUNTIME-NATIVE",
         defaultMessage: "Invalid bridge callback registration",
-        defaultDetails: "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
+        defaultDetails:
+            "WebBridge.register() was called with a non-function callback or an unrecognized interface name.",
         suggestedAction: "Pass a function as the callback and a valid interface name from NATIVE_CALLBACKS.",
     },
     [ERROR_CODES.RUNTIME_NATIVE_BRIDGE_INIT_FAILED]: {
@@ -403,7 +682,8 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "AI provider request failed",
         defaultDetails:
             "This is a wrapper around a non-2xx response or thrown error from the upstream AI provider (OpenAI/Gemini). See the printed upstream status/message for the actual cause — catalyst-ai does not reinterpret it.",
-        suggestedAction: "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
+        suggestedAction:
+            "Read the upstream provider error printed above and fix the underlying issue (auth, rate limit, invalid request).",
     },
     [ERROR_CODES.AI_DISABLED]: {
         category: "AI",
@@ -414,31 +694,37 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED]: {
         category: "AI",
         defaultMessage: "AI provider not configured",
-        defaultDetails: "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
+        defaultDetails:
+            "The requested provider is unknown, or has no apiKey configured in AI_CONFIG.providers.",
         suggestedAction: "Add the provider's apiKey to AI_CONFIG.providers, or use a configured provider.",
     },
     [ERROR_CODES.AI_INVALID_REQUEST_BODY]: {
         category: "AI",
         defaultMessage: "Invalid AI request body",
-        defaultDetails: "The request body is missing a non-empty messages array, or no model could be resolved.",
+        defaultDetails:
+            "The request body is missing a non-empty messages array, or no model could be resolved.",
         suggestedAction: "Pass a non-empty messages array, and either a model or a provider defaultModel.",
     },
     [ERROR_CODES.AI_NATIVE_BRIDGE_UNAVAILABLE]: {
         category: "AI",
         defaultMessage: "Native AI bridge unavailable",
-        defaultDetails: "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
-        suggestedAction: "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
+        defaultDetails:
+            "window.NativeBridge.initAI or window.WebBridge was not found when useNativeAI mounted.",
+        suggestedAction:
+            "Update catalyst-core to >=0.2.0, add the native AI module, and call WebBridge.init() before mounting useNativeAI.",
     },
     [ERROR_CODES.AI_NATIVE_STREAM_NOT_READY]: {
         category: "AI",
         defaultMessage: "Native AI stream not ready",
-        defaultDetails: "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
+        defaultDetails:
+            "generate() was called before the native side reported a ready stream URL (initAI has not fired ON_AI_READY yet).",
         suggestedAction: "Wait for modelReady to become true before calling generate().",
     },
     [ERROR_CODES.AI_NATIVE_REQUEST_FAILED]: {
         category: "AI",
         defaultMessage: "Native AI request failed",
-        defaultDetails: "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
+        defaultDetails:
+            "The native AI HTTP endpoint returned a non-ok status or reported an error in its response body.",
         suggestedAction: "See the cause above for the native-reported status/message.",
     },
     [ERROR_CODES.AI_NATIVE_CALLBACK_ERROR]: {
@@ -451,7 +737,8 @@ export const ERROR_DEFINITIONS = {
     [ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE]: {
         category: "AI",
         defaultMessage: "Web AI worker unavailable",
-        defaultDetails: "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
+        defaultDetails:
+            "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
         suggestedAction: "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
     },
     [ERROR_CODES.AI_WEB_WORKER_CRASHED]: {
@@ -459,7 +746,8 @@ export const ERROR_DEFINITIONS = {
         defaultMessage: "Web AI worker crashed",
         defaultDetails:
             "The in-browser AI worker threw during model load or generation (e.g. all device backends failed, or an uncaught exception). See the cause above for the worker's reported message.",
-        suggestedAction: "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
+        suggestedAction:
+            "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
     },
 
     [ERROR_CODES.RUNTIME_WEB_RENDER_FAILED]: {
