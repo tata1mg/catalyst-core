@@ -116,6 +116,10 @@ describe("extractBuildErrors (vite)", () => {
         ])
     })
 
+    it("does not treat a non-Rollup location line as an error", () => {
+        expect(extractBuildErrors('foo (1:2): "x" is fine', { toolchain: "vite" })).toEqual([])
+    })
+
     it("points a missing named export at the importing line", () => {
         const output =
             '../../src/Header.js (3:9): "Link" is not exported by "node_modules/catalyst-core/dist/index.jsx", imported by "../../src/Header.js".'
