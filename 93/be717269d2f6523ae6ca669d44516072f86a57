@@ -1,0 +1,23 @@
+docs/src/js/components/WebMcpToastBridge.js
+  s_b0e8727f0b555e::t_62e6e225942e3b 1-93,102-132,135-186
+  s_b0e8727f0b555e::t_6d2811a2dab722 133-134
+  s_b0e8727f0b555e::t_fd75eea75a79c8 94-101
+docs/src/js/containers/App/index.js
+  s_b0e8727f0b555e::t_0ed86f981d5911 3,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "93be717269d2f6523ae6ca669d44516072f86a57",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

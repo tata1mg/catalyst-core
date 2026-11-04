@@ -1,0 +1,20 @@
+examples/useai/src/js/containers/TicTacToe/TicTacToe.js
+  s_142fca248d57d5::t_7b3274e4b33ddc 110,231
+  s_142fca248d57d5::t_240e7f139c3e8e 132-135,137-141,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7ab6ad99fc49d3bf8ad4273e8459cf12e259c7ce",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

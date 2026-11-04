@@ -1,0 +1,36 @@
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_5c4ceb8b5ee5d2::t_2dd5eba160c62a 131,135
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 119
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/DownloadControl.kt
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 39,49
+"docs/content/11-API Reference/01-Hooks.md"
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 103,114
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/DownloadControlTests.swift
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 11,15,20
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 1468
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 484,492
+examples/useai/config/config.template.json
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 27
+packages/catalyst-ai/plugins/ai/ios/Support/DownloadControl.swift
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 34,46
+packages/catalyst-ai/src/useNativeAI.js
+  s_5c4ceb8b5ee5d2::t_e701ec72e0fc0b 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2229df73ccd9cb2bc1898cec5a1fdf049a4ca09c",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

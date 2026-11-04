@@ -1,0 +1,19 @@
+docs/server/server.js
+  s_be39530ce9affc::t_12361e1c2b0879 7-20,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f935849990bf00dbe642838bbc00e8fd0ed9102",
+  "prompts": {},
+  "sessions": {
+    "s_be39530ce9affc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bc20ac9-1789-480f-a47e-a1d057d1521a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

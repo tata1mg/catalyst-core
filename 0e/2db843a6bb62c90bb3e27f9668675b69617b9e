@@ -1,0 +1,42 @@
+packages/catalyst-core/src/native/buildIos/config.js
+  s_9f266df34d05f4::t_54c93290d347ed 185,266-273
+  s_9f266df34d05f4::t_156fd7acf5b2a7 274-275
+packages/catalyst-core/src/scripts/loadEnvironmentVariables.js
+  s_9f266df34d05f4::t_54c93290d347ed 27-46
+scripts/release/release.js
+  s_9f266df34d05f4::t_54c93290d347ed 38,41,153,155,159-160,162-170,177-178,182-183,187,242,262-263,265-274,322,324-334
+packages/catalyst-core/src/errors/registry.js
+  s_9f266df34d05f4::t_54c93290d347ed 33,249-255
+  s_9f266df34d05f4::t_c60fd654b832a2 256
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_9f266df34d05f4::t_54c93290d347ed 86
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_9f266df34d05f4::t_54c93290d347ed 63-72,76,99-104,106-113
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/05-Environment-Variables.md"
+  s_9f266df34d05f4::t_54c93290d347ed 15,19,62
+  s_9f266df34d05f4::t_2aa2cf5db12c5b 63
+errors/ANDROID/ANDROID-001.md
+  s_9f266df34d05f4::t_54c93290d347ed 1-15
+errors/index.json
+  s_9f266df34d05f4::t_54c93290d347ed 261-267
+examples/error-catalog/scenarios/index.js
+  s_9f266df34d05f4::t_e9afbe95d9568f 68-73
+packages/catalyst-core/src/native/buildAndroid/build.js
+  s_9f266df34d05f4::t_54c93290d347ed 5,119-123,128-132,135,139-153,156-160,162,164-173,175-265,270-272,274-282,284-291,293,507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0e2db843a6bb62c90bb3e27f9668675b69617b9e",
+  "prompts": {},
+  "sessions": {
+    "s_9f266df34d05f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a5a9bac-0c1a-4b90-bc1b-cbc5ff1ef0e9",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

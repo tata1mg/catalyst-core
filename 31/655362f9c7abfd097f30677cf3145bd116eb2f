@@ -1,0 +1,36 @@
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_2d3d67526032e9::t_69d733bba6e0b3 52-59,64,123,207,235-236
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/ResumableDownloadTests.swift
+  s_2d3d67526032e9::t_abdc7fbc6f7d56 27-30,55-58,85,118,199-243
+  s_2d3d67526032e9::t_b6d1ee49e21ae4 244
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_2d3d67526032e9::t_69d733bba6e0b3 61-76,81-85,188
+"docs/content/11-API Reference/01-Hooks.md"
+  s_85dab2fe4b3f9c::t_244f112bb3a543 91
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_85dab2fe4b3f9c::t_523cd61ff1b69b 1468
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31655362f9c7abfd097f30677cf3145bd116eb2f",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_85dab2fe4b3f9c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "05e336fd-e267-4eee-9cb5-acb1d45bd731",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

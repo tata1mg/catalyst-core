@@ -1,0 +1,55 @@
+packages/catalyst-ai/src/useCloudAI.js
+  s_2e191c258d6694::t_2bda1ba9ebd142 2,91-97
+packages/catalyst-ai/src/contentParts.js
+  s_2e191c258d6694::t_20fc06ec6b1f0a 1-99,106-107,110-112
+  s_2e191c258d6694::t_0ccac5168967b9 100-105,108-109
+packages/catalyst-ai/src/useWebAI.js
+  s_2e191c258d6694::t_2bda1ba9ebd142 2,219-225
+packages/catalyst-ai/plugins/ai/ios/Support/AIInputParts.swift
+  s_2e191c258d6694::t_124f1163a4c111 1-48
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/AISupportTests.swift
+  s_2e191c258d6694::t_124f1163a4c111 138-171
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_2e191c258d6694::t_ef157ec67fbba0 84-87,101-119,136,200-221,228-236,238-240,242-243,246-247,250
+examples/useai/src/js/routes/index.js
+  s_2e191c258d6694::t_46c5458182da78 6,21-23
+  s_2e191c258d6694::t_0da5b42df596e8 24
+packages/catalyst-ai/src/audioPrep.js
+  s_2e191c258d6694::t_ec487071221b33 1-101
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_2e191c258d6694::t_46c5458182da78 2,5-36,52,55-57,68,78,113-122,130,132,135-139,145,149,151-155,159-160,177-183,190-191,195,208-210
+  s_2e191c258d6694::t_c1137b1534ed39 47-51,53-54,64-67,69-70,79-81,123-129,131,133-134,140-144,146-148,150,156,161-176,184-189,192-194,201-206
+  s_2e191c258d6694::t_b6baadc58b5f99 1,58-60,62-63,83-85,88,90-102,107-112,157-158,196-200
+  s_2e191c258d6694::t_e8aee4a8d5ef17 4,37-46,71-77,207
+  s_2e191c258d6694::t_af3dd9f90e9efb 3,82,87,103-105
+  s_2e191c258d6694::t_97f492fe746417 61,86,89,106
+packages/catalyst-ai/test/contentParts.test.ts
+  s_2e191c258d6694::t_0ccac5168967b9 9,111,114,120,122
+  s_2e191c258d6694::t_6eaca3381f5779 1-8,10-110,112-113,115-119,121,123-156
+packages/catalyst-ai/src/useNativeAI.js
+  s_2e191c258d6694::t_6feb49ee4b6262 4,187-190,195-199
+  s_2e191c258d6694::t_e8aee4a8d5ef17 3,191-194
+  s_2e191c258d6694::t_d290624da3c352 8-14,338
+packages/catalyst-ai/test/audioPrep.test.ts
+  s_2e191c258d6694::t_d80f4aea3ec923 1-81
+examples/useai/src/js/containers/Home/Home.js
+  s_2e191c258d6694::t_8f017992126a44 145-150
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_2e191c258d6694::t_2f64ff6c42f0f7 7,14,19,40-43,120-127,131,135-165,224-228,231-241,243-249,252-258,261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "027bc93e16315507c3c1d7761cf8189812a8ca64",
+  "prompts": {},
+  "sessions": {
+    "s_2e191c258d6694": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740cf959-0379-4b0c-9f81-a381735cd6c1",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

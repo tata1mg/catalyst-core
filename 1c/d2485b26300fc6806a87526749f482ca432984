@@ -1,0 +1,291 @@
+docs/content/11-community-and-meta/02-Contribute.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-13
+docs/content/08-api-reference/01-Hooks.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-594
+docs/scripts/generate-docs-manifest.mjs
+  s_dfd9a179f24549::t_37705df5f4bef4 227
+  s_dfd9a179f24549::t_d899ece532a753 501
+  s_dfd9a179f24549::t_c800ba565725cd 443-452,454-472,477,482-483
+  s_dfd9a179f24549::t_0bcbb5b7bb7f55 46-91
+docs/content/03-core-concepts/03-Lifecycle.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-56
+docs/content/02-getting-started/02-Quick-Start.md
+  s_dfd9a179f24549::t_b740ecb4123fec 1-258,263-265,267-323,325-374
+  s_dfd9a179f24549::t_1b9195d9f55ff3 259,261-262,266,375
+  s_dfd9a179f24549::t_f3a62b6165e223 260,324
+docs/content/05-styling-and-assets/04-Asset-Caching-in-Catalyst.md
+  s_dfd9a179f24549::t_b740ecb4123fec 1-73
+docs/content/07-best-practices/01-Dynamic-Metadata.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-63
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/10-code-splitting.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-77
+docs/content/01-introduction/02-Features.md
+  s_dfd9a179f24549::t_f3a62b6165e223 41
+  s_dfd9a179f24549::t_b740ecb4123fec 1-16,18-32,34-40,42-65
+  s_dfd9a179f24549::t_1b9195d9f55ff3 17,33
+docs/content/07-best-practices/02-Security.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-76
+docs/content/07-best-practices/06-Code-Splitting.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-65
+docs/content/06-guides-and-tutorials/05-observability-and-ops/01-Observability.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-257
+docs/content/06-guides-and-tutorials/07-build-and-tooling/02-Vite-Customization.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-65
+docs/src/js/containers/ChatBot/index.js
+  s_dfd9a179f24549::t_30e342a5ca4092 319-325,327-376,379-383,387
+  s_dfd9a179f24549::t_19862897058f24 286-287
+  s_dfd9a179f24549::t_fd67c36fc6e7b5 1-2,6-7,24,59,79-101,180-210,216-219,226-228,236-237,242-245,265-271,273,275-285,288-297,304-318,326,377-378,384-386,388-400,404-407,409-427,431-434,446-449,451-452,476-479,488-489,509-511,514-573
+  s_dfd9a179f24549::t_cce6936d07852c 102-109,120,122-142,144-155
+  s_dfd9a179f24549::t_c6df4679166cad 490-508,512-513
+  s_dfd9a179f24549::t_652e3a3163952e 223-225
+  s_dfd9a179f24549::t_b0de178067c1f5 156-179
+  s_dfd9a179f24549::t_c6d0c9719813d0 480,482-487
+  s_dfd9a179f24549::t_dfdb635b1100f5 469
+  s_dfd9a179f24549::t_8e1a829dbb8462 3-5,8-23,25-37,40-42,44-58
+  s_dfd9a179f24549::t_5c8e358afd74d2 110-119,121
+  s_dfd9a179f24549::t_da3258ab21a7e2 143
+  s_dfd9a179f24549::t_eb4b64a4d64818 62-68,72
+  s_dfd9a179f24549::t_21e8dc947b6a4c 211-215,220-222
+  s_dfd9a179f24549::t_e5412fca3effb9 60-61,69-71,73-78
+  s_dfd9a179f24549::t_53d9abae36b237 38-39,43
+  s_dfd9a179f24549::t_0daeb7a05c5440 229-235
+  s_dfd9a179f24549::t_c32f79cc3d4d80 298-303
+  s_dfd9a179f24549::t_febf9a871d65da 481
+  s_dfd9a179f24549::t_25b458c940d3d0 428-430,435-445,453-468,470-475
+  s_dfd9a179f24549::t_c1be14cfbab89c 450
+  s_dfd9a179f24549::t_5377c5ac41aae7 238-241,246-264,272,274
+  s_dfd9a179f24549::t_975a34c604bea6 401-403,408
+docs/content/07-best-practices/03-Data-Fetching.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-60
+docs/package.json
+  s_dfd9a179f24549::t_f1e31e7c4c3932 29
+  s_dfd9a179f24549::t_7b8ab23d5d0d58 30-31
+  s_dfd9a179f24549::t_bec0bcce5e34a9 25
+docs/content/06-guides-and-tutorials/03-first-universal-app/04-Offline-Support.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-35
+docs/src/static/css/base/chatbot.scss
+  s_dfd9a179f24549::t_37d468bfc45c1f 180-187
+  s_dfd9a179f24549::t_61f45cd3eb9c31 270-422
+  s_dfd9a179f24549::t_0e52a2e698cf3d 565-571
+  s_dfd9a179f24549::t_970bdd3299709b 108-154
+  s_dfd9a179f24549::t_3e91c12373b3d0 1-107,155-179,188-225,241-269,423-564,572-580
+  s_dfd9a179f24549::t_8b0498de9cfaba 226-240
+docs/content/08-api-reference/04-SSR-Lifecycle.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-59
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/03-server-fetcher.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-87
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/08-asset-loading.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-51
+docs/server/aiAnthropic.js
+  s_dfd9a179f24549::t_d98da481f97bd2 193-194,212-217
+  s_dfd9a179f24549::t_d166251b1e954a 286
+  s_dfd9a179f24549::t_ed26e79199fc5e 1-192,195-211,218-285,287-485
+docs/content/05-styling-and-assets/01-Styling.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-135
+docs/content/07-best-practices/05-Android-Build-Optimization.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-72
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/06-styling.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-205
+docs/content/02-getting-started/03-Project-Structure.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-50
+docs/content/04-routing/02-Navigation.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-106
+docs/server/legacyDocUrls.js
+  s_dfd9a179f24549::t_613267057d7556 261,263
+  s_dfd9a179f24549::t_18d984b8d007b4 274-284,293
+  s_dfd9a179f24549::t_22e24d370afe73 285-292
+  s_dfd9a179f24549::t_0cd85c85ca9d95 264-273
+  s_dfd9a179f24549::t_c5f0f040b8a2bd 1-24,61-62,67-69,74,91-92,221-225,254,294-296
+  s_dfd9a179f24549::t_a3a1738e9f0030 25-38,40-60,63-66,70-73,75-90,93-220,226-253,255-260,262
+  s_dfd9a179f24549::t_455e94c25a1e6c 39
+docs/content/09-deployment/01-Deployment.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-78
+docs/content/06-guides-and-tutorials/03-first-universal-app/01-Introduction.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-59
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/05-client-fetcher.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-106
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/09-font-loading.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-53
+docs/src/js/containers/Landing/Landing.js
+  s_dfd9a179f24549::t_a239876d463120 351
+  s_dfd9a179f24549::t_f0740b3bd44190 268-274,276-321
+  s_dfd9a179f24549::t_ba94498b2bf260 145,275,348
+  s_dfd9a179f24549::t_a9e375d68963d0 354
+  s_dfd9a179f24549::t_81c009a6d68b79 401
+docs/content/01-introduction/01-What-is-Catalyst.md
+  s_dfd9a179f24549::t_ba94498b2bf260 60
+  s_dfd9a179f24549::t_b740ecb4123fec 1-59,61
+docs/content/06-guides-and-tutorials/06-server-customization/01-Adding-Express-Middlewares.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-109
+docs/content/02-getting-started/00-Getting-Started.md
+  s_dfd9a179f24549::t_f1bd46fd7fcfee 2-4
+  s_dfd9a179f24549::t_510c03a6dd1dc7 35
+  s_dfd9a179f24549::t_f5a971d10e7fbc 32-34
+  s_dfd9a179f24549::t_e0abf4387c58be 36
+  s_6b0cd64f902293::t_84f80d463ca759 13-16,22-24
+docs/server/server.js
+  s_dfd9a179f24549::t_adc6e9f5449f1b 16-20,27-73
+  s_dfd9a179f24549::t_f6f1952f547243 4,10-15
+  s_dfd9a179f24549::t_a27265ec31d445 5
+  s_dfd9a179f24549::t_a9e375d68963d0 104
+  s_dfd9a179f24549::t_243294ed0b8f06 74
+docs/src/js/components/Navbar.js
+  s_dfd9a179f24549::t_031759046909d3 166-171
+  s_dfd9a179f24549::t_a9e375d68963d0 11,161,208
+docs/content/02-getting-started/04-Configuration.mdx
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-239
+docs/content/06-guides-and-tutorials/04-native-development-setup/01-Android-Emulator-Setup.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-106
+docs/content/09-deployment/03-iOS-Production-Release.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-106
+docs/content/06-guides-and-tutorials/01-MCP.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-98
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/02-route-with-mock-data.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-81
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/07-layout-setup.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-155
+docs/content/08-api-reference/02-Configuration.mdx
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-133
+docs/content/03-core-concepts/01-App-Shell.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-56
+docs/content/06-guides-and-tutorials/07-build-and-tooling/01-Linting.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-80
+docs/content/11-community-and-meta/01-FAQs.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-83
+docs/content/03-core-concepts/05-Route-Offline-Snapshots.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-180
+docs/content/06-guides-and-tutorials/05-observability-and-ops/03-Logging.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-71
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/00-introduction.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-46
+docs/content/03-core-concepts/02-State-Management.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-65
+docs/content/05-styling-and-assets/02-Fonts.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-120
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/01-installation.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-62
+docs/content/06-guides-and-tutorials/05-observability-and-ops/02-Sentry.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-141
+docs/content/05-styling-and-assets/03-Assets.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-95
+docs/content/01-introduction/03-What-is-Universal-App.md
+  s_dfd9a179f24549::t_b740ecb4123fec 1-69
+docs/content/06-guides-and-tutorials/04-native-development-setup/02-iOS-Emulator-Setup.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-112
+docs/content/07-best-practices/04-Universal-App.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-47
+docs/content/08-api-reference/00-Overview.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-16
+docs/content/08-api-reference/06-CLI.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-70
+docs/content/10-migration/02-Version-Upgrades.md
+  s_dfd9a179f24549::t_b5ea2dac388ae5 54-55
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-53,56-263
+docs/content/10-migration/01-NextJS-to-Catalyst.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-627
+docs/config/config_template.json
+  s_dfd9a179f24549::t_360123bd0e96ba 11-17,22-24
+  s_dfd9a179f24549::t_7719c4aecd32e8 18-21
+docs/src/static/css/base/index.scss
+  s_dfd9a179f24549::t_f3e7abe7d7a354 3
+docs/content/06-guides-and-tutorials/03-first-universal-app/02-Running-Universal-Apps.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-111
+docs/content/06-guides-and-tutorials/07-build-and-tooling/03-Module-Aliases.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-47
+docs/content/09-deployment/02-Universal-App-Deployment.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-60
+docs/content/03-core-concepts/06-Performance-Profiling.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-172
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/04-navigation.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-151
+docs/src/js/containers/Landing/Landing.scss
+  s_dfd9a179f24549::t_944defb49ca47d 786-790
+  s_dfd9a179f24549::t_c2344decb851ad 604-654
+docs/src/js/components/SearchModal.js
+  s_dfd9a179f24549::t_c4a2c072ecfab4 4,10-12
+docs/content/06-guides-and-tutorials/06-server-customization/02-Customising-Shell.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-112
+docs/src/js/components/docs/DocPage.js
+  s_dfd9a179f24549::t_a5bce86d7c7118 13
+docs/content/10-migration/03-React-App-to-Catalyst.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-174
+docs/content/04-routing/03-Router-Data-Provider.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-85
+docs/content/06-guides-and-tutorials/02-building-pet-adoption-app/11-conclusion.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-52
+docs/content/02-getting-started/01-Installation.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-50
+docs/content/07-best-practices/07-Suspense.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-264
+docs/content/08-api-reference/03-File-Conventions.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-125
+docs/content/08-api-reference/05-Data-Fetching.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-174
+docs/content/06-guides-and-tutorials/03-first-universal-app/03-Configuration.mdx
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-444
+docs/content/06-guides-and-tutorials/08-legacy-0-2-x/02-React-Compiler.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-68
+docs/src/js/containers/NotFound.js
+  s_dfd9a179f24549::t_b53abe8989d7cc 18-30
+docs/content/06-guides-and-tutorials/03-first-universal-app/05-Cache-Management.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-167
+docs/content/06-guides-and-tutorials/08-legacy-0-2-x/01-Webpack-Customization.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-10,12-64
+  s_dfd9a179f24549::t_b5ea2dac388ae5 11
+docs/src/static/css/base/docs.scss
+  s_dfd9a179f24549::t_c78aeb5544cf60 1325-1341
+docs/content/02-getting-started/05-Environment-Variables.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-55
+docs/src/js/utils/docsSearch.js
+  s_dfd9a179f24549::t_9fa019c903e1d4 7-13
+  s_dfd9a179f24549::t_d64cc4e3d6ba97 1-3,51-53,58,64,67-75,77-79,81-88
+  s_dfd9a179f24549::t_60c792b64c74eb 4-6,14-50,54-57,59-63,65-66,76,80
+docs/content/04-routing/01-Defining-Routes.md
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-115
+docs/content/11-community-and-meta/03-Community.mdx
+  s_dfd9a179f24549::t_1b9195d9f55ff3 1-44
+docs/content/06-guides-and-tutorials/08-legacy-0-2-x/_category_.json
+  s_f622308a9128a9::t_16bb043fd061a9 1-3
+docs/package-lock.json
+  s_b9ea2deca28272::t_b3781423f3e5c5 12,16-18,2519-2533,4652-4661,7481-7507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1cd2485b26300fc6806a87526749f482ca432984",
+  "prompts": {},
+  "sessions": {
+    "s_6b0cd64f902293": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ac039cfef36b3090b",
+        "model": "unknown"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    },
+    "s_b9ea2deca28272": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aa6375fd9c26dde18",
+        "model": "unknown"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    },
+    "s_dfd9a179f24549": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b6bdcf90-b572-4ff2-a290-dd78e410ce06",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    },
+    "s_f622308a9128a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a875975a1a36b254e",
+        "model": "unknown"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    }
+  }
+}

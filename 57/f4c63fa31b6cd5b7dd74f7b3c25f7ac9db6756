@@ -1,0 +1,27 @@
+packages/catalyst-core/src/web-router/components/MetaTag.tsx
+  s_556214d828fdce::t_522a03d258fa43 4
+  h_dfddb6bc9d199c 24-25
+packages/catalyst-core/src/vite/vite.config.client.js
+  h_dfddb6bc9d199c 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "57f4c63fa31b6cd5b7dd74f7b3c25f7ac9db6756",
+  "prompts": {},
+  "humans": {
+    "h_dfddb6bc9d199c": {
+      "author": "asthadhakar <astha.dhakar@1mg.com>"
+    }
+  },
+  "sessions": {
+    "s_556214d828fdce": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "485928",
+        "model": "AUTO"
+      },
+      "human_author": "asthadhakar <astha.dhakar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+packages/catalyst-ai/src/nativeTransport.js
+  s_142fca248d57d5::t_0b8bfc1bcfde26 81-89
+.gitignore
+  s_142fca248d57d5::t_d54925cc431724 163
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils+Requests.swift
+  s_142fca248d57d5::t_5aea8294e52510 36-37,39-40,61-65,95-98,102-103,109-124,159-163
+packages/catalyst-ai/test/nativeTransport.test.ts
+  s_142fca248d57d5::t_f6149e6d237033 110-127
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils+NativeAI.swift
+  s_142fca248d57d5::t_5aea8294e52510 18-21,27-29,73-76,79-80,82,147,215-217
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsNativeAITests.swift
+  s_142fca248d57d5::t_5aea8294e52510 3,305-331
+  s_142fca248d57d5::t_d5db136a819c7b 332
+packages/catalyst-ai/src/useNativeAI.js
+  s_142fca248d57d5::t_f6149e6d237033 130,134,160-163,212,218,242,296
+  s_142fca248d57d5::t_0b8bfc1bcfde26 3,6-20,138
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_142fca248d57d5::t_d54925cc431724 49
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_142fca248d57d5::t_d150e4431c04a8 20-23,31-39,41,44-56,67-76,81,92,98,106,111
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_142fca248d57d5::t_835ed4f404febd 26,42,157-160,164-170,173,267-272
+packages/catalyst-ai/plugins/ai/scripts/vendor-litertlm.sh
+  s_142fca248d57d5::t_a27b113064608c 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c0097892aa65155b8be08cff7198c665232855d1",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_2d3d67526032e9::t_aef733176d75a3 11-20
+packages/catalyst-core/test/hooks/aiProviders.test.ts
+  s_2d3d67526032e9::t_34af1177bcac98 2,43-51
+  s_2d3d67526032e9::t_7e1fcbcce0aaa6 52
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_44900792cf7d58 738
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2d3d67526032e9::t_44900792cf7d58 1468
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_2d3d67526032e9::t_b02ef33414b3e6 172-177
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_2d3d67526032e9::t_34af1177bcac98 28-30,33-39,61-74,92,108
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_2d3d67526032e9::t_aef733176d75a3 204-206
+packages/catalyst-core/test/hooks/platformDetection.test.ts
+  s_2d3d67526032e9::t_0bc964abe249a4 1-50
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_2d3d67526032e9::t_44900792cf7d58 92-94,96-98,179-181
+  s_2d3d67526032e9::t_012e7658587659 95
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_2d3d67526032e9::t_aef733176d75a3 4-5,39,41-42
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_2d3d67526032e9::t_b02ef33414b3e6 600-609
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "273767f8f46471ba740a2bc41c55d0e0d45e1053",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

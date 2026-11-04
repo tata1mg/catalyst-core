@@ -1,0 +1,19 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_c7fe34a005da55::t_8d54d64fd94c3e 5-11,49-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d27981d0ae85bbf3bd921a3a5ba9b5a42e0c98d3",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

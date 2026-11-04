@@ -1,0 +1,19 @@
+src/server/renderer/extract.js
+  s_250d5801b1fb56::t_00ba83224fb7c8 134-136,149,169,195-196,199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "095a4f577bf77131e85ef2b6dfc82198d2de5bef",
+  "prompts": {},
+  "sessions": {
+    "s_250d5801b1fb56": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9235eb1f-704d-4356-b6ec-47bec726c7e2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

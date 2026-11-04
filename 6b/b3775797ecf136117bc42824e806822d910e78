@@ -1,0 +1,44 @@
+packages/catalyst-ai/src/resumableFetch.js
+  s_2d3d67526032e9::t_7fc9f44262adca 1-225,227-355,362-572
+  s_2d3d67526032e9::t_3fa66d6098cc4a 226,356-361
+packages/catalyst-ai/test/resumableFetch.test.ts
+  s_2d3d67526032e9::t_86f4cea07c3e62 1-40,42,44-54,56-147,149-168,170-216,218-276,289-297,299-301,303-314
+  s_2d3d67526032e9::t_6865c5c86e3500 298
+  s_2d3d67526032e9::t_d8bd06be595a32 169,217,302
+  s_2d3d67526032e9::t_3fa66d6098cc4a 41,43,55,148,277-288
+packages/catalyst-ai/src/webWorkerScript.js
+  s_2d3d67526032e9::t_085ec5849a71de 4-5,10-46,79,125,202-213
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_2d3d67526032e9::t_d8bd06be595a32 5,102-104
+  s_2d3d67526032e9::t_fd73f286f745d0 128-135
+packages/catalyst-core/test/hooks/useNetworkStatus.test.tsx
+  s_2d3d67526032e9::t_d8bd06be595a32 1-90
+packages/catalyst-ai/src/useWebAI.js
+  s_2d3d67526032e9::t_fd73f286f745d0 32-35,60-69,140,162-163,171-173,321-325,333-335
+packages/catalyst-core/src/native/bridge/hooks/useNetworkStatus.ts
+  s_2d3d67526032e9::t_d8bd06be595a32 29-47,94,102
+packages/catalyst-ai/test/useWebAI.download.test.ts
+  s_2d3d67526032e9::t_36bc259eb3e123 1-84
+packages/catalyst-ai/test/webWorkerScript.test.ts
+  s_2d3d67526032e9::t_748a0d2eb1ad9e 1-39
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_05c55a2e65b3a3 873-886
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2d3d67526032e9::t_fdd41ed320b832 1489-1496
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bb3775797ecf136117bc42824e806822d910e78",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

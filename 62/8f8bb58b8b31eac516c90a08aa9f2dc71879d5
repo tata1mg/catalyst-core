@@ -1,0 +1,21 @@
+scripts/release/release.js
+  s_c7fe34a005da55::t_99eca088f7b4cc 167-168
+.semgrepignore
+  s_c7fe34a005da55::t_99eca088f7b4cc 3-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "628f8bb58b8b31eac516c90a08aa9f2dc71879d5",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

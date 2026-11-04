@@ -1,0 +1,38 @@
+packages/catalyst-ai/src/attachmentTags.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 1-17
+packages/catalyst-core/src/native/bridge/hooks/vision/schema.ts
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 132-136
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 55-73,107-108,110,113,120-125,170-197,199-203,220,231,245-268,313,316,326-344
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 83-88,90-93,125
+packages/catalyst-ai/src/contentParts.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 127-139,149-150
+  s_5c4ceb8b5ee5d2::t_8aedc55b75a790 126
+packages/catalyst-ai/src/webWorkerScript.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 118-182,312-313
+packages/catalyst-ai/test/contentParts.test.ts
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 153-162
+packages/catalyst-core/test/hooks/visionSchema.test.ts
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 163-176
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 17,20,23,28,86-199
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_f3bb725c6241fd 2,8-9,38-39,75-76,96-100,112-119,125-129,132-135,138,150,166,195,224,231,290,368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b50f663c2b7c4f7c4e9c50c0a534573ad36958d",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

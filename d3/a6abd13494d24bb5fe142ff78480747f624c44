@@ -1,0 +1,27 @@
+docs/Dockerfile
+  s_be39530ce9affc::t_203c0e5cb12e61 29-31,33-36,39-43
+  s_be39530ce9affc::t_7bebe8229e315f 2-6,8
+  s_be39530ce9affc::t_f12b8d4f4bfa87 10-12
+docs/package.json
+  s_be39530ce9affc::t_4c582870cc08d4 49-50
+.github/workflows/node.js.yml
+  s_be39530ce9affc::t_f12b8d4f4bfa87 1407-1420
+docs/package-lock.json
+  s_be39530ce9affc::t_463197a241f8d8 324-326,340-342,356-358,372-374,388-390,404-406,420-422,436-438,452-454,468-470,484-486,500-502,516-518,532-534,548-550,564-566,580-582,596-598,612-614,628-630,644-646,660-662,676-678,692-694,708-710,724-726,3508-3510,3520-3545
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3a6abd13494d24bb5fe142ff78480747f624c44",
+  "prompts": {},
+  "sessions": {
+    "s_be39530ce9affc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bc20ac9-1789-480f-a47e-a1d057d1521a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+src/server/renderer/extract.js
+  h_c91be57df924d3 27,80-88,94-99,101,145
+src/server/renderer/handler.jsx
+  h_c91be57df924d3 164,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1a84291c6ec019001579c43b962fcfa57a5ed971",
+  "prompts": {},
+  "humans": {
+    "h_c91be57df924d3": {
+      "author": "deepakmittal1mg <deepak.mittal@1mg.com>"
+    }
+  }
+}

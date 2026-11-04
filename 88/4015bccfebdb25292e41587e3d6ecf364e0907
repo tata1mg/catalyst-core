@@ -1,0 +1,53 @@
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_2d3d67526032e9::t_042c7d24761114 79-80,84-92,98-99,113-115,117-119,121,126-127,132-135,140-145,158-161,182,208-212,247,257-259,269-270,274,276
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_2d3d67526032e9::t_ec18a5e0bfa40e 65-73
+packages/catalyst-ai/plugins/ai/ios/CatalystAIPlugin.swift
+  s_2d3d67526032e9::t_ec18a5e0bfa40e 26-29
+packages/catalyst-ai/plugins/ai/manifest.json
+  s_2d3d67526032e9::t_ec18a5e0bfa40e 13-15
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_2d3d67526032e9::t_d7b029508f004f 4,78,83-84,86-87,91-92,106-108,131,147,157-161,180-184,189,194-200,202-206,209-210,216
+packages/catalyst-ai/plugins/ai/ios/Support/AIOptions.swift
+  s_2d3d67526032e9::t_241780f8adaefa 26-27,41
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/DownloadControl.kt
+  s_2d3d67526032e9::t_d7b029508f004f 1-224
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/CatalystAIBridge.kt
+  s_2d3d67526032e9::t_7baded527cd931 79-87
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/ResumableDownloadTests.swift
+  s_2d3d67526032e9::t_db25426ffc621b 56-60,64,68-69,81-92,135,143-144,147,272-379
+packages/catalyst-ai/plugins/ai/ios/Support/DownloadControl.swift
+  s_2d3d67526032e9::t_d03b13fa427c57 1-148
+packages/catalyst-ai/plugins/ai/ios/Support/ResilientDownload.swift
+  s_2d3d67526032e9::t_241780f8adaefa 1-105
+packages/catalyst-ai/plugins/ai/ios/AIBridge.swift
+  s_2d3d67526032e9::t_ec18a5e0bfa40e 17-19
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_2d3d67526032e9::t_7baded527cd931 1390-1403
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/DownloadControlTests.swift
+  s_2d3d67526032e9::t_a775e9d4821c4e 56-57
+  s_2d3d67526032e9::t_e795a2e9113bfb 1-55,58-285
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/AIBridge.kt
+  s_2d3d67526032e9::t_7baded527cd931 11-13
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_2d3d67526032e9::t_ec18a5e0bfa40e 153,206,223-224,226,233-248,254,267-271
+  s_2d3d67526032e9::t_6e2dd5749657a7 272
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_2d3d67526032e9::t_7baded527cd931 165,207,225,228-229,233,246-258,260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "884015bccfebdb25292e41587e3d6ecf364e0907",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

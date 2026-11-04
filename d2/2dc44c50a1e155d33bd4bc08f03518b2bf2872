@@ -1,0 +1,21 @@
+packages/catalyst-core/src/native/utils.js
+  s_be39530ce9affc::t_7246733784de36 81
+packages/catalyst-core/src/native/buildIos/build.js
+  s_be39530ce9affc::t_7246733784de36 6,296-297,299,322,324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d22dc44c50a1e155d33bd4bc08f03518b2bf2872",
+  "prompts": {},
+  "sessions": {
+    "s_be39530ce9affc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0bc20ac9-1789-480f-a47e-a1d057d1521a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

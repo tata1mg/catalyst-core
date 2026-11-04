@@ -1,0 +1,23 @@
+packages/catalyst-core/test/scripts/runtimeDependencies.test.ts
+  s_388a6535cdaef5::t_8f1bcf31797d1a 1-39
+packages/catalyst-core/package.json
+  s_388a6535cdaef5::t_b54c499936172d 79
+package-lock.json
+  s_388a6535cdaef5::t_34f8ced2e8928d 13519
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "917af3dc48f07d105290972788aa2e75b48d939f",
+  "prompts": {},
+  "sessions": {
+    "s_388a6535cdaef5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f417cc38-78ae-4f8e-a9ea-ead88a3a5eda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}

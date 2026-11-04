@@ -1,0 +1,19 @@
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_b7c0158de3b7df 12,31,261-277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2bbea2a6b421aba2667a611497857525cffa732c",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

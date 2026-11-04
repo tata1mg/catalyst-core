@@ -1,0 +1,15 @@
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  h_dfddb6bc9d199c 31
+  h_dfddb6bc9d199c 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3b632454eaf3efff17e016f7c73c36e9237dbc53",
+  "prompts": {},
+  "humans": {
+    "h_dfddb6bc9d199c": {
+      "author": "asthadhakar <astha.dhakar@1mg.com>"
+    }
+  }
+}

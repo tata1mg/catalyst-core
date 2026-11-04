@@ -1,0 +1,33 @@
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_2d3d67526032e9::t_db2913a5451e4c 591,593,595
+  s_2d3d67526032e9::t_e582d483f8229f 586-588
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_2d3d67526032e9::t_db2913a5451e4c 166-171
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_2d3d67526032e9::t_db2913a5451e4c 145-152,154-170
+  s_2d3d67526032e9::t_65410f29369087 153
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_2d3d67526032e9::t_db2913a5451e4c 48-52,112,304-314,318-319
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_b88ac5d1644734 733
+examples/useai/config/config.template.json
+  s_2d3d67526032e9::t_64c26463f8db37 31
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2d3d67526032e9::t_f9b0f77bd496a7 1468
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8b14d089150db49b24cf484f2688e00e798dd64e",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

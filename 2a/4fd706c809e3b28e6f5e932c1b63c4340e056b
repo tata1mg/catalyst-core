@@ -1,0 +1,21 @@
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_2d3d67526032e9::t_1c83bac1c73233 52-54
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_2d3d67526032e9::t_1c83bac1c73233 29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2a4fd706c809e3b28e6f5e932c1b63c4340e056b",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

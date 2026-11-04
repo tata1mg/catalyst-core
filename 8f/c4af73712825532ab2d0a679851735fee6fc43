@@ -1,0 +1,44 @@
+packages/catalyst-core/mcp_v2/conversion-tasks.json
+  s_2d3d67526032e9::t_d814749c8b87cd 126,132
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_2d3d67526032e9::t_10d66a19f9b7d1 121-144
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_2d3d67526032e9::t_09f2263b0acea7 112-183
+  s_2d3d67526032e9::t_d814749c8b87cd 184-233
+"docs/content/11-API Reference/01-Hooks.md"
+  s_2d3d67526032e9::t_89da2381250bdc 732-733
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_2d3d67526032e9::t_d5943bd1bd36d3 214-259,261-262
+packages/catalyst-core/mcp_v2/tools/conversion.js
+  s_2d3d67526032e9::t_d814749c8b87cd 8-9,271-283
+  s_2d3d67526032e9::t_2b84eea1aaea27 284
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_2d3d67526032e9::t_d48bbd53537e6c 495
+  s_2d3d67526032e9::t_89da2381250bdc 108,511-600
+  s_2d3d67526032e9::t_d814749c8b87cd 4
+  s_2d3d67526032e9::t_861b6537c30f5a 496-497,501-510
+  s_2d3d67526032e9::t_30fa9f9bc48b63 601
+examples/useai/config/config.template.json
+  s_2d3d67526032e9::t_89da2381250bdc 31
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_2d3d67526032e9::t_d814749c8b87cd 1474-1480
+  s_2d3d67526032e9::t_09f2263b0acea7 1465-1473
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_2d3d67526032e9::t_10d66a19f9b7d1 15,47-51,108-109,111,188,252-260,299-300,302,304-305,307-308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fc4af73712825532ab2d0a679851735fee6fc43",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

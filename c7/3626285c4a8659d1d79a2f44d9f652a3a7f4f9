@@ -1,0 +1,42 @@
+packages/catalyst-core/src/native/bridge/hooks/useSafeNavigate.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 1-16
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils+Requests.swift
+  s_142fca248d57d5::t_cc9a4af079df88 1-177
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 1-4,6-10,12,14-17,25-28
+  s_142fca248d57d5::t_e8ba68f91146e0 5,11,13,18-24
+packages/catalyst-core/test/hooks/aiProviders.test.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 1-33
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils+NativeAI.swift
+  s_142fca248d57d5::t_38dd8a114f024e 1-51,53-58,60-89,91-140,142-206
+  s_142fca248d57d5::t_50baef1ce3cded 52,59,90,141
+packages/catalyst-core/test/hooks/useSafeNavigate.test.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 1-21
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_142fca248d57d5::t_cc9a4af079df88 136,141-142,666,672,782
+  s_142fca248d57d5::t_38dd8a114f024e 105-108,117,131-133,138-139,787
+  s_142fca248d57d5::t_9adfc11b2d0802 372-376
+  s_142fca248d57d5::t_85a255cbd6988c 120-121
+packages/catalyst-core/src/native/bridge/hooks/useNativeTransition.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 3,67
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsNativeAITests.swift
+  s_142fca248d57d5::t_fb1bcd1da46ce4 248-250
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_142fca248d57d5::t_abb5cf1f9ac168 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c73626285c4a8659d1d79a2f44d9f652a3a7f4f9",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

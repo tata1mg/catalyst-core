@@ -1,0 +1,28 @@
+docs/src/js/layouts/DocsLayout.js
+  s_b0e8727f0b555e::t_71cd89d1d0a982 99-102
+  s_b0e8727f0b555e::t_bf689da5dd61cd 120-130,154,161
+  s_b0e8727f0b555e::t_2fd429d6a93b64 9
+  s_b0e8727f0b555e::t_c04ea4eb645ab0 79-87
+  s_b0e8727f0b555e::t_166ff77678856d 91-95
+docs/src/js/scrollHighlight.js
+  s_b0e8727f0b555e::t_be27960fbdabfa 2-19,22-23,43-49,59,62-96
+docs/scripts/webmcp-e2e-smoke.mjs
+  s_b0e8727f0b555e::t_ea86a3419c9136 65,70-71,73,78-85,91
+  s_b0e8727f0b555e::t_f4a2480e6056a6 8-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4cf72ae26a2bab0776f4feb5e5d1ccd0310c0d9e",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

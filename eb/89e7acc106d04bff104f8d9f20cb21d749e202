@@ -1,0 +1,31 @@
+packages/catalyst-core/test/native/androidSigning.test.ts
+  b5146ae36c857cb1 1-148,150-159,161-186,188-194,196-213,215-371
+packages/catalyst-core/src/native/utils.js
+  b5146ae36c857cb1 488-678,684-696,698,700-705,707-713,721-749,759-804,806-815
+packages/catalyst-core/src/native/buildAndroid/signing.js
+  b5146ae36c857cb1 1-96,102-132,142-182,188-249,260-315,317-390,392-423
+packages/catalyst-core/test/cli/nativeFlags.test.ts
+  b5146ae36c857cb1 1-34,36-71
+packages/catalyst-core/test/native/releaseConfig.test.ts
+  b5146ae36c857cb1 1-50,52-54,56-163,165-262,264-310,312-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "eb89e7acc106d04bff104f8d9f20cb21d749e202",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1403,
+      "total_deletions": 0,
+      "accepted_lines": 1481,
+      "overriden_lines": 16
+    }
+  }
+}

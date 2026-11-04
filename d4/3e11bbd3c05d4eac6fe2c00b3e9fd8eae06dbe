@@ -1,0 +1,33 @@
+docs/src/js/search.js
+  s_b0e8727f0b555e::t_57a76fb9cfb2e3 37-41
+docs/src/js/layouts/DocsLayout.js
+  s_b0e8727f0b555e::t_ed02d130d244bc 9
+  s_b0e8727f0b555e::t_a0c270c92b1756 79-93
+  s_b0e8727f0b555e::t_062b0e723a8058 32-34
+  s_b0e8727f0b555e::t_fbf108fb805740 8
+  s_b0e8727f0b555e::t_a76d377b4a251e 94-96
+  s_b0e8727f0b555e::t_50d855efea0ee7 97-98,100-136
+  s_b0e8727f0b555e::t_aec29651122c01 99
+docs/scripts/webmcp-e2e-smoke.mjs
+  s_b0e8727f0b555e::t_11ed217c3d8dfe 64-76
+  s_b0e8727f0b555e::t_70b0602c6ac38c 44-48
+docs/src/js/scrollHighlight.js
+  s_b0e8727f0b555e::t_4265bd5527ad17 1,7-27,33,37,43
+  s_b0e8727f0b555e::t_30d0c2d904c7fe 2-6,28-32,34-36,38-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d43e11bbd3c05d4eac6fe2c00b3e9fd8eae06dbe",
+  "prompts": {},
+  "sessions": {
+    "s_b0e8727f0b555e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "587d412a-06b8-44fd-ae49-2b5b1edc56ea",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+src/otel.js
+  f3095057de58b2da 84-89,92,100,424-425,464-465,546,557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.10",
+  "base_commit_sha": "590884345b67c3ca63d5fa90c459b3768ac4295c",
+  "prompts": {
+    "f3095057de58b2da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df33d599-82b6-4fe8-959b-cea6d0442b96",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Vishal Polley <vishal.polley@1mg.com>",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 12,
+      "accepted_lines": 14,
+      "overriden_lines": 2
+    }
+  }
+}

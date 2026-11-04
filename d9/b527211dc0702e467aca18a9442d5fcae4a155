@@ -1,0 +1,98 @@
+packages/catalyst-core/src/cli/package.json
+  aaa6482ba169b5a1 1-3
+packages/catalyst-core/src/logger.js
+  aaa6482ba169b5a1 16-45,107-109
+packages/catalyst-core/src/native/buildAppAndroid.js
+  aaa6482ba169b5a1 5,14-15,20-21
+packages/catalyst-core/src/cli/hints.js
+  aaa6482ba169b5a1 1-20,29-68
+packages/catalyst-core/src/scripts/generateOfflineManifest.js
+  aaa6482ba169b5a1 63
+packages/catalyst-core/src/scripts/preServerInit.js
+  aaa6482ba169b5a1 49,51-55
+packages/catalyst-core/src/scripts/scriptUtils.js
+  aaa6482ba169b5a1 53-85
+packages/catalyst-core/src/native/buildIos/plugins.js
+  aaa6482ba169b5a1 267-269,272
+.gitignore
+  aaa6482ba169b5a1 44-46
+packages/catalyst-core/src/vite/resolveDevServerConfig.js
+  aaa6482ba169b5a1 41
+packages/catalyst-core/src/native/buildIos/config.js
+  aaa6482ba169b5a1 384-386,388
+packages/catalyst-core/src/native/buildAppIos.js
+  aaa6482ba169b5a1 9,41-42,48-49
+packages/catalyst-core/src/scripts/loadEnvironmentVariables.js
+  aaa6482ba169b5a1 53-55,59
+packages/create-catalyst-app/scripts/cli.cjs
+  aaa6482ba169b5a1 5,21-26,63-64,84-87,89,91-92,98,100,107-109,111,113,144-151,154-157,161-163,165,185-187,191-194,210,212,214,386-391,393-394,396-402,405-413,419,421-423,425,427-437,439,442-453,456-469,471-474,478-482,485,489-490,492-494,496,498,502-503,505,507,511-514,516
+packages/catalyst-core/src/cli/diagnostic.js
+  aaa6482ba169b5a1 1-37,39-60,67-145,147-155,158-160,174-179,185,187-200,202-206,208-215
+packages/catalyst-core/src/native/renameAndroidProject.js
+  aaa6482ba169b5a1 19-28,292-293
+packages/catalyst-core/src/native/terminalProgress.js
+  aaa6482ba169b5a1 1-8,10-25,37,44-47,56-58,69,87-98,100-102,109-110,117-118,124-134,138-147,158-160,163-164,169-171,208-212,214-215,217-220,223-224,227-228,232-243
+packages/catalyst-core/src/scripts/serve.js
+  aaa6482ba169b5a1 2,8-9,13-15,18,23-28,43-44,48-49,51-54,56-61,67-69,71-76,78,86,90,93-95,116
+packages/catalyst-core/src/scripts/build.js
+  aaa6482ba169b5a1 6-7,20-24,30,32-35,45-50,53-57,70,161-206,208-217,219-225,229-235,287,293,298,300-304,306-307,317,328,344-346,349-355,357-359,361-364,366,368
+packages/catalyst-core/src/cli/theme.js
+  aaa6482ba169b5a1 1-2,5-23,28-65,90,96-109,123-128,134-136,138-141,143-146,149-152,154-155
+packages/catalyst-core/src/cli/spinner.js
+  aaa6482ba169b5a1 1-6,17-49,51-68,75,77-81,83-93,95-126
+packages/catalyst-core/src/cli/buildErrors.js
+  aaa6482ba169b5a1 1-2,5-44,62-67,69,72-80,82-85,87-91,93-94,98-104,110-112,143-170
+packages/catalyst-core/src/native/buildIos/index.js
+  aaa6482ba169b5a1 3,64-66,69-73,77-78,85,100-102,109-130,132-157,162-163,165-166,259
+terminal-output-notes.md
+  aaa6482ba169b5a1 1-676
+packages/catalyst-core/src/native/utils.js
+  aaa6482ba169b5a1 12-38,48,59,213,222-223,225-228,231-236,238-254,257-261,263-265,284-290,293-295
+packages/catalyst-core/test/cli/output.test.cjs
+  84ac981ee6e6a6e5 1-70
+packages/catalyst-core/src/server/expressServer.ts
+  84ac981ee6e6a6e5 178-179
+packages/catalyst-core/src/cli/README.md
+  aaa6482ba169b5a1 1-53,86-93,111-119
+packages/catalyst-core/src/cli/devOutput.js
+  aaa6482ba169b5a1 1-2,4,16-38,65-69,73-82,85,95-102,139-142,144,146,148-151,171-178,191-203,209-213,217-268,290-292,296-297,299-301,305-306,310-316,344,360,484-485
+packages/catalyst-core/src/scripts/start.js
+  aaa6482ba169b5a1 2,8,12-13,16,21-27,50-63,74,76-77,80-84
+packages/catalyst-core/src/native/buildAndroid/build.js
+  aaa6482ba169b5a1 3,152,162-177,348-350,352,369,551-553
+packages/catalyst-core/src/native/buildIos/build.js
+  aaa6482ba169b5a1 18,147-149,165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "d9b527211dc0702e467aca18a9442d5fcae4a155",
+  "prompts": {
+    "84ac981ee6e6a6e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5126ed68-b0c9-4efa-949a-555b032f18b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 70,
+      "total_deletions": 0,
+      "accepted_lines": 72,
+      "overriden_lines": 0
+    },
+    "aaa6482ba169b5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76950fb3-d502-4d86-8c9f-26e803728751",
+        "model": "claude-fable-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 4379,
+      "total_deletions": 1019,
+      "accepted_lines": 2201,
+      "overriden_lines": 0
+    }
+  }
+}

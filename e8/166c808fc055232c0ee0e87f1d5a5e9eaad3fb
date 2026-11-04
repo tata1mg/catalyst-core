@@ -1,0 +1,19 @@
+.github/workflows/release.yml
+  s_d812b980254404::t_64e005a01e50de 150,272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e8166c808fc055232c0ee0e87f1d5a5e9eaad3fb",
+  "prompts": {},
+  "sessions": {
+    "s_d812b980254404": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c1d7791-38fe-49e4-bd67-e7e0ddbd9332",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

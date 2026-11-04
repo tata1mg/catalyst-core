@@ -1,0 +1,34 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_19b7a314d68ad8::t_d7b41b9d4f88cf 3-5,18-35,74-77,81,86,98-121,123
+  s_2d3d67526032e9::t_39c3c7401d5fac 122,124
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_2d3d67526032e9::t_6717ed37f785d4 1-57
+packages/catalyst-core/src/vite/vite.config.js
+  s_19b7a314d68ad8::t_d7b41b9d4f88cf 223,235-237
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_2d3d67526032e9::t_6717ed37f785d4 37-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "626292f44b99fac02748acee5814a8052f0b58d4",
+  "prompts": {},
+  "sessions": {
+    "s_19b7a314d68ad8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "750abb89-4fad-41e0-b31f-78abbf3c8e93",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

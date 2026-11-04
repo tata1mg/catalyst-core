@@ -1,0 +1,23 @@
+packages/catalyst-core/src/otel.js
+  s_f7ee9a3f8d3e38::t_5e4853f338df4c 298-323,428-434
+  s_f7ee9a3f8d3e38::t_0d984fb337be6e 297
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_f7ee9a3f8d3e38::t_5e4853f338df4c 139,202-221,326
+  s_f7ee9a3f8d3e38::t_d7a098d04f52f1 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab28f79202b7e680299b58a3d7112db090b8dee3",
+  "prompts": {},
+  "sessions": {
+    "s_f7ee9a3f8d3e38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db70d708-1c51-4a61-9c87-1087408602a2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

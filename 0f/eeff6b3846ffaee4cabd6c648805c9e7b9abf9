@@ -1,0 +1,23 @@
+packages/catalyst-core/mcp_v2/tools/config.js
+  a3c50edbfc9dfb33 392-395,397-400,403-415,417-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "0feeff6b3846ffaee4cabd6c648805c9e7b9abf9",
+  "prompts": {
+    "a3c50edbfc9dfb33": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52b76398-df2b-4ca8-8e83-7f505d9f58d1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 32,
+      "total_deletions": 18,
+      "accepted_lines": 33,
+      "overriden_lines": 0
+    }
+  }
+}

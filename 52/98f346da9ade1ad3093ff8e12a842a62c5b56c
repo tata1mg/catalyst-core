@@ -1,0 +1,19 @@
+.semgrepignore
+  s_c7fe34a005da55::t_bb2436f051296f 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5298f346da9ade1ad3093ff8e12a842a62c5b56c",
+  "prompts": {},
+  "sessions": {
+    "s_c7fe34a005da55": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14fdd21a-4009-4c8d-9792-c9584849e2ea",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

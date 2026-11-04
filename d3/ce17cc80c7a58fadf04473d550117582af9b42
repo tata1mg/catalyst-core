@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/SafeAreaUtilsTest.kt
+  s_f7ee9a3f8d3e38::t_a99d2f7f3a6a99 3-6,53-66,70
+  s_f7ee9a3f8d3e38::t_a89f8f4eb83379 67-69
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/utils/EdgeToEdgeUtilsTest.kt
+  s_f7ee9a3f8d3e38::t_afa832d5d9cca2 11,64,71,78,85
+  s_f7ee9a3f8d3e38::t_f4e92c6de2aa37 1-10,12-63,65-70,72-77,79-84,86-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3ce17cc80c7a58fadf04473d550117582af9b42",
+  "prompts": {},
+  "sessions": {
+    "s_f7ee9a3f8d3e38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db70d708-1c51-4a61-9c87-1087408602a2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

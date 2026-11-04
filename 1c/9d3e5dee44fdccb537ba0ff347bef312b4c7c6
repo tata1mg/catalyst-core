@@ -1,0 +1,39 @@
+docs/release-stories/1.0.1.mdx
+  e23ffccc9cf31239 1-109
+docs/release-stories/1.0.0.mdx
+  e23ffccc9cf31239 1,3-21,23-24,26-105
+docs/release-pages.json
+  e23ffccc9cf31239 3,7-9,15-18,20,29-33,42-43,45-46
+docs/src/js/containers/Releases/Releases.scss
+  e23ffccc9cf31239 265-274
+docs/src/js/containers/Releases/ReleasesIndex.js
+  e23ffccc9cf31239 62,67-76
+docs/src/js/containers/Releases/ReleaseVideo.js
+  e23ffccc9cf31239 7-8,11,24
+docs/src/js/containers/Releases/storyComponents.js
+  e23ffccc9cf31239 67-68,70,75-81
+docs/server/document.js
+  e23ffccc9cf31239 18-19,22
+docs/src/js/containers/Releases/Story.scss
+  e23ffccc9cf31239 237-254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "1c9d3e5dee44fdccb537ba0ff347bef312b4c7c6",
+  "prompts": {
+    "e23ffccc9cf31239": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ba08a0d-6fde-474b-869f-e63ac8f15969",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 299,
+      "total_deletions": 24,
+      "accepted_lines": 286,
+      "overriden_lines": 4
+    }
+  }
+}

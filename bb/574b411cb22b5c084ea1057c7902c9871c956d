@@ -1,0 +1,30 @@
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_2d3d67526032e9::t_3a5eaf83fe8a79 218,220-236,238-246,248
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_2d3d67526032e9::t_cb8b2c2868e696 1-265
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/ResumableDownloadTests.swift
+  s_2d3d67526032e9::t_18b910b193e91a 76-79
+  s_2d3d67526032e9::t_bd57a2cdee6f00 1-53,56-70,72-75,80-239,250-251
+  s_2d3d67526032e9::t_757ae10eed6f15 54-55,71,240-249
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_2d3d67526032e9::t_3a5eaf83fe8a79 1-43,46-187
+  s_2d3d67526032e9::t_95b2176ca46a8a 44-45
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_2d3d67526032e9::t_cb8b2c2868e696 219,223-225,236,239,243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb574b411cb22b5c084ea1057c7902c9871c956d",
+  "prompts": {},
+  "sessions": {
+    "s_2d3d67526032e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "687795f8-e87a-45b2-b91c-4b692863b234",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

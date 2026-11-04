@@ -1,0 +1,79 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_142fca248d57d5::t_c6631c813b09a4 26,32-35
+  s_142fca248d57d5::t_e40f42ef8efa6b 14-24,30-31,36,67-68,80-86
+  s_142fca248d57d5::t_b58b6991c0bf39 37
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/AISupportTests.swift
+  s_142fca248d57d5::t_09f5db9b098767 31-36
+packages/catalyst-ai/plugins/ai/ios/Support/AIPromptBuilder.swift
+  s_142fca248d57d5::t_09f5db9b098767 12,16-17
+packages/catalyst-core/test/hooks/useAI.providers.test.ts
+  s_142fca248d57d5::t_e40f42ef8efa6b 2-33
+  s_142fca248d57d5::t_396fcdd3268234 1
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_142fca248d57d5::t_09f5db9b098767 128-130
+packages/catalyst-ai/README.md
+  s_142fca248d57d5::t_f09c168e628ad2 37-39,44
+  s_142fca248d57d5::t_f7ef6a5bd971cb 59-60,63-71
+packages/catalyst-core/src/native/buildIos/plugins.js
+  s_142fca248d57d5::t_6927c8c7df757a 47-52
+packages/catalyst-ai/plugins/ai/manifest.json
+  s_142fca248d57d5::t_6927c8c7df757a 8-14,19-23
+packages/catalyst-ai/package.json
+  s_142fca248d57d5::t_f09c168e628ad2 19
+.gitignore
+  s_142fca248d57d5::t_f09c168e628ad2 162
+packages/catalyst-core/test/native/aiPluginComposition.test.js
+  s_142fca248d57d5::t_f09c168e628ad2 69-74,77-78,80,119-150
+  s_142fca248d57d5::t_f9414cfc70025e 151
+packages/catalyst-core/src/native/internalPluginUtils.js
+  s_142fca248d57d5::t_6927c8c7df757a 79-113,129-133
+  s_142fca248d57d5::t_191f03e750c1c4 134-135
+packages/catalyst-ai/plugins/ai/LiteRTLM/LICENSE
+  s_142fca248d57d5::t_14aa03579f97a1 1-201
+packages/catalyst-ai/plugins/ai/LiteRTLM/Package.swift
+  s_142fca248d57d5::t_37cae17c5da54c 1-28
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Benchmark.swift
+  s_142fca248d57d5::t_fa94358fe7300a 1-91
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Capabilities.swift
+  s_142fca248d57d5::t_e16a201f825e19 1-114
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Config.swift
+  s_142fca248d57d5::t_d934709ab3f096 1-327
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Conversation.swift
+  s_142fca248d57d5::t_ab8f95ac9f6f4b 1-844
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/EmbeddingEngine.swift
+  s_142fca248d57d5::t_35b7c373e9ecc1 1-355
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/EmbeddingEngineConfig.swift
+  s_142fca248d57d5::t_4e9b842a5838eb 1-105
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Engine.swift
+  s_142fca248d57d5::t_6316b10c15a9e1 1-307
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/ExperimentalFlags.swift
+  s_142fca248d57d5::t_f3adf45fca472a 1-207
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/LiteRTLMError.swift
+  s_142fca248d57d5::t_cc18d71e64bf04 1-216
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Message.swift
+  s_142fca248d57d5::t_1413692a6cccee 1-278
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/ResponseFormat.swift
+  s_142fca248d57d5::t_3389422f90ecad 1-72
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/Tool.swift
+  s_142fca248d57d5::t_e4081b0520b875 1-291
+packages/catalyst-ai/plugins/ai/LiteRTLM/Sources/LiteRTLM/ToolManager.swift
+  s_142fca248d57d5::t_bed7476fa7238d 1-152
+packages/catalyst-ai/plugins/ai/LiteRTLM/VENDORED.md
+  s_142fca248d57d5::t_7808a3a0f42df7 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "62a05f68905186af04cf8f1ed120214b423b7516",
+  "prompts": {},
+  "sessions": {
+    "s_142fca248d57d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d756d514-ed99-4ae3-bab6-37a333371b4a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

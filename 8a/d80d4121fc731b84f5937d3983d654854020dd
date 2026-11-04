@@ -1,0 +1,52 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/SplashHTMLView.swift
+  a3c50edbfc9dfb33 1-31
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.mdx"
+  a3c50edbfc9dfb33 142-143,160-210
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  a3c50edbfc9dfb33 15-16
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SplashActivity.kt
+  a3c50edbfc9dfb33 47-54,62,77-78,80
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/ConfigConstants.swift
+  a3c50edbfc9dfb33 54-55
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  a3c50edbfc9dfb33 342-344
+packages/catalyst-core/src/native/buildIos/config.js
+  a3c50edbfc9dfb33 94,221-246,248
+"docs/content/11-API Reference/02-Configuration.mdx"
+  a3c50edbfc9dfb33 116-117,126-127
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SplashOverlay.kt
+  a3c50edbfc9dfb33 1-11,13-28,30-59,72-86,89-102,105-106,108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8ad80d4121fc731b84f5937d3983d654854020dd",
+  "prompts": {
+    "56c2aebc4310f726": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5815862-194b-4bee-a254-8d98dba4f544",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 1568,
+      "total_deletions": 0,
+      "accepted_lines": 1568,
+      "overriden_lines": 0
+    },
+    "a3c50edbfc9dfb33": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52b76398-df2b-4ca8-8e83-7f505d9f58d1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 284,
+      "total_deletions": 58,
+      "accepted_lines": 225,
+      "overriden_lines": 11
+    }
+  }
+}

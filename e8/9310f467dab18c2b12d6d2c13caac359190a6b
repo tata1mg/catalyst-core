@@ -1,0 +1,34 @@
+docs/package.json
+  s_4be8cf4be4e0fe::t_0dc8d624f55a89 33
+  s_4be8cf4be4e0fe::t_40a53598f5e6fa 27
+  s_4be8cf4be4e0fe::t_16bc1ed84478f7 28
+docs/src/js/containers/App/index.js
+  s_4be8cf4be4e0fe::t_13b2025f479000 2
+docs/src/js/components/SearchModal.js
+  s_4be8cf4be4e0fe::t_a547a24f03125d 10-11
+docs/src/js/utils/docsSearch.js
+  s_4be8cf4be4e0fe::t_28470ecc5d881b 2-5
+  s_4be8cf4be4e0fe::t_51297ea93381d8 68-70,72-75,79-83
+docs/src/js/containers/ChatBot/index.js
+  s_4be8cf4be4e0fe::t_b958dedce94e6b 3
+  s_4be8cf4be4e0fe::t_bf8cfaf6f1c02b 108-111,113-149,153-155
+  s_4be8cf4be4e0fe::t_56b8e57544bf27 182,184
+docs/package-lock.json
+  s_4be8cf4be4e0fe::t_f317b02bf1ef3a 12-13,18,168-170,195-197,201,208-210,213,253-255,276-278,284,294-296,299,307-309,316-318,873-875,1279-1281,1307-1309,1320-1322,1333-1335,1346-1348,1359-1361,1372-1374,1385-1387,1398-1400,1411-1413,1424-1426,1437-1439,1450-1452,1463-1465,1476-1478,1489-1491,1502-1504,1515-1517,1528-1530,1541-1543,1554-1556,1567-1569,1580-1582,1593-1595,1606-1608,1619-1621,2337-2339,2349-2351,2399-2401,2418-2422,2510-2512,2530-2532,2545-2547,3237-3239,3258-3260,5545-5553,6910-6912,7035-7037,7044-7047,7398-7400,7546-7548,7941-7943,7957-7981,8117-8119,8220-8223,9010-9012,9050-9052
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e89310f467dab18c2b12d6d2c13caac359190a6b",
+  "prompts": {},
+  "sessions": {
+    "s_4be8cf4be4e0fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ff35b9d-813d-45f1-8d38-a035a44c71e9",
+        "model": "claude-haiku-5-5"
+      },
+      "human_author": "Trina Choudhury <trina.choudhury@1mg.com>"
+    }
+  }
+}

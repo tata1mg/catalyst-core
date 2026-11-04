@@ -1,0 +1,19 @@
+packages/catalyst-core/src/scripts/loadEnvironmentVariables.js
+  s_8911efba706780::t_f8a3b22313ff5f 35-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "feea8758ae488f645f899f6b195352acc0661f35",
+  "prompts": {},
+  "sessions": {
+    "s_8911efba706780": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5270f5b6-95d7-4d4b-9517-85b9e2f1bff1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
