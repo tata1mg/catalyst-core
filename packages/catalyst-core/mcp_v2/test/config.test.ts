@@ -109,3 +109,43 @@ describe("check_config: splash screen", () => {
         expect(findings(r).some((f) => f.field === "WEBVIEW_CONFIG.splashScreen.minDuration")).toBe(false)
     })
 })
+
+describe("check_config: native port and cache patterns", () => {
+    const fieldsOf = (list: Array<{ field: string }>) => list.map((f) => f.field)
+
+    it("accepts WEBVIEW_CONFIG.port as the template's string or a number", () => {
+        for (const port of ["3005", 3005]) {
+            const r = handle_check_config({
+                project_path: makeSplashProject({ NODE_SERVER_PORT: 3005, WEBVIEW_CONFIG: { port } }),
+            })
+            expect(fieldsOf(r.issues)).not.toContain("WEBVIEW_CONFIG.port")
+            expect(fieldsOf(r.warnings)).not.toContain("WEBVIEW_CONFIG.port")
+            expect(fieldsOf(r.passed)).toContain("WEBVIEW_CONFIG.port")
+        }
+    })
+
+    it("still rejects a port that is not a port", () => {
+        for (const port of ["abc", 0, 70000, true]) {
+            const r = handle_check_config({ project_path: makeSplashProject({ WEBVIEW_CONFIG: { port } }) })
+            expect(fieldsOf(r.issues)).toContain("WEBVIEW_CONFIG.port")
+        }
+    })
+
+    it("reads ios.cachePattern as an array, and warns about a comma-separated string", () => {
+        const ok = handle_check_config({
+            project_path: makeSplashProject({ WEBVIEW_CONFIG: { ios: { cachePattern: ["*.css", "*.js"] } } }),
+        })
+        expect(fieldsOf(ok.passed)).toContain("WEBVIEW_CONFIG.ios.cachePattern")
+        expect(fieldsOf(ok.warnings)).not.toContain("WEBVIEW_CONFIG.ios.cachePattern")
+
+        const commas = handle_check_config({
+            project_path: makeSplashProject({ WEBVIEW_CONFIG: { ios: { cachePattern: "*.css,*.js" } } }),
+        })
+        expect(fieldsOf(commas.warnings)).toContain("WEBVIEW_CONFIG.ios.cachePattern")
+
+        const wrong = handle_check_config({
+            project_path: makeSplashProject({ WEBVIEW_CONFIG: { ios: { cachePattern: 5 } } }),
+        })
+        expect(fieldsOf(wrong.warnings)).toContain("WEBVIEW_CONFIG.ios.cachePattern")
+    })
+})

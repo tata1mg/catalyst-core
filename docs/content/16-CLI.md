@@ -7,7 +7,7 @@ sidebar_position: 35
 
 # CLI Reference
 
-Catalyst workflows are split between the framework CLI and project-level npm scripts. The CLI handles web app lifecycle commands, while native builds are usually exposed as scripts in the generated app.
+Catalyst workflows are split between the framework CLI and project-level npm scripts. The generated app wraps the web and native commands in scripts.
 
 ## Core Commands
 
@@ -49,9 +49,10 @@ Most apps wrap the CLI in package scripts:
     "start": "catalyst start",
     "build": "catalyst build",
     "serve": "catalyst serve",
-    "buildApp": "catalyst buildApp",
-    "buildApp:android": "catalyst buildApp:android",
-    "buildApp:ios": "catalyst buildApp:ios"
+    "android": "catalyst buildApp:android",
+    "ios": "catalyst buildApp:ios",
+    "android:release": "catalyst buildApp:android --release",
+    "ios:release": "catalyst buildApp:ios --release"
   }
 }
 ```
@@ -68,10 +69,36 @@ production-style run.
 
 | Command | Purpose |
 |---------|---------|
-| `npm run buildApp:android` | Build and run the Android debug app |
-| `npm run buildApp:ios` | Build and run the iOS app using the configured build type |
+| `npm run android` (`catalyst buildApp:android`) | Install what is missing, start the dev server if needed, then build and run the Android debug app |
+| `npm run ios` (`catalyst buildApp:ios`) | The same for iOS, on a simulator or connected iPhone |
+| `npm run android:release` (`catalyst buildApp:android --release`) | Build the signed Android App Bundle for Google Play |
+| `npm run ios:release` (`catalyst buildApp:ios --release`) | Build the signed iOS IPA for App Store Connect |
+| `catalyst credentials:export <android\|ios>` | Print `credentials/<platform>/` as one value, for the CI secret and as a backup |
+| `catalyst setupEmulator:android` | Install the Android toolchain and an emulator, then start it. Changes nothing in the app |
+| `catalyst setupEmulator:ios` | Finish Xcode setup and install a simulator runtime and a simulator. Changes nothing in the app |
 
-For native builds, the scripts read `WEBVIEW_CONFIG` from `config/config.json`. Release behavior is driven by the configured `buildType`, not by a separate built-in `:release` command.
+Apps created before 1.3.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands.
+
+| Option | Effect |
+|--------|--------|
+| `--release` | Build the signed store release |
+| `--device` | Run the debug build on the connected phone instead of the emulator or simulator |
+| `--url <url>` | The release's production URL, over `WEBVIEW_CONFIG.url` |
+| `--yes` | Allow installs and downloads without asking: JDK, SDK packages, emulator, simulator runtime, simulator, Xcode first launch |
+| `--accept-licenses` | Accept the Android SDK licences and the Xcode licence without asking |
+
+Through npm scripts, pass options after `--`, for example `npm run android -- --device`. The options can go before or after the command.
+
+Nothing is asked when stdin and stdout are not both terminals or when `CI` is set. A step that needs an answer then fails at once with [NATIVE-005](/errors/NATIVE/NATIVE-005), naming the option that answers it. `--yes` never accepts a licence and never creates a signing key; creating the Android upload key always needs a person at a terminal.
+
+| Environment variable | Use |
+|----------------------|-----|
+| `CATALYST_ANDROID_CREDENTIALS` | `credentials/android/` from `catalyst credentials:export android`, for CI |
+| `CATALYST_IOS_CREDENTIALS` | `credentials/ios/` from `catalyst credentials:export ios`, for CI |
+| `CATALYST_BUILD_NUMBER` | Override the build number, which otherwise counts the minutes since 2024-01-01 UTC |
+| `ANDROID_SERIAL` | Which Android phone `--device` uses when several are connected |
+
+See [Universal App Deployment](/content/Deployment/universal-app-deployment) for the release flow and CI, and [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp) for development.
 
 ## Production Web Flow
 

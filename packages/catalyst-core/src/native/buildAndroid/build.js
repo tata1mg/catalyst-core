@@ -1,10 +1,11 @@
 "use strict"
 
 const { spawn, execFileSync } = require("child_process")
-const fs = require("fs")
-const path = require("path")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
 const { ensureLocalProperties } = require("../utils.js")
+const { signingGradleEnv } = require("./signing.js")
+const { launchArgs } = require("./devices.js")
+const { DEFAULT_VERSION_NAME } = require("../releaseOutput.js")
 
 // adb answers in milliseconds when healthy. A wedged adb server accepts the
 // connection and never replies, so without a bound the build sat on
@@ -18,115 +19,22 @@ const DEFAULT_DEPLOYMENT_PATH = "./deployment"
 const DEFAULT_OLD_PROJECT_NAME = "androidProject"
 const DEFAULT_OVERWRITE_EXISTING = true
 
+/**
+ * Version and application id as Gradle project properties, passed through
+ * the environment (ORG_GRADLE_PROJECT_*) like the signing values. Without a
+ * package.json version the app ships 1.0.0, as on iOS, which is also what
+ * the release folder is named after.
+ */
+function versionGradleEnv({ applicationId, version } = {}) {
+    const env = {}
+    if (applicationId) env.ORG_GRADLE_PROJECT_catalystApplicationId = applicationId
+    if (version?.buildNumber) env.ORG_GRADLE_PROJECT_catalystVersionCode = String(version.buildNumber)
+    if (version) env.ORG_GRADLE_PROJECT_catalystVersionName = version.versionName || DEFAULT_VERSION_NAME
+    return env
+}
+
 function createBuildPhase(ctx) {
-    const { configPath, pwd, progress, ANDROID_PACKAGE } = ctx
-
-    async function detectPhysicalDevice(ADB_PATH) {
-        try {
-            progress.status("detecting physical devices")
-            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices -l`, { timeout: ADB_TIMEOUT_MS })
-            const lines = devices
-                .split("\n")
-                .filter((line) => line.trim() && !line.includes("List of devices"))
-
-            for (const line of lines) {
-                const parts = line.trim().split(/\s+/)
-                if (parts.length >= 2 && parts[1] === "device") {
-                    const deviceId = parts[0]
-
-                    if (!deviceId.startsWith("emulator-")) {
-                        try {
-                            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-                            const qemuCheck = ctx.runCommand(
-                                `${ADB_PATH} -s ${deviceId} shell getprop ro.kernel.qemu`,
-                                { timeout: ADB_TIMEOUT_MS }
-                            )
-                            if (!qemuCheck.trim()) {
-                                progress.log(`Physical device detected: ${deviceId}`, "success")
-
-                                let deviceModel = "Unknown Device"
-                                try {
-                                    // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-                                    const model = ctx.runCommand(
-                                        `${ADB_PATH} -s ${deviceId} shell getprop ro.product.model`,
-                                        { timeout: ADB_TIMEOUT_MS }
-                                    )
-                                    deviceModel = model.trim() || deviceModel
-                                } catch (e) {
-                                    // Ignore model detection errors
-                                }
-
-                                return { id: deviceId, model: deviceModel }
-                            }
-                        } catch (error) {
-                            continue
-                        }
-                    }
-                }
-            }
-
-            progress.log("No physical devices detected", "info")
-            return null
-        } catch (error) {
-            if (isToolTimeout(error)) throw error
-            progress.log("Error detecting physical devices: " + error.message, "error")
-            return null
-        }
-    }
-
-    async function testPhysicalDeviceInstallation(ADB_PATH, deviceId) {
-        try {
-            progress.log(`Testing installation capability on device ${deviceId}...`, "info")
-
-            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-            const connectionTest = ctx.runCommand(`${ADB_PATH} -s ${deviceId} shell echo "test"`)
-            if (!connectionTest.includes("test")) {
-                progress.log("Device connection test failed", "error")
-                return false
-            }
-
-            try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-                const developerOptions = ctx.runCommand(
-                    `${ADB_PATH} -s ${deviceId} shell settings get global development_settings_enabled`
-                )
-                if (developerOptions.trim() !== "1") {
-                    progress.log("Developer options not enabled on device", "warning")
-                    return false
-                }
-            } catch (error) {
-                progress.log("Cannot verify developer options status", "warning")
-            }
-
-            try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-                const usbDebugging = ctx.runCommand(
-                    `${ADB_PATH} -s ${deviceId} shell settings get global adb_enabled`
-                )
-                if (usbDebugging.trim() !== "1") {
-                    progress.log("USB debugging not enabled on device", "warning")
-                    return false
-                }
-            } catch (error) {
-                progress.log("Cannot verify USB debugging status", "warning")
-            }
-
-            try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.
-                ctx.runCommand(`${ADB_PATH} -s ${deviceId} shell pm list packages -3 | head -1`)
-            } catch (error) {
-                progress.log("Cannot access package manager on device", "error")
-                return false
-            }
-
-            progress.log(`Device ${deviceId} is ready for installation`, "success")
-            return true
-        } catch (error) {
-            progress.log(`Installation capability test failed: ${error.message}`, "error")
-            return false
-        }
-    }
+    const { configPath: defaultConfigPath, pwd, progress } = ctx
 
     // Returns the serial of an online emulator (adb state "device"), or null if
     // none is online. `devices.includes("emulator")` alone would also match a
@@ -136,7 +44,7 @@ function createBuildPhase(ctx) {
     async function checkEmulator(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
+            const devices = ctx.runFile(ADB_PATH, ["devices"], { timeout: ADB_TIMEOUT_MS })
             const onlineEmulator = devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/))
@@ -156,23 +64,6 @@ function createBuildPhase(ctx) {
     function gradleTask(line) {
         const match = /^>\s*Task\s+:(\S+)/.exec(line.trim())
         return match ? match[1] : null
-    }
-
-    /**
-     * Run something that writes directly to the terminal, with the progress
-     * tree stood down for the duration.
-     *
-     * The resume must happen on the failure path too -- a build that throws
-     * while paused would otherwise leave the tree silent for the rest of the
-     * run, hiding exactly the output someone needs when a build fails.
-     */
-    async function withStreamedOutput(fn) {
-        progress.pause()
-        try {
-            return await fn()
-        } finally {
-            progress.resume()
-        }
     }
 
     // The Android emulator binary is a long-running server process — it does not
@@ -234,7 +125,7 @@ function createBuildPhase(ctx) {
     function listEmulatorSerials(ADB_PATH) {
         try {
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const devices = ctx.runCommand(`${ADB_PATH} devices`, { timeout: ADB_TIMEOUT_MS })
+            const devices = ctx.runFile(ADB_PATH, ["devices"], { timeout: ADB_TIMEOUT_MS })
             return devices
                 .split("\n")
                 .map((line) => line.trim().split(/\s+/)[0])
@@ -340,10 +231,20 @@ function createBuildPhase(ctx) {
             )
         }
         progress.log("Emulator booted successfully", "success")
-        return { type: "emulator", name: androidConfig.emulatorName }
+        return { type: "emulator", name: androidConfig.emulatorName, serial }
     }
 
-    async function buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice = null) {
+    /**
+     * Build the debug APK and install it on `serial` only. Gradle's
+     * installDebug installs on every connected device unless ANDROID_SERIAL
+     * names one.
+     */
+    async function buildApp(
+        androidConfig,
+        buildOptimisation,
+        serial,
+        { configPath = defaultConfigPath, applicationId, version } = {}
+    ) {
         progress.status("building and installing app")
         try {
             // Gradle needs the SDK location in local.properties. Only
@@ -355,14 +256,7 @@ function createBuildPhase(ctx) {
             // error output entirely. --console=rich emits ANSI redraws, which
             // are meaningless on a pipe; plain gives one line per task.
             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-            let buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} --console=plain`
-
-            if (targetDevice && targetDevice.type === "physical") {
-                buildCommand = buildCommand.replace(
-                    "installDebug",
-                    `installDebug -Pandroid.injected.target.device=${targetDevice.id}`
-                )
-            }
+            const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PcatalystBuildType=debug -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} -PcatalystBuildType=debug --console=plain`
 
             // Gradle emits hundreds of lines that nobody reads on success and
             // that the error path re-derives from error.output anyway. Show the
@@ -371,7 +265,14 @@ function createBuildPhase(ctx) {
                 "sh",
                 ["-c", buildCommand],
                 { "BUILD SUCCESSFUL": "" },
-                { onLine: (line) => progress.status(gradleTask(line)) }
+                {
+                    onLine: (line) => progress.status(gradleTask(line)),
+                    env: {
+                        ...process.env,
+                        ...versionGradleEnv({ applicationId, version }),
+                        ...(serial ? { ANDROID_SERIAL: serial } : {}),
+                    },
+                }
             )
         } catch (error) {
             // Re-wrapping with a new Error dropped `output`, and with it the
@@ -381,28 +282,31 @@ function createBuildPhase(ctx) {
         }
     }
 
-    async function launchApp(ADB_PATH, buildType = "debug", targetDevice = null) {
-        if (!targetDevice) {
-            progress.log("No target device specified, skipping launch", "warning")
-            return
-        }
-
-        if (targetDevice.type === "physical") {
-            progress.log(`App installed on physical device: ${targetDevice.model}`, "success")
-            progress.log("Open the app on your device to launch it", "note")
-            return
-        }
-
+    /** Open the installed app on `serial`. A failure is a warning: the app is installed. */
+    function launchApp(ADB_PATH, serial, packageName) {
         try {
-            progress.status("launching app on emulator")
-            const packageName = `${ANDROID_PACKAGE}${buildType === "debug" ? ".debug" : ""}`
-            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - ADB_PATH is derived from androidConfig.sdkPath, a trusted internal config value.
-            const launchCommand = `${ADB_PATH} shell monkey -p ${packageName} 1`
-            await ctx.runInteractiveCommand("sh", ["-c", launchCommand], {})
+            progress.status("launching app")
+            execFileSync(ADB_PATH, launchArgs(serial, packageName), {
+                encoding: "utf8",
+                timeout: ADB_TIMEOUT_MS,
+                stdio: ["ignore", "pipe", "pipe"],
+            })
         } catch (error) {
-            progress.log(`Warning: Could not auto-launch app: ${error.message}`, "warning")
-            progress.log("App was installed successfully, but auto-launch failed", "info")
+            progress.log(
+                `Could not open the app: ${error.message}. It is installed; open it on the device.`,
+                "warning"
+            )
         }
+    }
+
+    function aabNames(androidConfig) {
+        const newProjectName =
+            androidConfig.newProjectName ||
+            androidConfig.appName ||
+            androidConfig.packageName?.split(".").pop() ||
+            "catalystapp"
+        const outputPath = androidConfig.outputPath || `${process.cwd()}/build-output`
+        return { newProjectName, outputPath }
     }
 
     async function createAABConfig(androidConfig) {
@@ -417,33 +321,12 @@ function createBuildPhase(ctx) {
                     ? androidConfig.overwriteExisting
                     : DEFAULT_OVERWRITE_EXISTING,
 
-            newProjectName:
-                androidConfig.newProjectName ||
-                androidConfig.appName ||
-                androidConfig.packageName?.split(".").pop() ||
-                "catalystapp",
+            newProjectName: aabNames(androidConfig).newProjectName,
 
             packageName: androidConfig.packageName || null,
 
             createSignedAAB: true,
-            outputPath: androidConfig.outputPath || `${process.cwd()}/build-output`,
-        }
-
-        if (androidConfig.keystoreConfig) {
-            aabConfig.keystoreConfig = androidConfig.keystoreConfig
-        } else if (androidConfig.keystore) {
-            aabConfig.keystoreConfig = {
-                keyAlias: androidConfig.keystore.alias || "release",
-                storePassword: androidConfig.keystore.storePassword,
-                keyPassword: androidConfig.keystore.keyPassword,
-                validityYears: 25,
-                organizationInfo: {
-                    companyName: androidConfig.keystore.organizationName || "YourCompany",
-                    city: androidConfig.keystore.city || "YourCity",
-                    state: androidConfig.keystore.state || "YourState",
-                    countryCode: androidConfig.keystore.countryCode || "US",
-                },
-            }
+            outputPath: aabNames(androidConfig).outputPath,
         }
 
         progress.log(`AAB Configuration:`, "info")
@@ -469,99 +352,48 @@ function createBuildPhase(ctx) {
         return aabConfig
     }
 
-    async function moveApkToOutputPath(buildType, BUILD_OUTPUT_PATH, appName) {
-        try {
-            if (!BUILD_OUTPUT_PATH) {
-                progress.log("BUILD_OUTPUT_PATH not set, skipping APK move", "warning")
-                return null
-            }
-
-            const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            // 24-hour and locale-free: "02-05-09 PM" put a space in every
-            // artifact name, which breaks unquoted shell use of the path.
-            const currentTime = new Date().toTimeString().slice(0, 8).replace(/:/g, "-")
-            let destinationApkFileName = ""
-
-            if (appName) {
-                destinationApkFileName =
-                    buildType === "release"
-                        ? `${appName}-${currentTime}.release.apk`
-                        : `${appName}-${currentTime}.debug.apk`
-            } else {
-                destinationApkFileName =
-                    buildType === "release"
-                        ? `app-${currentTime}.release.apk`
-                        : `app-${currentTime}.debug.apk`
-            }
-
-            const sourceApkFileName = buildType === "release" ? `app.apk` : `app-debug.apk`
-
-            const sourceApkPath = path.join(
-                pwd, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - pwd is an internal resolved path.
-                "androidProject",
-                "app",
-                "build",
-                "outputs",
-                "apk",
-                buildType, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
-                sourceApkFileName
-            )
-            const destinationDir = path.join(
-                process.cwd(),
-                BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
-                "native",
-                "android",
-                currentDate,
-                buildType // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
-            )
-            const destinationApkPath = path.join(destinationDir, destinationApkFileName) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - destinationDir and destinationApkFileName are derived from internal config values, not user input.
-
-            if (!fs.existsSync(sourceApkPath)) {
-                progress.log(`APK not found at source path: ${sourceApkPath}`, "warning")
-                return null
-            }
-
-            if (!fs.existsSync(destinationDir)) {
-                fs.mkdirSync(destinationDir, { recursive: true })
-            }
-
-            fs.copyFileSync(sourceApkPath, destinationApkPath)
-            return destinationApkPath
-        } catch (error) {
-            progress.log(`Error moving APK: ${error.message}`, "error")
-            return null
-        }
-    }
-
-    async function buildSignedAAB(androidConfig) {
+    /**
+     * Build the signed release bundle. The webview config is generated in
+     * the temp_build_<pkg> copy that Gradle then bundles, from the resolved
+     * release config and with -PcatalystBuildType=release, so the release
+     * branch of generateWebViewConfig actually runs. Signing and version
+     * values reach Gradle through the environment, never argv.
+     */
+    async function buildSignedAAB(
+        androidConfig,
+        {
+            configPath = defaultConfigPath,
+            signing,
+            version,
+            applicationId,
+            buildOptimisation = false,
+            finalAabPath,
+        } = {}
+    ) {
         progress.log("Building signed AAB for release...", "info")
 
         try {
+            if (!signing) throw new Error("No upload key resolved for the release build")
             // Same as buildApp: gradle needs local.properties on a fresh machine.
             if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
 
-            progress.log("Generating webview configuration for release...", "info")
-            try {
-                // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-                const generateConfigCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath}`
-                await ctx.runInteractiveCommand(
-                    "sh",
-                    ["-c", generateConfigCommand],
-                    { "BUILD SUCCESSFUL": "" },
-                    { onLine: (line) => progress.status(gradleTask(line)) }
-                )
-                progress.log("Webview config generated successfully", "success")
-            } catch (configError) {
-                progress.log(`Warning: Webview config generation failed: ${configError.message}`, "warning")
-                throw new Error("Webview config generation is required for release builds")
-            }
-
             const aabConfig = await createAABConfig(androidConfig)
-            // buildAndroidAAB shells out to `./gradlew bundleRelease` and prints
-            // its own progress lines, so it owns the screen for its duration.
-            await withStreamedOutput(() => buildAndroidAAB(aabConfig))
+            if (finalAabPath) aabConfig.finalAabPath = finalAabPath
+            aabConfig.gradle = {
+                configPath,
+                buildOptimisation,
+                env: {
+                    ...process.env,
+                    ...versionGradleEnv({ applicationId, version }),
+                    ...signingGradleEnv(signing),
+                },
+            }
+            // Its steps and details go through this progress: spinner detail
+            // by default, lines under --verbose; warnings always print.
+            const result = await buildAndroidAAB(aabConfig, { progress })
 
             progress.log("Signed AAB build completed successfully!", "success")
+            return result
         } catch (error) {
             error.stage = "Building the signed AAB"
             throw error
@@ -569,8 +401,6 @@ function createBuildPhase(ctx) {
     }
 
     return {
-        detectPhysicalDevice,
-        testPhysicalDeviceInstallation,
         checkEmulator,
         handleEmulatorSetup,
         startEmulator,
@@ -578,7 +408,6 @@ function createBuildPhase(ctx) {
         buildApp,
         launchApp,
         createAABConfig,
-        moveApkToOutputPath,
         buildSignedAAB,
     }
 }

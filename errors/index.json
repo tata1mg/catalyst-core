@@ -1,74 +1,4 @@
 {
-    "CCA-000": {
-        "category": "CCA",
-        "message": "An upstream command failed",
-        "details": "This wraps an error from npm, tar, or another upstream tool invoked by create-catalyst-app. See the printed upstream message for the actual cause.",
-        "suggestedAction": "Read the upstream error message printed above and fix the underlying issue.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-000.md"
-    },
-    "CCA-001": {
-        "category": "CCA",
-        "message": "Invalid project name",
-        "details": "The project name is not a valid npm package name.",
-        "suggestedAction": "Choose a project name that is a valid npm package name and try again.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-001.md"
-    },
-    "CCA-002": {
-        "category": "CCA",
-        "message": "Target directory already exists",
-        "details": "A file or directory with the project name already exists in the current directory.",
-        "suggestedAction": "Choose a different project name, or remove/rename the existing directory.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-002.md"
-    },
-    "CCA-003": {
-        "category": "CCA",
-        "message": "Invalid language option",
-        "details": "The --lang option must be \"js\" or \"ts\".",
-        "suggestedAction": "Pass --lang js or --lang ts.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-003.md"
-    },
-    "CCA-004": {
-        "category": "CCA",
-        "message": "Invalid state management option",
-        "details": "The --state-management option must be \"rtk\", \"redux\", or \"none\".",
-        "suggestedAction": "Pass a supported --state-management value.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-004.md"
-    },
-    "CCA-005": {
-        "category": "CCA",
-        "message": "Invalid --yes option",
-        "details": "The -y/--yes flag does not accept a non-boolean value.",
-        "suggestedAction": "Use -y or --yes with no value to accept defaults.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-005.md"
-    },
-    "CCA-006": {
-        "category": "CCA",
-        "message": "Failed to pack create-catalyst-app",
-        "details": "npm pack could not produce the tarball used to scaffold the new project.",
-        "suggestedAction": "Check your npm registry access/network connection and try again.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-006.md"
-    },
-    "CCA-007": {
-        "category": "CCA",
-        "message": "Failed to extract template files",
-        "details": "The packed tarball could not be extracted into the new project directory.",
-        "suggestedAction": "Ensure the target directory is writable and try again.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-007.md"
-    },
-    "CCA-008": {
-        "category": "CCA",
-        "message": "MCP server setup failed",
-        "details": "Downloading, installing, or configuring the MCP server failed.",
-        "suggestedAction": "Check your network connection and re-run `catalyst-mcp` inside the project.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-008.md"
-    },
-    "CCA-009": {
-        "category": "CCA",
-        "message": ".gitignore already exists",
-        "details": "The scaffolded project already contains a .gitignore file.",
-        "suggestedAction": "Remove or rename the existing .gitignore before running again, or ignore this warning.",
-        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-009.md"
-    },
     "PREFLIGHT-001": {
         "category": "PREFLIGHT",
         "message": "config not found in config folder",
@@ -258,6 +188,83 @@
         "suggestedAction": "Confirm a full Xcode.app (not just Command Line Tools) is installed and selected via xcode-select -p, then reopen it once from Spotlight so macOS registers its app bundle.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-001.md"
     },
+    "IOS-002": {
+        "category": "IOS",
+        "message": "Full Xcode is not installed or selected",
+        "details": "setupEmulator:ios and buildApp:ios need Xcode.app, not only the Command Line Tools. xcode-select -p does not point inside an Xcode app bundle, so there is no simulator, iOS SDK or app-building xcodebuild.",
+        "suggestedAction": "Install Xcode from the Mac App Store, then run sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-002.md"
+    },
+    "IOS-003": {
+        "category": "IOS",
+        "message": "Xcode setup is not finished",
+        "details": "The Xcode licence has not been accepted or its first-launch components are not installed, so xcodebuild and simctl refuse to run. Both steps need an administrator password: in a terminal they run after a yes, and without one --accept-licenses (the licence) and --yes (first launch) run them with sudo -n, which works only where sudo needs no password.",
+        "suggestedAction": "Run sudo xcodebuild -license accept and sudo xcodebuild -runFirstLaunch, then retry.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-003.md"
+    },
+    "IOS-004": {
+        "category": "IOS",
+        "message": "No iOS simulator runtime installed",
+        "details": "Xcode has no available iOS simulator runtime, so there is no simulator to create or boot. The runtime is a download of several gigabytes and is only fetched after a yes in an interactive terminal or with --yes.",
+        "suggestedAction": "Run catalyst setupEmulator:ios in a terminal or with --yes, or run xcodebuild -downloadPlatform iOS yourself.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-004.md"
+    },
+    "IOS-005": {
+        "category": "IOS",
+        "message": "App icon is not usable",
+        "details": "public/icon.png becomes the app's single 1024x1024 universal AppIcon, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        "suggestedAction": "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add the sized icons in public/ios/appIcons.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-005.md"
+    },
+    "IOS-006": {
+        "category": "IOS",
+        "message": "App icon has transparency",
+        "details": "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
+        "suggestedAction": "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-006.md"
+    },
+    "IOS-010": {
+        "category": "IOS",
+        "message": "iOS code signing is not set up",
+        "details": "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key in credentials/ios/ (cloud signing) or an Apple account signed in to Xcode; manual signing needs a .p12 and its provisioning profile in credentials/ios/, or an installed ios.provisioningProfile. xcodebuild reported a signing failure, or a release build has no team to sign for.",
+        "suggestedAction": "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md"
+    },
+    "IOS-011": {
+        "category": "IOS",
+        "message": "App Store Connect API key settings are incomplete or wrong",
+        "details": "Cloud signing uses an App Store Connect API key from credentials/ios/ (in CI, unpacked from CATALYST_IOS_CREDENTIALS), which takes three values: the AuthKey_*.p8 file, its key ID and the issuer ID. Some of them are there but not all, there is more than one .p8 file, or the key ID is not letters and digits.",
+        "suggestedAction": "Put the AuthKey_*.p8 file in credentials/ios/, and an ascIssuerId line (plus ascKeyId when the file is renamed) in credentials/ios/signing.properties. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md"
+    },
+    "IOS-012": {
+        "category": "IOS",
+        "message": "Manual signing inputs are incomplete or wrong",
+        "details": "Local signing imports the .p12 from credentials/ios/ into a temporary keychain and installs its provisioning profile for the build. Only one of the .p12 and the .mobileprovision is there, there are several of either, the p12Password in signing.properties is wrong, the p12 has no code signing identity, or the profile is unreadable, expired or for another bundle ID.",
+        "suggestedAction": "Keep one distribution .p12 and the .mobileprovision for WEBVIEW_CONFIG.appId in credentials/ios/, with a p12Password line in credentials/ios/signing.properties, and check that they belong together. In CI, run catalyst credentials:export ios again and paste the value into CATALYST_IOS_CREDENTIALS.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md"
+    },
+    "IOS-013": {
+        "category": "IOS",
+        "message": "Unknown iOS export method",
+        "details": "WEBVIEW_CONFIG.ios.exportMethod picks how the release archive is exported to an IPA. Xcode 26 accepts app-store-connect, release-testing, enterprise and debugging; the older names app-store, ad-hoc and development are mapped to them with a warning.",
+        "suggestedAction": "Set WEBVIEW_CONFIG.ios.exportMethod to app-store-connect (the default), release-testing, enterprise or debugging.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-013.md"
+    },
+    "IOS-014": {
+        "category": "IOS",
+        "message": "No connected iPhone found",
+        "details": "buildApp:ios --device builds for a connected iPhone, and xcrun devicectl lists none that is paired and reachable. An iPhone shows up once it is unlocked, trusts this Mac and has Developer Mode on.",
+        "suggestedAction": "Connect the iPhone with a cable, unlock it, accept Trust This Computer and turn on Developer Mode (Settings > Privacy & Security), then retry; or leave out --device to use the simulator.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-014.md"
+    },
+    "IOS-015": {
+        "category": "IOS",
+        "message": "No address the iPhone can reach this Mac on",
+        "details": "A debug build on a physical iPhone loads the dev server from this Mac over the local network, at the Mac's Bonjour name (its Local Hostname plus .local) or its LAN IP address. This Mac has neither a Local Hostname nor a private IPv4 address on an active interface.",
+        "suggestedAction": "Join the Mac and the iPhone to the same Wi-Fi network and check the Local Hostname in System Settings > General > Sharing, then retry.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-015.md"
+    },
     "ANDROID-000": {
         "category": "ANDROID",
         "message": "Android build failed in an upstream toolchain step",
@@ -271,6 +278,132 @@
         "details": "buildApp:android launched the configured AVD but it did not appear in `adb devices` or did not finish booting (sys.boot_completed=1 and init.svc.bootanim=stopped) within the timeout.",
         "suggestedAction": "Try booting the AVD manually first (emulator -avd <name>) to see the actual startup error, check available disk space/RAM, or increase the emulator's cold-boot allowance if the device is unusually slow.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-001.md"
+    },
+    "ANDROID-005": {
+        "category": "ANDROID",
+        "message": "No upload key for the release build",
+        "details": "A release build signs the app bundle with the app's upload key. None was found in credentials/android/ or in the CATALYST_ANDROID_CREDENTIALS secret. A new key is only created after a yes in an interactive terminal, and never for an app that is already on Google Play.",
+        "suggestedAction": "Run catalyst buildApp:android --release once in a terminal to create credentials/android/upload.jks, then back it up with catalyst credentials:export android. In CI, set the CATALYST_ANDROID_CREDENTIALS secret to the output of catalyst credentials:export android.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-005.md"
+    },
+    "ANDROID-006": {
+        "category": "ANDROID",
+        "message": "Upload key settings are incomplete or wrong",
+        "details": "An upload key was found but cannot be used: the keystore or its keystore.properties is missing, no store password was given, or keytool rejected the password or alias.",
+        "suggestedAction": "Check credentials/android/keystore.properties against credentials/android/upload.jks. In CI, run catalyst credentials:export android again and update the CATALYST_ANDROID_CREDENTIALS secret.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-006.md"
+    },
+    "ANDROID-007": {
+        "category": "ANDROID",
+        "message": "No JDK 17 to 23 found",
+        "details": "Gradle 8.13 and the Android SDK tools need JDK 17 to 23. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime (a JDK 24 or newer is skipped), and none could be installed: this is not macOS, Homebrew is missing, or the install was declined.",
+        "suggestedAction": "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-007.md"
+    },
+    "ANDROID-008": {
+        "category": "ANDROID",
+        "message": "Android SDK setup was declined",
+        "details": "buildApp:android or setupEmulator:android found Android SDK pieces to download (command-line tools, packages or a system image), an emulator to create, or SDK licences to accept, and the answer was no. Without them the app cannot be built or run.",
+        "suggestedAction": "Run the command again and answer yes, or pass --yes to allow the downloads and --accept-licenses to accept the Android SDK licences.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-008.md"
+    },
+    "ANDROID-009": {
+        "category": "ANDROID",
+        "message": "Could not install the Android command-line tools",
+        "details": "The pinned Android command-line tools archive could not be downloaded, did not match its published SHA-256, or could not be unpacked into <sdk>/cmdline-tools/latest.",
+        "suggestedAction": "Check your network or proxy and retry, or download the command-line tools from https://developer.android.com/studio#command-tools and unzip them so that <sdk>/cmdline-tools/latest/bin/sdkmanager exists.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-009.md"
+    },
+    "ANDROID-010": {
+        "category": "ANDROID",
+        "message": "App icon is not usable",
+        "details": "public/icon.png becomes the Android launcher icon when public/android/appIcons has no per-density icons, so it must be a PNG file, square, and at least 1024 by 1024 pixels.",
+        "suggestedAction": "Replace public/icon.png with a square PNG of at least 1024x1024 pixels, or add per-density icons in public/android/appIcons.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-010.md"
+    },
+    "ANDROID-011": {
+        "category": "ANDROID",
+        "message": "No Android phone connected",
+        "details": "buildApp:android --device installs the app on a phone that adb can reach, but adb lists none that is ready: no phone is connected, USB debugging is off, the phone has not allowed this computer yet (adb shows it as unauthorized), or ANDROID_SERIAL names a phone that is not connected.",
+        "suggestedAction": "Connect the phone, turn on USB debugging in Developer options, accept the Allow USB debugging prompt on the phone and check that adb devices lists it. Or drop --device to use the emulator.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/ANDROID/ANDROID-011.md"
+    },
+    "NATIVE-001": {
+        "category": "NATIVE",
+        "message": "Release build points at a local or private host",
+        "details": "A release build (buildApp:android --release or buildApp:ios --release) would open a start URL on localhost, a loopback, private (RFC 1918), link-local or .local address, this machine's own address, or a reserved placeholder domain such as example.com. Users' devices cannot reach it, so the store build would open on an error page. The start URL comes from --url, then WEBVIEW_CONFIG.url, then the older LOCAL_IP, port and useHttps keys.",
+        "suggestedAction": "Set WEBVIEW_CONFIG.url to your production origin (e.g. https://shop.acme.com) or pass --url, or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md"
+    },
+    "NATIVE-002": {
+        "category": "NATIVE",
+        "message": "Invalid build number",
+        "details": "The build number becomes the Android versionCode and the iOS CFBundleVersion. It is the whole minutes since 2024-01-01T00:00:00Z unless CATALYST_BUILD_NUMBER is set, and CATALYST_BUILD_NUMBER is not a whole number from 1 to 2100000000 (the largest value Google Play accepts).",
+        "suggestedAction": "Unset CATALYST_BUILD_NUMBER to use the automatic build number, or set it to a whole number from 1 to 2100000000 that is higher than the last one you uploaded.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-002.md"
+    },
+    "NATIVE-003": {
+        "category": "NATIVE",
+        "message": "Release build uses a placeholder app id",
+        "details": "The app id becomes the Android application id and the iOS bundle id, and a store listing is tied to it for good. It is a com.example.* id or one of the template defaults (io.yourname.androidproject, com.catalyst.framework.app, com.debug.webview), or none is set, so the template's default would ship.",
+        "suggestedAction": "Set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id, e.g. com.acme.shop.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md"
+    },
+    "NATIVE-004": {
+        "category": "NATIVE",
+        "message": "Invalid production URL",
+        "details": "WEBVIEW_CONFIG.url and --url take an origin: an http:// or https:// scheme, a host and an optional port, with no path, query, fragment or user name. HTTPS must use port 443, because the iOS app always loads HTTPS on 443.",
+        "suggestedAction": "Use an origin such as https://shop.acme.com, without a path or a port other than 443.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-004.md"
+    },
+    "NATIVE-005": {
+        "category": "NATIVE",
+        "message": "A step needs your answer and there is no terminal to ask on",
+        "details": "Native commands only ask questions when stdin and stdout are terminals and CI is not set. This step needs an answer: --yes confirms installs and downloads, --accept-licenses accepts licences, and creating a signing key always needs a person at a terminal.",
+        "suggestedAction": "Pass the flag named in the message, or run the command in an interactive terminal.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-005.md"
+    },
+    "NATIVE-006": {
+        "category": "NATIVE",
+        "message": "The dev server did not answer",
+        "details": "A debug build loads the app from the dev server. The CLI started it with catalyst start and waited for it to answer, but it exited, did not answer in time, or is running where the device cannot reach it.",
+        "suggestedAction": "Run npm start on its own to see why the server does not start, then run the build again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-006.md"
+    },
+    "NATIVE-007": {
+        "category": "NATIVE",
+        "message": "The credentials secret could not be unpacked",
+        "details": "CATALYST_ANDROID_CREDENTIALS and CATALYST_IOS_CREDENTIALS hold a base64 gzipped tar of credentials/<platform>/, as printed by catalyst credentials:export. The value is not one, is cut short, or holds links or paths outside the folder.",
+        "suggestedAction": "Run catalyst credentials:export <android|ios> where credentials/<platform>/ exists and paste the whole value into the secret again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-007.md"
+    },
+    "NATIVE-008": {
+        "category": "NATIVE",
+        "message": "No credentials to export",
+        "details": "catalyst credentials:export packs credentials/<platform>/ in the app root, and that folder is missing or empty. A first release build creates it (the Android upload key), or you add the iOS signing files to it.",
+        "suggestedAction": "Run the command from the app root after a release build has created credentials/<platform>/.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-008.md"
+    },
+    "NATIVE-009": {
+        "category": "NATIVE",
+        "message": "Credentials are too large for one secret",
+        "details": "A GitHub Actions secret holds at most 48 KB, and credentials/<platform>/ packs to more than that.",
+        "suggestedAction": "Remove files the build does not need from credentials/<platform>/ (only signing keys, profiles and their settings belong there), then export again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-009.md"
+    },
+    "NATIVE-010": {
+        "category": "NATIVE",
+        "message": "Invalid app id",
+        "details": "The app id (WEBVIEW_CONFIG.appId, android.packageName or ios.bundleIdentifier / appBundleId) is not a valid id for the platform. Android needs a Java package name: two or more dot-separated parts, each starting with a letter and using only letters, digits and _, none a Java keyword. iOS needs two or more parts of letters, digits and -.",
+        "suggestedAction": "Set WEBVIEW_CONFIG.appId in config/config.json to a reverse-DNS id such as com.acme.shop: letters and digits only, each part starting with a letter.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-010.md"
+    },
+    "NATIVE-011": {
+        "category": "NATIVE",
+        "message": "A release with this version and build number already exists",
+        "details": "build-output/<platform>/<version>-<build>/ already holds a store artifact. The build number counts whole minutes, so two releases in the same minute get the same number, and a store refuses a build number it has already seen.",
+        "suggestedAction": "Wait a minute and run the release again, or set CATALYST_BUILD_NUMBER to a higher number. To rebuild the same build on purpose, delete that folder first.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-011.md"
     },
     "RUNTIME-NATIVE-001": {
         "category": "RUNTIME-NATIVE",
@@ -523,5 +656,75 @@
         "details": "An unhandled error reached the top level of the SSR request handler. This may originate from app code, a third-party dependency, or catalyst-core itself — see the cause above for the actual error.",
         "suggestedAction": "See the cause above for the underlying error.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/RUNTIME-WEB/RUNTIME-WEB-004.md"
+    },
+    "CCA-000": {
+        "category": "CCA",
+        "message": "An upstream command failed",
+        "details": "This wraps an error from npm, tar, or another upstream tool invoked by create-catalyst-app. See the printed upstream message for the actual cause.",
+        "suggestedAction": "Read the upstream error message printed above and fix the underlying issue.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-000.md"
+    },
+    "CCA-001": {
+        "category": "CCA",
+        "message": "Invalid project name",
+        "details": "The project name is not a valid npm package name.",
+        "suggestedAction": "Choose a project name that is a valid npm package name and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-001.md"
+    },
+    "CCA-002": {
+        "category": "CCA",
+        "message": "Target directory already exists",
+        "details": "A file or directory with the project name already exists in the current directory.",
+        "suggestedAction": "Choose a different project name, or remove/rename the existing directory.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-002.md"
+    },
+    "CCA-003": {
+        "category": "CCA",
+        "message": "Invalid language option",
+        "details": "The --lang option must be \"js\" or \"ts\".",
+        "suggestedAction": "Pass --lang js or --lang ts.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-003.md"
+    },
+    "CCA-004": {
+        "category": "CCA",
+        "message": "Invalid state management option",
+        "details": "The --state-management option must be \"rtk\", \"redux\", or \"none\".",
+        "suggestedAction": "Pass a supported --state-management value.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-004.md"
+    },
+    "CCA-005": {
+        "category": "CCA",
+        "message": "Invalid --yes option",
+        "details": "The -y/--yes flag does not accept a non-boolean value.",
+        "suggestedAction": "Use -y or --yes with no value to accept defaults.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-005.md"
+    },
+    "CCA-006": {
+        "category": "CCA",
+        "message": "Failed to pack create-catalyst-app",
+        "details": "npm pack could not produce the tarball used to scaffold the new project.",
+        "suggestedAction": "Check your npm registry access/network connection and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-006.md"
+    },
+    "CCA-007": {
+        "category": "CCA",
+        "message": "Failed to extract template files",
+        "details": "The packed tarball could not be extracted into the new project directory.",
+        "suggestedAction": "Ensure the target directory is writable and try again.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-007.md"
+    },
+    "CCA-008": {
+        "category": "CCA",
+        "message": "MCP server setup failed",
+        "details": "Downloading, installing, or configuring the MCP server failed.",
+        "suggestedAction": "Check your network connection and re-run `catalyst-mcp` inside the project.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-008.md"
+    },
+    "CCA-009": {
+        "category": "CCA",
+        "message": ".gitignore already exists",
+        "details": "The scaffolded project already contains a .gitignore file.",
+        "suggestedAction": "Remove or rename the existing .gitignore before running again, or ignore this warning.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/CCA/CCA-009.md"
     }
 }

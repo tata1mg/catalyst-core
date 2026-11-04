@@ -31,15 +31,15 @@ Default app port is usually `3005`. Change it only if:
 - your local environment requires a different port
 - your team has standard local networking rules
 
-## Why does `LOCAL_IP` matter for universal apps?
+## How does the native app reach my dev server?
 
-`LOCAL_IP` tells the native WebView where to load the local server from. It must be a reachable LAN IP, not `localhost`, because emulators and devices cannot reliably resolve your host machine through `localhost`.
+You do not configure an address for it. Keep `LOCAL_IP` as `localhost`; each debug build works out the address and puts it into the build only:
 
-If your IP changes:
+- Android emulator or USB phone: `localhost`, forwarded to your machine with `adb reverse`
+- iOS simulator: `localhost`
+- iPhone: your Mac's `<Local Hostname>.local` name, so it keeps working when your IP changes
 
-1. update `WEBVIEW_CONFIG.LOCAL_IP`
-2. restart the Catalyst server
-3. rebuild or rerun the universal app
+Apps set up before Catalyst 1.3.0 had a LAN address saved in `config/config.json`. The first build on 1.3.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
 
 ## What does `CLIENT_ENV_VARIABLES` do?
 
@@ -66,15 +66,15 @@ Android CLI tooling can be inconsistent with space-separated names. Prefer names
 
 First setup is slower because SDK and bridge checks are performed.
 
-## Why is iOS `buildType` failing even though the value looks right?
+## Why does `npm run ios` build an IPA instead of opening the simulator?
 
-iOS `buildType` is case-sensitive. Use `Debug` or `Release`, not lowercase values.
+`WEBVIEW_CONFIG.ios.buildType` is `release` (in any case), which builds the store IPA like `--release` and prints a deprecation warning. Set it to `debug` or remove it, and use `npm run ios:release` for store builds. The same applies to `android.buildType`.
 
 ## Common Errors
 
 - **Port already in use**: switch to a free port.
-- **Emulator not found**: verify exact emulator name.
+- **Emulator not found**: verify the exact `emulatorName`, or remove it so Catalyst picks or creates one.
 - **Connection refused**: check host/IP and running dev server.
 - **Blank or blocked WebView**: check `accessControl.allowedUrls`.
-- **Native app cannot reach local server**: verify `LOCAL_IP` and `port`.
+- **Native app cannot reach local server**: on Android, check `adb reverse --list`; on an iPhone, check that the Mac and the phone share a Wi-Fi network.
 - **ADB issues**: restart ADB (`adb kill-server && adb start-server`).

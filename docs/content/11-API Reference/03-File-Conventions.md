@@ -135,13 +135,16 @@ Typical responsibilities:
 
 ### `server/index.js`
 
-Export lifecycle hooks used by the SSR server:
+Export lifecycle hooks used by the SSR server as named exports:
 
 - `preServerInit`
 - `onRouteMatch`
-- `onServerError`
+- `onAppServerSideSuccess` and `onAppServerSideError`
+- `onFetcherSuccess` and `onFetcherError`
+- `onRenderError`
+- `onRequestError`
 
-An empty export is valid if the app does not need custom server hooks yet.
+Every hook is optional, and an empty file is valid. See [SSR Lifecycle](/content/API%20Reference/ssr-lifecycle) for when each one runs and what it receives.
 
 ### `server/server.js`
 
