@@ -97,7 +97,9 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
 
     const statusLabel = `${activeProvider} • ${displayStatus}`;
 
-    const endpointLabel = isLocal
+    const endpointLabel = activeProvider === "prompt-api"
+        ? "Chrome Prompt API · on-device"
+        : isLocal
         ? "Transformers.js · in-browser"
         : isNative
             ? "Ktor SSE · localhost"

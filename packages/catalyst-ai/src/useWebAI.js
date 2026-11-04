@@ -119,7 +119,7 @@ export function useWebAI({
             // A speech-to-text model has no use for it: it only transcribes.
             const systemText = kind === "asr" ? null : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
             const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
-            const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw) : raw)
+            const shown = (raw) => (wantsComponents ? convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current)) : raw)
             const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
@@ -130,8 +130,10 @@ export function useWebAI({
             // media loudly. Gemma 4 always goes through the media path (it needs AutoProcessor +
             // Gemma4ForConditionalGeneration); speech models use it to receive the clip.
             const mediaModel = kind !== "text"
-            const caps = kind === "gemma4" ? { text: true, image: true, audio: true } : kind === "asr" ? { text: true, audio: true } : { text: true }
+            // Chrome's built-in model takes image and audio too (declared per request in the engine).
+            const caps = promptApi || kind === "gemma4" ? { text: true, image: true, audio: true } : kind === "asr" ? { text: true, audio: true } : { text: true }
             let template = null
+            let outgoing = messages
             try {
                 assertEngineSupports(getModalities(messages), caps, "web")
                 if (kind === "asr" && !getModalities(messages).has("audio")) {
@@ -145,6 +147,14 @@ export function useWebAI({
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
                     )
                     template = toWebTemplate(prepared)
+                } else if (promptApi && [...getModalities(messages)].some((m) => m !== "text")) {
+                    // Same resize / 16 kHz conversion as the other engines; the engine itself turns the data URLs into Blobs.
+                    outgoing = await prepareImageParts(
+                        await prepareAudioParts(messages, {
+                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                        }),
+                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                    )
                 }
             } catch (inputErr) {
                 setError(inputErr)
@@ -159,7 +169,7 @@ export function useWebAI({
             }
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
-            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...messages] : messages
+            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...outgoing] : outgoing
 
             setLoading(true)
             setOutput("")

@@ -152,6 +152,15 @@ describe("useWebAI turns attachment tags into renderable sentinels", () => {
         expect(out).toContain("plain")
     })
 
+    it("also converts the short form a small model writes, <tool:Name>body</tool:Name>, for a registered component", async () => {
+        const { useWebAI } = await mod
+        FakeWorker.reply = "<tool:infoCard>2 + 2 equals 4.</tool:infoCard>"
+        const { result } = renderHook(() => useWebAI({ model: "onnx-community/Qwen2.5-0.5B-Instruct", attachmentComponents: { InfoCard: {} } }))
+        await act(async () => { await result.current.generate({ messages: ask }) })
+        const json = /\x00SATTACH:([\s\S]*?)\x00/.exec(result.current.output)![1]
+        expect(JSON.parse(json)).toEqual({ component: "InfoCard", attrs: {}, body: "2 + 2 equals 4." })
+    })
+
     it("leaves the text alone when no attachmentComponents were requested (useVision and other callers)", async () => {
         const { useWebAI } = await mod
         const { result } = renderHook(() => useWebAI({ model: "onnx-community/Qwen2.5-0.5B-Instruct" }))
