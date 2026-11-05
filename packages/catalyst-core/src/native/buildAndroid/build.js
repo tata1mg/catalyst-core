@@ -35,6 +35,11 @@ function createBuildPhase(ctx) {
                 if (parts.length >= 2 && parts[1] === "device") {
                     const deviceId = parts[0]
 
+                    // The serial goes into adb command lines below and on to Gradle.
+                    // Real ones are letters, digits and . _ : - (USB ids, ip:port),
+                    // so anything else is skipped rather than handed to a shell.
+                    if (!/^[\w.:-]+$/.test(deviceId)) continue
+
                     if (!deviceId.startsWith("emulator-")) {
                         try {
                             // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - deviceId comes from adb devices output, not user input.

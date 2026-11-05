@@ -12,7 +12,6 @@ const { loadAppConfig } = require("../cli/appConfig.js")
 const { iosRequiresMacError } = require("./iosPlatform.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
-const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
 async function main() {
     // Before anything is generated: without Xcode the first failure would be a
@@ -22,6 +21,9 @@ async function main() {
         process.exit(1)
     }
 
+    // After the platform check, so a missing or broken config off macOS still
+    // reports IOS-002 rather than the config error.
+    const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
     const build = createIosBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH })
     const {
         progress,

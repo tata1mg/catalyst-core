@@ -57,6 +57,17 @@ describe("findFiles", () => {
         fs.mkdirSync(path.join(root, "app", "folder.kt"))
         expect(findFiles(root, (name: string) => name.endsWith(".kt"))).toEqual([kept])
     })
+
+    it("skips a symlinked file, so nothing written to a result leaves the tree", () => {
+        const outside = write("outside/Main.kt")
+        const kept = write("app/Real.kt")
+        try {
+            fs.symlinkSync(outside, path.join(root, "app", "Linked.kt"))
+        } catch {
+            return // Creating links can need privileges; nothing to check without one.
+        }
+        expect(findFiles(path.join(root, "app"), (name: string) => name.endsWith(".kt"))).toEqual([kept])
+    })
 })
 
 describe("removeEmptyDirectories", () => {

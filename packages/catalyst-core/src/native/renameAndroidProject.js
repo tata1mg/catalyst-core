@@ -288,18 +288,21 @@ async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
             // For PKCS12 keystores, use store password for both store and key
             const effectiveKeyPassword = keystoreConfig.storePassword
 
-            const bundleCommand = [
-                `${gradlew} bundleRelease --console=plain`,
-                `-Pandroid.injected.signing.store.file="${keystorePath}"`,
-                `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
-                `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,
-                `-Pandroid.injected.signing.key.password="${effectiveKeyPassword}"`,
-            ].join(" ")
+            // An argument list, not a shell string: a quote, $ or % in a path or
+            // password would otherwise be read by the shell.
+            const bundleArgs = [
+                "bundleRelease",
+                "--console=plain",
+                `-Pandroid.injected.signing.store.file=${keystorePath}`,
+                `-Pandroid.injected.signing.store.password=${keystoreConfig.storePassword}`,
+                `-Pandroid.injected.signing.key.alias=${keystoreConfig.keyAlias}`,
+                `-Pandroid.injected.signing.key.password=${effectiveKeyPassword}`,
+            ]
 
             // Never log this command as-is: it carries the keystore and key
             // passwords, which would put them in the terminal and in CI logs.
             progress.log("Executing: ./gradlew bundleRelease (signing args redacted)", "info")
-            ;(0, _utils.runCommand)(bundleCommand)
+            await (0, _utils.runGradle)(absoluteProjectPath, bundleArgs)
             progress.log("Bundle build completed", "success")
 
             // Find the generated AAB file

@@ -22,14 +22,23 @@ function walkTree(root) {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
         const fullPath = join(root, entry.name)
         if (entry.isDirectory()) found.push(...walkTree(fullPath))
-        found.push({ path: fullPath, name: entry.name, isDirectory: entry.isDirectory() })
+        found.push({
+            path: fullPath,
+            name: entry.name,
+            isDirectory: entry.isDirectory(),
+            isFile: entry.isFile(),
+        })
     }
     return found
 }
 
+/**
+ * Regular files only, as `find -type f` gave: a symlink is skipped, so a later
+ * write to a found path never lands outside the project through it.
+ */
 function findFiles(root, matches) {
     return walkTree(root)
-        .filter((entry) => !entry.isDirectory && matches(entry.name))
+        .filter((entry) => entry.isFile && matches(entry.name))
         .map((entry) => entry.path)
 }
 
