@@ -9,3 +9,6 @@ docs/content/
 docs/static/
 docs/public/
 docs/src/js/generated/
+
+# Splash embeds generated logo geometry
+packages/create-catalyst-app/templates/common/public/splashscreen.html

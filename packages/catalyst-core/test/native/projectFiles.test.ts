@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const {
     copyProjectWithoutOutputs,
+    copyWebBuild,
     findFiles,
     removeEmptyDirectories,
     removeTree,
@@ -158,5 +159,49 @@ describe("copyProjectWithoutOutputs", () => {
         copyProjectWithoutOutputs(`${root}/project`.replace(/\\/g, "/"), destination)
         expect(fs.existsSync(path.join(destination, "gradlew"))).toBe(true)
         expect(fs.existsSync(path.join(destination, "app", "build"))).toBe(false)
+    })
+})
+
+// With buildOptimisation the web build ships inside the app, minus the route
+// manifests. This was rm -rf and rsync, neither of which exist on Windows.
+describe("copyWebBuild", () => {
+    const excluded = new Set(["route-manifest.json.gz", "route-manifest.json.br"])
+    const dest = () => path.join(root, "assets", "build")
+    const copied = (relative: string) => fs.existsSync(path.join(dest(), relative))
+
+    it("copies the build, leaves out the manifests at any depth, and drops stale files", () => {
+        write("build/client/main.js")
+        write("build/route-manifest.json.gz")
+        write("build/client/route-manifest.json.br")
+        write("build/client/route-manifest.json")
+        write("assets/build/stale.js")
+
+        copyWebBuild(path.join(root, "build"), dest(), excluded)
+
+        expect(copied("client/main.js")).toBe(true)
+        expect(copied("client/route-manifest.json")).toBe(true)
+        expect(copied("route-manifest.json.gz")).toBe(false)
+        expect(copied("client/route-manifest.json.br")).toBe(false)
+        expect(copied("stale.js")).toBe(false)
+    })
+
+    it("copies through a linked build folder, still leaving out the manifests", () => {
+        write("elsewhere/client/main.js")
+        write("elsewhere/route-manifest.json.gz")
+        try {
+            fs.symlinkSync(path.join(root, "elsewhere"), path.join(root, "build"), "junction")
+        } catch {
+            return // Creating links can need privileges; nothing to check without one.
+        }
+
+        copyWebBuild(path.join(root, "build"), dest(), excluded)
+
+        expect(fs.lstatSync(dest()).isSymbolicLink()).toBe(false)
+        expect(copied("client/main.js")).toBe(true)
+        expect(copied("route-manifest.json.gz")).toBe(false)
+    })
+
+    it("throws for a build that does not exist", () => {
+        expect(() => copyWebBuild(path.join(root, "missing"), dest(), excluded)).toThrow(/ENOENT/)
     })
 })

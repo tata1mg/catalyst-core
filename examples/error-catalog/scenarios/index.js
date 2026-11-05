@@ -70,6 +70,27 @@ export const LEDGER = {
     // way ANDROID-000 is, and CI runners here don't have the Android SDK/an AVD
     // available to drive a real (or realistically stalled) boot.
     "ANDROID-001": "not-example-reproducible",
+    // ANDROID-005 (no upload key) and ANDROID-006 (unusable upload key) are
+    // raised after the Android tools are validated, so they need a real SDK
+    // with adb on the runner. Covered by test/native/androidSigning.test.ts in
+    // catalyst-core.
+    "ANDROID-005": "not-example-reproducible",
+    "ANDROID-006": "not-example-reproducible",
+    // ANDROID-007..009 come from setupEmulator:android's toolchain setup
+    // (JDK, SDK downloads/licences, cmdline-tools checksum). Which of them
+    // fires depends on what the runner already has installed (GitHub's
+    // ubuntu image ships a JDK and an SDK), so no config mistake reproduces
+    // them deterministically. ANDROID-010 (bad public/icon.png) is raised
+    // while assets are copied, after the SDK is validated. All four are
+    // covered by test/native/androidToolchain.test.ts and appIcon.test.ts.
+    "ANDROID-007": "not-example-reproducible",
+    "ANDROID-008": "not-example-reproducible",
+    "ANDROID-009": "not-example-reproducible",
+    "ANDROID-010": "not-example-reproducible",
+    // ANDROID-011 (--device with no phone adb can use) needs adb on the
+    // runner and a real or missing USB phone. Covered by
+    // test/native/androidDevices.test.ts in catalyst-core.
+    "ANDROID-011": "not-example-reproducible",
     // ── IOS ─────────────────────────────────────────────────────────────────
     // IOS-001 (no Simulator/DeviceHub app installed) requires the actual
     // absence of Xcode's Simulator.app/DeviceHub.app on the host — not
@@ -77,6 +98,47 @@ export const LEDGER = {
     // are Linux (no Xcode at all) so this can never fire in this environment
     // either way.
     "IOS-001": "not-example-reproducible",
+    // IOS-002..004 (no full Xcode, Xcode licence/first launch pending, no
+    // simulator runtime) and IOS-005/006 (bad or transparent public/icon.png,
+    // checked during the Xcode build) need macOS with Xcode; the runners here
+    // are Linux. Covered by test/native/iosToolchain.test.ts and
+    // appIcon.test.ts in catalyst-core.
+    "IOS-002": "not-example-reproducible",
+    "IOS-003": "not-example-reproducible",
+    "IOS-004": "not-example-reproducible",
+    "IOS-005": "not-example-reproducible",
+    "IOS-006": "not-example-reproducible",
+    // IOS-012 (bad CI signing inputs) is raised by the macOS security tool
+    // while the temporary keychain is set up, so it needs macOS. Covered by
+    // test/native/iosSigning.test.ts in catalyst-core.
+    "IOS-012": "not-example-reproducible",
+    // IOS-014 (--device with no paired iPhone) and IOS-015 (no address an
+    // iPhone can reach this Mac on) are raised while a debug build picks its
+    // target, which only happens on macOS with Xcode. Covered by
+    // test/native/iosToolchain.test.ts.
+    "IOS-014": "not-example-reproducible",
+    "IOS-015": "not-example-reproducible",
+    // ── NATIVE ──────────────────────────────────────────────────────────────
+    // NATIVE-002 needs CATALYST_BUILD_NUMBER set, and scenarios run with the
+    // runner's own environment. Covered by test/native/nativeConfig.test.ts.
+    "NATIVE-002": "not-example-reproducible",
+    // NATIVE-005 is a question with no terminal to ask on (an install, a
+    // licence or a new signing key); which one fires depends on what the
+    // runner has installed. Covered by test/native/interaction.test.ts.
+    "NATIVE-005": "not-example-reproducible",
+    // NATIVE-006 needs a dev server that never answers, which takes the full
+    // two-minute wait. Covered by test/native/setupServer.test.ts.
+    "NATIVE-006": "not-example-reproducible",
+    // NATIVE-007..009 come from CATALYST_<PLATFORM>_CREDENTIALS and
+    // `catalyst credentials:export`, neither of which a config.json mistake
+    // reaches. Covered by test/native/credentials.test.ts.
+    "NATIVE-007": "not-example-reproducible",
+    "NATIVE-008": "not-example-reproducible",
+    "NATIVE-009": "not-example-reproducible",
+    // NATIVE-011 needs an earlier release's AAB or IPA in build-output/, which
+    // takes a full signed release build first. Covered by
+    // test/native/androidSigning.test.ts.
+    "NATIVE-011": "not-example-reproducible",
 }
 
 export default scenarios

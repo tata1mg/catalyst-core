@@ -90,6 +90,21 @@ function copyProjectWithoutOutputs(source, destination) {
     })
 }
 
+/**
+ * Replace `dest` with a copy of the web build at `source`, leaving out files
+ * named in `excluded` at any depth. This was rm -rf and rsync, neither of which
+ * exist on Windows. The real path is copied: given a link, cpSync would
+ * recreate the link, and the filter would never see the files it leaves out.
+ */
+function copyWebBuild(source, dest, excluded = new Set()) {
+    fs.rmSync(dest, { recursive: true, force: true })
+    fs.mkdirSync(dest, { recursive: true })
+    fs.cpSync(fs.realpathSync(source), dest, {
+        recursive: true,
+        filter: (file) => !excluded.has(path.basename(file)),
+    })
+}
+
 module.exports = {
     walkTree,
     findFiles,
@@ -97,4 +112,5 @@ module.exports = {
     renameWithRetry,
     removeEmptyDirectories,
     copyProjectWithoutOutputs,
+    copyWebBuild,
 }

@@ -22,17 +22,17 @@ Set the display name that appears in device launchers, app stores, and system se
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
-    "android": {
-      "appName": "My Awesome App"
-    },
-    "ios": {
-      "appName": "My Awesome App"
-    }
+    "appId": "com.yourcompany.myapp",
+    "appName": "My Awesome App"
   }
 }
 ```
 
+`appName` is used on both platforms. `appId` is the Android application id and the iOS bundle id; see [Universal App Deployment](/content/Deployment/universal-app-deployment#configure-the-app).
+
 ### Platform-Specific Names
+
+Without a top-level `appName`, each platform reads its own:
 
 ```json
 {
@@ -51,7 +51,7 @@ Set the display name that appears in device launchers, app stores, and system se
 
 ## App Icon
 
-Customize app icons for both Android and iOS platforms.
+The simplest icon is one file: `public/icon.png`, a square PNG of at least 1024x1024 pixels with no transparency. Catalyst turns it into the Android launcher icons and a single 1024 iOS AppIcon. New apps start with a placeholder there. To control each size yourself, use the folders below; they take precedence over `public/icon.png`.
 
 ### Android Icons
 
@@ -70,7 +70,7 @@ Place density-specific icons in `public/android/appIcons/`:
 **Behavior:**
 - Automatically applied during build
 - Missing densities use nearest available resource
-- Falls back to default Catalyst icon if none provided
+- Falls back to `public/icon.png`, then to the default Catalyst icon
 
 ### iOS Icons
 
@@ -457,43 +457,12 @@ Control network access and navigation through URL whitelisting.
 
 ## Protocol Configuration
 
-Control whether the webview uses HTTP or HTTPS protocol.
-
-### Configuration
+A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds always load the dev server over HTTP.
 
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
-    "useHttps": true
-  }
-}
-```
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `useHttps` | boolean | `false` | Use HTTPS protocol |
-
-**Behavior:**
-- `true` - Uses HTTPS protocol
-- `false` - Uses HTTP protocol
-
-### Example: Development vs Production
-
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "useHttps": false,  // HTTP for local development
-    "accessControl": {
-      "enabled": false
-    }
-  }
-}
-```
-
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "useHttps": true,   // HTTPS for production
+    "url": "https://www.myapp.com",
     "accessControl": {
       "enabled": true,
       "allowedUrls": ["https://api.myapp.com/*"]
@@ -501,6 +470,8 @@ Control whether the webview uses HTTP or HTTPS protocol.
   }
 }
 ```
+
+Apps without `url` still use `useHttps` (default `false`) with `LOCAL_IP` and `port` for the release host.
 
 ---
 
@@ -518,7 +489,7 @@ Control whether the webview uses HTTP or HTTPS protocol.
 4. **Whitelisting** - Start with minimal URLs, add as needed
 5. **Protocol** - Always use HTTPS in production
 6. **Testing** - Test configuration on both platforms before release
-7. **iOS Build Type** - Use `Debug` or `Release` with exact casing when you add `WEBVIEW_CONFIG.ios.buildType`
+7. **Release Builds** - Use `npm run android:release` and `npm run ios:release`; `buildType: "release"` is deprecated
 
 ---
 

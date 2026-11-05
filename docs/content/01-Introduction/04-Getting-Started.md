@@ -25,6 +25,15 @@ This gives you the SSR server, route structure, fetcher model, and runtime confi
 
 Use this stage when you are ready to package the same app for Android and iOS, configure `WEBVIEW_CONFIG`, and validate native runtime behavior.
 
+The whole native path runs from the Catalyst CLI. Android Studio is not needed, and Xcode only has to be installed:
+
+1. `npx create-catalyst-app@latest`. Every new app gets `appId` and `appName` in `config/config.json`, a placeholder `public/icon.png`, and the `android`, `ios`, `android:release` and `ios:release` scripts.
+2. `npm run android` or `npm run ios` installs the missing toolchain pieces after asking, starts the dev server if needed, and runs the app on an emulator, simulator or connected phone.
+3. Replace the `com.example.` app id with your own, set `WEBVIEW_CONFIG.url` to your production address, then `npm run android:release` builds the signed AAB and `npm run ios:release` the signed IPA.
+4. Back up the signing files with `npx catalyst credentials:export android` and `npx catalyst credentials:export ios`; the same values are the CI secrets.
+
+See [Releasing a Full App](/content/Deployment/releasing-a-full-app) for the first store release and [Universal App Deployment](/content/Deployment/universal-app-deployment) for the details.
+
 ## 3. Use The Core Reference
 
 Once the first app is running, these pages become the main reference points:

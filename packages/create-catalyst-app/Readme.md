@@ -51,6 +51,19 @@ To serve the production build, execute:
 npm run serve
 ```
 
+## Android and iOS
+
+Every app is ready to run as a native app. `config/config.json` gets `WEBVIEW_CONFIG.appId` (`com.example.<project name>`) and `appName` from the project name, and the app gets a placeholder `public/icon.png`.
+
+```bash
+npm run android          # run on an Android emulator or connected phone
+npm run ios              # run on an iOS simulator or connected iPhone (macOS)
+npm run android:release  # signed App Bundle for Google Play
+npm run ios:release      # signed IPA for App Store Connect
+```
+
+The first run installs what is missing after asking. Before a release, replace the `com.example.` app id with your own and set `WEBVIEW_CONFIG.url` to your deployed site. See [Universal App Deployment](https://catalyst.1mg.com/content/Deployment/universal-app-deployment).
+
 ## Documentation
 
 Explore the complete documentation at [https://catalyst.1mg.com](https://catalyst.1mg.com).

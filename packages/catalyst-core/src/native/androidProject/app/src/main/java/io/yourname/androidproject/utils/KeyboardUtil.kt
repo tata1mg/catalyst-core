@@ -18,6 +18,7 @@ class KeyboardUtil(
     private val activity: Activity,
     private val webViewContainer: View,
     private val webView: WebView? = null,
+    // True whenever the window draws behind the system bars: edgeToEdge on, or Android 15+.
     private val edgeToEdgeEnabled: Boolean = false,
 ) {
     private var originalHeight: Int = 0
@@ -81,9 +82,12 @@ class KeyboardUtil(
             val keyboardHeight = if (edgeToEdgeEnabled) {
                 // Edge-to-edge: rootView spans behind the system bars, so measure how far the
                 // visible frame's bottom sits above rootView's bottom (screen coords; works in split-screen)
+                // The parent's bottom padding is the navigation bar when MainActivity pads for
+                // system bars (edgeToEdge off on Android 15+); the keyboard covers that strip.
                 val location = IntArray(2)
                 rootView.getLocationOnScreen(location)
-                maxOf(0, (location[1] + rootView.height) - rect.bottom)
+                val parentBottomPadding = (webViewContainer.parent as? View)?.paddingBottom ?: 0
+                maxOf(0, (location[1] + rootView.height) - rect.bottom - parentBottomPadding)
             } else {
                 val visibleHeight = rect.height()
                 screenHeight - visibleHeight

@@ -19,6 +19,7 @@
 		E9F699DC2EE06483005E972E /* CacheManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DB2EE06482005E972E /* CacheManagerTests.swift */; };
 		E9F699DE2EE06506005E972E /* FilePickerHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */; };
 		F1234AC22E990180008C7F58 /* localhost.p12 in Resources */ = {isa = PBXBuildFile; fileRef = F1234AC32E990180008C7F58 /* localhost.p12 */; };
+		C47A11002F2A000100000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C47A11002F2A000100000002 /* PrivacyInfo.xcprivacy */; };
 		F2B100012F11111100AAA001 /* PluginBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2B100022F11111100AAA001 /* PluginBridgeTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -58,6 +59,7 @@
 		E9F699DB2EE06482005E972E /* CacheManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheManagerTests.swift; sourceTree = "<group>"; };
 		E9F699DD2EE06506005E972E /* FilePickerHandlerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerHandlerTests.swift; sourceTree = "<group>"; };
 		F1234AC32E990180008C7F58 /* localhost.p12 */ = {isa = PBXFileReference; lastKnownFileType = file; path = localhost.p12; sourceTree = "<group>"; };
+		C47A11002F2A000100000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F2B100022F11111100AAA001 /* PluginBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginBridgeTests.swift; sourceTree = "<group>"; };
 		XCCONFIG001000000001 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		XCCONFIG001000000002 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 				4777D5222C60B87700E85AC6 /* Assets.xcassets */,
 				4777D5242C60B87700E85AC6 /* Preview Content */,
 				F1234AC32E990180008C7F58 /* localhost.p12 */,
+				C47A11002F2A000100000002 /* PrivacyInfo.xcprivacy */,
 			);
 			path = iosnativeWebView;
 			sourceTree = "<group>";
@@ -270,6 +273,7 @@
 				4777D5262C60B87700E85AC6 /* Preview Assets.xcassets in Resources */,
 				4777D5232C60B87700E85AC6 /* Assets.xcassets in Resources */,
 				F1234AC22E990180008C7F58 /* localhost.p12 in Resources */,
+				C47A11002F2A000100000001 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -462,7 +466,6 @@
 			baseConfigurationReference = XCCONFIG001000000001 /* Debug.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = iosnativeWebView/iosnativeWebView.entitlements;
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BHQQRZ69D3;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app requires camera access to capture images";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Debug web content in Safari Web Inspector";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires photo library access to select images from your gallery";
@@ -471,9 +474,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				PRODUCT_BUNDLE_IDENTIFIER = com.1mg.pos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = Tata1mgPos;
 			};
 			name = Debug;
 		};
@@ -491,7 +492,6 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "1mg Development profile";
 			};
 			name = Release;
 		};

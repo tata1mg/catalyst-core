@@ -26,7 +26,7 @@ describe("catalyst buildApp and setupEmulator", () => {
         (command) => {
             const output = run(command)
             expect(output).toContain("Skipping iOS: it needs macOS and Xcode.")
-            expect(output).not.toContain("IOS-002")
+            expect(output).not.toContain("IOS-007")
         }
     )
 

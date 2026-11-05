@@ -4,6 +4,7 @@ import { readFileSync, existsSync, statSync } from "fs"
 import { createRequire } from "module"
 import { transformSync } from "esbuild"
 import { getModuleAliases } from "./moduleAliases.js"
+import { isDependencyPath } from "./dependencyPath.mjs"
 
 // Cache for loaded aliases
 let aliasCache = null
@@ -374,10 +375,7 @@ export async function load(url, context, defaultLoad) {
         return defaultLoad(url, context)
     }
 
-    // Either separator: this is an OS path. Missing it on Windows sends every
-    // dependency down the app-file path below, and bundling then runs out of
-    // memory before it prints a single line.
-    const isNodeModule = /[\\/]node_modules[\\/]/.test(filePath)
+    const isNodeModule = isDependencyPath(filePath)
 
     // --- CJS detection and wrapping ---
     // For node_modules: check via package.json "type" field
