@@ -35,15 +35,30 @@ function quoteWindowsArg(arg) {
     return `"${text.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, "$1$1")}"`
 }
 
+// What cmd.exe acts on even inside quotes: %VAR% is expanded there, a quote
+// ends the quoting, and a line break ends the command.
+const UNSAFE_FOR_CMD = /[%"\r\n\0]/
+
 /**
  * The spawn() call that runs a batch file with these arguments. Node refuses to
  * spawn .bat and .cmd files directly (EINVAL since CVE-2024-27980), so it goes
  * through cmd.exe, with the whole line quoted once more for its /s switch.
+ *
+ * The paths here come from config and the environment (the SDK location, the
+ * project folder), so anything cmd.exe would still read as syntax is refused
+ * rather than passed on. cmd.exe is named, not taken from ComSpec.
  */
 function batchInvocation(batchFile, args = []) {
+    for (const arg of [batchFile, ...args]) {
+        if (UNSAFE_FOR_CMD.test(String(arg))) {
+            throw new Error(
+                `Cannot pass ${JSON.stringify(String(arg))} to a batch file: cmd.exe would read its % or quote as syntax. Use a path without them.`
+            )
+        }
+    }
     const line = [batchFile, ...args].map(quoteWindowsArg).join(" ")
     return {
-        command: process.env.ComSpec || "cmd.exe",
+        command: "cmd.exe",
         args: ["/d", "/s", "/c", `"${line}"`],
         options: { windowsVerbatimArguments: true },
     }

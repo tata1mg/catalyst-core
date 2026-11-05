@@ -9,7 +9,7 @@ import platform from "../cli/platform.js"
 
 const { GUTTER, t } = theme
 const { withSpinnersPaused } = spinnerModule
-const { batchInvocation, isWindows, quoteWindowsArg } = platform
+const { batchInvocation, isWindows } = platform
 
 // Retain only the tail of a child's output: it is used for diagnostics, and a
 // long gradle build would otherwise hold every byte it ever printed in memory.
@@ -431,16 +431,6 @@ function handlePrompts(child, buffer, promptResponses) {
 const GRADLE_WINDOWS_ARGS = ["--no-daemon"]
 
 /**
- * The Gradle wrapper in a project as a command line for runCommand, for the
- * one signed build that needs it as a string.
- */
-function gradleCommandLine(projectDir) {
-    if (!isWindows()) return "./gradlew"
-    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectDir is the Android project inside this package.
-    return [path.join(projectDir, "gradlew.bat"), ...GRADLE_WINDOWS_ARGS].map(quoteWindowsArg).join(" ")
-}
-
-/**
  * Run the Gradle wrapper in a project, keeping its output as runInteractiveCommand
  * does. Arguments are passed as a list, so a path with spaces stays one argument.
  */
@@ -815,7 +805,6 @@ export {
     androidTools,
     listAvds,
     ensureLocalProperties,
-    gradleCommandLine,
     runGradle,
     ANDROID_SDK_HINT,
     runInteractiveCommand,

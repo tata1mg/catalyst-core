@@ -40,11 +40,17 @@ function run(args: string[]) {
     const out = execFileSync(process.execPath, [path.join(root, "bin", "catalyst.js"), ...args], {
         encoding: "utf8",
     })
+    // Only the stub scripts' JSON: off macOS the bin also prints that it skips iOS.
     return out
         .trim()
         .split("\n")
+        .filter((line) => line.startsWith("{"))
         .map((line) => JSON.parse(line))
 }
+
+// Bare buildApp and setupEmulator run iOS only on a Mac (bin.test.ts covers the skip).
+const onMac = process.platform === "darwin"
+const bothPlatforms = (ios: object, android: object) => (onMac ? [ios, android] : [android])
 
 describe("native build flags", () => {
     it("forwards --release and --url to the platform script", () => {
@@ -76,17 +82,21 @@ describe("native build flags", () => {
         expect(run(["--yes", "setupEmulator:android", "--accept-licenses"])).toEqual([
             { script: "androidSetup", args: ["--yes", "--accept-licenses"] },
         ])
-        expect(run(["setupEmulator", "--yes"])).toEqual([
-            { script: "setupEmulatorIos", args: ["--yes"] },
-            { script: "androidSetup", args: ["--yes"] },
-        ])
+        expect(run(["setupEmulator", "--yes"])).toEqual(
+            bothPlatforms(
+                { script: "setupEmulatorIos", args: ["--yes"] },
+                { script: "androidSetup", args: ["--yes"] }
+            )
+        )
     })
 
     it("passes the flags to both platforms for buildApp", () => {
-        expect(run(["buildApp", "--release", "--url=https://shop.acme.com"])).toEqual([
-            { script: "buildAppIos", args: ["--release", "--url=https://shop.acme.com"] },
-            { script: "buildAppAndroid", args: ["--release", "--url=https://shop.acme.com"] },
-        ])
+        expect(run(["buildApp", "--release", "--url=https://shop.acme.com"])).toEqual(
+            bothPlatforms(
+                { script: "buildAppIos", args: ["--release", "--url=https://shop.acme.com"] },
+                { script: "buildAppAndroid", args: ["--release", "--url=https://shop.acme.com"] }
+            )
+        )
     })
 
     it("dispatches credentials:export with its platform", () => {

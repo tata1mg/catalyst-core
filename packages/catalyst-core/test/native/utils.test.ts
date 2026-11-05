@@ -31,7 +31,6 @@ import {
     androidTools,
     commandExists,
     detectAndroidSdk,
-    gradleCommandLine,
     runGradle,
     ensureLocalProperties,
     listAvds,
@@ -437,13 +436,6 @@ describe("the Gradle wrapper", () => {
         child.stderr.emit("data", Buffer.from("* What went wrong:\n"))
         child.emit("close", 1)
         await expect(done).rejects.toMatchObject({ code: 1, output: "* What went wrong:\n" })
-    })
-
-    it("gives the signed build a command line", () => {
-        expect(onPlatform("darwin", () => gradleCommandLine(project))).toBe("./gradlew")
-        expect(onPlatform("win32", () => gradleCommandLine(project))).toBe(
-            `"${path.join(project, "gradlew.bat")}" --no-daemon`
-        )
     })
 })
 

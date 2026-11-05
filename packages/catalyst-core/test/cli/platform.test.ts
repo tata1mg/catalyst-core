@@ -59,14 +59,23 @@ describe("quoteWindowsArg", () => {
 
 describe("batchInvocation", () => {
     it("goes through cmd.exe, quoted once more for its /s switch", () => {
-        vi.stubEnv("ComSpec", "C:\\Windows\\System32\\cmd.exe")
+        // Named, not read from ComSpec: the environment does not pick the shell.
+        vi.stubEnv("ComSpec", "C:\\elsewhere\\shell.exe")
         expect(
             batchInvocation("C:\\my app\\gradlew.bat", ["clean", "-PconfigPath=C:\\my app\\c.json"])
         ).toEqual({
-            command: "C:\\Windows\\System32\\cmd.exe",
+            command: "cmd.exe",
             args: ["/d", "/s", "/c", '""C:\\my app\\gradlew.bat" clean "-PconfigPath=C:\\my app\\c.json""'],
             options: { windowsVerbatimArguments: true },
         })
+        vi.unstubAllEnvs()
+    })
+
+    it("refuses what cmd.exe would still read as syntax inside quotes", () => {
+        for (const unsafe of ["C:\\%PATH%\\sdk", 'a"b', "a\nb", "a\rb"]) {
+            expect(() => batchInvocation("C:\\sdk\\sdkmanager.bat", [unsafe])).toThrow(/cmd\.exe would read/)
+        }
+        expect(() => batchInvocation("C:\\100%\\gradlew.bat")).toThrow(/cmd\.exe would read/)
     })
 })
 
