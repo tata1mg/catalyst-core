@@ -93,16 +93,9 @@ const CSP_NONCE_ENABLE = process.env.CSP_NONCE_ENABLE === true
 const generateNonce = () => crypto.randomBytes(16).toString("base64")
 
 // Config-driven (config.json → CLOUDFLARE_EARLY_HINTS_ENABLE): when on, the early-hint links are
-// also sent as a `Link` header on rendered responses so a fronting CDN (e.g. Cloudflare Early
-// Hints) can learn them and replay them as a 103 on later requests to the same URL. Off by default.
+// sent as a `Link` header on rendered responses so a fronting CDN (e.g. Cloudflare Early Hints)
+// can learn them and replay them as a 103 on later requests to the same URL. Off by default.
 const CLOUDFLARE_EARLY_HINTS_ENABLE = process.env.CLOUDFLARE_EARLY_HINTS_ENABLE === true
-
-// Config-driven (config.json → NATIVE_EARLY_HINTS_ENABLE): when on, this server sends one HTTP 103
-// via res.writeEarlyHints() right after route matching — before App.serverSideFunction and the
-// data fetcher — so the *current* request benefits. Only one 103 is sent: browsers act on the
-// first. Browsers only honour 103 over HTTP/2+, so the TLS hop in front (CDN/proxy) must forward
-// it. Skipped for bots and non-GET requests. Off by default.
-const NATIVE_EARLY_HINTS_ENABLE = process.env.NATIVE_EARLY_HINTS_ENABLE === true
 
 // Config-driven (config.json → EARLY_HINTS_LINKS): static app-supplied preconnect/preload entries.
 // JSON array of { url, rel: "preconnect"|"preload", as?, type?, crossorigin?, fetchPriority? }.
@@ -127,12 +120,11 @@ const EARLY_HINTS_MAX_DEFERRED_LINKS = (() => {
 const capDeferredHints = (urls) =>
     EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
 
-// Config-driven (config.json → EARLY_HINTS_MAX_LINK_BYTES): byte budget for the hint list, which is
-// sent both as the 103 and as the 200's `Link` header. A route's static-import closure can run to
-// dozens of chunks, and proxies/CDNs reject or drop oversized response headers. Entries are kept in
-// priority order (route scripts, app links, static deps, learned deferred) until the budget is
-// spent; deps left out still get <link rel="modulepreload"> in the HTML. Default 4096; negative
-// means no budget.
+// Config-driven (config.json → EARLY_HINTS_MAX_LINK_BYTES): byte budget for the hint list sent as
+// the 200's `Link` header. A route's static-import closure can run to dozens of chunks, and
+// proxies/CDNs reject or drop oversized response headers. Entries are kept in priority order
+// (route scripts, app links, static deps, learned deferred) until the budget is spent; deps left
+// out still get <link rel="modulepreload"> in the HTML. Default 4096; negative means no budget.
 const EARLY_HINTS_MAX_LINK_BYTES = (() => {
     const parsed = Number(process.env.EARLY_HINTS_MAX_LINK_BYTES ?? 4096)
     return Number.isFinite(parsed) ? parsed : 4096
@@ -222,11 +214,6 @@ const getEarlyHintLinks = (req, res, allMatches) => {
     ])
 }
 
-const isBotRequest = (req) => {
-    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    return !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
-}
-
 // ── JSX tree ───────────────────────────────────────────────────────────
 const getComponent = (store, context, req, fetcherData, isBot) => (
     <div id="app">
@@ -253,10 +240,11 @@ const _renderMarkUp = async (
     chunkExtractor,
     nonce
 ) => {
+    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
     // also need the bot code path — no JS, and split(... ssr: false ...) widgets that
     // previously read state.shellReducer.isBot now read this via SsrRequestContext.
-    const isBot = isBotRequest(req)
+    const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
 
     // Critical assets → <head>
     const criticalAssets = chunkExtractor
@@ -446,13 +434,9 @@ async function _handler(req, res) {
 
         if (res.headersSent) return
 
-        const sendNativeHints = NATIVE_EARLY_HINTS_ENABLE && req.method === "GET" && !isBotRequest(req)
-        if (sendNativeHints || CLOUDFLARE_EARLY_HINTS_ENABLE) {
+        if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
             const earlyHintLinks = getEarlyHintLinks(req, res, allMatches)
-            if (earlyHintLinks.length) {
-                if (sendNativeHints) res.writeEarlyHints({ link: earlyHintLinks })
-                if (CLOUDFLARE_EARLY_HINTS_ENABLE) res.locals.earlyHintLinks = earlyHintLinks
-            }
+            if (earlyHintLinks.length) res.locals.earlyHintLinks = earlyHintLinks
         }
 
         try {

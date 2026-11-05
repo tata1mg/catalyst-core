@@ -101,8 +101,8 @@ export const generateModulePreloadLinkElements = (
     })
 
 /**
- * `Link` header values (one per URL) preloading JS for Early Hints (103) and the CDN-learned
- * `Link` header. `as=script` + the same crossorigin/integrity as the `<script type="module">`
+ * `Link` header values (one per URL) preloading JS, sent on the 200 for Cloudflare Early Hints to
+ * learn and replay as a 103. `as=script` + the same crossorigin/integrity as the `<script type="module">`
  * and `modulepreload` tags keeps the hinted response reusable, so it is not downloaded twice.
  * Chrome only honours `preload`/`preconnect` in a 103, hence not `modulepreload`.
  * @param {string[]} jsUrls
