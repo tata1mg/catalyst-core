@@ -121,7 +121,7 @@ Key exports from `catalyst-core` package:
 ### Execution order on first page load:
 
 1. `preServerInit()` → server starts
-2. `App.serverSideFunction({ store, req, res })` → runs on every request
+2. `App.serverSideFunction({ store, req, res, runInParallel })` → runs on every request. Promises passed to `runInParallel(...promises)` run alongside step 3 and finish before step 4; a rejection takes the same path as a rejected `serverSideFunction`. Only pass work that page fetchers don't depend on.
 3. `Page.serverFetcher({ route, location, params, searchParams, navigate }, { store })` → runs for matched route
 4. React SSR renders HTML → sent to client
 5. Client hydrates → `Page.clientFetcher` runs on next client navigation
