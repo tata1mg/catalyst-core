@@ -332,7 +332,7 @@ export const ERROR_DEFINITIONS = {
         defaultDetails:
             "A device or release build needs a signing identity and provisioning profile. Automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam plus either an App Store Connect API key in credentials/ios/ (cloud signing) or an Apple account signed in to Xcode; manual signing needs a .p12 and its provisioning profile in credentials/ios/, or an installed ios.provisioningProfile. xcodebuild reported a signing failure, or a release build has no team to sign for.",
         suggestedAction:
-            "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
+            "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead, or set WEBVIEW_CONFIG.ios.provisioningProfile to a profile Xcode already installed, with appId set to its bundle id. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
     },
     [ERROR_CODES.IOS_ASC_API_KEY_INVALID]: {
         category: "IOS",

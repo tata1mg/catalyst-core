@@ -256,6 +256,14 @@ function parseIdentity(output) {
     return match ? { sha1: match[1].toUpperCase(), name: match[2] } : null
 }
 
+/** The SHA-1 of every valid identity `security find-identity -v -p codesigning` lists. */
+function parseIdentities(output) {
+    return [...String(output || "").matchAll(/^\s*\d+\)\s+([0-9A-Fa-f]{40})\s+"([^"]+)"/gm)].map((match) => ({
+        sha1: match[1].toUpperCase(),
+        name: match[2],
+    }))
+}
+
 /** Whether a profile's application-identifier (TEAM.bundle, maybe ending in *) covers the bundle id. */
 function profileMatchesBundleId(applicationIdentifier, bundleId) {
     if (!applicationIdentifier || !bundleId) return true
@@ -323,6 +331,83 @@ function readProvisioningProfile(file, { workDir, run = defaultRun }) {
         throw nativeError("IOS-012", "the provisioning profile has no UUID")
     }
     return profile
+}
+
+/**
+ * The keychain identity an installed profile (ios.provisioningProfile, by
+ * name or UUID) was made for. Xcode resolves a generic "iPhone Distribution"
+ * to whichever distribution certificate it finds first, which fails when the
+ * keychain holds more than one and the profile lists another. Expired
+ * profiles and ones for another bundle id are skipped; the newest match wins.
+ * Returns null when no installed profile matches or none of its certificates
+ * is in the keychain, so the caller can fall back to the generic name.
+ *
+ * @param {object} options
+ * @param {string} options.profile - ios.provisioningProfile
+ * @param {string} [options.bundleId]
+ * @param {string} options.workDir - scratch folder for the decoded profiles
+ * @param {(command: string, args: string[], options?: object) => string} [options.run]
+ * @param {string} [options.homeDir]
+ * @param {Date} [options.now]
+ * @returns {{ sha1: string, name: string, teamId?: string, uuid: string, profileName?: string } | null}
+ */
+function findInstalledProfileIdentity({ profile, bundleId, workDir, run = defaultRun, homeDir = os.homedir(), now = new Date() }) {
+    const wanted = String(profile || "").trim()
+    if (!wanted) return null
+    let identities
+    try {
+        identities = parseIdentities(run("security", ["find-identity", "-v", "-p", "codesigning"]))
+    } catch (error) {
+        return null
+    }
+    const bySha1 = new Map(identities.map((identity) => [identity.sha1, identity]))
+    if (!bySha1.size) return null
+
+    const decoded = path.join(workDir, "installed-profile.plist")
+    const extract = (keyPath) => {
+        try {
+            return String(run("plutil", ["-extract", keyPath, "raw", "-o", "-", decoded])).trim() || undefined
+        } catch (error) {
+            return undefined
+        }
+    }
+    const matches = []
+    for (const dir of profileDirectories(homeDir)) {
+        let files = []
+        try {
+            files = fs.readdirSync(dir).filter((file) => /\.(mobileprovision|provisionprofile)$/.test(file))
+        } catch (error) {
+            continue
+        }
+        for (const file of files) {
+            try {
+                run("security", ["cms", "-D", "-i", path.join(dir, file), "-o", decoded])
+            } catch (error) {
+                continue
+            }
+            const uuid = extract("UUID")
+            const name = extract("Name")
+            if (wanted !== name && wanted.toLowerCase() !== String(uuid || "").toLowerCase()) continue
+            if (!profileMatchesBundleId(extract("Entitlements.application-identifier"), bundleId)) continue
+            const expires = Date.parse(extract("ExpirationDate") || "")
+            if (Number.isFinite(expires) && expires <= now.getTime()) continue
+            const count = Number(extract("DeveloperCertificates")) || 0
+            const certificates = []
+            for (let index = 0; index < count; index += 1) {
+                const der = extract(`DeveloperCertificates.${index}`)
+                if (der) certificates.push(crypto.createHash("sha1").update(Buffer.from(der, "base64")).digest("hex").toUpperCase())
+            }
+            matches.push({ uuid, name, teamId: extract("TeamIdentifier.0"), expires: expires || 0, certificates })
+        }
+    }
+    fs.rmSync(decoded, { force: true })
+
+    matches.sort((a, b) => b.expires - a.expires)
+    for (const match of matches) {
+        const identity = match.certificates.map((sha1) => bySha1.get(sha1)).find(Boolean)
+        if (identity) return { ...identity, teamId: match.teamId, uuid: match.uuid, profileName: match.name }
+    }
+    return null
 }
 
 /**
@@ -630,6 +715,8 @@ export {
     planIosSigning,
     parseKeychainList,
     parseIdentity,
+    parseIdentities,
+    findInstalledProfileIdentity,
     profileMatchesBundleId,
     profileDirectories,
     readProvisioningProfile,

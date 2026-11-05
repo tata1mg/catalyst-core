@@ -17,6 +17,7 @@ const {
     planIosSigning,
     xcodeAuthArgs,
     setupP12Signing,
+    findInstalledProfileIdentity,
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,
@@ -511,7 +512,19 @@ function createIosBuild(
                 signing.identity = p12Signing.identity.sha1
                 signing.teamId = p12Signing.profile.teamId || signing.teamId
             } else if (signing.style === "manual" && exportMethod !== "debugging") {
-                signing.identity = "iPhone Distribution"
+                const installed = findInstalledProfileIdentity({
+                    profile: signing.provisioningProfile,
+                    bundleId: PRODUCT_BUNDLE_ID,
+                    workDir,
+                })
+                if (installed) {
+                    signing.identity = installed.sha1
+                    signing.signingCertificate = installed.sha1
+                    signing.teamId = signing.teamId || installed.teamId
+                    progress.log(`Signing with "${installed.name}", the certificate in that profile`, "info")
+                } else {
+                    signing.identity = "iPhone Distribution"
+                }
             }
             const from = credentials?.source === "env" ? "CATALYST_IOS_CREDENTIALS" : "credentials/ios"
             if (signingPlan.p12) {
@@ -574,7 +587,7 @@ function createIosBuild(
                     signingStyle: signing.style,
                     bundleId: PRODUCT_BUNDLE_ID,
                     profileName: signing.provisioningProfile,
-                    signingCertificate: signing.p12 ? signing.identity : undefined,
+                    signingCertificate: signing.p12 ? signing.identity : signing.signingCertificate,
                 }),
                 path.join(workDir, "ExportOptions.plist")
             )
