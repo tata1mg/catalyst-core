@@ -1,4 +1,4 @@
-import { execSync, spawn } from "child_process"
+import { execFileSync, execSync, spawn } from "child_process"
 import { EventEmitter } from "node:events"
 import fs from "fs"
 import os from "os"
@@ -12,7 +12,7 @@ import { onPlatform } from "../onPlatform"
 // utils.js is ESM, so it is imported here the same way redactSecrets.test.ts
 // imports it: one module copy for v8 coverage to merge.
 //
-// execSync and spawn are wrapped so each test can fake a tool's answer, while
+// execSync, execFileSync and spawn are wrapped so each test can fake a tool's answer, while
 // anything a test does not stub still runs for real (node itself, never adb
 // or an emulator).
 vi.mock("child_process", async (importOriginal) => {
@@ -21,6 +21,7 @@ vi.mock("child_process", async (importOriginal) => {
         ...actual,
         default: actual,
         execSync: vi.fn(actual.execSync),
+        execFileSync: vi.fn(actual.execFileSync),
         spawn: vi.fn(actual.spawn),
     }
 })
@@ -45,6 +46,7 @@ import {
 } from "../../src/native/utils.js"
 
 const mockedExec = vi.mocked(execSync)
+const mockedExecFile = vi.mocked(execFileSync)
 const mockedSpawn = vi.mocked(spawn)
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, "g")
 const plain = (text: unknown) => String(text).replace(ANSI, "")
@@ -79,6 +81,7 @@ afterEach(() => {
     vi.restoreAllMocks()
     // mockReset puts back the real implementation vi.fn was given.
     mockedExec.mockReset()
+    mockedExecFile.mockReset()
     mockedSpawn.mockReset()
     setTTY(originalTTY)
     for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
@@ -266,20 +269,21 @@ describe("listAvds", () => {
     it("asks the SDK's emulator, expanding ~ and dropping INFO noise", () => {
         const home = tempDir()
         vi.spyOn(os, "homedir").mockReturnValue(home)
-        mockedExec.mockImplementationOnce(() => "INFO    | Storing crashdata\nPixel_7_API_34\n\n  Tablet  \n")
+        mockedExecFile.mockImplementationOnce(() => "INFO    | Storing crashdata\nPixel_7_API_34\n\n  Tablet  \n")
 
         expect(listAvds("~/sdk")).toEqual(["Pixel_7_API_34", "Tablet"])
-        expect(mockedExec).toHaveBeenLastCalledWith(
-            `"${path.join(home, "sdk", "emulator", process.platform === "win32" ? "emulator.exe" : "emulator")}" -list-avds`,
+        expect(mockedExecFile).toHaveBeenLastCalledWith(
+            path.join(home, "sdk", "emulator", process.platform === "win32" ? "emulator.exe" : "emulator"),
+            ["-list-avds"],
             { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 15000 }
         )
     })
 
     it("returns [] without an SDK or when the emulator cannot be run", () => {
         expect(listAvds(null)).toEqual([])
-        expect(mockedExec).not.toHaveBeenCalled()
+        expect(mockedExecFile).not.toHaveBeenCalled()
 
-        mockedExec.mockImplementationOnce(() => {
+        mockedExecFile.mockImplementationOnce(() => {
             throw new Error("ENOENT")
         })
         expect(listAvds("/no/sdk")).toEqual([])
@@ -574,7 +578,7 @@ describe("validateAndCompleteConfig", () => {
     it("fills what it can work out for Android and saves it without asking", async () => {
         const sdk = fakeSdk()
         const file = writeConfig({ NODE_SERVER_PORT: 3005, WEBVIEW_CONFIG: { android: { sdkPath: sdk } } })
-        mockedExec.mockImplementation(() => "Pixel_7_API_34\n")
+        mockedExecFile.mockImplementation(() => "Pixel_7_API_34\n")
         setTTY(false)
 
         const result = await validateAndCompleteConfig("android", file)
@@ -591,7 +595,7 @@ describe("validateAndCompleteConfig", () => {
     it("detects the SDK when none is configured", async () => {
         const sdk = fakeSdk()
         vi.stubEnv("ANDROID_HOME", sdk)
-        mockedExec.mockImplementation(() => {
+        mockedExecFile.mockImplementation(() => {
             throw new Error("no emulator")
         })
         const file = writeConfig({

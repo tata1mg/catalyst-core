@@ -1,4 +1,4 @@
-import { execSync, spawn } from "child_process"
+import { execFileSync, execSync, spawn } from "child_process"
 import readline from "readline"
 import fs from "fs"
 import os from "os"
@@ -209,8 +209,9 @@ function androidTools(sdkPath) {
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - sdkPath is a local SDK directory from config or auto-detection, never remote input.
-        const out = execSync(`"${androidTools(expandHome(sdkPath)).emulator}" -list-avds`, {
+        // No shell: the SDK path comes from config or the environment, so it is
+        // passed as the file to run, never parsed as a command line.
+        const out = execFileSync(androidTools(expandHome(sdkPath)).emulator, ["-list-avds"], {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
             timeout: 15000,
