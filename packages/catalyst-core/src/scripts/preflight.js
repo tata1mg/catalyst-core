@@ -12,6 +12,7 @@ import { resolveOutputMode, getDebugEnvInfo } from "./scriptUtils.js"
 const requireCjs = createRequire(import.meta.url)
 const { registryFailure } = requireCjs("../cli/diagnostic.js")
 const { GUTTER, glyph, t } = requireCjs("../cli/theme.js")
+const { appRoot } = requireCjs("../cli/platform.js")
 
 /**
  * A registry error as the CLI shows it: the diagnostic block by default, the
@@ -50,14 +51,11 @@ function readJson(filePath) {
 
 /**
  * Run the static preflight checks against an app directory.
- * @param {string} [appDir] - the consumer app root. Defaults to the current
- *   working directory. `process.env.PWD` is preferred when set (it survives a
- *   `cd` in the invoking shell script), but it is not exported by every shell
- *   / CI runner, so `process.cwd()` is the fallback — never `undefined`, which
- *   would make the `path.join` calls below throw.
+ * @param {string} [appDir] - the consumer app root. Defaults to appRoot(), the
+ *   one place that decides between `process.env.PWD` and `process.cwd()`.
  * @returns {import("../errors/index.js").CatalystError[]} all failures (empty = passed)
  */
-export function runStaticPreflight(appDir = process.env.PWD || process.cwd()) {
+export function runStaticPreflight(appDir = appRoot()) {
     const failures = []
 
     // config/config.json
@@ -119,7 +117,7 @@ export function runStaticPreflight(appDir = process.env.PWD || process.cwd()) {
  * of a CLI entry script (start / serve / build).
  * @param {string} [appDir]
  */
-export function runStaticPreflightOrExit(appDir = process.env.PWD || process.cwd()) {
+export function runStaticPreflightOrExit(appDir = appRoot()) {
     const mode = resolveOutputMode(process.argv)
     const failures = runStaticPreflight(appDir)
     if (failures.length === 0) return
@@ -180,7 +178,7 @@ export function writeBuildInfo(appDir, config, args = {}) {
  * @param {Record<string, string>} [args]
  * @returns {import("../errors/index.js").CatalystError | null}
  */
-export function checkBuildMatchesConfig(appDir = process.env.PWD || process.cwd(), args = {}) {
+export function checkBuildMatchesConfig(appDir = appRoot(), args = {}) {
     const skip = (reason) => {
         console.warn(`${GUTTER}${t.warn(glyph.warn)} ${t.dim(`Skipping the build/config check: ${reason}`)}`)
         return null

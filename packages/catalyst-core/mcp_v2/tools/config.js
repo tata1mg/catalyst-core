@@ -111,22 +111,92 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     const wc = config.WEBVIEW_CONFIG
 
-    // ── WEBVIEW_CONFIG.LOCAL_IP ───────────────────────────────────────────────
-    if (!wc.LOCAL_IP) {
-        issues.push({
-            field: "WEBVIEW_CONFIG.LOCAL_IP",
-            severity: "error",
+    // ── App identity and production URL (catalyst-core 1.3.0+) ─────────────────
+    // appId and appName apply to both platforms and win over the per-platform
+    // keys. url is the origin a release build loads; debug builds ignore it.
+    const PLACEHOLDER_APP_IDS = [
+        "io.yourname.androidproject",
+        "com.catalyst.framework.app",
+        "com.debug.webview",
+    ]
+    const legacyAppId = wc.android?.packageName || wc.ios?.appBundleId || wc.ios?.bundleIdentifier
+    const appId = typeof wc.appId === "string" && wc.appId.trim() ? wc.appId.trim() : null
+    if (appId) {
+        if (
+            appId.toLowerCase().startsWith("com.example.") ||
+            PLACEHOLDER_APP_IDS.includes(appId.toLowerCase())
+        ) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.appId",
+                message: `appId "${appId}" is a placeholder. Debug builds work, but a release build refuses it (NATIVE-003). Set your own reverse-DNS id, e.g. "com.yourcompany.app"; it cannot change after the first store upload.`,
+            })
+        } else {
+            passed.push({ field: "WEBVIEW_CONFIG.appId", value: appId })
+        }
+    } else if (!legacyAppId) {
+        warnings.push({
+            field: "WEBVIEW_CONFIG.appId",
             message:
-                'WEBVIEW_CONFIG.LOCAL_IP is required. Set to your machine LAN IP (e.g. "192.168.0.11"). Do NOT use "localhost" — the native emulator/simulator cannot resolve localhost and will fail to connect to the dev server.',
+                'WEBVIEW_CONFIG.appId not set. It is the Android application id and the iOS bundle id (e.g. "com.yourcompany.app"); a release build refuses to ship without one (NATIVE-003).',
         })
-    } else if (wc.LOCAL_IP === "localhost" || wc.LOCAL_IP === "127.0.0.1") {
-        issues.push({
+    }
+    if (typeof wc.appName === "string" && wc.appName.trim()) {
+        passed.push({ field: "WEBVIEW_CONFIG.appName", value: wc.appName })
+    }
+    if (wc.url) {
+        let parsed = null
+        try {
+            parsed = new URL(String(wc.url))
+        } catch {
+            parsed = null
+        }
+        if (
+            !parsed ||
+            !["http:", "https:"].includes(parsed.protocol) ||
+            (parsed.pathname && parsed.pathname !== "/")
+        ) {
+            issues.push({
+                field: "WEBVIEW_CONFIG.url",
+                severity: "error",
+                message: `WEBVIEW_CONFIG.url "${wc.url}" must be an http(s) origin without a path, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
+            })
+        } else if (
+            /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/i.test(
+                parsed.hostname
+            ) &&
+            wc.allowPrivateHost !== true
+        ) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.url",
+                message: `WEBVIEW_CONFIG.url "${wc.url}" is a local or private host. A release build refuses it (NATIVE-001) unless WEBVIEW_CONFIG.allowPrivateHost is true.`,
+            })
+        } else {
+            passed.push({ field: "WEBVIEW_CONFIG.url", value: wc.url })
+        }
+    } else {
+        warnings.push({
+            field: "WEBVIEW_CONFIG.url",
+            message:
+                'WEBVIEW_CONFIG.url not set. Release builds load this production origin (e.g. "https://shop.acme.com"); without it they fall back to LOCAL_IP/port/useHttps. Debug builds do not need it.',
+        })
+    }
+
+    // ── WEBVIEW_CONFIG.LOCAL_IP ───────────────────────────────────────────────
+    // Debug builds reach the dev server on their own (adb reverse on Android,
+    // localhost on the simulator, <mac>.local on an iPhone), so LOCAL_IP stays
+    // localhost. A LAN address saved by an older setup is put back to
+    // localhost by the first 1.3.0 build.
+    if (
+        wc.LOCAL_IP &&
+        !["localhost", "127.0.0.1"].includes(wc.LOCAL_IP) &&
+        /^\d{1,3}(\.\d{1,3}){3}$/.test(wc.LOCAL_IP)
+    ) {
+        warnings.push({
             field: "WEBVIEW_CONFIG.LOCAL_IP",
-            severity: "error",
-            message: `WEBVIEW_CONFIG.LOCAL_IP is set to "${wc.LOCAL_IP}" — this will not work. The native emulator runs in a separate network namespace and cannot resolve localhost. Use your machine LAN IP (run "ifconfig | grep inet" to find it).`,
+            message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}". Keep it "localhost": debug builds work out the dev server address themselves, and the first build on catalyst-core 1.3.0 resets a private address to localhost. Put the production address in WEBVIEW_CONFIG.url.`,
         })
     } else {
-        passed.push({ field: "WEBVIEW_CONFIG.LOCAL_IP", value: wc.LOCAL_IP })
+        passed.push({ field: "WEBVIEW_CONFIG.LOCAL_IP", value: wc.LOCAL_IP || "localhost (default)" })
     }
 
     // ── WEBVIEW_CONFIG.appInfo ────────────────────────────────────────────────
@@ -149,14 +219,18 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             message:
                 "WEBVIEW_CONFIG.port is required. Must match NODE_SERVER_PORT (e.g. 3000). The native WebView connects to this port.",
         })
-    } else if (typeof wc.port !== "number") {
+    } else if (
+        !(typeof wc.port === "number" || (typeof wc.port === "string" && /^\d+$/.test(wc.port.trim()))) ||
+        !(Number(wc.port) >= 1 && Number(wc.port) <= 65535)
+    ) {
+        // The template ships "3005": both shells read it as text.
         issues.push({
             field: "WEBVIEW_CONFIG.port",
             severity: "error",
-            message: `WEBVIEW_CONFIG.port must be a number, got ${typeof wc.port}.`,
+            message: `WEBVIEW_CONFIG.port must be a port number from 1 to 65535 (a number or a string such as "3005"), got ${JSON.stringify(wc.port)}.`,
         })
     } else {
-        if (config.NODE_SERVER_PORT !== undefined && wc.port !== config.NODE_SERVER_PORT) {
+        if (config.NODE_SERVER_PORT !== undefined && Number(wc.port) !== Number(config.NODE_SERVER_PORT)) {
             warnings.push({
                 field: "WEBVIEW_CONFIG.port",
                 message: `WEBVIEW_CONFIG.port (${wc.port}) does not match NODE_SERVER_PORT (${config.NODE_SERVER_PORT}). WebView may connect to wrong port.`,
@@ -215,177 +289,110 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     }
 
     // ── Android fields ─────────────────────────────────────────────────────────
-    if (platform === "android" || platform === "both") {
-        if (!wc.android) {
-            issues.push({
-                field: "WEBVIEW_CONFIG.android",
-                severity: "error",
-                message: "WEBVIEW_CONFIG.android block missing. Android build cannot start without it.",
+    // Everything here is optional: buildApp:android finds or installs the SDK,
+    // JDK and emulator itself, after asking (or with --yes / --accept-licenses).
+    if ((platform === "android" || platform === "both") && wc.android) {
+        const a = wc.android
+        if (a.sdkPath && !fs.existsSync(a.sdkPath.replace(/^~(?=$|\/)/, process.env.HOME || "~"))) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.sdkPath",
+                message: `android.sdkPath "${a.sdkPath}" does not exist on this machine. Remove it to let the build use ANDROID_HOME, ANDROID_SDK_ROOT or the default SDK location (and install the SDK there).`,
             })
-        } else {
-            const a = wc.android
-            // sdkPath and emulatorName are hard required — build exits immediately without them
-            if (!a.sdkPath) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.sdkPath",
-                    severity: "error",
-                    message:
-                        "android.sdkPath is required. Set to absolute path of Android SDK (e.g. /Users/you/Android/). Build exits immediately without it.",
-                })
-            } else if (!fs.existsSync(a.sdkPath)) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.sdkPath",
-                    severity: "error",
-                    message: `android.sdkPath "${a.sdkPath}" does not exist on this machine. Android build will fail immediately.`,
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.android.sdkPath", value: a.sdkPath })
-            }
-            if (!a.emulatorName) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.emulatorName",
-                    severity: "error",
-                    message:
-                        "android.emulatorName is required for debug builds. Set to AVD name (run: emulator -list-avds). Build fails if emulator not found.",
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.android.emulatorName", value: a.emulatorName })
-            }
-            // appName and packageName — optional but strongly recommended
-            if (!a.appName) {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.android.appName",
-                    message:
-                        'android.appName not set. App will show "Catalyst Application" as display name on device.',
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.android.appName", value: a.appName })
-            }
-            if (!a.packageName) {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.android.packageName",
-                    message:
-                        "android.packageName not set (e.g. com.company.app). Will be derived from appName — may produce unexpected package ID.",
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.android.packageName", value: a.packageName })
-            }
-            // buildType
-            if (a.buildType && !["debug", "release"].includes(a.buildType)) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.buildType",
-                    severity: "error",
-                    message: `android.buildType must be "debug" or "release", got "${a.buildType}".`,
-                })
-            } else {
-                passed.push({
-                    field: "WEBVIEW_CONFIG.android.buildType",
-                    value: a.buildType || "debug (default)",
-                })
-            }
-            // release keystore check
-            if (a.buildType === "release" && !a.keystore && !a.keystoreConfig) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.android.keystore",
-                    severity: "error",
-                    message:
-                        'android.buildType is "release" but no keystore or keystoreConfig provided. Release build cannot sign the APK.',
-                })
-            }
-            if (a.cachePattern !== undefined && typeof a.cachePattern !== "string") {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.android.cachePattern",
-                    message: `android.cachePattern should be a comma-separated glob string (e.g. "*.css,*.js,*.png"), got ${typeof a.cachePattern}.`,
-                })
-            } else if (a.cachePattern) {
-                passed.push({ field: "WEBVIEW_CONFIG.android.cachePattern", value: a.cachePattern })
-            }
-            if (a.security && typeof a.security.allowBackup !== "boolean") {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.android.security.allowBackup",
-                    message:
-                        "android.security.allowBackup should be a boolean. Controls Google cloud backup of app data.",
-                })
-            }
+        } else if (a.sdkPath) {
+            passed.push({ field: "WEBVIEW_CONFIG.android.sdkPath", value: a.sdkPath })
+        }
+        if (a.emulatorName)
+            passed.push({ field: "WEBVIEW_CONFIG.android.emulatorName", value: a.emulatorName })
+        if (!wc.appName && a.appName)
+            passed.push({ field: "WEBVIEW_CONFIG.android.appName", value: a.appName })
+        if (!wc.appId && a.packageName) {
+            passed.push({ field: "WEBVIEW_CONFIG.android.packageName", value: a.packageName })
+        }
+        if (String(a.buildType || "").toLowerCase() === "release") {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.buildType",
+                message:
+                    'android.buildType "release" is deprecated. Use `npm run android:release` (catalyst buildApp:android --release) and set buildType back to "debug" or remove it.',
+            })
+        }
+        const keystoreBlocks = [a.keystore, a.keystoreConfig].filter(Boolean)
+        if (keystoreBlocks.some((block) => block.storePassword || block.keyPassword)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.keystoreConfig",
+                message:
+                    "Keystore passwords in config.json are not used for signing. The upload key lives in credentials/android/ (created by the first release build in a terminal; CI uses the CATALYST_ANDROID_CREDENTIALS secret from `catalyst credentials:export android`). Delete the passwords.",
+            })
+        }
+        if (a.cachePattern !== undefined && typeof a.cachePattern !== "string") {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.cachePattern",
+                message: `android.cachePattern should be a comma-separated glob string (e.g. "*.css,*.js,*.png"), got ${typeof a.cachePattern}.`,
+            })
+        } else if (a.cachePattern) {
+            passed.push({ field: "WEBVIEW_CONFIG.android.cachePattern", value: a.cachePattern })
+        }
+        if (a.security && typeof a.security.allowBackup !== "boolean") {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.security.allowBackup",
+                message:
+                    "android.security.allowBackup should be a boolean. Controls Google cloud backup of app data.",
+            })
         }
     }
 
     // ── iOS fields ─────────────────────────────────────────────────────────────
+    // buildApp:ios picks an existing iPhone simulator (ios.simulatorName
+    // first), creates "Catalyst iPhone" only when there is none, and
+    // finishes Xcode setup itself. Signing files live
+    // in credentials/ios/ (CI: CATALYST_IOS_CREDENTIALS), never in config.json.
     if (platform === "ios" || platform === "both") {
-        if (!wc.ios) {
-            issues.push({
-                field: "WEBVIEW_CONFIG.ios",
-                severity: "error",
-                message: "WEBVIEW_CONFIG.ios block missing. iOS build cannot start without it.",
-            })
-        } else {
-            const ios = wc.ios
-            // appBundleId — optional but strongly recommended (defaults to com.debug.webview)
-            if (!ios.appBundleId) {
+        const ios = wc.ios || {}
+        if (!wc.appId && ios.appBundleId) {
+            if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(ios.appBundleId)) {
                 warnings.push({
                     field: "WEBVIEW_CONFIG.ios.appBundleId",
-                    message:
-                        'ios.appBundleId not set. App will use "com.debug.webview" as bundle ID — fine for testing, must be set for distribution.',
+                    message: `appBundleId "${ios.appBundleId}" may not be valid; expected reverse-DNS format like "com.company.app". Prefer WEBVIEW_CONFIG.appId.`,
                 })
             } else {
-                if (!/^[a-z0-9][a-z0-9]*(\.[a-z0-9][a-z0-9]*){1,}$/i.test(ios.appBundleId)) {
-                    warnings.push({
-                        field: "WEBVIEW_CONFIG.ios.appBundleId",
-                        message: `appBundleId "${ios.appBundleId}" may not be valid — expected reverse-DNS format like "com.company.app".`,
-                    })
-                } else {
-                    passed.push({ field: "WEBVIEW_CONFIG.ios.appBundleId", value: ios.appBundleId })
-                }
+                passed.push({ field: "WEBVIEW_CONFIG.ios.appBundleId", value: ios.appBundleId })
             }
-            // simulatorName — optional, auto-detected if missing
-            if (!ios.simulatorName) {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.simulatorName",
-                    message:
-                        'ios.simulatorName not set. Will use auto-detected booted simulator. Recommend setting explicitly (e.g. "iPhone 17 Pro"). Run: xcrun simctl list devices.',
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.ios.simulatorName", value: ios.simulatorName })
-            }
-            // appName — optional, defaults to "Catalyst Application"
-            if (!ios.appName) {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.appName",
-                    message:
-                        'ios.appName not set. App will show "Catalyst Application" as display name on device.',
-                })
-            } else {
-                passed.push({ field: "WEBVIEW_CONFIG.ios.appName", value: ios.appName })
-            }
-            // buildType — case-sensitive (Debug/Release not debug/release)
-            if (ios.buildType && !["Debug", "Release"].includes(ios.buildType)) {
-                issues.push({
-                    field: "WEBVIEW_CONFIG.ios.buildType",
-                    severity: "error",
-                    message: `ios.buildType must be "Debug" or "Release" (case-sensitive). Got: "${ios.buildType}". Common mistake: using lowercase "debug" breaks Xcode build.`,
-                })
-            } else {
-                passed.push({
-                    field: "WEBVIEW_CONFIG.ios.buildType",
-                    value: ios.buildType || "Debug (default)",
-                })
-            }
-            // physical device fields
-            if (ios.deviceUDID && !ios.developmentTeam) {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.developmentTeam",
-                    message:
-                        "ios.deviceUDID is set (physical device build) but ios.developmentTeam is missing. Physical device builds require Apple Developer Team ID for code signing.",
-                })
-            }
-            if (ios.cachePattern !== undefined && typeof ios.cachePattern !== "string") {
-                warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.cachePattern",
-                    message: `ios.cachePattern should be a comma-separated glob string, got ${typeof ios.cachePattern}.`,
-                })
-            } else if (ios.cachePattern) {
-                passed.push({ field: "WEBVIEW_CONFIG.ios.cachePattern", value: ios.cachePattern })
-            }
+        }
+        if (ios.simulatorName)
+            passed.push({ field: "WEBVIEW_CONFIG.ios.simulatorName", value: ios.simulatorName })
+        if (String(ios.buildType || "").toLowerCase() === "release") {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.ios.buildType",
+                message:
+                    'ios.buildType "release" is deprecated. Use `npm run ios:release` (catalyst buildApp:ios --release) and set buildType back to "debug" or remove it.',
+            })
+        }
+        if (ios.developmentTeam) {
+            passed.push({ field: "WEBVIEW_CONFIG.ios.developmentTeam", value: ios.developmentTeam })
+        } else {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.ios.developmentTeam",
+                message:
+                    "ios.developmentTeam not set. The simulator does not need it, but a physical iPhone (--device) and a release with cloud or Xcode-account signing do (IOS-010). Set your 10-character Apple team ID.",
+            })
+        }
+        // iOS reads an array of patterns; a string becomes one literal
+        // pattern (not split on commas, unlike android.cachePattern).
+        const iosPattern = ios.cachePattern
+        const iosPatternOk = Array.isArray(iosPattern)
+            ? iosPattern.every((item) => typeof item === "string")
+            : typeof iosPattern === "string"
+        if (iosPattern !== undefined && !iosPatternOk) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.ios.cachePattern",
+                message: `ios.cachePattern should be an array of glob strings (e.g. ["*.css", "*.js"]), got ${JSON.stringify(iosPattern)}.`,
+            })
+        } else if (typeof iosPattern === "string" && iosPattern.includes(",")) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.ios.cachePattern",
+                message: `ios.cachePattern "${iosPattern}" is one literal pattern on iOS, not a comma-separated list. Use an array, e.g. ["*.css", "*.js"].`,
+            })
+        } else if (iosPattern && iosPattern.length) {
+            passed.push({ field: "WEBVIEW_CONFIG.ios.cachePattern", value: iosPattern })
         }
     }
 

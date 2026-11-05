@@ -5,6 +5,7 @@ var _fs = _interopRequireDefault(require("fs"))
 var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _theme = require("../cli/theme.js")
+var _projectFiles = require("./projectFiles.js")
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
@@ -65,6 +66,9 @@ class SimpleProgress {
         console.log(`${_theme.GUTTER}${_theme.t.dim(_theme.glyph.pipe)} ${mark} ${message}`)
     }
 
+    // Gradle's current task; buildApp:android shows it on the spinner's row.
+    status() {}
+
     printTreeContent(title, items) {
         this.ensureHeader()
         console.log(`\n${_theme.GUTTER}${_theme.t.bold(title)}`)
@@ -81,293 +85,121 @@ class SimpleProgress {
     }
 }
 
-const progress = new SimpleProgress("Android AAB Builder")
+// Run on its own, this script prints every step and detail line itself.
+// buildApp:android passes its progress instead (buildAndroidAAB's `progress`
+// option): the steps and details then ride on its "Build signed AAB" spinner
+// like the rest of buildApp, printed as lines only with --verbose/--debug,
+// while warnings and errors still print.
+let progress = new SimpleProgress("Android AAB Builder")
 
-async function createKeystore(projectPaths, androidConfig) {
-    const { newProjectPath } = projectPaths
-    const { keystoreConfig } = androidConfig
+const STEP_DETAILS = {
+    config: "reading the configuration",
+    validation: "checking the Android project",
+    backup: "backing up the project",
+    createTempDeployment: "copying the project to a build folder",
+    updateFileContents: "applying the app id and name",
+    createSignedAAB: "running Gradle",
+    finalizeAAB: "saving the AAB",
+}
 
-    if (!keystoreConfig) {
-        progress.log("Keystore configuration not found, skipping keystore creation", "info")
-        return null
-    }
-
-    progress.log("Checking keystore configuration...", "info")
-
-    // Validate keystore passwords are not placeholder values
-    if (
-        keystoreConfig.storePassword === "your_store_password" ||
-        keystoreConfig.keyPassword === "your_key_password" ||
-        keystoreConfig.storePassword === "your_password" ||
-        keystoreConfig.keyPassword === "your_password"
-    ) {
-        throw new Error(
-            'Please update keystore passwords in config file. Do not use placeholder values like "your_store_password" or "your_key_password".'
-        )
-    }
-
-    // Define keystore path
-    const keystorePath = _path.default.join(newProjectPath, "app", "keystore.jks")
-
-    // Check if keystore already exists
-    if (_fs.default.existsSync(keystorePath)) {
-        progress.log("Keystore already exists, verifying accessibility...", "info")
-
-        // Test keystore accessibility
-        try {
-            const testCommand = `keytool -list -keystore "${keystorePath}" -storepass "${keystoreConfig.storePassword}" -alias "${keystoreConfig.keyAlias}"`
-            ;(0, _utils.runCommand)(testCommand)
-            progress.log("Existing keystore verified successfully", "success")
-            return keystorePath
-        } catch (testError) {
-            progress.log("Existing keystore verification failed, creating new one...", "warning")
-            // Remove the faulty keystore
-            _fs.default.unlinkSync(keystorePath)
-        }
-    }
-
-    progress.log("Creating new keystore...", "info")
-
-    try {
-        // Validate required keystore configuration
-        const requiredFields = ["keyAlias", "storePassword", "keyPassword", "organizationInfo"]
-        for (const field of requiredFields) {
-            if (!keystoreConfig[field]) {
-                throw new Error(`Missing required keystore config field: ${field}`)
-            }
-        }
-
-        const { organizationInfo } = keystoreConfig
-        const requiredOrgFields = ["companyName", "city", "state", "countryCode"]
-        for (const field of requiredOrgFields) {
-            if (!organizationInfo[field]) {
-                throw new Error(`Missing required organization info field: ${field}`)
-            }
-        }
-
-        // Create keystore directory if it doesn't exist
-        const keystoreDir = _path.default.dirname(keystorePath)
-        if (!_fs.default.existsSync(keystoreDir)) {
-            _fs.default.mkdirSync(keystoreDir, { recursive: true })
-        }
-
-        // Build the distinguished name (DN) for the certificate
-        const dn = [
-            `CN=${organizationInfo.companyName}`,
-            `OU=${organizationInfo.department || organizationInfo.companyName}`,
-            `O=${organizationInfo.organization || organizationInfo.companyName}`,
-            `L=${organizationInfo.city}`,
-            `ST=${organizationInfo.state}`,
-            `C=${organizationInfo.countryCode}`,
-        ].join(", ")
-
-        // For PKCS12 keystores (default), store and key passwords must be the same
-        // Use store password for both to avoid PKCS12 compatibility issues
-        const effectiveKeyPassword = keystoreConfig.storePassword
-
-        if (keystoreConfig.keyPassword !== keystoreConfig.storePassword) {
-            progress.log("Note: Using store password for key password (PKCS12 requirement)", "info")
-        }
-
-        // Generate keystore using keytool with PKCS12 format explicitly
-        const validityDays = (keystoreConfig.validityYears || 25) * 365
-        const keystoreCommand = [
-            "keytool",
-            "-genkeypair",
-            "-v",
-            `-storetype PKCS12`,
-            `-keystore "${keystorePath}"`,
-            `-alias "${keystoreConfig.keyAlias}"`,
-            `-keyalg RSA`,
-            `-keysize 2048`,
-            `-validity ${validityDays}`,
-            `-storepass "${keystoreConfig.storePassword}"`,
-            `-keypass "${effectiveKeyPassword}"`,
-            `-dname "${dn}"`,
-        ].join(" ")
-
-        progress.log("Executing keytool command...", "info")
-        ;(0, _utils.runCommand)(keystoreCommand)
-
-        // Verify keystore was created
-        if (!_fs.default.existsSync(keystorePath)) {
-            throw new Error("Keystore file was not created successfully")
-        }
-
-        // Test the newly created keystore
-        try {
-            const testCommand = `keytool -list -keystore "${keystorePath}" -storepass "${keystoreConfig.storePassword}" -alias "${keystoreConfig.keyAlias}"`
-            ;(0, _utils.runCommand)(testCommand)
-            progress.log("New keystore verified successfully", "success")
-        } catch (testError) {
-            throw new Error(`Created keystore failed verification: ${testError.message}`)
-        }
-
-        progress.log(`Keystore created at: ${keystorePath}`, "note")
-        progress.log(`Key alias: ${keystoreConfig.keyAlias}`, "info")
-        progress.log(`Validity: ${keystoreConfig.validityYears || 25} years`, "info")
-        progress.log(`Store type: PKCS12`, "info")
-
-        return keystorePath
-    } catch (error) {
-        throw new Error(`Failed to create keystore: ${error.message}`)
+/**
+ * This script's progress calls, reported through a TerminalProgress that
+ * already has a step running. `info` and `success` become spinner detail
+ * (lines under --verbose), warnings and errors print. No summary box and no
+ * failure line: the caller prints its own summary and diagnostic.
+ */
+function nestedProgress(outer) {
+    return {
+        currentStep: null,
+        start(stepId) {
+            this.currentStep = { id: stepId }
+            outer.log(STEP_DETAILS[stepId] || stepId, "info")
+        },
+        complete() {
+            this.currentStep = null
+        },
+        fail() {
+            this.currentStep = null
+        },
+        log(message, type = "info") {
+            outer.log(message, type)
+        },
+        status(detail) {
+            outer.status(detail)
+        },
+        printTreeContent() {},
     }
 }
 
-async function createSignedAAB(projectPaths, androidConfig, keystorePath) {
-    const { newProjectPath } = projectPaths
-    const { keystoreConfig } = androidConfig
+/** "> Task :app:bundleRelease" becomes "app:bundleRelease"; null otherwise. */
+function gradleTask(line) {
+    const match = /^>\s*Task\s+:(\S+)/.exec(String(line).trim())
+    return match ? match[1] : null
+}
 
-    if (!keystoreConfig || !keystorePath) {
-        throw new Error("Keystore configuration and keystore path are required for signed AAB creation")
+/**
+ * Generate the release webview config and build the signed bundle inside the
+ * temp copy. Two Gradle runs: the manifest's allowBackup placeholder is read
+ * from webview_config.properties while Gradle configures the project, so the
+ * file must exist before bundleRelease is configured.
+ *
+ * Signing and version values arrive in `gradle.env` as ORG_GRADLE_PROJECT_*
+ * variables; nothing secret is put on the command line.
+ */
+async function createSignedAAB(projectPaths, androidConfig) {
+    const { newProjectPath } = projectPaths
+    const { gradle } = androidConfig
+
+    if (!gradle || !gradle.configPath || !gradle.env) {
+        throw new Error("A resolved config and upload key are required to build the signed AAB")
     }
 
     progress.log("Building signed Android App Bundle (AAB)...", "info")
 
-    try {
-        // Verify keystore exists
-        if (!_fs.default.existsSync(keystorePath)) {
-            throw new Error(`Keystore not found at: ${keystorePath}`)
-        }
-
-        // Get absolute path for the project directory
-        const absoluteProjectPath = _path.default.resolve(newProjectPath)
-
-        // Change to project directory
-        const originalCwd = process.cwd()
-        process.chdir(absoluteProjectPath)
-
-        progress.log(`Changed to project directory: ${absoluteProjectPath}`, "info")
-
-        // Verify gradlew exists using absolute path
-        const gradlewPath = _path.default.join(absoluteProjectPath, "gradlew")
-        progress.log(`Looking for gradlew at: ${gradlewPath}`, "info")
-
-        if (!_fs.default.existsSync(gradlewPath)) {
-            // List files in the project directory for debugging
-            try {
-                const files = _fs.default.readdirSync(absoluteProjectPath)
-                progress.log(`Files in project directory: ${files.join(", ")}`, "info")
-
-                // Check if there's a gradlew file with different permissions or name
-                const gradlewFiles = files.filter((file) => file.toLowerCase().includes("gradle"))
-                if (gradlewFiles.length > 0) {
-                    progress.log(`Found gradle-related files: ${gradlewFiles.join(", ")}`, "info")
-                }
-            } catch (listError) {
-                progress.log(`Could not list directory contents: ${listError.message}`, "warning")
-            }
-
-            throw new Error(`gradlew not found at: ${gradlewPath}. Ensure this is a valid Android project.`)
-        }
-
-        // Make gradlew executable
-        try {
-            ;(0, _utils.runCommand)(`chmod +x ./gradlew`)
-        } catch (chmodError) {
-            progress.log(`Warning: Could not make gradlew executable: ${chmodError.message}`, "warning")
-        }
-
-        try {
-            // Clean previous builds
-            progress.log("Cleaning previous builds...", "info")
-            try {
-                ;(0, _utils.runCommand)("./gradlew clean")
-                progress.log("Clean completed successfully", "success")
-            } catch (cleanError) {
-                progress.log(`Warning: Clean failed: ${cleanError.message}`, "warning")
-                // Continue anyway as this might not be critical
-            }
-
-            // Build signed AAB with PKCS12-compatible parameters
-            progress.log("Building signed AAB...", "info")
-
-            // For PKCS12 keystores, use store password for both store and key
-            const effectiveKeyPassword = keystoreConfig.storePassword
-
-            const bundleCommand = [
-                "./gradlew bundleRelease --console=plain",
-                `-Pandroid.injected.signing.store.file="${keystorePath}"`,
-                `-Pandroid.injected.signing.store.password="${keystoreConfig.storePassword}"`,
-                `-Pandroid.injected.signing.key.alias="${keystoreConfig.keyAlias}"`,
-                `-Pandroid.injected.signing.key.password="${effectiveKeyPassword}"`,
-            ].join(" ")
-
-            // Never log this command as-is: it carries the keystore and key
-            // passwords, which would put them in the terminal and in CI logs.
-            progress.log("Executing: ./gradlew bundleRelease (signing args redacted)", "info")
-            ;(0, _utils.runCommand)(bundleCommand)
-            progress.log("Bundle build completed", "success")
-
-            // Find the generated AAB file
-            const aabPath = _path.default.join(
-                newProjectPath,
-                "app",
-                "build",
-                "outputs",
-                "bundle",
-                "release",
-                "app-release.aab"
-            )
-
-            progress.log(`Looking for AAB file at: ${aabPath}`, "info")
-
-            if (!_fs.default.existsSync(aabPath)) {
-                // Try to find AAB files in the build output directory
-                const bundleDir = _path.default.join(newProjectPath, "app", "build", "outputs", "bundle")
-                progress.log(
-                    `AAB not found at expected location. Checking bundle directory: ${bundleDir}`,
-                    "warning"
-                )
-
-                if (_fs.default.existsSync(bundleDir)) {
-                    try {
-                        const findAabCommand = `find "${bundleDir}" -name "*.aab" -type f`
-                        const foundAabs = (0, _utils.runCommand)(findAabCommand)
-                        if (foundAabs.trim()) {
-                            progress.log(`Found AAB files: ${foundAabs.trim()}`, "info")
-                        } else {
-                            progress.log("No AAB files found in bundle directory", "warning")
-                        }
-                    } catch (findError) {
-                        progress.log(`Error searching for AAB files: ${findError.message}`, "warning")
-                    }
-                }
-
-                throw new Error("Signed AAB file was not generated successfully")
-            }
-
-            // Get file size
-            const stats = _fs.default.statSync(aabPath)
-            const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2)
-
-            progress.log(`Signed AAB created successfully!`, "success")
-            progress.log(`AAB location: ${aabPath}`, "info")
-            progress.log(`AAB size: ${fileSizeMB} MB`, "info")
-
-            // Optionally copy AAB to a more accessible location
-            const outputDir = _path.default.join(newProjectPath, "release")
-            if (!_fs.default.existsSync(outputDir)) {
-                _fs.default.mkdirSync(outputDir, { recursive: true })
-            }
-
-            const outputAabPath = _path.default.join(outputDir, `${androidConfig.newProjectName}-release.aab`)
-            _fs.default.copyFileSync(aabPath, outputAabPath)
-
-            progress.log(`AAB copied to: ${outputAabPath}`, "success")
-
-            return {
-                aabPath,
-                outputAabPath,
-                fileSize: fileSizeMB,
-            }
-        } finally {
-            // Restore original working directory
-            process.chdir(originalCwd)
-        }
-    } catch (error) {
-        throw new Error(`Failed to create signed AAB: ${error.message}`)
+    const absoluteProjectPath = _path.default.resolve(newProjectPath)
+    const gradlewPath = _path.default.join(absoluteProjectPath, "gradlew")
+    if (!_fs.default.existsSync(gradlewPath)) {
+        throw new Error(`gradlew not found at: ${gradlewPath}. Ensure this is a valid Android project.`)
     }
+    _fs.default.chmodSync(gradlewPath, 0o755)
+
+    const common = [`-PconfigPath=${gradle.configPath}`, "-PcatalystBuildType=release", "--console=plain"]
+    // runGradle: gradlew.bat on Windows, where the gradlew shell script cannot run.
+    const run = (args) =>
+        (0, _utils.runGradle)(absoluteProjectPath, args, {
+            env: gradle.env,
+            onLine: (line) => progress.status(gradleTask(line)),
+        })
+
+    progress.log("Generating the release webview configuration...", "info")
+    await run([
+        "generateWebViewConfig",
+        `-PbuildOptimisation=${Boolean(gradle.buildOptimisation)}`,
+        ...common,
+    ])
+
+    progress.log("Building signed AAB (clean bundleRelease)...", "info")
+    await run(["clean", "bundleRelease", ...common])
+    progress.log("Bundle build completed", "success")
+
+    const aabPath = _path.default.join(
+        newProjectPath,
+        "app",
+        "build",
+        "outputs",
+        "bundle",
+        "release",
+        "app-release.aab"
+    )
+    if (!_fs.default.existsSync(aabPath)) {
+        throw new Error(`Signed AAB file was not generated at ${aabPath}`)
+    }
+
+    const stats = _fs.default.statSync(aabPath)
+    const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2)
+    progress.log(`Signed AAB created (${fileSizeMB} MB)`, "success")
+
+    return { aabPath, outputAabPath: aabPath, fileSize: fileSizeMB }
 }
 
 async function initializeConfig(configPath) {
@@ -554,16 +386,19 @@ async function diagnoseAndroidProject(projectPath) {
     if (diagnostics.missingFiles.length > 0) {
         progress.log("Searching for missing files in alternate locations...", "info")
         try {
-            const findBuildFiles = `find "${projectPath}" \\( -name "build.gradle" -o -name "build.gradle.kts" -o -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "AndroidManifest.xml" \\) -type f`
-            const foundFiles = (0, _utils.runCommand)(findBuildFiles)
-            if (foundFiles.trim()) {
+            const buildFileNames = new Set([
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                "settings.gradle.kts",
+                "AndroidManifest.xml",
+            ])
+            const foundFiles = (0, _projectFiles.findFiles)(projectPath, (name) => buildFileNames.has(name))
+            if (foundFiles.length > 0) {
                 progress.log("Found build files in unexpected locations:", "info")
-                foundFiles
-                    .trim()
-                    .split("\n")
-                    .forEach((file) => {
-                        progress.log(`  ${file}`, "info")
-                    })
+                foundFiles.forEach((file) => {
+                    progress.log(`  ${file}`, "info")
+                })
             }
         } catch (searchError) {
             progress.log("Could not search for alternative file locations", "warning")
@@ -644,7 +479,10 @@ async function createBackup(projectPaths, androidConfig) {
     const backupPath = `${projectPaths.oldProjectPath}_backup_${Date.now()}`
 
     try {
-        ;(0, _utils.runCommand)(`cp -r "${projectPaths.oldProjectPath}" "${backupPath}"`)
+        _fs.default.cpSync(projectPaths.oldProjectPath, backupPath, {
+            recursive: true,
+            verbatimSymlinks: true,
+        })
         progress.log(`Backup created at: ${backupPath}`, "success")
         return backupPath
     } catch (error) {
@@ -659,14 +497,15 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
     progress.log("Creating temporary deployment project...", "info")
 
     // Create a temporary directory based on package name (if available) or timestamp
-    const tempDirSuffix = packageName ? packageName.replace(/\./g, "_") : Date.now().toString()
+    // Only [A-Za-z0-9_] in the name: the path reaches shell commands below.
+    const tempDirSuffix = packageName ? packageName.replace(/[^A-Za-z0-9_]/g, "_") : Date.now().toString()
     const tempDir = _path.default.join(_path.default.dirname(oldProjectPath), `temp_build_${tempDirSuffix}`)
 
     // Remove existing temp directory with same name if it exists
     if (_fs.default.existsSync(tempDir)) {
         progress.log(`Removing existing temp directory: ${tempDir}`, "info")
         try {
-            ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+            ;(0, _projectFiles.removeTree)(tempDir)
         } catch (cleanupError) {
             progress.log(
                 `Warning: Could not remove existing temp directory: ${cleanupError.message}`,
@@ -685,13 +524,12 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         const sourceFiles = _fs.default.readdirSync(oldProjectPath)
         progress.log(`Source directory contents: ${sourceFiles.join(", ")}`, "info")
 
-        // Copy the entire project to the temporary location using rsync for better file preservation
+        // Copy the project to the temporary location
         progress.log(`Copying project to temporary location...`, "info")
         progress.log(`Source: ${oldProjectPath}`, "info")
         progress.log(`Temp destination: ${tempDir}`, "info")
 
-        // Use rsync to preserve all file attributes and handle symlinks properly
-        ;(0, _utils.runCommand)(`rsync -av "${oldProjectPath}/" "${tempDir}/"`)
+        ;(0, _projectFiles.copyProjectWithoutOutputs)(oldProjectPath, tempDir)
         progress.log(`Created temporary copy for building`, "success")
 
         // Only check for gradlew which is absolutely essential for building
@@ -715,10 +553,12 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
             { path: "app/src/main/AndroidManifest.xml", desc: "Android manifest" },
         ]
 
+        // Both the Groovy and the Kotlin DSL names are listed, so one of each
+        // pair is always absent: info, not a warning.
         filesToCheck.forEach((file) => {
             const fullPath = _path.default.join(tempDir, file.path)
             const exists = _fs.default.existsSync(fullPath)
-            progress.log(`  ${file.desc}: ${exists ? "found" : "not found"}`, exists ? "info" : "warning")
+            progress.log(`  ${file.desc}: ${exists ? "found" : "not found"}`, "info")
         })
 
         // List all files in temp directory for debugging
@@ -730,7 +570,7 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
         // Clean up on error
         if (_fs.default.existsSync(tempDir)) {
             try {
-                ;(0, _utils.runCommand)(`rm -rf "${tempDir}"`)
+                ;(0, _projectFiles.removeTree)(tempDir)
             } catch (cleanupError) {
                 progress.log(`Warning: Could not cleanup temp directory: ${cleanupError.message}`, "warning")
             }
@@ -740,24 +580,18 @@ async function createTempDeploymentProject(projectPaths, androidConfig) {
 
     // Find and rename any subdirectories that contain the old project name within the temp copy
     try {
-        const findCommand = `find "${tempDir}" -type d -name "*${oldProjectName}*"`
-        const result = (0, _utils.runCommand)(findCommand)
+        const dirsToRename = (0, _projectFiles.walkTree)(tempDir).filter(
+            (entry) => entry.isDirectory && entry.name.includes(oldProjectName)
+        )
 
-        if (result.trim()) {
-            const dirsToRename = result
-                .trim()
-                .split("\n")
-                .filter((dir) => dir.trim())
-
-            for (const dir of dirsToRename) {
-                const newDirName = dir.split(oldProjectName).join(newProjectName)
-                if (dir !== newDirName) {
-                    ;(0, _utils.runCommand)(`mv "${dir}" "${newDirName}"`)
-                    progress.log(
-                        `Renamed subdirectory: ${_path.default.basename(dir)} → ${_path.default.basename(newDirName)}`,
-                        "success"
-                    )
-                }
+        for (const dir of dirsToRename) {
+            const newDirName = dir.name.split(oldProjectName).join(newProjectName)
+            if (dir.name !== newDirName) {
+                ;(0, _projectFiles.renameWithRetry)(
+                    dir.path,
+                    _path.default.join(_path.default.dirname(dir.path), newDirName)
+                )
+                progress.log(`Renamed subdirectory: ${dir.name} → ${newDirName}`, "success")
             }
         }
     } catch (error) {
@@ -774,33 +608,26 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
     progress.log("Finalizing AAB and cleaning up temporary files...", "info")
 
     try {
-        // Create final output directory next to original project
-        const outputDir =
-            androidConfig.outputPath ||
-            _path.default.join(_path.default.dirname(oldProjectPath), "build-output")
+        // buildApp:android passes the exact destination
+        // (build-output/android/<version>-<build>/<name>.aab). Run on its
+        // own, this script keeps its dated name in the output folder.
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0]
+        const finalAabPath =
+            androidConfig.finalAabPath ||
+            _path.default.join(
+                androidConfig.outputPath ||
+                    _path.default.join(_path.default.dirname(oldProjectPath), "build-output"),
+                `${androidConfig.newProjectName}-release-${timestamp}.aab`
+            )
+        const outputDir = _path.default.dirname(finalAabPath)
+        const finalAabName = _path.default.basename(finalAabPath)
         if (!_fs.default.existsSync(outputDir)) {
             _fs.default.mkdirSync(outputDir, { recursive: true })
             progress.log(`Created output directory: ${outputDir}`, "success")
         }
 
-        // Copy AAB to final location with descriptive name
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0]
-        const finalAabName = `${androidConfig.newProjectName}-release-${timestamp}.aab`
-        const finalAabPath = _path.default.join(outputDir, finalAabName)
-
         _fs.default.copyFileSync(aabResult.outputAabPath, finalAabPath)
-        progress.log(`AAB saved to: ${finalAabPath}`, "note")
-
-        // Copy keystore to output directory for future use
-        const keystorePath = _path.default.join(tempDeploymentPath, "app", "keystore.jks")
-        if (_fs.default.existsSync(keystorePath)) {
-            const finalKeystorePath = _path.default.join(
-                outputDir,
-                `${androidConfig.newProjectName}-keystore.jks`
-            )
-            _fs.default.copyFileSync(keystorePath, finalKeystorePath)
-            progress.log(`Keystore copied to: ${finalKeystorePath}`, "success")
-        }
+        progress.log(`AAB saved to: ${finalAabPath}`, "success")
 
         // Clean up temporary deployment directory
         await cleanupTempDeployment(tempDeploymentPath)
@@ -823,7 +650,7 @@ async function cleanupTempDeployment(tempDeploymentPath) {
 
     try {
         progress.log("Cleaning up temporary deployment files...", "info")
-        ;(0, _utils.runCommand)(`rm -rf "${tempDeploymentPath}"`)
+        ;(0, _projectFiles.removeTree)(tempDeploymentPath)
         progress.log("Temporary files cleaned up successfully", "success")
     } catch (error) {
         progress.log(`Warning: Could not cleanup temporary directory: ${error.message}`, "warning")
@@ -894,7 +721,7 @@ async function updateFileContents(projectPaths, androidConfig) {
                         _fs.default.mkdirSync(newPackageDir, { recursive: true })
 
                         // Move source files
-                        ;(0, _utils.runCommand)(`mv "${oldPackagePath}" "${newPackagePath}"`)
+                        ;(0, _projectFiles.renameWithRetry)(oldPackagePath, newPackagePath)
                         progress.log(`Moved ${sourceSet} source files to: ${newPackagePath}`, "success")
                     } else {
                         progress.log(
@@ -904,11 +731,10 @@ async function updateFileContents(projectPaths, androidConfig) {
                     }
 
                     // Update package declarations in source files
-                    const findCommand = `find "${newPackagePath}" -type f \\( -name "*.kt" -o -name "*.java" \\)`
-                    const sourceFiles = (0, _utils.runCommand)(findCommand)
-                        .trim()
-                        .split("\n")
-                        .filter((f) => f.trim())
+                    const sourceFiles = (0, _projectFiles.findFiles)(
+                        newPackagePath,
+                        (name) => name.endsWith(".kt") || name.endsWith(".java")
+                    )
 
                     let updatedCount = 0
                     for (const file of sourceFiles) {
@@ -927,8 +753,8 @@ async function updateFileContents(projectPaths, androidConfig) {
 
                     // Clean up old empty directories
                     try {
-                        ;(0, _utils.runCommand)(
-                            `find "${_path.default.join(newProjectPath, "app", "src", sourceSet, "java")}" -type d -empty -delete`
+                        ;(0, _projectFiles.removeEmptyDirectories)(
+                            _path.default.join(newProjectPath, "app", "src", sourceSet, "java")
                         )
                     } catch (err) {
                         // Ignore cleanup errors
@@ -970,75 +796,52 @@ async function updateFileContents(projectPaths, androidConfig) {
         }
 
         // STEP 2: Find and rename files that contain the old project name
-        const findFilesCommand = `find "${newProjectPath}" -type f -name "*${oldProjectName}*"`
-        const fileResult = (0, _utils.runCommand)(findFilesCommand)
+        const filesToRename = (0, _projectFiles.findFiles)(newProjectPath, (name) =>
+            name.includes(oldProjectName)
+        )
 
-        if (fileResult.trim()) {
-            const filesToRename = fileResult
-                .trim()
-                .split("\n")
-                .filter((file) => file.trim())
-
-            for (const file of filesToRename) {
-                const newFileName = file.split(oldProjectName).join(newProjectName)
-                if (file !== newFileName) {
-                    ;(0, _utils.runCommand)(`mv "${file}" "${newFileName}"`)
-                    progress.log(
-                        `Renamed file: ${_path.default.basename(file)} → ${_path.default.basename(newFileName)}`,
-                        "success"
-                    )
-                }
+        for (const file of filesToRename) {
+            const fileName = _path.default.basename(file)
+            const newFileName = fileName.split(oldProjectName).join(newProjectName)
+            if (fileName !== newFileName) {
+                ;(0, _projectFiles.renameWithRetry)(
+                    file,
+                    _path.default.join(_path.default.dirname(file), newFileName)
+                )
+                progress.log(`Renamed file: ${fileName} → ${newFileName}`, "success")
             }
         }
 
         // STEP 3: Update file contents that reference the old project name
         const fileTypes = [
-            "*.gradle",
-            "*.gradle.kts",
-            "*.xml",
-            "*.json",
-            "*.properties",
-            "*.java",
-            "*.kt",
-            "*.kts",
-            "*.js",
-            "*.ts",
-            "*.md",
+            ".gradle",
+            ".xml",
+            ".json",
+            ".properties",
+            ".java",
+            ".kt",
+            ".kts",
+            ".js",
+            ".ts",
+            ".md",
         ]
+        const textFiles = (0, _projectFiles.findFiles)(newProjectPath, (name) =>
+            fileTypes.includes(_path.default.extname(name))
+        )
 
-        for (const fileType of fileTypes) {
+        for (const file of textFiles) {
             try {
-                const findContentCommand = `find "${newProjectPath}" -name "${fileType}" -type f`
-                const files = (0, _utils.runCommand)(findContentCommand)
-
-                if (files.trim()) {
-                    const fileList = files
-                        .trim()
-                        .split("\n")
-                        .filter((file) => file.trim())
-
-                    for (const file of fileList) {
-                        try {
-                            const content = _fs.default.readFileSync(file, "utf8")
-                            if (content.includes(oldProjectName)) {
-                                const updatedContent = content.split(oldProjectName).join(newProjectName)
-                                _fs.default.writeFileSync(file, updatedContent, "utf8")
-                                progress.log(
-                                    `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
-                                    "info"
-                                )
-                            }
-                        } catch (fileError) {
-                            progress.log(
-                                `Warning: Could not update file ${file}: ${fileError.message}`,
-                                "warning"
-                            )
-                        }
-                    }
+                const content = _fs.default.readFileSync(file, "utf8")
+                if (content.includes(oldProjectName)) {
+                    const updatedContent = content.split(oldProjectName).join(newProjectName)
+                    _fs.default.writeFileSync(file, updatedContent, "utf8")
+                    progress.log(
+                        `Updated content in: ${_path.default.relative(newProjectPath, file)}`,
+                        "info"
+                    )
                 }
-            } catch (typeError) {
-                // Continue with other file types if one fails
-                progress.log(`Warning: Error processing ${fileType} files: ${typeError.message}`, "warning")
+            } catch (fileError) {
+                progress.log(`Warning: Could not update file ${file}: ${fileError.message}`, "warning")
             }
         }
 
@@ -1048,7 +851,24 @@ async function updateFileContents(projectPaths, androidConfig) {
     }
 }
 
-async function buildAndroidAAB(configPathOrConfig) {
+/**
+ * Build the signed AAB in a renamed temp copy of the Android project.
+ *
+ * @param {string | object} configPathOrConfig - a config.json path, or the config object buildApp:android builds
+ * @param {object} [options]
+ * @param {object} [options.progress] - the caller's TerminalProgress, with a step running; see nestedProgress
+ */
+async function buildAndroidAAB(configPathOrConfig, { progress: outer } = {}) {
+    const previous = progress
+    if (outer) progress = nestedProgress(outer)
+    try {
+        return await runAABBuild(configPathOrConfig)
+    } finally {
+        progress = previous
+    }
+}
+
+async function runAABBuild(configPathOrConfig) {
     let androidConfig
     let projectPaths
     let backupPath
@@ -1105,49 +925,19 @@ async function buildAndroidAAB(configPathOrConfig) {
         await updateFileContents({ ...projectPaths, newProjectPath: tempDeploymentPath }, androidConfig)
         progress.complete("updateFileContents")
 
-        // Create keystore if needed
-        progress.start("createKeystore")
-        const keystorePath = await createKeystore(
+        progress.start("createSignedAAB")
+        let aabResult = await createSignedAAB(
             { ...projectPaths, newProjectPath: tempDeploymentPath },
             androidConfig
         )
-        progress.complete("createKeystore")
+        progress.complete("createSignedAAB")
 
-        // Create signed AAB if keystore was created/found and enabled in config
-        let aabResult = null
-        if (keystorePath && androidConfig.createSignedAAB) {
-            progress.start("createSignedAAB")
-            aabResult = await createSignedAAB(
-                { ...projectPaths, newProjectPath: tempDeploymentPath },
-                androidConfig,
-                keystorePath
-            )
-            progress.complete("createSignedAAB")
+        // Copy AAB to final location and cleanup temp deployment
+        progress.start("finalizeAAB")
+        aabResult = await finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tempDeploymentPath)
+        progress.complete("finalizeAAB")
 
-            // Copy AAB to final location and cleanup temp deployment
-            if (aabResult) {
-                progress.start("finalizeAAB")
-                aabResult = await finalizeAABAndCleanup(
-                    projectPaths,
-                    androidConfig,
-                    aabResult,
-                    tempDeploymentPath
-                )
-                progress.complete("finalizeAAB")
-            }
-        } else if (!androidConfig.createSignedAAB) {
-            progress.log("Signed AAB creation skipped (not enabled in config)", "info")
-            // DON'T Clean up temp deployment - keep it for verification
-            progress.log(`Temp renamed project kept at: ${tempDeploymentPath}`, "info")
-            // await cleanupTempDeployment(tempDeploymentPath)
-        } else if (!keystorePath) {
-            progress.log("Signed AAB creation skipped (no keystore available)", "warning")
-            // DON'T Clean up temp deployment - keep it for verification
-            progress.log(`Temp renamed project kept at: ${tempDeploymentPath}`, "info")
-            // await cleanupTempDeployment(tempDeploymentPath)
-        }
-
-        // Print completion summary
+        // Completion summary, standalone only: buildApp:android prints its own.
         progress.printTreeContent("Build Summary", [
             "Android AAB build completed successfully:",
             {
@@ -1175,12 +965,6 @@ async function buildAndroidAAB(configPathOrConfig) {
                 color: "gray",
             },
             { text: `Backup created: ${backupPath ? "Yes" : "No"}`, indent: 1, prefix: "├─ ", color: "gray" },
-            {
-                text: `Keystore: ${keystorePath ? "Created/Verified" : "Skipped"}`,
-                indent: 1,
-                prefix: "├─ ",
-                color: "gray",
-            },
             {
                 text: `Signed AAB: ${aabResult ? "Created" : "Skipped"}`,
                 indent: 1,
@@ -1216,99 +1000,17 @@ async function buildAndroidAAB(configPathOrConfig) {
                 : [{ text: `No AAB created`, indent: 1, prefix: "└─ ", color: "gray" }]),
         ])
 
-        process.exit(0)
+        return aabResult
     } catch (error) {
         // Clean up temp deployment on error
         if (tempDeploymentPath) {
             await cleanupTempDeployment(tempDeploymentPath)
         }
 
-        if (progress.currentStep) {
-            progress.fail(progress.currentStep.id, error.message)
-
-            progress.printTreeContent("Troubleshooting Guide", [
-                "Build operation failed. Please check the following:",
-                {
-                    text: "Verify config file exists and contains required android configuration",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: "Ensure project path exists and is accessible",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                { text: "Check file/directory permissions", indent: 1, prefix: "├─ ", color: "yellow" },
-                {
-                    text: "Verify no processes are using the project directory",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: "Ensure sufficient disk space for project copy",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: 'Update keystore passwords (do not use "your_store_password")',
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "yellow",
-                },
-                "\nConfiguration Details:",
-                {
-                    text: `Config: ${typeof configPathOrConfig === "string" ? configPathOrConfig : "Direct object from buildAppAndroid.js"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-                {
-                    text: `Project path: ${androidConfig?.projectPath || "Not loaded"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-                {
-                    text: `Deployment path: ${androidConfig?.deploymentPath || "Not loaded"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-                {
-                    text: `Old project name: ${androidConfig?.oldProjectName || "Not loaded"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-                {
-                    text: `New project name: ${androidConfig?.newProjectName || "Not loaded"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-                {
-                    text: `Overwrite existing: ${androidConfig?.overwriteExisting !== undefined ? androidConfig.overwriteExisting : "Not loaded"}`,
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "gray",
-                },
-                "\nFor keystore issues, ensure your config has:",
-                { text: "Real passwords (not placeholder values)", indent: 1, prefix: "├─ ", color: "cyan" },
-                { text: "Valid organization information", indent: 1, prefix: "├─ ", color: "cyan" },
-                {
-                    text: "Consistent store and key passwords for PKCS12",
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "cyan",
-                },
-            ])
-        }
-
-        process.exit(1)
+        // The caller (buildApp:android) prints the full diagnostic, including
+        // Gradle's own error, from `error.output`.
+        if (progress.currentStep) progress.fail(progress.currentStep.id, error.message)
+        throw error
     }
 }
 

@@ -2,6 +2,8 @@
 
 const fs = require("fs")
 const path = require("path")
+const { checkAppIcon } = require("../appIcon.js")
+const { copyWebBuild } = require("../projectFiles.js")
 
 function createAssetsPhase(ctx) {
     const { configPath, publicPath, pwd, progress } = ctx
@@ -11,44 +13,15 @@ function createAssetsPhase(ctx) {
 
         progress.log("Copying build assets to Android project...", "info")
         try {
-            const sourcePath = `${process.cwd()}/build/`
-            const destPath = `${pwd}/androidProject/app/src/main/assets/build/`
+            const sourcePath = path.join(process.cwd(), "build")
+            const destPath = path.join(pwd, "androidProject", "app", "src", "main", "assets", "build")
+            const excludedFiles = new Set(["route-manifest.json.gz", "route-manifest.json.br"])
 
-            ctx.runCommand(`mkdir -p ${destPath}`)
-            ctx.runCommand(`rm -rf ${destPath}/*`)
-
-            const excludePatterns = ["route-manifest.json.gz", "route-manifest.json.br"]
-
-            if (buildOptimisation) {
-                progress.log("Running with build optimization...", "info")
-                const excludeParams = excludePatterns.map((pattern) => `--exclude="${pattern}"`).join(" ")
-                const rsyncCommand = `rsync -av ${excludeParams} ${sourcePath} ${destPath}`
-                progress.log("Executing rsync command with exclusions...", "info")
-                ctx.runCommand(rsyncCommand)
-
-                for (const pattern of excludePatterns) {
-                    const checkCommand = `find ${destPath} -name "${pattern}" | wc -l`
-                    const count = parseInt(ctx.runCommand(checkCommand).trim(), 10)
-                    if (count > 0) {
-                        progress.log(
-                            `Warning: Found ${count} instances of excluded file ${pattern}`,
-                            "warning"
-                        )
-                        ctx.runCommand(`find ${destPath} -name "${pattern}" -delete`)
-                    }
-                }
-                progress.log(
-                    "Build assets copied with optimization (excluded route-manifest JSON files)",
-                    "success"
-                )
-            } else {
-                progress.log("Running without build optimization...", "info")
-                const exclusions = excludePatterns.map((pattern) => `-not -name "${pattern}"`).join(" ")
-                const copyCommand = `find ${sourcePath} -type f ${exclusions} -exec cp --parents {} ${destPath} \\;`
-                progress.log(`Executing copy command with exclusions...`, "info")
-                ctx.runCommand(copyCommand)
-                progress.log("Build assets copied successfully!", "success")
-            }
+            copyWebBuild(sourcePath, destPath, excludedFiles)
+            progress.log(
+                "Build assets copied with optimization (excluded route-manifest JSON files)",
+                "success"
+            )
         } catch (error) {
             throw new Error("Error copying build assets: " + error.message)
         }
@@ -132,7 +105,7 @@ function createAssetsPhase(ctx) {
                 return
             }
 
-            ctx.runCommand(`mkdir -p ${destDir}`)
+            fs.mkdirSync(destDir, { recursive: true })
             fs.copyFileSync(sourcePath, destPath)
         } catch (error) {
             progress.log(`Warning: Error copying ${fileName}: ${error.message}`, "warning")
@@ -147,7 +120,13 @@ function createAssetsPhase(ctx) {
         await copyPublicHtml("splashscreen.html", "splash", true)
     }
 
-    async function copyIconAssets() {
+    /**
+     * Launcher icons, first match wins: per-density files in
+     * public/android/appIcons, then the single public/icon.png, then the
+     * Catalyst placeholder. The single icon is checked (square, >= 1024px)
+     * and goes where the placeholder does, mipmap-xxxhdpi.
+     */
+    async function copyIconAssets(androidConfig = {}) {
         try {
             const destPath = `${pwd}/androidProject/app/src/main/res`
             const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
@@ -207,13 +186,24 @@ function createAssetsPhase(ctx) {
                 }
             }
 
-            if (!hasCustomIcons && fallbackExists) {
+            const singleIconPath = path.join(publicPath, "icon.png") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - publicPath is process.cwd()/public; "icon.png" is a fixed literal.
+            let usedSingleIcon = false
+            if (!hasCustomIcons && fs.existsSync(singleIconPath)) {
+                checkAppIcon(singleIconPath, {
+                    platform: "android",
+                    release: androidConfig.buildType === "release",
+                    log: (message, type) => progress.log(message, type),
+                })
+                usedSingleIcon = true
+            }
+
+            if (!hasCustomIcons && (usedSingleIcon || fallbackExists)) {
                 const targetDir = path.join(destPath, "mipmap-xxxhdpi") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - destPath is derived from pwd (internal); "mipmap-xxxhdpi" is a fixed literal.
                 fs.mkdirSync(targetDir, { recursive: true })
                 cleanDensityDir(targetDir)
                 const destination = path.join(targetDir, "icon.png") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetDir is derived from pwd (internal); "icon.png" is a fixed literal.
-                fs.copyFileSync(fallbackIconPath, destination)
-                usedFallback = true
+                fs.copyFileSync(usedSingleIcon ? singleIconPath : fallbackIconPath, destination)
+                usedFallback = !usedSingleIcon
             }
 
             const setManifestIcons = (iconValue, roundIconValue) => {
@@ -230,7 +220,7 @@ function createAssetsPhase(ctx) {
                 if (updated !== current) fs.writeFileSync(manifestPath, updated)
             }
 
-            if (!hasCustomIcons && !usedFallback) {
+            if (!hasCustomIcons && !usedFallback && !usedSingleIcon) {
                 progress.log("No custom Android icons found; using default template icons.", "info")
                 setManifestIcons("@mipmap/ic_launcher", "@mipmap/ic_launcher_round")
                 return
@@ -240,8 +230,12 @@ function createAssetsPhase(ctx) {
 
             if (hasCustomIcons) {
                 progress.log("Applied Android launcher icons from public/android/appIcons.", "success")
+            } else if (usedSingleIcon) {
+                progress.log("Applied the Android launcher icon from public/icon.png.", "success")
             }
         } catch (error) {
+            // An unusable public/icon.png is the user's to fix, not a warning to scroll past.
+            if (/^ANDROID-\d{3}$/.test(error?.code)) throw error
             progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
         }
     }

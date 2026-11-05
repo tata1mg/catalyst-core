@@ -3,7 +3,9 @@ const path = require("path")
 const pc = require("ansis")
 const { execFileSync } = require("child_process")
 
-const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
+// Run jscodeshift's own script with this Node. Its command name needs PATH to
+// include node_modules/.bin, and on Windows names a .cmd Node refuses to spawn.
+const jscodeshift = require.resolve("jscodeshift/bin/jscodeshift.js")
 
 // validates router path
 function validatePath(path) {
@@ -57,14 +59,16 @@ function createDirectory({ componentName, containersDir }) {
         return true
     } catch (e) {
         console.log(pc.red(`\nError: ${e}`))
+        process.exitCode = 1
     }
 }
 
 // adds route object inside src/js/route/index.js file
 function createNewRoute({ componentName, routePath, routeTransformerPath }) {
     execFileSync(
-        executable("jscodeshift"),
+        process.execPath,
         [
+            jscodeshift,
             "--silent",
             "-t",
             routeTransformerPath,
@@ -81,8 +85,9 @@ function createNewRoute({ componentName, routePath, routeTransformerPath }) {
 // adds newly created reducer into src/js/store/index.js file
 function createReducerEntryInStore({ componentName, routePath, reducerTransformerPath, reducerName }) {
     execFileSync(
-        executable("jscodeshift"),
+        process.execPath,
         [
+            jscodeshift,
             "--silent",
             "-t",
             reducerTransformerPath,

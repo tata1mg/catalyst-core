@@ -10,7 +10,7 @@ sidebar_position: 1
 ## System Requirements
 
 - Node.js version 20.4.0 or later
-- macOS or Linux (Windows users should use WSL)
+- macOS, Linux or Windows
 
 ---
 

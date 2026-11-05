@@ -2,6 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
+const { fileURLToPath } = require("url")
 
 const { GUTTER, glyph, t } = require("./theme.js")
 
@@ -173,12 +174,12 @@ function buildFailure({ error, stage, code: wrapperCode, cwd = process.cwd() }) 
         for (const item of found) {
             out.push(`${GUTTER}${t.bold(item.message)}\n`)
             if (item.file) {
-                const shown = relativeIfInside(item.file.replace(/^file:\/\//, ""), cwd)
+                const shown = relativeIfInside(item.file, cwd)
                 const at =
                     item.line != null ? `:${item.line}${item.column != null ? `:${item.column}` : ""}` : ""
                 out.push(`${GUTTER}${t.dim("at")} ${t.accent(shown)}${t.dim(at)}\n`)
 
-                const frame = codeFrame(item.file.replace(/^file:\/\//, ""), item.line, item.column)
+                const frame = codeFrame(item.file, item.line, item.column)
                 if (frame) out.push(`\n${frame}\n`)
             }
             out.push("\n")
@@ -252,7 +253,17 @@ function registryFailure(error, { scope, cwd } = {}) {
 }
 
 // V8 frame: "    at fn (file:line:col)" or "    at file:line:col".
-const FRAME = /^\s*at\s+(?:(.*?)\s+\()?(?:file:\/\/)?([^()]+?):(\d+):(\d+)\)?\s*$/
+const FRAME = /^\s*at\s+(?:(.*?)\s+\()?([^()]+?):(\d+):(\d+)\)?\s*$/
+
+/** A frame's location as an OS path: file:///C:/a%20b/x.js is C:\a b\x.js on Windows. */
+function frameFile(location) {
+    if (!location.startsWith("file://")) return location
+    try {
+        return fileURLToPath(location)
+    } catch (error) {
+        return location.slice("file://".length)
+    }
+}
 
 /** Parse a V8 stack into frames; lines that are not frames are skipped. */
 function parseFrames(stack) {
@@ -261,7 +272,7 @@ function parseFrames(stack) {
         const match = FRAME.exec(line)
         if (!match) continue
         const [, fn, file, lineNo, column] = match
-        frames.push({ fn: fn || null, file, line: Number(lineNo), column: Number(column) })
+        frames.push({ fn: fn || null, file: frameFile(file), line: Number(lineNo), column: Number(column) })
     }
     return frames
 }
@@ -273,7 +284,8 @@ function parseFrames(stack) {
  */
 function isAppFrame(frame, cwd) {
     if (!frame.file || frame.file.startsWith("node:")) return false
-    if (frame.file.includes(`${path.sep}node_modules${path.sep}`)) return false
+    // Either separator: stacks mapped back by Vite use / on Windows too.
+    if (/[\\/]node_modules[\\/]/.test(frame.file)) return false
     const relative = path.relative(cwd, frame.file)
     return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative)
 }

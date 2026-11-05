@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import type buildErrorsModule from "../../src/cli/buildErrors.js"
 import type hintsModule from "../../src/cli/hints.js"
+import { onPlatform } from "../onPlatform"
 
 // buildErrors.js pulls the real compiler errors out of a native or Vite build
 // transcript; hints.js maps the failures we understand to a next step. Both
@@ -147,8 +148,12 @@ describe("hintFor", () => {
     })
 
     it("names the busy port when it can, and still helps when it cannot", () => {
-        expect(hintFor("listen EADDRINUSE: address already in use :::3005").hint).toBe(
+        const busy = "listen EADDRINUSE: address already in use :::3005"
+        expect(onPlatform("darwin", () => hintFor(busy).hint)).toBe(
             "Something is already on port 3005. Free it with `lsof -ti :3005 | xargs kill`, or set NODE_SERVER_PORT in config/config.json."
+        )
+        expect(onPlatform("win32", () => hintFor(busy).hint)).toBe(
+            "Something is already on port 3005. Free it with `netstat -ano | findstr :3005, then taskkill /PID <pid> /F`, or set NODE_SERVER_PORT in config/config.json."
         )
         expect(hintFor("EADDRINUSE").hint).toBe(
             "Something is already on that port. Stop it, or set NODE_SERVER_PORT in config/config.json."
@@ -169,5 +174,46 @@ describe("hintFor", () => {
         expect(hintFor("Something unexpected happened")).toBeNull()
         expect(hintFor("")).toBeNull()
         expect(hintFor(undefined)).toBeNull()
+    })
+})
+
+describe("extractBuildErrors on Windows paths", () => {
+    it("reads a Kotlin error's file URL as a path, with its drive and its spaces", () => {
+        const [error] = extractBuildErrors(
+            "e: file:///C:/Users/First%20Last/app/Foo.kt:12:5 Unresolved reference: bar\n"
+        )
+        expect(error).toEqual({
+            file: "C:/Users/First Last/app/Foo.kt",
+            line: 12,
+            column: 5,
+            message: "Unresolved reference: bar",
+        })
+    })
+
+    it("does not take a drive letter for the end of the file name", () => {
+        const [javac] = extractBuildErrors("C:\\app\\Foo.java:12: error: cannot find symbol\n")
+        expect(javac).toMatchObject({ file: "C:\\app\\Foo.java", line: 12, message: "cannot find symbol" })
+
+        const [clang] = extractBuildErrors("D:\\app\\Foo.c:3:9: fatal error: no such file\n")
+        expect(clang).toMatchObject({ file: "D:\\app\\Foo.c", line: 3, column: 9, message: "no such file" })
+    })
+
+    it("keeps a whole Windows path in Vite's messages", () => {
+        const [esbuild] = extractBuildErrors("C:\\app\\src\\App.js:3:10: ERROR: Expected ';'\n", {
+            toolchain: "vite",
+        })
+        expect(esbuild).toMatchObject({ file: "C:\\app\\src\\App.js", line: 3, column: 10 })
+
+        const [loadError] = extractBuildErrors(
+            "[vite:load-fallback] Could not load C:\\app\\x.js (imported by C:\\app\\y.js): ENOENT\n",
+            { toolchain: "vite" }
+        )
+        expect(loadError.message).toBe("Could not load C:\\app\\x.js")
+        expect(loadError.file).toBe("C:\\app\\y.js")
+    })
+
+    it("still reads POSIX paths the same way", () => {
+        const [kotlin] = extractBuildErrors("e: file:///app/Foo.kt:1:2 Boom\n")
+        expect(kotlin.file).toBe("/app/Foo.kt")
     })
 })

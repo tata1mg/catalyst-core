@@ -13,6 +13,10 @@
         "setupEmulator": "catalyst setupEmulator",
         "setupEmulator:ios": "catalyst setupEmulator:ios",
         "setupEmulator:android": "catalyst setupEmulator:android",
+        "android": "catalyst buildApp:android",
+        "ios": "catalyst buildApp:ios",
+        "android:release": "catalyst buildApp:android --release",
+        "ios:release": "catalyst buildApp:ios --release",
         "typecheck": "tsc --noEmit"
     },
     "_moduleAliases": {
