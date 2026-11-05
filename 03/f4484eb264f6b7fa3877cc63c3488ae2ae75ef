@@ -1,0 +1,39 @@
+packages/catalyst-core/src/server/renderer/handler.tsx
+  7831848bd14c73cc 470-471,506,508,512-513,515-516,518,524,528-530,533-534,539,604-605
+  d237197d2ab6df3f 503-505,507,509-511,514,523,531-532,535-536
+packages/catalyst-core/context.md
+  7831848bd14c73cc 124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "03f4484eb264f6b7fa3877cc63c3488ae2ae75ef",
+  "prompts": {
+    "7831848bd14c73cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7e05ee5-6759-4285-83ae-60114535bf04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 98,
+      "total_deletions": 59,
+      "accepted_lines": 35,
+      "overriden_lines": 0
+    },
+    "d237197d2ab6df3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d538aef8-efed-4e9f-842a-88a11fc95460",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 11,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
