@@ -27,6 +27,15 @@ function getRoutingConfig() {
     }
 }
 
+function getPricingConfig() {
+    try {
+        const raw = process.env.AI_PUBLIC_CONFIG
+        return raw ? JSON.parse(raw)?.pricing || null : null
+    } catch (_) {
+        return null
+    }
+}
+
 function modalitiesOf(messages: any): Modality[] {
     const set = new Set<Modality>(["text"])
     for (const m of Array.isArray(messages) ? messages : []) {
@@ -110,6 +119,8 @@ export function useAI(options: any = {}) {
     // The page's own view of the connection. It pauses a model download when the device goes offline and resumes it
     // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
     const network = useNetworkStatus()
+    // Prices the developer set in AI_CONFIG.pricing win over catalyst-ai's built-in table (idempotent; older catalyst-ai ignores it).
+    _pkg?.setPricingOverrides?.(getPricingConfig())
 
     // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
     // nothing downloads) until a call is routed to it.
@@ -187,7 +198,8 @@ export function useAI(options: any = {}) {
         const generate = async (args: any, consent: Consent = {}) => {
             const platform = detectPlatform()
             const { policy, candidates } = normalizeRouting(getRoutingConfig(), platform, options.routing)
-            const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && _pkg.PRICING?.[c.model] ? { ...c, price: _pkg.PRICING[c.model] } : c))
+            const priceOf = (model: string) => _pkg.lookupPricing?.(model) ?? _pkg.PRICING?.[model]
+            const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && priceOf(c.model) ? { ...c, price: priceOf(c.model) } : c))
             const signals: Signals = {
                 platform,
                 nativeAvailable: !!isNativeAIAvailable(),

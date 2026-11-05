@@ -493,6 +493,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     }
 
     _checkRouting(config, wc, platform, issues, warnings, passed)
+    _checkPricing(config, root, issues, warnings, passed)
     _checkWebBridgeInit(root, warnings, passed)
 
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
@@ -515,6 +516,52 @@ const ROUTING_POLICIES = ["allow", "ask", "deny"]
 const ROUTING_TASKS = ["text.generate", "vision.read", "speech.transcribe", "speech.synthesize", "image.generate", "embed"]
 const ROUTING_PLATFORMS = ["ios", "android", "web-desktop", "web-mobile", "web"]
 const ROUTING_MODALITIES = ["text", "image", "audio"]
+
+// AI_CONFIG.pricing holds the developer's own per-model prices (USD per 1M tokens); `npx catalyst-ai pricing` writes it.
+// A cloud model with no price anywhere is costed as free, which skews cost-weighted routing and the cost metrics.
+function _checkPricing(config, root, issues, warnings, passed) {
+    const ai = config.AI_CONFIG
+    if (!ai || typeof ai !== "object") return
+    const err = (field, message) => issues.push({ field, severity: "error", message })
+    const configured = ai.pricing
+    if (configured !== undefined && (!configured || typeof configured !== "object" || Array.isArray(configured))) {
+        return err("AI_CONFIG.pricing", "AI_CONFIG.pricing must be an object keyed by model id: { \"<model>\": { \"input\": 2, \"output\": 10 } } (USD per 1M tokens).")
+    }
+    const isNum = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
+    const before = issues.length
+    for (const [model, p] of Object.entries(configured || {})) {
+        const at = `AI_CONFIG.pricing.${model}`
+        if (!p || typeof p !== "object" || Array.isArray(p)) { err(at, "needs { input, output } in USD per 1M tokens."); continue }
+        for (const key of ["input", "output"]) if (!isNum(p[key])) err(`${at}.${key}`, `${key} must be a non-negative number (USD per 1M tokens).`)
+        if (p.cachedInput !== undefined && !isNum(p.cachedInput)) err(`${at}.cachedInput`, "cachedInput must be a non-negative number.")
+        if (p.audioInput !== undefined && p.audioInput !== null && !isNum(p.audioInput)) err(`${at}.audioInput`, "audioInput must be a number or null.")
+    }
+
+    // Built-in prices come from the installed catalyst-ai; without it there is no way to say which models are covered.
+    let builtIn = null
+    try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project directory; the rest is a fixed literal.
+        builtIn = Object.keys(require(path.join(root, "node_modules", "catalyst-ai", "src", "pricing.js")).PRICING || {})
+    } catch (_) {
+        builtIn = null
+    }
+    if (builtIn) {
+        const models = new Set()
+        for (const cfg of Object.values(ai.providers || {})) if (cfg && typeof cfg.defaultModel === "string") models.add(cfg.defaultModel)
+        for (const c of (ai.routing && Array.isArray(ai.routing.cloud) ? ai.routing.cloud : [])) if (c && typeof c.model === "string") models.add(c.model)
+        for (const model of [...models].sort()) {
+            if (configured && Object.prototype.hasOwnProperty.call(configured, model)) continue
+            if (builtIn.includes(model)) continue
+            warnings.push({
+                field: `AI_CONFIG.pricing.${model}`,
+                message: `No price known for "${model}": cost metrics show $0 and cost-based routing treats it as free. Run \`npx catalyst-ai pricing\` to set it.`,
+            })
+        }
+    }
+    if (issues.length === before && configured && Object.keys(configured).length) {
+        passed.push({ field: "AI_CONFIG.pricing", note: `${Object.keys(configured).length} model price(s) set` })
+    }
+}
 
 // AI_CONFIG.routing drives useAI({ provider: "auto" }). Mistakes here do not crash: the browser drops bad entries
 // with a console warning, so the app silently routes differently than the config says. Catch them up front.
