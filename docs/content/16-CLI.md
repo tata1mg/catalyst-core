@@ -77,7 +77,7 @@ production-style run.
 | `catalyst setupEmulator:android` | Install the Android toolchain and an emulator, then start it. Changes nothing in the app |
 | `catalyst setupEmulator:ios` | Finish Xcode setup and install a simulator runtime and a simulator. Changes nothing in the app |
 
-Apps created before 1.3.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands. For a release there, run `npm run buildApp:android -- --release` or `npm run buildApp:ios -- --release`.
+Apps created before 1.2.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands. For a release there, run `npm run buildApp:android -- --release` or `npm run buildApp:ios -- --release`.
 
 | Option | Effect |
 |--------|--------|

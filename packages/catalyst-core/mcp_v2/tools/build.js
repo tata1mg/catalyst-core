@@ -496,7 +496,7 @@ function getProjectContext(root) {
     }
 }
 
-/** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.3.0+). */
+/** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.2.0+). */
 function appIdentityWarnings(ctx, isRelease, warnings, platform) {
     const wv = ctx.wv
     // The platform key wins over the shared appId, as in nativeConfig.js.

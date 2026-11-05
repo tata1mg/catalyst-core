@@ -50,7 +50,7 @@ The build number (Android `versionCode`, iOS `CFBundleVersion`) is the number of
 
 A release writes to `build-output/<platform>/<version>-<build>/`. When that folder already holds an AAB, APK or IPA, for example from a second release in the same minute, the build stops with [NATIVE-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-011.md) instead of overwriting it. Wait a minute, set `CATALYST_BUILD_NUMBER`, or delete the folder to rebuild the same build.
 
-An app that set `WEBVIEW_CONFIG.ios.version` (`major`, `minor`, `patch`, `buildNumber`) before 1.3.0 keeps that iOS version and build number, so an app already in the App Store never ships a lower one. The build prints a deprecation warning: move the version to `package.json`, set `CATALYST_BUILD_NUMBER` if you need a build number above the clock's, and remove `ios.version`. `CATALYST_BUILD_NUMBER` wins over `ios.version.buildNumber`.
+An app that set `WEBVIEW_CONFIG.ios.version` (`major`, `minor`, `patch`, `buildNumber`) before 1.2.0 keeps that iOS version and build number, so an app already in the App Store never ships a lower one. The build prints a deprecation warning: move the version to `package.json`, set `CATALYST_BUILD_NUMBER` if you need a build number above the clock's, and remove `ios.version`. `CATALYST_BUILD_NUMBER` wins over `ios.version.buildNumber`.
 
 ## Android Release
 

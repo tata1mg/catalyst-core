@@ -126,7 +126,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     const wc = config.WEBVIEW_CONFIG
 
-    // ── App identity and production URL (catalyst-core 1.3.0+) ─────────────────
+    // ── App identity and production URL (catalyst-core 1.2.0+) ─────────────────
     // appName applies to both platforms and wins over the per-platform appName.
     // appId applies to both platforms, but a platform key wins over it
     // (android.packageName; ios.bundleIdentifier, then ios.appBundleId). url is

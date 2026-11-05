@@ -41,7 +41,7 @@ You do not configure an address for it. Keep `LOCAL_IP` as `localhost`; each deb
 
 Set `LOCAL_IP` to a real host, such as a staging server, only when you want the debug build to load that site instead of the dev server.
 
-Apps set up before Catalyst 1.3.0 had a LAN address saved in `config/config.json`. The first build on 1.3.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
+Apps set up before Catalyst 1.2.0 had a LAN address saved in `config/config.json`. The first build on 1.2.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
 
 ## What does `CLIENT_ENV_VARIABLES` do?
 
