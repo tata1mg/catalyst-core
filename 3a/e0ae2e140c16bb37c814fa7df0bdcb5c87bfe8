@@ -1,0 +1,27 @@
+packages/catalyst-core/test/hooks/useVision.test.ts
+  s_5c4ceb8b5ee5d2::t_f4851d148de25b 55
+packages/catalyst-core/test/hooks/visionSchema.test.ts
+  s_5c4ceb8b5ee5d2::t_f4851d148de25b 2,131-161
+  s_5c4ceb8b5ee5d2::t_bbba2d685a9642 162
+packages/catalyst-core/src/native/bridge/hooks/vision/schema.ts
+  s_5c4ceb8b5ee5d2::t_aaa36c0c28070e 72-104,107-108,125-132
+  s_5c4ceb8b5ee5d2::t_daf78cb1bee683 71
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_bc950eb3e861c1 17,35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ae0ae2e140c16bb37c814fa7df0bdcb5c87bfe8",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

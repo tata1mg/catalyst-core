@@ -1,0 +1,31 @@
+"docs/content/11-API Reference/01-Hooks.md"
+  s_5c4ceb8b5ee5d2::t_ac7988073e9d9b 723,758
+packages/catalyst-ai/src/metrics.js
+  s_5c4ceb8b5ee5d2::t_8c97f248a31ad8 13-22
+packages/catalyst-ai/src/pricing.js
+  s_5c4ceb8b5ee5d2::t_9fda8e0cb9b710 11-22
+packages/catalyst-ai/test/route.anthropic.test.ts
+  s_5c4ceb8b5ee5d2::t_bb0f5777304fc6 1-191
+packages/catalyst-ai/src/cloudMedia.js
+  s_5c4ceb8b5ee5d2::t_3d1c3c266b998e 7-8,10-11,18-20,22,54,61,72-73,76-78,81-82,87,95,122-125,135,200-221,234
+packages/catalyst-ai/README.md
+  s_5c4ceb8b5ee5d2::t_ac7988073e9d9b 22-39,46
+packages/catalyst-ai/src/route.js
+  s_5c4ceb8b5ee5d2::t_9fda8e0cb9b710 487-608,614,772-773
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55640ce157f4b39017710ea9da244a0ef7d4bdc3",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

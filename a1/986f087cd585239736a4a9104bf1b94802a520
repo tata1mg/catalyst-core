@@ -1,0 +1,42 @@
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 67-68,77-82,117,132-170,173,268-270,309-333
+examples/useai/src/js/containers/Chess/Chess.js
+  s_5c4ceb8b5ee5d2::t_943f00e0a34632 136,259-260,285
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 127,476,511-521
+  s_5c4ceb8b5ee5d2::t_ec29ad28f40334 522
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_f21741e29a1709 155-163
+examples/useai/src/js/components/AITest/Panel.js
+  s_5c4ceb8b5ee5d2::t_9a49311c49eb46 100-102
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_f21741e29a1709 122
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 133-134,136,150-157,172
+packages/catalyst-ai/src/promptApiEngine.js
+  s_5c4ceb8b5ee5d2::t_f0a14694d1be20 228-229
+  s_5c4ceb8b5ee5d2::t_50076e2fcdbbc0 149-150
+  s_5c4ceb8b5ee5d2::t_0a21d332e178a2 171-203
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 7-13,18-42,44-45,47,57-62,66-68,71-73,76-94,123,154-155,157-168,210-212
+examples/useai/src/js/containers/AITest/AITest.js
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 20-21,25,52,61,64,105,108,121,124,138,141,148-164,174,177,204,375-390
+packages/catalyst-ai/test/promptApiEngine.test.ts
+  s_5c4ceb8b5ee5d2::t_484a887ab70a93 89-96,101
+  s_5c4ceb8b5ee5d2::t_43bde8fb18ed5b 1,4,41-42,68-69,132,134,136,154-277
+packages/catalyst-ai/src/attachmentTags.js
+  s_5c4ceb8b5ee5d2::t_df5c5b119434dc 4-5,7,9,11,13-14,17-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1986f087cd585239736a4a9104bf1b94802a520",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

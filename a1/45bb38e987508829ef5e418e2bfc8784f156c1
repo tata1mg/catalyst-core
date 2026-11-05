@@ -1,0 +1,49 @@
+examples/useai/config/config.template.json
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 32
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 1-82
+packages/catalyst-core/src/native/bridge/hooks/vision/schema.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 72-104,107-108,125-132
+  s_5c4ceb8b5ee5d2::t_df7ae4206af3d3 71
+packages/catalyst-core/test/hooks/useVision.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 1-159
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 276-288,313-317,341-349,358-360
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 298-301
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 3
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 282-312
+  s_5c4ceb8b5ee5d2::t_1bc153f176088b 281
+  s_5c4ceb8b5ee5d2::t_62fad2bc963e0d 313
+packages/catalyst-ai/test/webWorkerLoop.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 1-44
+packages/catalyst-core/test/hooks/visionSchema.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 2,131-161
+  s_5c4ceb8b5ee5d2::t_a8a0d4ca8e0a17 162
+packages/catalyst-core/test/hooks/useNetworkStatus.test.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 1-93
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 9-12,14-19,37,96-107,126-127,204,247-249,279-299,301-307,339-344
+packages/catalyst-core/src/native/bridge/hooks/useVision.ts
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 52-57,61-71,214-220
+packages/catalyst-ai/src/webWorkerScript.js
+  s_5c4ceb8b5ee5d2::t_e091899a96b526 49,82,164-177,190-192,204-212,214,220-221,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a145bb38e987508829ef5e418e2bfc8784f156c1",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

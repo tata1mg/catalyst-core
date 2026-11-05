@@ -1,0 +1,23 @@
+packages/catalyst-ai/test/webWorkerLoop.test.ts
+  s_5c4ceb8b5ee5d2::t_56293a7ebebcc2 1-44
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_5c4ceb8b5ee5d2::t_794d1ed15a899b 37,119,238-240
+packages/catalyst-ai/src/webWorkerScript.js
+  s_5c4ceb8b5ee5d2::t_794d1ed15a899b 10,42,123-136,149-151,163-171,173,179-180,185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b03a79f9b247f032440d05489ed776cdf9b1647f",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

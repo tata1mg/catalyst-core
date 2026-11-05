@@ -1,0 +1,22 @@
+packages/catalyst-ai/src/useWebAI.js
+  s_5c4ceb8b5ee5d2::t_5e835cfd40858b 278-281
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_5c4ceb8b5ee5d2::t_5e835cfd40858b 4,67
+  s_5c4ceb8b5ee5d2::t_5283060ee0c175 1-3,5-66,68-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "83fb5df9af539976376ea5eafecfad4ce9093571",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

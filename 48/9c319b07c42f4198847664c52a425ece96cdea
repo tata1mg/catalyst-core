@@ -1,0 +1,21 @@
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_5c4ceb8b5ee5d2::t_25a0c721eccffd 15-16
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_5c4ceb8b5ee5d2::t_25a0c721eccffd 141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "489c319b07c42f4198847664c52a425ece96cdea",
+  "prompts": {},
+  "sessions": {
+    "s_5c4ceb8b5ee5d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55135034-8aff-468f-aee8-8e34f17c8940",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

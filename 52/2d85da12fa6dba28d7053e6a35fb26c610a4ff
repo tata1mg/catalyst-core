@@ -1,0 +1,42 @@
+packages/create-catalyst-app/templates/common/src/js/containers/Home/Mark.js
+  e4e5de357933a184 1-82
+packages/create-catalyst-app/templates/common/src/js/containers/Home/Home.scss
+  e4e5de357933a184 1-46,49,52-92,96-99,102-106,109-111,114-139,144,146-147,151,154-155,157-175,178-190,192-196,200-294,296-325,338-376,381-384,388-404,406-411,413-417
+packages/create-catalyst-app/templates/common/src/js/containers/Home/Home.js
+  e4e5de357933a184 1-4,7-13,15-25,27-40,42-48,50,52-63,65-74,76-108,111,113-114,116-122
+packages/create-catalyst-app/templates/common/public/offline.html
+  e4e5de357933a184 6,9-22,26,30-32,35-37,44-47,50-53,56-60,63-66,72-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "522d85da12fa6dba28d7053e6a35fb26c610a4ff",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 591,
+      "overriden_lines": 0
+    },
+    "e4e5de357933a184": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa70c4ba-b226-4257-90e6-d86d92a933db",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 627,
+      "total_deletions": 59,
+      "accepted_lines": 601,
+      "overriden_lines": 15
+    }
+  }
+}
