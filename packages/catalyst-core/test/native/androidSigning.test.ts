@@ -578,6 +578,7 @@ describe("release output", () => {
         expect(dir).toBe(path.join("/app", "build-output", "android", "1.2.0-1440"))
         expect(releaseArtifactPaths(dir, "shop")).toEqual({
             aab: path.join(dir, "shop.aab"),
+            apk: path.join(dir, "shop.apk"),
             certificate: path.join(dir, "upload_certificate.pem"),
         })
     })

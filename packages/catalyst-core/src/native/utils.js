@@ -482,7 +482,7 @@ const NATIVE_ERRORS = {
     },
     "IOS-010": {
         message: "iOS code signing is not set up",
-        hint: "For cloud signing, put an App Store Connect API key (its AuthKey_*.p8 file, with an ascIssuerId line in signing.properties) in credentials/ios/ and set WEBVIEW_CONFIG.ios.developmentTeam; for local signing, put a distribution .p12 and its .mobileprovision there instead. In CI, set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
+        hint: "Sign in to Xcode (Xcode > Settings > Accounts) with the Apple account that has your team, or install that team's App Store profile for your appId. In CI, put the signing files in credentials/ios/ and set CATALYST_IOS_CREDENTIALS to the output of catalyst credentials:export ios.",
     },
     "IOS-011": {
         message: "App Store Connect API key settings are incomplete or wrong",

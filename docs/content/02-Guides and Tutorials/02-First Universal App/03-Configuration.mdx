@@ -457,7 +457,7 @@ Control network access and navigation through URL whitelisting.
 
 ## Protocol Configuration
 
-A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds always load the dev server over HTTP.
+A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds load the dev server over HTTP, or `LOCAL_IP` when it is a real host.
 
 ```json title="config/config.json"
 {

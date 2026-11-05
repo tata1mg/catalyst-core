@@ -12,6 +12,8 @@ id: ios-production-release
 npm run ios:release
 ```
 
+In apps created before 1.2.0, run `npm run buildApp:ios -- --release`.
+
 The IPA and its zipped debug symbols land in `build-output/ios/<version>-<build>/` inside your app, for example `build-output/ios/2.5.0-1497600/Acme-Shop.ipa` and `Acme-Shop-dSYMs.zip`. Uploading is up to you; see [Upload to TestFlight](#4-upload-to-testflight).
 
 ## Before you begin
@@ -21,6 +23,7 @@ The IPA and its zipped debug symbols land in `build-output/ios/<version>-<build>
 - Deploy the production web application over HTTPS and set `WEBVIEW_CONFIG.url` to it. The app loads that URL in a WebView.
 - Finish the app's identity: `appId`, `appName`, the `version` in `package.json`, and `public/icon.png` (opaque, at least 1024x1024).
 - Install a full Xcode 26 or newer. The build checks it and offers to finish Xcode's first-launch setup.
+- Sign in to Xcode with the Apple account that is in your company's developer team: Xcode > Settings > Accounts.
 
 ## 1. Configure the release
 
@@ -37,13 +40,25 @@ The IPA and its zipped debug symbols land in `build-output/ios/<version>-<build>
 }
 ```
 
-`developmentTeam` is your 10-character team ID, under Membership details at developer.apple.com/account. The build fails with [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) when `url` is localhost, a private or link-local address, a `.local` name or this Mac's own address, and with [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) for a `com.example.` app id. An internal app on a private network can set `allowPrivateHost` to `true`. On iOS the app always connects on port 443 over HTTPS.
+`developmentTeam` is your 10-character team ID, under Membership details at developer.apple.com/account. On a Mac signed in to Xcode you can leave it out; see [Set up signing](#2-set-up-signing). The build fails with [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) when `url` is localhost, a private or link-local address, a `.local` name or this Mac's own address, and with [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) for a placeholder app id. Run in a terminal, the build asks for a missing app id or website instead and saves the answer to `config/config.json`. An internal app on a private network can set `allowPrivateHost` to `true`. On iOS the app always connects on port 443 over HTTPS.
 
 The version (`CFBundleShortVersionString`) comes from `package.json`, without any pre-release suffix. The build number (`CFBundleVersion`) is the number of minutes since 2024-01-01 UTC, or `CATALYST_BUILD_NUMBER` when set. See [Version and Build Number](/content/Deployment/universal-app-deployment#version-and-build-number).
 
-## 2. Add the signing files
+## 2. Set up signing
 
-Signing files live in `credentials/ios/` in your app. New apps list `credentials/` in `.gitignore`; add it to an older app's `.gitignore` before you put files there. There are two ways to sign:
+The release signs with the first of these it finds:
+
+1. A `.p12` and its profile in `credentials/ios/` (local signing).
+2. `ios.provisioningProfile`, the name of a profile you installed yourself, with its certificate in your login keychain.
+3. An App Store Connect API key in `credentials/ios/` (cloud signing).
+4. An App Store profile installed on this Mac for this exact app id, with its certificate in your keychain, for example one Xcode downloaded. The newest valid one is used, and the team comes from it. Wildcard, development, ad hoc and enterprise profiles are skipped, and with notifications on the profile must include push notifications. This step only applies when `ios.exportMethod` is `app-store-connect`, the default.
+5. The Apple account signed in to Xcode. The team is read from Xcode's accounts: one team is used as it is, and with several the build asks once in a terminal. In a terminal the team is saved as `ios.developmentTeam`; in CI it is used for that build only. Personal teams cannot publish to the App Store and are skipped.
+
+So on your own Mac, with Xcode signed in, `npm run ios:release` needs no files in `credentials/ios/`. The files are for CI, where no one is signed in to Xcode. When none of the five is there, the build fails with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) and asks you to open Xcode > Settings > Accounts and sign in, or to set `ios.developmentTeam`. When Xcode itself refuses to sign, the error includes Xcode's line saying why.
+
+### Signing files
+
+Signing files live in `credentials/ios/` in your app. New apps list `credentials/` in `.gitignore`; add it to an older app's `.gitignore` before you put files there:
 
 ```text
 credentials/ios/
@@ -55,7 +70,7 @@ credentials/ios/
 
 Keep at most one file of each kind. Back the folder up with `npx catalyst credentials:export ios`; the same value is the CI secret.
 
-### Cloud signing with an API key (recommended)
+### Cloud signing with an API key (recommended for CI)
 
 Xcode creates or fetches a cloud-managed distribution certificate and the App Store profile itself, so there is nothing to export from Keychain Access.
 
@@ -79,10 +94,6 @@ p12Password=the-password-you-chose
 
 For a release, the `.p12` wins over an API key in the same folder. The build imports the certificate into a temporary keychain and installs the profile. When the build ends, also on failure or Ctrl+C, it restores your keychain search list and removes the keychain and the profile it installed. Files that are missing, wrong or for another bundle ID fail with [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md).
 
-`ios.provisioningProfile` still works for a profile you installed yourself, with the distribution certificate in your login keychain.
-
-With no signing files at all, automatic signing uses the Apple account signed in to Xcode on that Mac, and needs `ios.developmentTeam`; without it the build fails with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md).
-
 ## 3. Build the IPA
 
 ```bash
@@ -91,7 +102,7 @@ npm run ios:release
 
 The build:
 
-1. resolves the config: `url`, `appId`, version and build number, and the signing files;
+1. resolves the config: `url`, `appId`, version and build number, and how to sign;
 2. writes the native config, entitlements and signing settings;
 3. runs `xcodebuild archive` with the Release configuration for a generic iOS device;
 4. exports the archive with `xcodebuild -exportArchive`, using `ios.exportMethod` (default `app-store-connect`; also `release-testing`, `enterprise` and `debugging`);
@@ -119,7 +130,7 @@ Run `npx catalyst credentials:export ios`, store the output as the `CATALYST_IOS
 
 ## What the release build sets for you
 
-- Push notifications: the `aps-environment` entitlement is only added when `WEBVIEW_CONFIG.notifications.enabled` is true. With automatic signing the archive is signed for development and the export re-signs it with the distribution profile, which sets `production`. A manually signed release writes `production` directly.
+- Push notifications: the `aps-environment` entitlement is only added when `WEBVIEW_CONFIG.notifications.enabled` is true. With automatic signing the archive is signed for development and the export re-signs it with the distribution profile, which sets `production`. A manually signed release, including one signed with an installed profile the build picked, writes `production` directly.
 - Privacy manifest: the app ships a `PrivacyInfo.xcprivacy` declaring the required-reason APIs the Catalyst shell uses (UserDefaults, system boot time and file timestamps), no tracking and no collected data. Declare what your own web app collects in App Store Connect.
 - Export compliance: `ITSAppUsesNonExemptEncryption` is `false`.
 - Local HTTPS: the in-app file server's self-signed `localhost` certificate is generated on every build. It is only trusted for `localhost` inside the app.
@@ -132,9 +143,9 @@ The Xcode project lives inside the installed package (`node_modules/catalyst-cor
 
 | Error | Fix |
 |-------|-----|
-| [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) Release build points at a local or private host | Set `WEBVIEW_CONFIG.url` to your production address, or pass `--url` |
-| [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) Release build uses a placeholder app id | Set `WEBVIEW_CONFIG.appId` to your own bundle ID |
-| [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) iOS code signing is not set up | Set `ios.developmentTeam` and add an API key, or a `.p12` and profile, to `credentials/ios/` |
+| [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) Release build points at a local or private host | Set `WEBVIEW_CONFIG.url` to your production address, pass `--url`, or run the build in a terminal and type the address |
+| [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md) Release build uses a placeholder app id | Set `WEBVIEW_CONFIG.appId` or `ios.bundleIdentifier` to your own bundle ID, or run the build in a terminal and type it |
+| [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) iOS code signing is not set up | Sign in to Xcode > Settings > Accounts with your company team's account. For CI, set `ios.developmentTeam` and add an API key, or a `.p12` and profile, to `credentials/ios/` |
 | [IOS-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-011.md) App Store Connect API key settings are incomplete or wrong | Keep one `AuthKey_<KEYID>.p8` and an `ascIssuerId` line in `signing.properties` |
 | [IOS-012](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-012.md) Manual signing inputs are incomplete or wrong | Check that the `.p12`, its password and the profile belong together and match `appId` |
 | [IOS-006](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-006.md) App icon has transparency | Flatten `public/icon.png` onto a solid background |

@@ -149,3 +149,54 @@ describe("check_config: native port and cache patterns", () => {
         expect(fieldsOf(wrong.warnings)).toContain("WEBVIEW_CONFIG.ios.cachePattern")
     })
 })
+
+describe("check_config: app id precedence and LOCAL_IP", () => {
+    const fieldsOf = (list: Array<{ field: string }>) => list.map((f) => f.field)
+    const check = (WEBVIEW_CONFIG: unknown) =>
+        handle_check_config({ project_path: makeSplashProject({ WEBVIEW_CONFIG }) })
+
+    it("checks the platform keys even when appId is set, because they win", () => {
+        const placeholder = check({
+            appId: "com.acme.shop",
+            android: { packageName: "io.yourname.androidproject" },
+            ios: { bundleIdentifier: "com.example.ios", appBundleId: "com.acme.shop" },
+        })
+        expect(fieldsOf(placeholder.warnings)).toEqual(
+            expect.arrayContaining([
+                "WEBVIEW_CONFIG.android.packageName",
+                "WEBVIEW_CONFIG.ios.bundleIdentifier",
+            ])
+        )
+        expect(
+            placeholder.warnings.find((w) => w.field === "WEBVIEW_CONFIG.android.packageName")!.message
+        ).toMatch(/wins over WEBVIEW_CONFIG\.appId/)
+
+        const real = check({
+            appId: "com.acme.shop",
+            android: { packageName: "com.acme.droid" },
+            ios: { appBundleId: "com.acme.iphone" },
+        })
+        expect(fieldsOf(real.passed)).toEqual(
+            expect.arrayContaining(["WEBVIEW_CONFIG.android.packageName", "WEBVIEW_CONFIG.ios.appBundleId"])
+        )
+    })
+
+    it("passes a LOCAL_IP that is a real host, private ones included, with a note", () => {
+        for (const LOCAL_IP of ["10.0.38.192", "staging.acme.com"]) {
+            const r = check({ LOCAL_IP })
+            expect(fieldsOf(r.warnings)).not.toContain("WEBVIEW_CONFIG.LOCAL_IP")
+            const passed = r.passed.find((p) => p.field === "WEBVIEW_CONFIG.LOCAL_IP") as any
+            expect(passed.note).toMatch(/instead of the dev server/)
+        }
+        expect(fieldsOf(check({ LOCAL_IP: "localhost" }).passed)).toContain("WEBVIEW_CONFIG.LOCAL_IP")
+    })
+
+    it("warns about a LOCAL_IP that is this machine's own address", () => {
+        const loopbackFree = Object.values(os.networkInterfaces())
+            .flat()
+            .find((entry: any) => entry && !entry.internal && entry.family === "IPv4") as any
+        if (!loopbackFree) return
+        const r = check({ LOCAL_IP: loopbackFree.address })
+        expect(fieldsOf(r.warnings)).toContain("WEBVIEW_CONFIG.LOCAL_IP")
+    })
+})

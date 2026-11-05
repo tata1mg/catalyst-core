@@ -71,7 +71,7 @@ npm run android:release
 npm run ios:release
 ```
 
-The first Android release in a terminal offers to create your upload key in `credentials/android/`; back it up with `npx catalyst credentials:export android`. The signed AAB lands in `build-output/android/<version>-<build>/` and the IPA in `build-output/ios/<version>-<build>/`. iOS signing needs files in `credentials/ios/`; see [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release).
+The first Android release in a terminal offers to create your upload key in `credentials/android/`; back it up with `npx catalyst credentials:export android`. The signed AAB and a test APK land in `build-output/android/<version>-<build>/` and the IPA in `build-output/ios/<version>-<build>/`. An iOS release on a Mac signed in to Xcode needs no signing files; CI uses files in `credentials/ios/`. See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release).
 
 Uploading to Google Play and App Store Connect is manual. [Releasing a Full App](/content/Deployment/releasing-a-full-app) walks through the first release end to end, and [Universal App Deployment](/content/Deployment/universal-app-deployment#native-ci) has a GitHub Actions workflow for CI.
 

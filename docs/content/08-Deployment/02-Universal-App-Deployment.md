@@ -6,7 +6,7 @@ id: universal-app-deployment
 
 # Universal App Deployment
 
-Store builds come from the Catalyst CLI: `npm run android:release` writes a signed Android App Bundle and `npm run ios:release` a signed IPA. Uploading them to Google Play and App Store Connect is manual. For a first release from start to finish, follow [Releasing a Full App](/content/Deployment/releasing-a-full-app).
+Store builds come from the Catalyst CLI: `npm run android:release` writes a signed Android App Bundle and APK, and `npm run ios:release` a signed IPA. In apps created before 1.2.0, run `npm run buildApp:android -- --release` and `npm run buildApp:ios -- --release`. Uploading them to Google Play and App Store Connect is manual. For a first release from start to finish, follow [Releasing a Full App](/content/Deployment/releasing-a-full-app).
 
 ## Configure the App
 
@@ -25,7 +25,7 @@ A release reads four keys at the top of `WEBVIEW_CONFIG`:
 
 | Key | Meaning |
 |-----|---------|
-| `appId` | The Android application id and the iOS bundle id. It wins over `android.packageName`, `ios.appBundleId` and `ios.bundleIdentifier`, which still work in apps that have no `appId` |
+| `appId` | The Android application id and the iOS bundle id. `android.packageName` and `ios.bundleIdentifier` (then `ios.appBundleId`) win over it, so the two stores can use different ids |
 | `appName` | The name under the app icon. It wins over `android.appName` and `ios.appName` |
 | `url` | The address of your deployed web app: `https://` and a host, with no path. The app opens it on launch. HTTPS uses port 443; plain HTTP works with a warning |
 | `allowPrivateHost` | `true` lets a release load a private or local host, for internal apps on a private network. Defaults to `false` |
@@ -36,7 +36,9 @@ A release build fails early when something here would ship a broken app:
 - [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md) when the URL is `localhost`, a private or link-local address, a `.local` name, this machine's own address, or a reserved example domain. `allowPrivateHost: true` turns this into a warning.
 - [NATIVE-004](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-004.md) when the URL is not an origin, for example when it has a path, or uses HTTPS on a port other than 443.
 
-`--url <url>` overrides `url` for one build, for example `npm run android:release -- --url https://staging.acme.com`. Debug builds ignore `url` and load the dev server. Apps without `url` keep working: a release then uses `LOCAL_IP`, `port` and `useHttps` as before.
+In a terminal, a release asks instead of failing on the first two. It asks once for an app id when it is missing or a placeholder, and for your `https://` website when `url` is missing or points at a local or private host, then saves the answers to `config/config.json`. The app id goes to the key that set the old value, or to `appId` when none did, and the website to `url`. Without a terminal, for example in CI or from an agent, nothing is asked or written and the build fails with the same errors.
+
+`--url <url>` overrides `url` for one build, for example `npm run android:release -- --url https://staging.acme.com`. Debug builds ignore `url` and load the dev server, or `LOCAL_IP` when it is a real host; see [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server). Apps without `url` keep working: a release then uses `LOCAL_IP`, `port` and `useHttps` as before.
 
 `buildType: "release"` in `WEBVIEW_CONFIG.android` or `WEBVIEW_CONFIG.ios` still builds a release, with a deprecation warning. Use the release scripts instead.
 
@@ -46,9 +48,9 @@ The version comes from the `version` in your app's `package.json`. iOS drops a p
 
 The build number (Android `versionCode`, iOS `CFBundleVersion`) is the number of whole minutes since 2024-01-01 00:00 UTC at build time. It rises with every build without any state to keep, and two builds made in the same minute get the same number. To set it yourself, for example because the app already uploaded a larger number, set `CATALYST_BUILD_NUMBER` to a whole number from 1 to 2100000000; anything else fails with [NATIVE-002](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-002.md). Do not set it to a CI run number after uploading clock-based builds: the stores reject a lower number.
 
-A release writes to `build-output/<platform>/<version>-<build>/`. When that folder already holds an AAB or IPA, for example from a second release in the same minute, the build stops with [NATIVE-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-011.md) instead of overwriting it. Wait a minute, set `CATALYST_BUILD_NUMBER`, or delete the folder to rebuild the same build.
+A release writes to `build-output/<platform>/<version>-<build>/`. When that folder already holds an AAB, APK or IPA, for example from a second release in the same minute, the build stops with [NATIVE-011](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-011.md) instead of overwriting it. Wait a minute, set `CATALYST_BUILD_NUMBER`, or delete the folder to rebuild the same build.
 
-An app that set `WEBVIEW_CONFIG.ios.version` (`major`, `minor`, `patch`, `buildNumber`) before 1.3.0 keeps that iOS version and build number, so an app already in the App Store never ships a lower one. The build prints a deprecation warning: move the version to `package.json`, set `CATALYST_BUILD_NUMBER` if you need a build number above the clock's, and remove `ios.version`. `CATALYST_BUILD_NUMBER` wins over `ios.version.buildNumber`.
+An app that set `WEBVIEW_CONFIG.ios.version` (`major`, `minor`, `patch`, `buildNumber`) before 1.2.0 keeps that iOS version and build number, so an app already in the App Store never ships a lower one. The build prints a deprecation warning: move the version to `package.json`, set `CATALYST_BUILD_NUMBER` if you need a build number above the clock's, and remove `ios.version`. `CATALYST_BUILD_NUMBER` wins over `ios.version.buildNumber`.
 
 ## Android Release
 
@@ -66,7 +68,8 @@ A key is never created without a terminal, even with `--yes`; that case fails wi
 
 The build writes to `build-output/android/<version>-<build>/`:
 
-- `<app name>.aab`, the bundle to upload
+- `<app name>.aab`, the bundle to upload to Google Play
+- `<app name>.apk`, signed with the same upload key, for installing on test phones. It will not install over a copy from Google Play; uninstall that first
 - `upload_certificate.pem`, the upload certificate. Play asks for it when you register or reset an upload key
 
 `android.outputPath` moves the folder. The app targets Android API 36 (minimum 24), and its 64-bit native libraries are aligned for 16 KB memory pages, which Google Play requires for apps that target Android 15 and later.
@@ -83,7 +86,7 @@ Older apps: passwords in `android.keystoreConfig` or `android.keystore` are no l
 npm run ios:release
 ```
 
-Signing files go in `credentials/ios/`: an App Store Connect API key for cloud signing, or a `.p12` and provisioning profile for local signing. The IPA and zipped dSYMs land in `build-output/ios/<version>-<build>/`. See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for both signing modes and the TestFlight upload.
+On a Mac where Xcode is signed in to your Apple account, or that has the App Store profile for the app installed, the release needs no signing files. For CI, put an App Store Connect API key (cloud signing) or a `.p12` and provisioning profile (local signing) in `credentials/ios/`. The IPA and zipped dSYMs land in `build-output/ios/<version>-<build>/`. See [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release) for the signing options and the TestFlight upload.
 
 ## Native CI
 
