@@ -104,9 +104,10 @@ export const generateModulePreloadLinkElements = (
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
  * @param {string} basePath  - Build output directory on disk.
+ * @param {string[]} [inlinedPaths] - If given, receives each path whose content was inlined.
  * @returns {string} Concatenated CSS content.
  */
-export const readCssFromDisk = (cssPaths = [], basePath) => {
+export const readCssFromDisk = (cssPaths = [], basePath, inlinedPaths) => {
     if (!cssPaths.length) return ""
 
     const seen = new Set()
@@ -125,6 +126,7 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
             }
             if (process.cssFileCache[filePath]) {
                 chunks.push(process.cssFileCache[filePath])
+                inlinedPaths?.push(asset)
             }
         } catch {
             // Silently skip unreadable assets in production
@@ -135,6 +137,28 @@ export const readCssFromDisk = (cssPaths = [], basePath) => {
 }
 
 // ── React elements (for SSR rendering inside <Head>) ───────────────────
+
+// Unsupported stylesheet type: not fetched by the preload scanner of older Chromium, which ignores `disabled`.
+const INLINED_CSS_MARKER_TYPE = "text/x-inlined"
+
+/**
+ * <link rel="stylesheet"> markers for CSS that is already inlined as <style>.
+ * Vite's preload helper skips a CSS dependency when `link[href=url][rel=stylesheet]` exists,
+ * so these stop the client from downloading inlined CSS again. The unsupported type and
+ * `disabled` together keep every browser from fetching or applying them.
+ * @param {string[]} cssUrls
+ */
+export const generateInlinedCssMarkerElements = (cssUrls = []) =>
+    [...new Set(cssUrls)].map((url, i) =>
+        React.createElement("link", {
+            key: `inlined-css-${i}`,
+            rel: "stylesheet",
+            type: INLINED_CSS_MARKER_TYPE,
+            href: url,
+            disabled: true,
+            "data-inlined": "",
+        })
+    )
 
 /**
  * <script type="module"> React elements for JS assets.
@@ -166,6 +190,17 @@ export const generateScriptElements = (jsUrls = [], nonce, integrityManifest = {
  */
 export const generateCssLinkStrings = (cssUrls = []) =>
     [...new Set(cssUrls)].map((url) => `<link rel="stylesheet" href="${url}">`).join("")
+
+/**
+ * HTML-string version of generateInlinedCssMarkerElements, for CSS inlined after body.
+ */
+export const generateInlinedCssMarkerStrings = (cssUrls = []) =>
+    [...new Set(cssUrls)]
+        .map(
+            (url) =>
+                `<link rel="stylesheet" type="${INLINED_CSS_MARKER_TYPE}" href="${url}" disabled data-inlined>`
+        )
+        .join("")
 
 /**
  * <link rel="modulepreload"> + <script type="module"> HTML strings.

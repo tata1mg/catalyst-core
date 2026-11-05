@@ -225,7 +225,8 @@ export function manifestCategorizationPlugin(options = {}) {
         })
     }
 
-    // Recursively collect all CSS files reachable from a manifest key
+    // Recursively collect all CSS files reachable from a manifest key, dependencies first — the order
+    // Vite's preload helper loads them in, so a chunk's own CSS can override the components it imports.
     function collectTransitiveCss(viteKey, viteManifest, visited = new Set()) {
         if (visited.has(viteKey)) return []
         visited.add(viteKey)
@@ -233,10 +234,11 @@ export function manifestCategorizationPlugin(options = {}) {
         const entry = viteManifest[viteKey]
         if (!entry) return []
 
-        const css = [...(entry.css || [])]
+        const css = []
         for (const imp of entry.imports || []) {
             css.push(...collectTransitiveCss(imp, viteManifest, visited))
         }
+        css.push(...(entry.css || []))
         return css
     }
 
@@ -245,7 +247,10 @@ export function manifestCategorizationPlugin(options = {}) {
         for (const category of ["essential", "ssrTrue", "ssrFalse", "orphan"]) {
             for (const [key, chunk] of Object.entries(categorizedManifest[category])) {
                 const transitiveCss = collectTransitiveCss(key, viteManifest)
-                chunk.allCss = [...new Set(transitiveCss)]
+                // The app entry's own CSS is the global base stylesheet (resets, utilities): keep it first
+                // so component CSS still overrides it.
+                const baseCss = viteManifest[key]?.isEntry ? viteManifest[key].css || [] : []
+                chunk.allCss = [...new Set([...baseCss, ...transitiveCss])]
             }
         }
     }
