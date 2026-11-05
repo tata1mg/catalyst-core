@@ -26,6 +26,9 @@ const DEFAULT_APP_IDS = { android: "io.yourname.androidproject", ios: "com.catal
 
 const DEFAULT_DEV_PORT = 3005
 
+/** LOCAL_IP values that mean "this machine": a debug build uses the dev server for them. */
+const DEV_SERVER_HOSTS = ["localhost", "127.0.0.1", "::1", "0.0.0.0"]
+
 // The build number is the whole minutes since this instant: always rising,
 // no state to keep, and far below Google Play's 2100000000 ceiling.
 const BUILD_NUMBER_EPOCH_MS = Date.UTC(2024, 0, 1, 0, 0, 0)
@@ -106,22 +109,6 @@ const PRIVATE_V4_RANGES = [
     ["192.168.0.0", 16, "a private LAN address"],
     ["169.254.0.0", 16, "a link-local address"],
 ]
-
-/**
- * True for an RFC 1918 or link-local IPv4 literal: an address a LAN could
- * hand this machine. Not 0.0.0.0/8 (a bind-all address) or 127.0.0.0/8.
- */
-function isPrivateIPv4(host) {
-    const text = String(host || "").trim()
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(text)) return false
-    if (text.split(".").some((part) => Number(part) > 255)) return false
-    const value = ipv4ToInt(text)
-    return PRIVATE_V4_RANGES.some(([start, bits]) => {
-        if (start === "0.0.0.0" || start === "127.0.0.0") return false
-        const from = ipv4ToInt(start)
-        return value >= from && value < from + 2 ** (32 - bits)
-    })
-}
 
 /** This machine's own addresses and hostname: what a dev setup writes into LOCAL_IP. */
 function localMachineHosts() {
@@ -305,18 +292,32 @@ function resolveAppVersion({ cwd = process.cwd(), env = process.env, now, legacy
 }
 
 /**
- * The app id: `appId`, then the platform keys as shipped (Android
+ * Where the app id comes from: the platform keys first (Android
  * `packageName`; iOS `bundleIdentifier`, then `appBundleId`, the order
- * Shared.xcconfig's PRODUCT_BUNDLE_IDENTIFIER has always used). Null when
- * none is set.
+ * Shared.xcconfig's PRODUCT_BUNDLE_IDENTIFIER has always used), then the
+ * shared `appId`. `key` is the path under WEBVIEW_CONFIG, e.g.
+ * "android.packageName" or "appId". Null when none is set.
+ *
+ * @param {"android"|"ios"} platform
+ * @param {object} wv - WEBVIEW_CONFIG as written in config.json
+ * @returns {{ key: string, value: string } | null}
  */
-function configuredAppId(platform, wv) {
-    if (typeof wv.appId === "string" && wv.appId.trim()) return wv.appId.trim()
+function appIdSource(platform, wv = {}) {
     const block = isPlainObject(wv[platform]) ? wv[platform] : {}
-    const candidates =
-        platform === "android" ? [block.packageName] : [block.bundleIdentifier, block.appBundleId]
-    const legacy = candidates.find((value) => typeof value === "string" && value.trim())
-    return legacy ? legacy.trim() : null
+    const keys = platform === "android" ? ["packageName"] : ["bundleIdentifier", "appBundleId"]
+    for (const key of keys) {
+        const value = block[key]
+        if (typeof value === "string" && value.trim()) {
+            return { key: `${platform}.${key}`, value: value.trim() }
+        }
+    }
+    if (typeof wv.appId === "string" && wv.appId.trim()) return { key: "appId", value: wv.appId.trim() }
+    return null
+}
+
+/** The app id that wins for the platform (see appIdSource), or null when none is set. */
+function configuredAppId(platform, wv) {
+    return appIdSource(platform, wv)?.value || null
 }
 
 // Java keywords and literals: none can be a segment of an Android package name.
@@ -404,9 +405,13 @@ function withDevOrigin(allowedUrls, devOrigin) {
  *
  * Debug: the app loads the dev server at `http://<devHost>:<port>`. `url` is
  * ignored. The dev origin is added to `accessControl.allowedUrls`, and a
- * localhost or production `apiBaseUrl` is pointed at it. A legacy config
- * whose LOCAL_IP is a public host (and no `url`) keeps loading that host,
- * with a warning, and `usesDevServer` is false.
+ * localhost or production `apiBaseUrl` is pointed at it. A LOCAL_IP that is
+ * a real host (public or private, not localhost, a loopback or bind-all
+ * address, or one of this machine's current addresses) is loaded instead,
+ * whether or not `url` is set, and `usesDevServer` is false.
+ *
+ * The app id is the platform key (android.packageName; ios.bundleIdentifier,
+ * then ios.appBundleId), else `appId` (see appIdSource).
  *
  * The result is in memory; `configPath` is a 0600 temp copy for tools that
  * read a path (Gradle's -PconfigPath). Call `cleanup()` when done.
@@ -421,7 +426,7 @@ function withDevOrigin(allowedUrls, devOrigin) {
  * @param {string} [options.cwd] - the app root, for config.json and package.json
  * @param {Record<string, string | undefined>} [options.env]
  * @param {number} [options.now] - for the build number
- * @param {Set<string>} [options.localHosts] - this machine's addresses, for the host guard
+ * @param {Set<string>} [options.localHosts] - this machine's addresses, for the host guard and the debug LOCAL_IP check
  * @param {(message: string, type?: string) => void} [options.log]
  */
 function resolveNativeConfig(
@@ -467,22 +472,22 @@ function resolveNativeConfig(
     const block = WEBVIEW_CONFIG[platform]
     block.buildType = release ? "release" : "debug"
 
-    // App id and name. Every reader of the platform keys (Gradle, the
-    // xcconfig, simctl) gets the one resolved id, so the debug and release
-    // ids can't drift apart.
+    // App id and name. The platform key wins over the shared appId. Every
+    // reader of the platform keys (Gradle, the xcconfig, simctl) gets the one
+    // resolved id, so the debug and release ids can't drift apart; on iOS
+    // both keys carry it, so simctl (appBundleId) and the xcconfig
+    // (bundleIdentifier || appBundleId) always agree.
     const explicitAppId = configuredAppId(platform, base)
     const appId = explicitAppId || DEFAULT_APP_IDS[platform]
     if (explicitAppId) {
         const problem = appIdProblem(platform, explicitAppId)
         if (problem) throw nativeError("NATIVE-010", `"${explicitAppId}" ${problem}`)
     }
-    if (typeof base.appId === "string" && base.appId.trim()) {
-        WEBVIEW_CONFIG.android.packageName = appId
-        WEBVIEW_CONFIG.ios.appBundleId = appId
-        WEBVIEW_CONFIG.ios.bundleIdentifier = appId
-    } else if (platform === "ios" && explicitAppId) {
-        WEBVIEW_CONFIG.ios.appBundleId = explicitAppId
-        WEBVIEW_CONFIG.ios.bundleIdentifier = explicitAppId
+    for (const name of ["android", "ios"]) {
+        const id = configuredAppId(name, base)
+        if (!id) continue
+        if (name === "android") WEBVIEW_CONFIG.android.packageName = id
+        else Object.assign(WEBVIEW_CONFIG.ios, { appBundleId: id, bundleIdentifier: id })
     }
     const appName = (typeof base.appName === "string" && base.appName.trim()) || block.appName || undefined
     if (typeof base.appName === "string" && base.appName.trim()) {
@@ -512,18 +517,24 @@ function resolveNativeConfig(
         if (isPlaceholderAppId(appId)) {
             throw nativeError(
                 "NATIVE-003",
-                explicitAppId ? `"${appId}"` : `none is set, so the template's "${appId}" would ship`
+                explicitAppId
+                    ? `"${appId}" (WEBVIEW_CONFIG.${appIdSource(platform, base).key})`
+                    : `none is set, so the template's "${appId}" would ship`
             )
         }
     } else {
-        const legacyPublicHost =
-            !base.url && base.LOCAL_IP && !privateHostReason(base.LOCAL_IP, { localHosts: new Set() })
-        if (legacyPublicHost) {
-            log(
-                `Debug build loads ${base.LOCAL_IP} from WEBVIEW_CONFIG.LOCAL_IP. ` +
-                    "Move your production host to WEBVIEW_CONFIG.url so debug builds use the dev server.",
-                "warning"
-            )
+        // A real host in LOCAL_IP (a public site, or a VPN/LAN staging server)
+        // is what the debug build loads, as it always did. localhost, a
+        // loopback or bind-all address, or this machine's own address means
+        // the dev server.
+        const localIp = String(base.LOCAL_IP ?? "")
+            .trim()
+            .toLowerCase()
+            .replace(/^\[|\]$/g, "")
+        const machine = localHosts || localMachineHosts()
+        const loadsLocalIp = Boolean(localIp) && !DEV_SERVER_HOSTS.includes(localIp) && !machine.has(localIp)
+        if (loadsLocalIp) {
+            log(`Debug build loads ${base.LOCAL_IP} from WEBVIEW_CONFIG.LOCAL_IP`, "info")
             startUrl = computeStartUrl(platform, WEBVIEW_CONFIG).url
         } else {
             usesDevServer = true
@@ -596,7 +607,8 @@ export {
     BUILD_NUMBER_EPOCH_MS,
     isPlaceholderAppId,
     appIdProblem,
-    isPrivateIPv4,
+    appIdSource,
+    configuredAppId,
     localMachineHosts,
     legacyPlatformVersion,
     parseAppUrl,

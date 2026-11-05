@@ -6,6 +6,8 @@ const { ensureLocalProperties } = require("../utils.js")
 const { signingGradleEnv } = require("./signing.js")
 const { launchArgs } = require("./devices.js")
 const { DEFAULT_VERSION_NAME } = require("../releaseOutput.js")
+const { saveDebugApk } = require("./output.js")
+const { displayPath } = require("../../cli/theme.js")
 
 // adb answers in milliseconds when healthy. A wedged adb server accepts the
 // connection and never replies, so without a bound the build sat on
@@ -238,14 +240,44 @@ function createBuildPhase(ctx) {
      * Build the debug APK and install it on `serial` only. Gradle's
      * installDebug installs on every connected device unless ANDROID_SERIAL
      * names one.
+     *
+     * The APK is copied to build-output/android/debug/ (see saveDebugApk),
+     * also when the install fails after Gradle packaged it: installDebug
+     * writes app-debug.apk before it installs, so one Gradle run is enough.
+     *
+     * @returns {Promise<{ apkPath: string | null }>}
      */
     async function buildApp(
         androidConfig,
         buildOptimisation,
         serial,
-        { configPath = defaultConfigPath, applicationId, version } = {}
+        {
+            configPath = defaultConfigPath,
+            applicationId,
+            version,
+            appRoot = process.cwd(),
+            name,
+            usesDevServer = false,
+        } = {}
     ) {
         progress.status("building and installing app")
+        const builtAfter = Date.now()
+        // Best effort: a copy that fails must not fail a build that
+        // installed, or hide the error of one that did not.
+        const keepApk = () => {
+            try {
+                return saveDebugApk({
+                    projectPath: `${pwd}/androidProject`,
+                    appRoot,
+                    name,
+                    usesDevServer,
+                    builtAfter,
+                })
+            } catch (error) {
+                progress.log(`Could not save the APK to build-output: ${error.message}`, "warning")
+                return null
+            }
+        }
         try {
             // Gradle needs the SDK location in local.properties. Only
             // setupEmulator:android wrote it, so building without a prior
@@ -275,11 +307,17 @@ function createBuildPhase(ctx) {
                 }
             )
         } catch (error) {
+            const apkPath = keepApk()
+            if (apkPath) {
+                error.apkPath = apkPath
+                progress.log(`The APK was built and saved to ${displayPath(apkPath, appRoot)}`, "warning")
+            }
             // Re-wrapping with a new Error dropped `output`, and with it the
             // compiler errors. Keep the original and let the reporter mine it.
             error.stage = "Building and installing the app"
             throw error
         }
+        return { apkPath: keepApk() }
     }
 
     /** Open the installed app on `serial`. A failure is a warning: the app is installed. */
@@ -353,7 +391,7 @@ function createBuildPhase(ctx) {
     }
 
     /**
-     * Build the signed release bundle. The webview config is generated in
+     * Build the signed release bundle and APK. The webview config is generated in
      * the temp_build_<pkg> copy that Gradle then bundles, from the resolved
      * release config and with -PcatalystBuildType=release, so the release
      * branch of generateWebViewConfig actually runs. Signing and version
@@ -368,6 +406,7 @@ function createBuildPhase(ctx) {
             applicationId,
             buildOptimisation = false,
             finalAabPath,
+            finalApkPath,
         } = {}
     ) {
         progress.log("Building signed AAB for release...", "info")
@@ -379,6 +418,7 @@ function createBuildPhase(ctx) {
 
             const aabConfig = await createAABConfig(androidConfig)
             if (finalAabPath) aabConfig.finalAabPath = finalAabPath
+            if (finalApkPath) aabConfig.finalApkPath = finalApkPath
             aabConfig.gradle = {
                 configPath,
                 buildOptimisation,

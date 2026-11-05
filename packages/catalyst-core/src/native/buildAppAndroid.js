@@ -2,7 +2,8 @@ const { createAndroidBuild, pwd } = require("./buildAndroid/index.js")
 const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
 const { loadAppConfig } = require("../cli/appConfig.js")
 const { buildFailure } = require("../cli/diagnostic.js")
-const { parseNativeArgs } = require("./utils.js")
+const { askReleaseConfig } = require("./setupServer.js")
+const { isInteractive, parseNativeArgs } = require("./utils.js")
 
 const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = loadAppConfig()
 
@@ -15,7 +16,23 @@ async function main() {
         process.stderr.write(buildFailure({ error, stage: "Reading the flags", code: "ANDROID-000" }))
         process.exit(1)
     }
-    const { buildAndroidApp } = createAndroidBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }, flags)
+    // The build reads config.json from disk when it starts (initializeConfig),
+    // so answers saved below reach it; the config passed here is not read again.
+    const { buildAndroidApp, progress } = createAndroidBuild({ WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }, flags)
+
+    // A store build in a terminal asks once for a missing app id or website
+    // and saves the answers. Its errors are left for the build, which
+    // resolves the config again and reports them the usual way.
+    if (isInteractive()) {
+        const log = (message, type) => progress.log(message, type)
+        try {
+            await askReleaseConfig("android", { release: flags.release, url: flags.url, log })
+        } catch (error) {
+            if (!/^NATIVE-\d{3}$/.test(error?.code)) {
+                log(`Could not read or update config/config.json: ${error.message}`, "warning")
+            }
+        }
+    }
 
     try {
         await buildAndroidApp()

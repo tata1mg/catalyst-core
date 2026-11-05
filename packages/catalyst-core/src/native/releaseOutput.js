@@ -6,6 +6,9 @@ import { nativeError } from "./utils.js"
 // build-output/<platform>/<version>-<build>/: the file-name-safe names and
 // the guard against writing over an earlier release.
 
+/** The folder in the app that the CLI writes builds to, unless a config sets an output path. */
+const BUILD_OUTPUT_DIR = "build-output"
+
 /** The version a release reports when package.json has none: what both shells ship then. */
 const DEFAULT_VERSION_NAME = "1.0.0"
 
@@ -46,4 +49,36 @@ function assertReleaseFolderFree(dir, extensions) {
     if (existing) throw nativeError("NATIVE-011", path.join(dir, existing))
 }
 
-export { DEFAULT_VERSION_NAME, artifactBaseName, releaseFolderName, assertReleaseFolderFree }
+/**
+ * Give <app>/build-output/ its own `*` .gitignore before an artifact is
+ * written inside it, so an app whose .gitignore predates the build-output/
+ * entry never commits a bundle or an APK. An existing .gitignore is left as
+ * it is, and a folder outside build-output/ (android.outputPath) is left alone.
+ *
+ * @param {string} target - the folder an artifact is about to be written to
+ * @param {string} [appRoot]
+ * @returns {string | null} the .gitignore path, or null when `target` is outside build-output/
+ */
+function ensureBuildOutputIgnore(target, appRoot = process.cwd()) {
+    const root = path.resolve(appRoot, BUILD_OUTPUT_DIR)
+    const relative = path.relative(root, path.resolve(appRoot, target))
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null
+    fs.mkdirSync(root, { recursive: true })
+    const file = path.join(root, ".gitignore")
+    try {
+        // "wx": create it only when it is not there, in one step.
+        fs.writeFileSync(file, "*\n", { flag: "wx" })
+    } catch (error) {
+        if (error.code !== "EEXIST") throw error
+    }
+    return file
+}
+
+export {
+    BUILD_OUTPUT_DIR,
+    DEFAULT_VERSION_NAME,
+    artifactBaseName,
+    releaseFolderName,
+    assertReleaseFolderFree,
+    ensureBuildOutputIgnore,
+}
