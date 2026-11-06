@@ -535,36 +535,50 @@ async function _handler(req: any, res: any) {
 
         const parallelWork: Promise<{ error: any } | null>[] = []
 
-        // Handle each promise immediately so a rejection is never unhandled.
+        // Handle each promise immediately so a rejection is never unhandled. A reason that isn't an
+        // object (null, undefined, a string) becomes an Error, since the tracing wrapper and the catch
+        // below read its properties.
         const runInParallel = (...promises: unknown[]) => {
             for (const promise of promises) {
                 parallelWork.push(
                     Promise.resolve(promise).then(
                         () => null,
-                        (error) => ({ error })
+                        (error) => ({ error: asError(error) })
                     )
                 )
             }
+        }
+
+        // Every exit below waits through this, so each request records its parallel work on one span.
+        // No span when nothing was registered, so apps that never call runInParallel trace as before.
+        let parallelDone: Promise<{ error: any } | null> | null = null
+        const waitForParallelWork = () => {
+            if (!parallelWork.length) return null
+            if (!parallelDone) {
+                parallelDone = tracedParallelWork(parallelWork).then(
+                    () => null,
+                    (error: any) => ({ error })
+                )
+            }
+            return parallelDone
         }
 
         try {
             await tracedAppServerSideFunction({ store, req, res, runInParallel })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
-            if (res.headersSent) return
+            if (res.headersSent) {
+                // The response is already out, but registered work still finishes before the handler returns.
+                if (parallelWork.length) await waitForParallelWork()
+                return
+            }
 
             // Page fetchers can now run while parallel work is still running.
             const fetcherResult = tracedServerDataFetcher(
                 { routes: cachedRoutes, req, res, url: req.originalUrl },
                 { store }
             )
-            // No span when nothing was registered, so apps that never call runInParallel trace as before.
-            const parallelResult = parallelWork.length
-                ? tracedParallelWork(parallelWork).then(
-                      () => null,
-                      (error: any) => ({ error })
-                  )
-                : null
+            const parallelResult = waitForParallelWork()
 
             // Both finish before any fetcher hook runs or store state is serialized.
             // A fetcher rejection is ignored here and rethrown by the await below.
@@ -644,8 +658,9 @@ async function _handler(req: any, res: any) {
         } catch (error: any) {
             if (isRenderFailure(error)) throw error
             logSSRError("SERVER_SIDE_FUNCTION", error, req)
-            // serverSideFunction can throw with parallel work still running.
-            await Promise.all(parallelWork)
+            // serverSideFunction can throw with parallel work still running. A parallel failure is
+            // only traced here; the hook below still gets the error this catch received.
+            if (parallelWork.length) await waitForParallelWork()
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
