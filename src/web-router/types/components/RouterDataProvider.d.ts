@@ -39,11 +39,11 @@ export type RouterFetcherProps = {
     /**
      * the current location object, which represents the current URL in web browsers.
      */
-    location: import("react-router-dom").Location;
+    location: import("react-router").Location;
     /**
      * object of key/value pairs of the dynamic params from the current URL that were matched by the route path.
      */
-    params: import("react-router-dom").Params;
+    params: import("react-router").Params;
     /**
      * search parameters via URLSearchParams interface.
      */
@@ -51,13 +51,13 @@ export type RouterFetcherProps = {
     /**
      * function to navigate to other pages based on response.
      */
-    navigate: import("react-router-dom").NavigateFunction;
+    navigate: import("react-router").NavigateFunction;
 };
 export type ServerFetchDataProps = {
     /**
      * routes Array
      */
-    routes: import("react-router-dom").RouteObject[];
+    routes: import("react-router").RouteObject[];
     /**
      * current url
      */

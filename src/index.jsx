@@ -1,4 +1,4 @@
-export * from "react-router-dom"
+export * from "react-router"
 export * from "./web-router/components/RouterDataProvider.jsx"
 export * from "./web-router/components/MetaTag.jsx"
 export { split, hydrationReady } from "./web-router/components/Split.jsx"

@@ -17,6 +17,7 @@ export function Head(props) {
         metaTags,
         isBot,
         publicAssetPath,
+        nonce,
         children,
     } = props
 
@@ -24,7 +25,7 @@ export function Head(props) {
         <head>
             <meta charSet="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-            {process.env.NODE_ENV === "development" && <FastRefresh />}
+            {process.env.NODE_ENV === "development" && <FastRefresh nonce={nonce} />}
 
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
@@ -56,6 +57,6 @@ Head.propTypes = {
     deferredPreloadLinks: PropTypes.array,
     metaTags: PropTypes.array,
     publicAssetPath: PropTypes.string,
-    essentialAssets: PropTypes.object,
+    nonce: PropTypes.string,
     children: PropTypes.node,
 }

@@ -2,7 +2,7 @@ import { createContext } from "react"
 
 /**
  * @typedef oneMgRouterContext
- * @property {import("react-router-dom").RouteMatch<string, import("react-router-dom").RouteObject>[]=} matchedRoutes
+ * @property {import("react-router").RouteMatch<string, import("react-router").RouteObject>[]=} matchedRoutes
  */
 
 /**
