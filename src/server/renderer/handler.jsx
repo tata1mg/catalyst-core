@@ -31,9 +31,13 @@ import {
     cssSignature,
     createNoncePlaceholder,
     applyNonce,
-    addNonceToReactScripts,
+    prepareReactScripts,
     serializeForScript,
     guardLateResponseCalls,
+    isPreloadLearningEnabled,
+    extractPriorityImagePreloads,
+    findHeadPreloadOffset,
+    insertAt,
 } from "./ppr.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -609,7 +613,8 @@ const prerenderPPRShell = async ({
         }
 
         return {
-            prelude: addNonceToReactScripts(prelude, placeholder),
+            prelude: prepareReactScripts(prelude, placeholder),
+            preloadOffset: findHeadPreloadOffset(prelude),
             postponed: JSON.stringify(result.postponed),
             placeholder,
             signature,
@@ -627,6 +632,11 @@ const prerenderPPRShell = async ({
         }
     }
 }
+
+const PPR_FAILED_RETRY_MS = 60 * 1000
+const shellFailures = new Map()
+// shell key → priority image preloads seen in the last resumed response (see ppr.js).
+const learnedPreloads = new Map()
 
 /**
  * Serves a PPR route. Resolves true when the response was handled, false when this
@@ -666,6 +676,8 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         ...getDeferredPreloadScriptUrls(deferredRouteKey, []),
     ])
 
+    // Development (vite dev server): rebuild the shell on every request so code edits show up.
+    if (process.env.NODE_ENV === "development") shellCache.delete(key)
     let shell = shellCache.get(key)
     if (shell && shell.signature !== signature) {
         shellCache.delete(key)
@@ -673,6 +685,9 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
     }
     const hit = Boolean(shell)
     if (!shell) {
+        // A key whose shell could not be built recently goes straight to the classic path
+        // instead of paying for a prerender attempt on every request.
+        if (shellFailures.has(key) && Date.now() - shellFailures.get(key) < PPR_FAILED_RETRY_MS) return false
         shell = await shellCache.build(key, () =>
             prerenderPPRShell({
                 key,
@@ -688,7 +703,12 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                 signature,
             })
         )
+        if (!shell) {
+            if (shellFailures.size > 1000) shellFailures.clear()
+            shellFailures.set(key, Date.now())
+        }
         if (!shell || res.headersSent) return Boolean(res.headersSent)
+        shellFailures.delete(key)
     }
 
     const { buildDir, integrityManifest, shellStart } = buildShellStart(
@@ -734,7 +754,9 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         return fetcherData
     })()
 
-    res.write(applyNonce(shell.prelude, shell.placeholder, appNonce))
+    const learnPreloads = isPreloadLearningEnabled()
+    const preloads = learnPreloads ? (learnedPreloads.get(key) || []).join("") : ""
+    res.write(applyNonce(insertAt(shell.prelude, shell.preloadOffset, preloads), shell.placeholder, appNonce))
     if (typeof res.flush === "function") res.flush()
 
     const requestCache = createPPRRequestCache()
@@ -752,16 +774,22 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
 
     await new Promise((resolve) => {
         let timeout
+        const resumed = []
         const done = () => {
             clearTimeout(timeout)
             guard.restore()
             resolve()
         }
         res.once("finish", done)
-        res.once("close", done)
+        res.once("close", () => {
+            // Client went away: stop rendering and fetching for it.
+            if (!res.writableFinished) abort?.(new Error("PPR client disconnected"))
+            done()
+        })
 
         const tail = new Transform({
             transform(chunk, _enc, cb) {
+                if (learnPreloads) resumed.push(chunk)
                 cb(null, chunk)
             },
             flush(cb) {
@@ -787,6 +815,14 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                             })}</script>`
                         )
                     }
+                    if (learnPreloads) {
+                        const seen = extractPriorityImagePreloads(
+                            Buffer.concat(resumed.map((c) => Buffer.from(c))).toString("utf8")
+                        )
+                        if (learnedPreloads.size > 1000) learnedPreloads.clear()
+                        if (seen.length) learnedPreloads.set(key, seen)
+                        else learnedPreloads.delete(key)
+                    }
                     registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets, false)
                     // CSS the shell does not already inline.
                     const missingCss = deferredAssets.css.filter((p) => p && !shellCss.has(p))
@@ -803,7 +839,8 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         })
         tail.pipe(res)
 
-        const { pipe, abort } = resumeToPipeableStream(
+        let abort
+        const stream = resumeToPipeableStream(
             <PPRDocument
                 phase="resume"
                 routeData={routeData}
@@ -826,13 +863,20 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                     tail.end()
                 },
                 onError(error) {
+                    // Our own aborts (timeout, disconnect) are reported once where they happen.
+                    if (/^PPR (resume timed out|client disconnected)/.test(error?.message || "")) return
                     console.error(`[PPR] Error while resuming ${req.originalUrl}:`, error)
                     safeCall(onRenderError, { req, res, store, error })
                 },
             }
         )
+        const { pipe } = stream
+        abort = stream.abort
         // On timeout React marks what is still pending for client rendering and ends.
-        timeout = setTimeout(() => abort(new Error("PPR resume timed out")), PPR_RESUME_TIMEOUT_MS())
+        timeout = setTimeout(() => {
+            getLogger().warn?.(`[PPR] Resume of ${req.originalUrl} timed out; the rest renders on the client`)
+            abort(new Error("PPR resume timed out"))
+        }, PPR_RESUME_TIMEOUT_MS())
     })
     return true
 }

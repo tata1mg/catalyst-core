@@ -81,9 +81,21 @@ export const createNoncePlaceholder = () => crypto.randomBytes(16).toString("hex
 export const applyNonce = (html, placeholder, nonce) =>
     placeholder ? html.split(placeholder).join(nonce || "") : html
 
-// React 19.2 writes `<script id="_R_">` into the prelude without the nonce option.
-export const addNonceToReactScripts = (html, placeholder) =>
-    placeholder ? html.split('<script id="_R_">').join(`<script id="_R_" nonce="${placeholder}">`) : html
+// React 19.2 ends the prelude with `<script id="_R_">`, which records the first paint so that
+// streamed Suspense content is revealed no sooner than 300 ms after it (reveal throttling).
+// For a PPR shell that only delays the page replacing the skeleton, so by default the script
+// is dropped and content is revealed on the next frame, as with React 19.0.
+// PPR_REVEAL_THROTTLE=true keeps React's behaviour. React writes the script without the
+// nonce option, so it gets the shell's nonce placeholder.
+export const isRevealThrottleEnabled = () =>
+    process.env.PPR_REVEAL_THROTTLE === true || process.env.PPR_REVEAL_THROTTLE === "true"
+const REACT_REVEAL_TIMER = /<script id="_R_">[^<]*<\/script>/g
+export const prepareReactScripts = (html, placeholder) => {
+    if (!isRevealThrottleEnabled()) return html.replace(REACT_REVEAL_TIMER, "")
+    return placeholder
+        ? html.split('<script id="_R_">').join(`<script id="_R_" nonce="${placeholder}">`)
+        : html
+}
 
 /** JSON for an inline <script>: no `</script>` breakout, no U+2028/9 line terminators. */
 export const serializeForScript = (value) =>
@@ -170,3 +182,38 @@ export const guardLateResponseCalls = (res, logger = console) => {
         },
     }
 }
+
+// ── Learned LCP image preloads ───────────────────────────────────────────
+// On the classic path React hoists `<link rel="preload" as="image" fetchPriority="high">` for
+// the page's priority images (the LCP banner) to the top of <head>, so the image starts
+// downloading with the first bytes. A PPR shell is built before the data exists, so those
+// preloads would only arrive with the resumed app, after the whole head. Each PPR response
+// records the priority image preloads React wrote for the resumed app; later responses for
+// the same shell key get them at the top of the head. If the banner changes, one response
+// preloads the old one and the next uses the new one. PPR_LEARN_PRELOADS=false turns it off.
+export const isPreloadLearningEnabled = () =>
+    !(process.env.PPR_LEARN_PRELOADS === false || process.env.PPR_LEARN_PRELOADS === "false")
+const PRIORITY_IMAGE_PRELOAD = /<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*\/?>/g
+export const MAX_LEARNED_PRELOADS = 2
+
+export const extractPriorityImagePreloads = (html) => {
+    const found = []
+    for (const m of html.matchAll(PRIORITY_IMAGE_PRELOAD)) {
+        if (!found.includes(m[0])) found.push(m[0])
+        if (found.length >= MAX_LEARNED_PRELOADS) break
+    }
+    return found
+}
+
+/** Where React would hoist preloads: before the first <link> in <head> (after charset/viewport). */
+export const findHeadPreloadOffset = (html) => {
+    const head = html.indexOf("<head")
+    if (head === -1) return -1
+    const headOpenEnd = html.indexOf(">", head) + 1
+    const headEnd = html.indexOf("</head>", headOpenEnd)
+    const firstLink = html.indexOf("<link", headOpenEnd)
+    return firstLink !== -1 && (headEnd === -1 || firstLink < headEnd) ? firstLink : headOpenEnd
+}
+
+export const insertAt = (html, offset, text) =>
+    offset > 0 && text ? html.slice(0, offset) + text + html.slice(offset) : html

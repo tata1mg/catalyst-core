@@ -21,6 +21,7 @@
         "lint": "eslint .",
         "lint-staged": "lint-staged",
         "prettify": "prettier . --write",
+        "test:ppr": "node --test test/ppr.test.mjs",
         "prepare": "rm -rf ./dist && cp -r ./src ./dist ",
         "prepublishOnly": "npm i && npm run prepare"
     },
