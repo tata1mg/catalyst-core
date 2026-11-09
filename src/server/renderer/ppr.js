@@ -21,6 +21,11 @@ export const PPR_SHELL_CACHE_MAX = () => toInt(process.env.PPR_SHELL_CACHE_MAX, 
 export const PPR_PRERENDER_SETTLE_MS = () => toInt(process.env.PPR_PRERENDER_SETTLE_MS, 50)
 // Upper bound for the resumed (dynamic) part; on timeout React hands the rest to the client.
 export const PPR_RESUME_TIMEOUT_MS = () => toInt(process.env.PPR_RESUME_TIMEOUT_MS, 15000)
+// React's progressiveChunkSize for the prerender (kept in the postponed state for the resume).
+// Smaller values write large nested Suspense boundaries as their own segments, revealed one
+// by one in tree order, instead of one hidden segment that shows only once it has fully
+// arrived. Unset = React's default (12800 bytes).
+export const PPR_PROGRESSIVE_CHUNK_SIZE = () => toInt(process.env.PPR_PROGRESSIVE_CHUNK_SIZE, undefined)
 
 /** Bounded LRU of built shells. Keys come from the URL, so the bound also caps memory. */
 export class ShellCache {
@@ -90,8 +95,21 @@ export const applyNonce = (html, placeholder, nonce) =>
 export const isRevealThrottleEnabled = () =>
     process.env.PPR_REVEAL_THROTTLE === true || process.env.PPR_REVEAL_THROTTLE === "true"
 const REACT_REVEAL_TIMER = /<script id="_R_">[^<]*<\/script>/g
+// Without the throttle React still holds each later reveal until 300 ms after the previous
+// one ($RV records $RT); making $RT never a number reveals every segment on its next frame.
+const NO_REVEAL_THROTTLE = (nonce) =>
+    `<script${
+        nonce ? ` nonce="${nonce}"` : ""
+    }>Object.defineProperty(window,"$RT",{configurable:true,get:function(){},set:function(){}})</script>`
 export const prepareReactScripts = (html, placeholder) => {
-    if (!isRevealThrottleEnabled()) return html.replace(REACT_REVEAL_TIMER, "")
+    if (!isRevealThrottleEnabled()) {
+        const stripped = html.replace(REACT_REVEAL_TIMER, "")
+        const at = stripped.indexOf("<body")
+        const bodyOpenEnd = at === -1 ? -1 : stripped.indexOf(">", at) + 1
+        return bodyOpenEnd > 0
+            ? stripped.slice(0, bodyOpenEnd) + NO_REVEAL_THROTTLE(placeholder) + stripped.slice(bodyOpenEnd)
+            : stripped
+    }
     return placeholder
         ? html.split('<script id="_R_">').join(`<script id="_R_" nonce="${placeholder}">`)
         : html
@@ -194,7 +212,7 @@ export const guardLateResponseCalls = (res, logger = console) => {
 export const isPreloadLearningEnabled = () =>
     !(process.env.PPR_LEARN_PRELOADS === false || process.env.PPR_LEARN_PRELOADS === "false")
 const PRIORITY_IMAGE_PRELOAD = /<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*\/?>/g
-export const MAX_LEARNED_PRELOADS = 2
+export const MAX_LEARNED_PRELOADS = 4
 
 export const extractPriorityImagePreloads = (html) => {
     const found = []

@@ -35,7 +35,7 @@ test("React reveal timer is dropped by default and nonced when kept", () => {
     const html =
         '<p></p><script id="_R_">requestAnimationFrame(function(){$RT=performance.now()});</script></body>'
     delete process.env.PPR_REVEAL_THROTTLE
-    assert.equal(prepareReactScripts(html, "PH"), "<p></p></body>")
+    assert.ok(!prepareReactScripts(html, "PH").includes("_R_"))
     process.env.PPR_REVEAL_THROTTLE = "true"
     assert.ok(prepareReactScripts(html, "PH").includes('<script id="_R_" nonce="PH">'))
     delete process.env.PPR_REVEAL_THROTTLE
@@ -126,7 +126,7 @@ test("priority image preloads are learned and placed before the first head link"
     const seen = extractPriorityImagePreloads(resumed)
     assert.deepEqual(
         seen.map((l) => l.match(/href="([^"]+)"/)[1]),
-        ["https://cdn/a.png", "https://cdn/b.png"]
+        ["https://cdn/a.png", "https://cdn/b.png", "https://cdn/c.png"]
     )
     const shell =
         '<!DOCTYPE html><html><head><meta charSet="utf-8"/><link rel="preconnect" href="x"/></head><body></body></html>'

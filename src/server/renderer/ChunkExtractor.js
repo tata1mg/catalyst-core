@@ -26,7 +26,9 @@ export class ChunkExtractor {
         this.assetManifest = assetManifest
         this.components = new Set()
 
-        const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`
+        const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${
+            process.env.PUBLIC_STATIC_ASSET_PATH || ""
+        }`
         this.publicPath = `${baseUrl.replace(/\/+$/, "")}/`
 
         // JS tracked as full URLs, CSS tracked as relative file paths (for disk reading)

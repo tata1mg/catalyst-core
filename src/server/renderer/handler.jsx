@@ -26,6 +26,7 @@ import {
     isPPREnabled,
     PPR_PRERENDER_SETTLE_MS,
     PPR_RESUME_TIMEOUT_MS,
+    PPR_PROGRESSIVE_CHUNK_SIZE,
     ShellCache,
     shellCache,
     cssSignature,
@@ -584,6 +585,7 @@ const prerenderPPRShell = async ({
                 {
                     signal: controller.signal,
                     nonce: placeholder || undefined,
+                    progressiveChunkSize: PPR_PROGRESSIVE_CHUNK_SIZE(),
                     onError(error) {
                         if (!controller.signal.aborted) renderError = error
                     },
