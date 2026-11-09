@@ -114,9 +114,8 @@ test("late cookie/redirect/header calls after the shell is sent are replayed, no
 })
 
 test("priority image preloads are learned and placed before the first head link", async () => {
-    const { extractPriorityImagePreloads, findHeadPreloadOffset, insertAt } = await import(
-        "../src/server/renderer/ppr.js"
-    )
+    const { extractPriorityImagePreloads, findHeadPreloadOffset, insertAt } =
+        await import("../src/server/renderer/ppr.js")
     const resumed =
         '<div hidden id="S:0"><link rel="preload" as="image" href="https://cdn/a.png" fetchPriority="high"/>' +
         '<link rel="preload" as="image" href="https://cdn/lazy.png"/>' +
@@ -136,4 +135,22 @@ test("priority image preloads are learned and placed before the first head link"
     assert.ok(out.indexOf("a.png") < out.indexOf("preconnect"))
     assert.equal(insertAt(shell, at, ""), shell)
     assert.equal(findHeadPreloadOffset("<html><head></head></html>"), "<html><head>".length)
+})
+
+test("learned preloads are replayed only once two responses for the key agree", async () => {
+    const { PreloadLearner } = await import("../src/server/renderer/ppr.js")
+    const l = new PreloadLearner(2)
+    assert.deepEqual(l.get("home|dpr3"), [])
+    l.record("home|dpr3", ["banner", "strip"])
+    assert.deepEqual(l.get("home|dpr3"), [], "one response is not enough")
+    l.record("home|dpr3", ["banner", "personal"])
+    assert.deepEqual(l.get("home|dpr3"), ["banner"], "only what both responses wrote")
+    l.record("home|dpr1", ["banner-dpr1"])
+    l.record("home|dpr1", ["banner-dpr1"])
+    assert.deepEqual(l.get("home|dpr1"), ["banner-dpr1"])
+    assert.deepEqual(l.get("home|dpr3"), ["banner"], "other keys are not affected")
+    l.record("home|dpr3", [])
+    assert.deepEqual(l.get("home|dpr3"), [], "a response without the image stops the preload")
+    l.record("third", ["x"])
+    assert.equal(l.entries.size, 1, "bounded: cleared when full")
 })

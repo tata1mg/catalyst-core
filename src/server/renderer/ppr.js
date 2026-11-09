@@ -206,13 +206,39 @@ export const guardLateResponseCalls = (res, logger = console) => {
 // the page's priority images (the LCP banner) to the top of <head>, so the image starts
 // downloading with the first bytes. A PPR shell is built before the data exists, so those
 // preloads would only arrive with the resumed app, after the whole head. Each PPR response
-// records the priority image preloads React wrote for the resumed app; later responses for
-// the same shell key get them at the top of the head. If the banner changes, one response
-// preloads the old one and the next uses the new one. PPR_LEARN_PRELOADS=false turns it off.
+// records the priority image preloads React wrote for the resumed app; later responses with
+// the same preload key get them at the top of the head. PPR_LEARN_PRELOADS=false turns it off.
+//
+// A wrong preload is worse than none: it downloads an image the page never shows, on the
+// connection the real LCP image needs. So:
+// - the preload key is the shell key plus getPPRPreloadKey() from the app's server hooks,
+//   which must cover every request property that changes image URLs (mweb: device pixel
+//   ratio and screen width, set from cookies); otherwise a returning visitor's dpr=1 URLs
+//   were preloaded for every new visitor after it;
+// - a preload is replayed only after the last two responses for that key both wrote it, so
+//   per-user or rotating images are not preloaded for the next visitor.
 export const isPreloadLearningEnabled = () =>
     !(process.env.PPR_LEARN_PRELOADS === false || process.env.PPR_LEARN_PRELOADS === "false")
 const PRIORITY_IMAGE_PRELOAD = /<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*\/?>/g
 export const MAX_LEARNED_PRELOADS = 4
+
+export class PreloadLearner {
+    constructor(maxKeys = 1000) {
+        this.maxKeys = maxKeys
+        this.entries = new Map() // preload key → { last: string[], stable: string[] }
+    }
+    /** Preloads to write at the top of the head for this key. */
+    get(key) {
+        return this.entries.get(key)?.stable || []
+    }
+    /** Records the priority preloads one resumed response wrote. */
+    record(key, seen) {
+        const prev = this.entries.get(key)
+        const stable = prev ? seen.filter((p) => prev.last.includes(p)) : []
+        if (!prev && this.entries.size >= this.maxKeys) this.entries.clear()
+        this.entries.set(key, { last: seen, stable })
+    }
+}
 
 export const extractPriorityImagePreloads = (html) => {
     const found = []

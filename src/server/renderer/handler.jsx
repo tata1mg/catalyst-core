@@ -37,6 +37,7 @@ import {
     guardLateResponseCalls,
     isPreloadLearningEnabled,
     extractPriorityImagePreloads,
+    PreloadLearner,
     findHeadPreloadOffset,
     insertAt,
 } from "./ppr.js"
@@ -78,6 +79,7 @@ let _onRouteMatch,
     _onRenderError,
     _onRequestError,
     getPPRShellKey,
+    getPPRPreloadKey,
     beforePPRFlush
 try {
     const hooks = await import("@catalyst/template/server/index.js")
@@ -92,6 +94,10 @@ try {
     // cache key (use it for every request property the shell's markup depends on, e.g.
     // language or platform). null/false serves this request on the classic path.
     getPPRShellKey = hooks.getPPRShellKey
+    // PPR: ({ req, res, store }) => string. Added to the shell key for learned LCP image
+    // preloads (see ppr.js): every request property that changes image URLs but not the shell
+    // (e.g. device pixel ratio). Throwing turns preload learning off for that request.
+    getPPRPreloadKey = hooks.getPPRPreloadKey
     // PPR: ({ req, res, store }) => void. Runs right before the shell is written, the last
     // point where headers and cookies can be set (e.g. create a CSRF token whose cookie
     // has to go out with the headers).
@@ -637,8 +643,8 @@ const prerenderPPRShell = async ({
 
 const PPR_FAILED_RETRY_MS = 60 * 1000
 const shellFailures = new Map()
-// shell key → priority image preloads seen in the last resumed response (see ppr.js).
-const learnedPreloads = new Map()
+// Priority image preloads learned from resumed responses (see ppr.js).
+const learnedPreloads = new PreloadLearner()
 
 /**
  * Serves a PPR route. Resolves true when the response was handled, false when this
@@ -756,8 +762,17 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         return fetcherData
     })()
 
-    const learnPreloads = isPreloadLearningEnabled()
-    const preloads = learnPreloads ? (learnedPreloads.get(key) || []).join("") : ""
+    let preloadKey = null
+    if (isPreloadLearningEnabled()) {
+        try {
+            const extra = typeof getPPRPreloadKey === "function" ? getPPRPreloadKey({ req, res, store }) : ""
+            preloadKey = `${key}|${extra ?? ""}`
+        } catch (error) {
+            console.error("[PPR] getPPRPreloadKey failed; no learned preloads for this request:", error)
+        }
+    }
+    const learnPreloads = preloadKey !== null
+    const preloads = learnPreloads ? learnedPreloads.get(preloadKey).join("") : ""
     res.write(applyNonce(insertAt(shell.prelude, shell.preloadOffset, preloads), shell.placeholder, appNonce))
     if (typeof res.flush === "function") res.flush()
 
@@ -821,9 +836,7 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                         const seen = extractPriorityImagePreloads(
                             Buffer.concat(resumed.map((c) => Buffer.from(c))).toString("utf8")
                         )
-                        if (learnedPreloads.size > 1000) learnedPreloads.clear()
-                        if (seen.length) learnedPreloads.set(key, seen)
-                        else learnedPreloads.delete(key)
+                        learnedPreloads.record(preloadKey, seen)
                     }
                     registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets, false)
                     // CSS the shell does not already inline.
