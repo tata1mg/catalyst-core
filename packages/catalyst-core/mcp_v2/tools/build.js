@@ -496,21 +496,55 @@ function getProjectContext(root) {
     }
 }
 
+// The ids isPlaceholderAppId in src/native/nativeConfig.js refuses for a
+// release (TEMPLATE_APP_IDS, plus any com.example.* id). Copied because
+// mcp_v2 does not import from src/native; keep the two in step.
+const PLACEHOLDER_APP_IDS = ["io.yourname.androidproject", "com.catalyst.framework.app", "com.debug.webview"]
+
+function isPlaceholderAppId(appId) {
+    const id = String(appId || "")
+        .trim()
+        .toLowerCase()
+    return !id || id.startsWith("com.example.") || PLACEHOLDER_APP_IDS.includes(id)
+}
+
+// LOCAL_IP values a store build refuses when there is no url: empty, this
+// machine, a private or link-local IPv4 address, or a .local name (the same
+// hosts privateHostReason in src/native/nativeConfig.js fails with NATIVE-001).
+function isLocalOnlyHost(value) {
+    const host = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^\[|\]$/g, "")
+    return (
+        !host ||
+        ["localhost", "::1", "0.0.0.0"].includes(host) ||
+        host.endsWith(".local") ||
+        /^(0|10|127)\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^(192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}$/.test(host)
+    )
+}
+
+// The first non-blank string, trimmed: appIdSource in nativeConfig.js skips
+// blank platform keys the same way.
+const firstSet = (...values) => values.map((v) => (typeof v === "string" ? v.trim() : "")).find(Boolean)
+
 /** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.2.0+). */
 function appIdentityWarnings(ctx, isRelease, warnings, platform) {
     const wv = ctx.wv
     // The platform key wins over the shared appId, as in nativeConfig.js.
-    const platformId =
-        platform === "android" ? wv.android?.packageName : wv.ios?.bundleIdentifier || wv.ios?.appBundleId
-    const appId = platformId || wv.appId
-    if (isRelease && (!appId || /^com\.example\./i.test(appId))) {
+    const appId =
+        platform === "android"
+            ? firstSet(wv.android?.packageName, wv.appId)
+            : firstSet(wv.ios?.bundleIdentifier, wv.ios?.appBundleId, wv.appId)
+    if (isRelease && isPlaceholderAppId(appId)) {
         warnings.push(
-            "The app id (the platform key when set, else WEBVIEW_CONFIG.appId) is missing or a com.example placeholder: a terminal run asks for it once, and without a terminal the release fails with NATIVE-003. Set your own reverse-DNS id."
+            "The app id (the platform key when set, else WEBVIEW_CONFIG.appId) is missing or a template placeholder (com.example.*, io.yourname.androidproject, com.catalyst.framework.app or com.debug.webview): a terminal run asks for it once, and without a terminal the release fails with NATIVE-003. Set your own reverse-DNS id."
         )
     }
-    if (isRelease && !wv.url && !wv.LOCAL_IP) {
+    if (isRelease && !wv.url && isLocalOnlyHost(wv.LOCAL_IP) && wv.allowPrivateHost !== true) {
         warnings.push(
-            "WEBVIEW_CONFIG.url not set: set the production origin (e.g. https://shop.acme.com) or pass --url."
+            "WEBVIEW_CONFIG.url not set and LOCAL_IP is empty, this machine, a private address or a .local name, so the release would load a host users' devices cannot reach and fails with NATIVE-001. Set the production origin (e.g. https://shop.acme.com) or pass --url."
         )
     }
     if (wv.LOCAL_IP && !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(String(wv.LOCAL_IP).trim())) {
@@ -786,4 +820,4 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
     }
 }
 
-module.exports = { init, handle_get_build_flow, handle_get_architecture_diagram }
+module.exports = { init, handle_get_build_flow, handle_get_architecture_diagram, appIdentityWarnings }

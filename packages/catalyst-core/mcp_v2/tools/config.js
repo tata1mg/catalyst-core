@@ -167,19 +167,32 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         } catch {
             parsed = null
         }
-        if (
-            !parsed ||
-            !["http:", "https:"].includes(parsed.protocol) ||
-            (parsed.pathname && parsed.pathname !== "/")
-        ) {
+        // The same rules as parseAppUrl in src/native/nativeConfig.js.
+        let urlProblem = null
+        if (!String(wc.url).trim()) {
+            urlProblem = "is empty"
+        } else if (!parsed) {
+            urlProblem = "is not a URL (expected e.g. https://shop.acme.com)"
+        } else if (!["http:", "https:"].includes(parsed.protocol)) {
+            urlProblem = "must start with https:// or http://"
+        } else if (parsed.username || parsed.password) {
+            urlProblem = "must not contain a user name or password"
+        } else if ((parsed.pathname && parsed.pathname !== "/") || parsed.search || parsed.hash) {
+            urlProblem = "must be an origin only, without a path, query or fragment"
+        } else if (!parsed.hostname) {
+            urlProblem = "has no host"
+        } else if (parsed.protocol === "https:" && parsed.port && parsed.port !== "443") {
+            urlProblem = "uses HTTPS on a port other than 443"
+        }
+        if (urlProblem) {
             issues.push({
                 field: "WEBVIEW_CONFIG.url",
                 severity: "error",
-                message: `WEBVIEW_CONFIG.url "${wc.url}" must be an http(s) origin without a path, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
+                message: `WEBVIEW_CONFIG.url "${wc.url}" ${urlProblem}. Use an http(s) origin, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
             })
         } else if (
-            /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/i.test(
-                parsed.hostname
+            /^(localhost|::1|0\.0\.0\.0)$|^(127|10|192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\.|\.local(host)?$/i.test(
+                parsed.hostname.replace(/^\[|\]$/g, "")
             ) &&
             wc.allowPrivateHost !== true
         ) {

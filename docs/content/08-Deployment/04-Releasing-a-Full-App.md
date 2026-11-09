@@ -6,7 +6,7 @@ id: releasing-a-full-app
 
 # Releasing a Full App
 
-This page takes a Catalyst app from a working debug build to a first release in Google Play internal testing and TestFlight. Follow it in order the first time. Later releases only need steps 3, 4 and 7.
+This page takes a Catalyst app from a working debug build to a first release in Google Play internal testing and TestFlight. Follow it in order the first time. Later releases only need steps 3 to 7.
 
 ## 1. Prepare the app
 

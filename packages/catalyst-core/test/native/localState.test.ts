@@ -19,10 +19,7 @@ function tempDir() {
     return dir
 }
 afterEach(() => {
-    for (const dir of temps.splice(0)) {
-        fs.chmodSync(dir, 0o755)
-        fs.rmSync(dir, { recursive: true, force: true })
-    }
+    for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
 })
 
 describe("local state", () => {
@@ -69,7 +66,9 @@ describe("local state", () => {
 
     it("never throws when it cannot write", () => {
         const cwd = tempDir()
-        fs.chmodSync(cwd, 0o500)
+        // A file where the .catalyst folder goes: mkdir fails for every user, root included, on every OS.
+        fs.writeFileSync(path.join(cwd, ".catalyst"), "")
+        expect(() => ensureLocalStateDir(cwd)).toThrow()
         expect(writeLocalState({ a: 1 }, { cwd })).toBe(false)
         expect(saveLastTarget("android", { target: "emulator" }, { cwd })).toBe(false)
     })

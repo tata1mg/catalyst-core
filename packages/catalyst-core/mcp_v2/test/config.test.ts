@@ -200,3 +200,65 @@ describe("check_config: app id precedence and LOCAL_IP", () => {
         expect(fieldsOf(r.warnings)).toContain("WEBVIEW_CONFIG.LOCAL_IP")
     })
 })
+
+describe("check_config: WEBVIEW_CONFIG.url", () => {
+    const urlIssue = (url: string) =>
+        handle_check_config({ project_path: makeSplashProject({ WEBVIEW_CONFIG: { url } }) }).issues.find(
+            (i) => i.field === "WEBVIEW_CONFIG.url"
+        )
+
+    it("rejects what the release build rejects with NATIVE-004", () => {
+        const cases: Array<[string, RegExp]> = [
+            ["https://shop.acme.com/app", /without a path, query or fragment/],
+            ["https://shop.acme.com/?x=1", /without a path, query or fragment/],
+            ["https://shop.acme.com/#top", /without a path, query or fragment/],
+            ["https://user:secret@shop.acme.com", /user name or password/],
+            ["https://user@shop.acme.com", /user name or password/],
+            ["https://shop.acme.com:8443", /HTTPS on a port other than 443/],
+            ["ftp://shop.acme.com", /https:\/\/ or http:\/\//],
+            ["shop.acme.com", /not a URL/],
+        ]
+        for (const [url, why] of cases) {
+            const issue = urlIssue(url)
+            expect(issue, url).toBeDefined()
+            expect(issue!.message).toMatch(why)
+            expect(issue!.message).toMatch(/NATIVE-004/)
+        }
+    })
+
+    it("accepts an origin, with the default HTTPS port or any HTTP port", () => {
+        for (const url of [
+            "https://shop.acme.com",
+            "https://shop.acme.com/",
+            "https://shop.acme.com:443",
+            "http://shop.acme.com:8080",
+        ]) {
+            expect(urlIssue(url), url).toBeUndefined()
+        }
+    })
+
+    it("warns about a local or private host, IPv6 loopback and 0.0.0.0 included", () => {
+        const urlWarning = (url: string, allowPrivateHost?: boolean) =>
+            handle_check_config({
+                project_path: makeSplashProject({ WEBVIEW_CONFIG: { url, allowPrivateHost } }),
+            }).warnings.find((w) => w.field === "WEBVIEW_CONFIG.url")
+        for (const url of [
+            "http://localhost:3005",
+            "http://[::1]:3005",
+            "http://0.0.0.0:3005",
+            "http://127.0.0.1",
+            "http://10.0.0.4",
+            "http://172.20.1.1",
+            "http://192.168.1.5",
+            "http://169.254.0.9",
+            "http://my-mac.local",
+            "http://app.localhost",
+        ]) {
+            expect(urlWarning(url)?.message, url).toMatch(/NATIVE-001/)
+            expect(urlWarning(url, true), url).toBeUndefined()
+        }
+        for (const url of ["https://shop.acme.com", "https://localhostshop.com", "http://172.32.0.1"]) {
+            expect(urlWarning(url), url).toBeUndefined()
+        }
+    })
+})

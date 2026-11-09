@@ -49,8 +49,6 @@ function Home() {
 
     return (
         <div className={css.page} data-hydrated={hydratedIn !== null}>
-            <title>Your app is running | Catalyst</title>
-
             <nav className={css.nav}>
                 <span className={css.brand}>Catalyst</span>
                 <span className={css.navLinks}>
@@ -124,5 +122,8 @@ function Home() {
         </div>
     )
 }
+
+// Tags returned here go into the page's <head>, on the server and after navigation.
+Home.setMetaData = () => [<title key="title">Your app is running | Catalyst</title>]
 
 export default Home

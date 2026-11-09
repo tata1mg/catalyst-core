@@ -2,6 +2,7 @@
 
 const fs = require("fs")
 const path = require("path")
+const { injectSplashConfig } = require("../splashConfig.js")
 
 // ─── Pure helpers (no ctx dependency) ────────────────────────────────────────
 
@@ -273,9 +274,8 @@ public enum ConfigConstants {
                 configContent += splashConfig.duration
                     ? `\n    public static let splashScreenDuration: TimeInterval? = ${splashConfig.duration / 1000.0}`
                     : `\n    public static let splashScreenDuration: TimeInterval? = nil`
-                configContent += splashConfig.backgroundColor
-                    ? `\n    public static let splashScreenBackgroundColor = "${splashConfig.backgroundColor}"`
-                    : `\n    public static let splashScreenBackgroundColor = "#ffffff"`
+                const splashBackgroundColor = splashConfig.backgroundColor || "#ffffff"
+                configContent += `\n    public static let splashScreenBackgroundColor = "${splashBackgroundColor}"`
                 configContent += `\n    public static let splashScreenImageWidth: CGFloat = ${splashConfig.imageWidth || 120}`
                 configContent += `\n    public static let splashScreenImageHeight: CGFloat = ${splashConfig.imageHeight || 120}`
                 configContent += `\n    public static let splashScreenCornerRadius: CGFloat = ${splashConfig.cornerRadius || 20}`
@@ -284,7 +284,12 @@ public enum ConfigConstants {
                 // bundle resource or Xcode project registration is needed.
                 const splashHtmlPath = path.join(PUBLIC_PATH, "splashscreen.html") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - PUBLIC_PATH is the app's fixed public directory.
                 if (fs.existsSync(splashHtmlPath)) {
-                    const splashHtml = fs.readFileSync(splashHtmlPath)
+                    // The page paints the native colour once it takes over, so it is told which one.
+                    const splashHtml = Buffer.from(
+                        injectSplashConfig(fs.readFileSync(splashHtmlPath, "utf8"), {
+                            backgroundColor: splashBackgroundColor,
+                        })
+                    )
                     if (splashHtml.length > 1024 * 1024) {
                         progress.log(
                             `splashscreen.html is ${(splashHtml.length / (1024 * 1024)).toFixed(1)} MB; it is embedded in the app binary, keep it small`,
