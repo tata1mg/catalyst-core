@@ -1,0 +1,27 @@
+packages/catalyst-core/context.md
+  5d47096fe9b2819d 124
+packages/catalyst-core/src/server/renderer/handler.tsx
+  5d47096fe9b2819d 538-540,546,552-563,570-572,574,581,661-663
+packages/catalyst-core/test/server/handler.runInParallel.test.ts
+  5d47096fe9b2819d 1-289,291-378,380-381,383-406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "3e6b924f5ef9bf4db3b6cd418866b99aa18ea013",
+  "prompts": {
+    "5d47096fe9b2819d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0f751a32-5257-489c-9ff7-514716961fe4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 430,
+      "total_deletions": 17,
+      "accepted_lines": 430,
+      "overriden_lines": 1
+    }
+  }
+}
