@@ -44,6 +44,11 @@ const Split = ({
     children,
     ...props
 }) => {
+    // Per-request chunk extractor from context. The global is a fallback for apps that
+    // render without SsrRequestProvider; it is overwritten by every new request, so with
+    // concurrent requests (and PPR, where rendering resumes after an await) it can point
+    // at another request's extractor.
+    const ssrRequest = useContext(SsrRequestContext)
     // Check if we're on the server
     const isServer = typeof window === "undefined"
     if (isServer) {
@@ -51,8 +56,9 @@ const Split = ({
             // On server with SSR enabled: actually load and render the component
             try {
                 // Track this component for asset extraction
-                if (global.__CHUNK_EXTRACTOR__) {
-                    global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
+                const extractor = ssrRequest?.chunkExtractor || global.__CHUNK_EXTRACTOR__
+                if (extractor) {
+                    extractor.addComponent(cacheKey)
                 }
 
                 return <Suspense fallback={fallback}>{children}</Suspense>
@@ -94,8 +100,8 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
     const rootOptions = hasFourthArg
         ? thirdArg
         : hasThirdArg && typeof thirdArg !== "string"
-          ? thirdArg
-          : undefined
+        ? thirdArg
+        : undefined
 
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
         const prefetch = importFn().then((mod) => {

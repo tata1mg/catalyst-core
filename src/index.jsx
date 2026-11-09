@@ -7,6 +7,6 @@ export { ChunkExtractor, PPR_ASSET_PHASE } from "./server/renderer/ChunkExtracto
 export * from "./web-router/hooks.jsx"
 export * from "./web-router/utils/metaDataUtils.jsx"
 export * from "./server/renderer/document/index.jsx"
-export * from "./router/ClientRouter.js"
 export * from "./web-router/components/DataFetcher.jsx"
+export * from "./web-router/components/PPR.jsx"
 export { preloadRequiredAssets } from "./web-router/utils/preloadRequiredAssets.js"

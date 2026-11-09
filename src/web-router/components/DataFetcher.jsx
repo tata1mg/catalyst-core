@@ -1,164 +1,104 @@
-import React, { createContext, useContext, use, Suspense, useMemo } from "react"
-import { useLocation, UNSAFE_RouteContext, matchRoutes } from "react-router-dom"
+import React, { createContext, useContext, use, useMemo } from "react"
+import { PPRRenderContext } from "./PPR.jsx"
 
 /**
- * Context for PPR data promises
- * Stores promises (not resolved data) for lazy consumption via use()
+ * usePPRRouteData(fetcher): read route data inside a PPR hole with React's use().
+ *
+ * Server: the promise and its result are stored per request (in the PPRDataProvider value
+ * the handler creates for each render), never in module state, so concurrent requests to
+ * the same route cannot read each other's data. While the shell is prerendered the hook
+ * suspends without calling the fetcher, so no request data reaches the cached shell.
+ *
+ * Client: results the server sent in window.cachedData seed a module cache keyed by
+ * pathname, so hydration reads the same data the server rendered without refetching.
  */
 export const PPRDataContext = createContext(null)
 
-/**
- * LRU Cache for data promises
- * Prevents unbounded memory growth by evicting oldest entries
- */
-class LRUCache {
-    constructor(maxSize = 100) {
-        this.cache = new Map()
-        this.maxSize = maxSize
-    }
+const NEVER = { then() {} }
 
-    has(key) {
-        return this.cache.has(key)
-    }
+const createRequestCache = () => ({ promises: new Map(), data: new Map() })
 
-    get(key) {
-        const value = this.cache.get(key)
-        if (value !== undefined) {
-            // Move to end (most recently used)
-            this.cache.delete(key)
-            this.cache.set(key, value)
-        }
-        return value
-    }
-
-    set(key, value) {
-        // If key exists, delete it first (to update position)
-        if (this.cache.has(key)) {
-            this.cache.delete(key)
-        }
-        // Evict oldest if at capacity
-        else if (this.cache.size >= this.maxSize) {
-            const oldestKey = this.cache.keys().next().value
-            this.cache.delete(oldestKey)
-        }
-        this.cache.set(key, value)
-    }
-
-    getData() {
-        return this.cache
-    }
-
-    clear() {
-        this.cache.clear()
-    }
-
-    get size() {
-        return this.cache.size
-    }
+// Client-side cache only (one user per page). Bounded so long sessions don't grow it.
+const CLIENT_CACHE_MAX = 100
+const clientCache = createRequestCache()
+const remember = (map, key, value) => {
+    map.delete(key)
+    map.set(key, value)
+    if (map.size > CLIENT_CACHE_MAX) map.delete(map.keys().next().value)
 }
 
-// Global LRU cache with max 100 entries
-const promiseCache = new LRUCache(100)
-const dataCache = new LRUCache(100)
+function getSuspensePromise(cache, fetcher, cacheKey) {
+    const existing = cache.promises.get(cacheKey)
+    if (existing) return existing
 
-/**
- * Creates a suspense-compatible promise wrapper
- * React's use() hook requires a specific promise structure
- */
-function createSuspensePromise(promiseFn, cacheKey) {
-    // Check cache first
-    if (promiseCache.has(cacheKey)) {
-        const promise = promiseCache.get(cacheKey)
-        return promise
+    if (typeof window !== "undefined" && window.cachedData && window.cachedData[cacheKey] !== undefined) {
+        const value = window.cachedData[cacheKey]
+        delete window.cachedData[cacheKey]
+        const resolved = Promise.resolve(value)
+        // React reads these to return synchronously during hydration.
+        resolved.status = "fulfilled"
+        resolved.value = value
+        remember(cache.promises, cacheKey, resolved)
+        remember(cache.data, cacheKey, value)
+        return resolved
     }
 
-    // Check window.cachedData for server-sent data (client-side only)
-    if (typeof window !== "undefined" && window.cachedData) {
-        const cachedData = window.cachedData[cacheKey]
-        if (cachedData !== undefined) {
-            // Create a resolved promise with the cached data
-            const resolvedPromise = Promise.resolve(cachedData)
-
-            // Cache it in dataCache for future use
-            dataCache.set(cacheKey, cachedData)
-
-            // Attach status for synchronous checking
-            resolvedPromise._status = () => "fulfilled"
-            resolvedPromise._result = () => cachedData
-
-            // Cache the promise
-            promiseCache.set(cacheKey, resolvedPromise)
-
-            // Clean up: remove from window.cachedData to prevent memory leaks
-            // delete window.cachedData[cacheKey]
-
-            return resolvedPromise
-        }
-    }
-
-    let status = "pending"
-    let result
-
-    const promise = promiseFn().then(
-        (data) => {
-            dataCache.set(cacheKey, data)
-
-            status = "fulfilled"
-            result = data
-            return data
-        },
-        (error) => {
-            dataCache.set(cacheKey, error)
-
-            status = "rejected"
-            result = error
-            throw error
-        }
-    )
-
-    // Attach status for synchronous checking
-    promise._status = () => status
-    promise._result = () => result
-
-    promiseCache.set(cacheKey, promise)
-
+    const promise = Promise.resolve()
+        .then(fetcher)
+        .then((value) => {
+            remember(cache.data, cacheKey, value)
+            return value
+        })
+    remember(cache.promises, cacheKey, promise)
     return promise
 }
 
-export function PPRDataProvider({ phase, controller, cacheKey, children }) {
-    return (
-        <PPRDataContext.Provider value={{ phase, controller, cacheKey }}>{children}</PPRDataContext.Provider>
+/** Server: one cache per request. The handler creates it so it can read the results afterwards. */
+export const createPPRRequestCache = createRequestCache
+
+export function PPRDataProvider({ phase, cacheKey, cache, children }) {
+    const ownCache = useMemo(createRequestCache, [])
+    const value = useMemo(
+        () => ({ phase, cacheKey, cache: cache || ownCache }),
+        [phase, cacheKey, cache, ownCache]
     )
+    return <PPRDataContext.Provider value={value}>{children}</PPRDataContext.Provider>
 }
 
-export function usePPRRouteData(promise) {
-    const context = useContext(PPRDataContext)
-    const phase = context?.phase
-    const cacheKey = context?.cacheKey ?? (typeof window !== "undefined" ? window.location.pathname : "/")
+export function usePPRRouteData(fetcher) {
+    const ctx = useContext(PPRDataContext)
+    const renderPhase = useContext(PPRRenderContext)?.phase ?? ctx?.phase
+    const isServer = typeof window === "undefined"
+    const cacheKey = ctx?.cacheKey ?? (isServer ? "/" : window.location.pathname)
+    const cache = isServer ? ctx?.cache : clientCache
 
-    const dataPromise = useMemo(() => createSuspensePromise(promise, cacheKey), [promise, cacheKey])
+    const promise = useMemo(() => {
+        if (renderPhase === "prerender") return NEVER
+        if (!cache) {
+            // Server render without a provider: no shared cache, fetch for this render only.
+            return Promise.resolve().then(fetcher)
+        }
+        return getSuspensePromise(cache, fetcher, cacheKey)
+    }, [fetcher, cacheKey, cache, renderPhase])
 
-    // use() reads the promise - suspends if pending, returns data if resolved
-    const result = use(dataPromise)
-    return result
+    return use(promise)
 }
 
+/**
+ * Kept for compatibility with the first PPR API. The handler now cuts the shell itself
+ * (it aborts the prerender once the static parts are done), so this is a pass-through.
+ */
 export function DynamicDataProvider({ children }) {
-    const context = useContext(PPRDataContext)
-    const controller = context?.controller
-    const phase = context?.phase
-    if (phase === "prerender" && controller) {
-        setTimeout(() => controller.abort())
-    }
     return children
 }
 
-export function getCachedData(cacheKey) {
-    return dataCache.get(cacheKey)
+/** Server: data this request's usePPRRouteData calls resolved, for window.cachedData. */
+export function getRequestCachedData(requestCache, cacheKey) {
+    return requestCache?.data.get(cacheKey)
 }
-/**
- * Clear the promise cache (useful for testing or manual invalidation)
- */
+
+/** Client: drop cached route data (e.g. after a mutation). */
 export function clearPPRCache() {
-    promiseCache.clear()
+    clientCache.promises.clear()
+    clientCache.data.clear()
 }

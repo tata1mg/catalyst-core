@@ -9,4 +9,7 @@ const clientRouter = ({ routerInitialState }) => {
     return browserRouter
 }
 
+// Named export for `import { clientRouter } from "catalyst-core"`; the default export is kept
+// because apps import it as `import clientRouter from "catalyst-core/router/ClientRouter"`.
 export { clientRouter }
+export default clientRouter
