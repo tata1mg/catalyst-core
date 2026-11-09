@@ -1,0 +1,63 @@
+src/server/renderer/document/Head.jsx
+  s_d931432877f59e::t_434a55b900b07b 20,28,60
+src/web-router/types/index.d.ts
+  s_d931432877f59e::t_434a55b900b07b 1
+src/web-router/hooks.jsx
+  s_d931432877f59e::t_434a55b900b07b 1
+src/web-router/types/context.d.ts
+  s_d931432877f59e::t_434a55b900b07b 3,11
+src/web-router/types/components/RouterDataProvider.d.ts
+  s_d931432877f59e::t_434a55b900b07b 42,46,54,60
+src/vite/vite.config.js
+  s_d931432877f59e::t_434a55b900b07b 1,159,197,243-258,278,310-315
+src/web-router/components/RouterDataProvider.jsx
+  s_d931432877f59e::t_434a55b900b07b 10,12,44-45,47,52,142,153,159-160,193,217,238
+package.json
+  s_d931432877f59e::t_434a55b900b07b 41,46
+src/web-router/types/hooks.d.ts
+  s_d931432877f59e::t_434a55b900b07b 1
+README.md
+  s_d931432877f59e::t_434a55b900b07b 14,146-178
+  s_d931432877f59e::t_34616716aa8127 179
+src/otel.js
+  s_d931432877f59e::t_434a55b900b07b 3-18,25-26,33-443,445-447,451-453,466-469,473,495-524,532,545-569,578-585,587,589,599,614,620,643,649
+src/server/renderer/document/Body.jsx
+  s_d931432877f59e::t_434a55b900b07b 19,26-30
+  s_d931432877f59e::t_ea6cd03c5b70f7 17
+  s_d931432877f59e::t_f7a097ec7b28ac 34,55
+src/web-router/components/MetaTag.jsx
+  s_d931432877f59e::t_434a55b900b07b 6
+src/index.jsx
+  s_d931432877f59e::t_434a55b900b07b 1
+src/web-router/context.jsx
+  s_d931432877f59e::t_434a55b900b07b 5
+src/server/renderer/extract.js
+  s_d931432877f59e::t_434a55b900b07b 78,80-88,93-99,101,141-142,144-160,172-173,175-177,179-185,188
+src/vite/vite.config.client.js
+  s_d931432877f59e::t_434a55b900b07b 30
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_239a7c55581835 7,9,26-27,35,85-90,117,130,140-141,149-174,177-178,184,186-213,221-229,231,237-238,241-243,246-247,257,260,263-274,281,306-308,320-325,327,394-395
+  s_d931432877f59e::t_5ee6c93424cda5 350,358,367-368,375,384-385,404-405,415,424-425
+src/vite/FastRefresh.jsx
+  s_d931432877f59e::t_434a55b900b07b 3,7
+src/server/manifestCache.js
+  s_d931432877f59e::t_434a55b900b07b 6,20,28-31,43
+package-lock.json
+  s_d931432877f59e::t_b238e8c5a50237 24,29,5681-5683,5685-5686,5689,5692-5698,5701-5704,5706,5708-5710,6000-6004,6470-6472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4aafc2f262522f803e9fd85fb19308d0a24ec9d6",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
