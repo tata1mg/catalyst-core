@@ -3,7 +3,7 @@ import crypto from "crypto"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { nativeError } from "../utils.js"
+import { isInteractive, nativeError, needsAnswerError, select } from "../utils.js"
 import { cleanupOnSignal, maskSecret } from "../credentials.js"
 
 // iOS signing without opening Xcode. Signing files live in the app's
@@ -24,8 +24,13 @@ import { cleanupOnSignal, maskSecret } from "../credentials.js"
 //      keychain and the profile into Xcode's profile folders, and both are
 //      removed again when the build ends, also on Ctrl+C.
 //   2. Manually with an installed profile: ios.provisioningProfile.
-//   3. Automatically for ios.developmentTeam: cloud signing with the API key,
-//      or whatever Apple account is signed in to Xcode.
+//   3. Automatically with the App Store Connect API key (cloud signing).
+//   4. Manually with an App Store profile this Mac already has for the
+//      bundle id, when its certificate is in the keychain (app-store-connect
+//      exports only).
+//   5. Automatically with the Apple account signed in to Xcode, for
+//      ios.developmentTeam (buildAppIos.js picks and saves the team when it
+//      is unset).
 //
 // `security` takes the p12 password (`import -P`) and the throwaway keychain
 // password (`create-keychain -p`, `unlock-keychain -p`, `set-key-partition-list
@@ -194,8 +199,9 @@ function xcodeAuthArgs(apiKey) {
 }
 
 /**
- * How this build signs, decided from the config and the credentials alone
- * (no side effects), so the entitlements can be written before Xcode runs.
+ * How this build signs, decided from the config, the credentials and the
+ * installed profiles alone (no side effects), so the team check, the
+ * entitlements and the xcconfig all see the same plan.
  *
  * aps-environment: Xcode's entitlements merger takes aps-environment from the
  * provisioning profile it signs with. An automatic-signing archive is signed
@@ -208,12 +214,20 @@ function xcodeAuthArgs(apiKey) {
  * @param {ReturnType<typeof readIosCredentials> | null} [options.credentials]
  * @param {boolean} [options.release]
  * @param {string} [options.exportMethod]
+ * @param {string} [options.bundleId] - PRODUCT_BUNDLE_IDENTIFIER, for picking an installed profile
+ * @param {boolean} [options.notifications] - push is on: a picked profile needs aps-environment
+ * @param {() => ReturnType<typeof scanInstalledProfiles>} [options.scanProfiles] - called only when a release could sign with an installed profile
+ * @param {Date} [options.now]
  */
 function planIosSigning({
     iosConfig = {},
     credentials = null,
     release = false,
     exportMethod = "app-store-connect",
+    bundleId,
+    notifications = false,
+    scanProfiles,
+    now = new Date(),
 } = {}) {
     const teamId = String(iosConfig.developmentTeam || "").trim()
     const distribution = release && exportMethod !== "debugging"
@@ -236,13 +250,74 @@ function planIosSigning({
             apsEnvironment: distribution ? "production" : "development",
         }
     }
-    return {
+    const automatic = (source) => ({
         style: "automatic",
-        source: credentials?.apiKey ? "App Store Connect API key" : "Xcode account",
+        source,
         p12: false,
         teamId,
         apsEnvironment: "development",
+    })
+    if (release && credentials?.apiKey) return automatic("App Store Connect API key")
+    if (release && exportMethod === "app-store-connect" && bundleId && scanProfiles) {
+        const scan = scanProfiles()
+        const { identity } = pickInstalledProfile(scan, { bundleId, teamId, needsPush: notifications, now })
+        if (identity) {
+            // By name, as people know it, unless another installed profile shares it.
+            const sameName = scan.profiles.filter((profile) => profile.name === identity.profileName).length
+            return {
+                style: "manual",
+                source: "installed profile",
+                p12: false,
+                teamId: identity.teamId || teamId,
+                provisioningProfile: sameName === 1 ? identity.profileName : identity.uuid,
+                profileName: identity.profileName,
+                identity: identity.sha1,
+                signingCertificate: identity.sha1,
+                certificateName: identity.name,
+                apsEnvironment: "production",
+            }
+        }
     }
+    return automatic("Xcode account")
+}
+
+/** PRODUCT_BUNDLE_IDENTIFIER as Shared.xcconfig sets it (generateXCConfig). */
+function productBundleId(iosConfig = {}) {
+    return iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
+}
+
+/**
+ * planIosSigning for a resolved WEBVIEW_CONFIG (resolveNativeConfig), so
+ * buildAppIos.js, which asks for the team, and createIosBuild, which signs,
+ * cannot disagree.
+ *
+ * @param {object} options
+ * @param {Record<string, any>} options.WEBVIEW_CONFIG - resolved
+ * @param {ReturnType<typeof readIosCredentials> | null} [options.credentials]
+ * @param {boolean} [options.release]
+ * @param {string} [options.exportMethod]
+ * @param {() => ReturnType<typeof scanInstalledProfiles>} [options.scanProfiles]
+ * @param {Date} [options.now]
+ */
+function planSigningForConfig({
+    WEBVIEW_CONFIG = {},
+    credentials = null,
+    release,
+    exportMethod,
+    scanProfiles,
+    now,
+}) {
+    const iosConfig = WEBVIEW_CONFIG.ios || {}
+    return planIosSigning({
+        iosConfig,
+        credentials,
+        release,
+        exportMethod,
+        bundleId: productBundleId(iosConfig),
+        notifications: Boolean(WEBVIEW_CONFIG.notifications?.enabled),
+        scanProfiles,
+        now,
+    })
 }
 
 /** The quoted paths `security list-keychains` prints, one per line. */
@@ -254,6 +329,14 @@ function parseKeychainList(output) {
 function parseIdentity(output) {
     const match = /^\s*\d+\)\s+([0-9A-Fa-f]{40})\s+"([^"]+)"/m.exec(String(output || ""))
     return match ? { sha1: match[1].toUpperCase(), name: match[2] } : null
+}
+
+/** The SHA-1 of every valid identity `security find-identity -v -p codesigning` lists. */
+function parseIdentities(output) {
+    return [...String(output || "").matchAll(/^\s*\d+\)\s+([0-9A-Fa-f]{40})\s+"([^"]+)"/gm)].map((match) => ({
+        sha1: match[1].toUpperCase(),
+        name: match[2],
+    }))
 }
 
 /** Whether a profile's application-identifier (TEAM.bundle, maybe ending in *) covers the bundle id. */
@@ -323,6 +406,396 @@ function readProvisioningProfile(file, { workDir, run = defaultRun }) {
         throw nativeError("IOS-012", "the provisioning profile has no UUID")
     }
     return profile
+}
+
+/**
+ * Every provisioning profile installed on this Mac and every valid signing
+ * identity in the keychain, decoded once so a build reads them once
+ * (createProfileScanner). Nothing at all when the keychain has no identity:
+ * no profile could sign then. Never throws; a profile that does not decode
+ * is skipped.
+ *
+ * @param {object} [options]
+ * @param {(command: string, args: string[], options?: object) => string} [options.run]
+ * @param {string} [options.homeDir]
+ * @param {string} [options.workDir] - scratch folder for the decoded plist; a private temp folder by default
+ * @param {string} [options.tmpRoot]
+ */
+function scanInstalledProfiles({
+    run = defaultRun,
+    homeDir = os.homedir(),
+    workDir,
+    tmpRoot = os.tmpdir(),
+} = {}) {
+    let identities = []
+    try {
+        identities = parseIdentities(run("security", ["find-identity", "-v", "-p", "codesigning"]))
+    } catch (error) {
+        return { identities: [], profiles: [] }
+    }
+    if (!identities.length) return { identities, profiles: [] }
+
+    // mkdtemp makes the folder 0700.
+    const scratch = workDir || fs.mkdtempSync(path.join(tmpRoot, "catalyst-ios-profiles-"))
+    const decoded = path.join(scratch, "installed-profile.plist")
+    const extract = (keyPath) => {
+        try {
+            return String(run("plutil", ["-extract", keyPath, "raw", "-o", "-", decoded])).trim() || undefined
+        } catch (error) {
+            return undefined
+        }
+    }
+    const flag = (keyPath) => {
+        const value = extract(keyPath)
+        return value === undefined ? undefined : value === "true" || value === "1"
+    }
+    const profiles = []
+    const seen = new Set()
+    try {
+        for (const dir of profileDirectories(homeDir)) {
+            let files = []
+            try {
+                files = fs
+                    .readdirSync(dir)
+                    .filter((file) => /\.(mobileprovision|provisionprofile)$/.test(file))
+            } catch (error) {
+                continue
+            }
+            for (const file of files) {
+                try {
+                    run("security", ["cms", "-D", "-i", path.join(dir, file), "-o", decoded])
+                } catch (error) {
+                    continue
+                }
+                const uuid = extract("UUID")
+                // Xcode keeps the same profile in both folders.
+                if (!uuid || seen.has(uuid.toLowerCase())) continue
+                seen.add(uuid.toLowerCase())
+                const expirationDate = extract("ExpirationDate")
+                const expires = Date.parse(expirationDate || "")
+                const count = Number(extract("DeveloperCertificates")) || 0
+                const certificates = []
+                for (let index = 0; index < count; index += 1) {
+                    const der = extract(`DeveloperCertificates.${index}`)
+                    if (der) {
+                        certificates.push(
+                            crypto
+                                .createHash("sha1")
+                                .update(Buffer.from(der, "base64"))
+                                .digest("hex")
+                                .toUpperCase()
+                        )
+                    }
+                }
+                profiles.push({
+                    file,
+                    uuid,
+                    name: extract("Name"),
+                    teamId: extract("TeamIdentifier.0"),
+                    applicationIdentifier: extract("Entitlements.application-identifier"),
+                    apsEnvironment: extract("Entitlements.aps-environment"),
+                    getTaskAllow: flag("Entitlements.get-task-allow"),
+                    devices: Number(extract("ProvisionedDevices")) || 0,
+                    allDevices: flag("ProvisionsAllDevices") === true,
+                    expirationDate,
+                    expires: Number.isFinite(expires) ? expires : 0,
+                    certificates,
+                })
+            }
+        }
+    } finally {
+        if (workDir) fs.rmSync(decoded, { force: true })
+        else fs.rmSync(scratch, { recursive: true, force: true })
+    }
+    return { identities, profiles }
+}
+
+/** scanInstalledProfiles, run on the first call only: one scan per build. */
+function createProfileScanner(options = {}) {
+    let scan = null
+    return () => {
+        if (!scan) scan = scanInstalledProfiles(options)
+        return scan
+    }
+}
+
+/** An App Store distribution profile: no device list, not enterprise, not debuggable. */
+function isAppStoreProfile(profile) {
+    return profile.devices === 0 && !profile.allDevices && profile.getTaskAllow === false
+}
+
+/**
+ * The installed profile to sign with, and the keychain identity it was made
+ * for. Xcode resolves a generic "iPhone Distribution" to whichever
+ * distribution certificate it finds first, which fails when the keychain
+ * holds more than one and the profile lists another.
+ *
+ * With `profile` (ios.provisioningProfile, by name or UUID) that profile,
+ * for the bundle id or a wildcard covering it. Without, an App Store
+ * profile (.mobileprovision, no devices, get-task-allow false) for exactly
+ * this bundle id, for `teamId` when set, with aps-environment when
+ * `needsPush`. Expired profiles are skipped; the newest one whose
+ * certificate is in the keychain wins. Without a match, `reason` says why.
+ *
+ * @param {ReturnType<typeof scanInstalledProfiles>} scan
+ * @param {object} options
+ * @param {string} [options.profile]
+ * @param {string} [options.bundleId]
+ * @param {string} [options.teamId]
+ * @param {boolean} [options.needsPush]
+ * @param {Date} [options.now]
+ * @returns {{ identity: { sha1: string, name: string, teamId?: string, uuid: string, profileName?: string } | null, reason?: string }}
+ */
+function pickInstalledProfile(scan, { profile, bundleId, teamId, needsPush = false, now = new Date() } = {}) {
+    const wanted = String(profile || "").trim()
+    const bySha1 = new Map((scan?.identities || []).map((identity) => [identity.sha1, identity]))
+    const appIdOf = (candidate) => {
+        const id = String(candidate.applicationIdentifier || "")
+        return id.slice(id.indexOf(".") + 1)
+    }
+    // scanInstalledProfiles reads no profile then.
+    if (!bySha1.size) return { identity: null, reason: "the keychain has no valid signing certificate" }
+    let candidates = scan?.profiles || []
+    /** Keep the candidates that pass; when none does, that check is the reason. */
+    const steps = wanted
+        ? [
+              [
+                  (c) => c.name === wanted || String(c.uuid).toLowerCase() === wanted.toLowerCase(),
+                  () => "no installed profile has that name or UUID",
+              ],
+              [
+                  (c) => !(c.expires && c.expires <= now.getTime()),
+                  (left) => `it expired on ${left[0].expirationDate}`,
+              ],
+              [
+                  (c) => profileMatchesBundleId(c.applicationIdentifier, bundleId),
+                  (left) => `it is for ${appIdOf(left[0])}, not ${bundleId}`,
+              ],
+          ]
+        : [
+              [
+                  (c) =>
+                      c.file.endsWith(".mobileprovision") &&
+                      c.applicationIdentifier &&
+                      appIdOf(c) === bundleId,
+                  () => `no installed profile is for exactly ${bundleId}`,
+              ],
+              [isAppStoreProfile, () => `no installed App Store profile is for ${bundleId}`],
+              [
+                  (c) => !teamId || c.teamId === teamId,
+                  () => `no installed App Store profile for ${bundleId} is for team ${teamId}`,
+              ],
+              [
+                  (c) => !needsPush || Boolean(c.apsEnvironment),
+                  () => `no installed App Store profile for ${bundleId} has push notifications`,
+              ],
+              [
+                  (c) => !(c.expires && c.expires <= now.getTime()),
+                  () => `every installed App Store profile for ${bundleId} has expired`,
+              ],
+          ]
+    for (const [keep, reason] of steps) {
+        const left = candidates.filter(keep)
+        if (!left.length) return { identity: null, reason: reason(candidates) }
+        candidates = left
+    }
+    const newestFirst = [...candidates].sort((a, b) => b.expires - a.expires)
+    for (const match of newestFirst) {
+        const identity = match.certificates.map((sha1) => bySha1.get(sha1)).find(Boolean)
+        if (identity) {
+            return {
+                identity: { ...identity, teamId: match.teamId, uuid: match.uuid, profileName: match.name },
+            }
+        }
+    }
+    return {
+        identity: null,
+        reason: wanted
+            ? "its certificate is not in the keychain"
+            : `the certificate of the App Store profile for ${bundleId} is not in the keychain`,
+    }
+}
+
+/**
+ * The keychain identity for an installed profile: pickInstalledProfile over
+ * `scan`, or over a fresh scanInstalledProfiles. Null when nothing matches.
+ *
+ * @param {object} options
+ * @param {string} [options.profile] - ios.provisioningProfile; unset picks an App Store profile for the bundle id
+ * @param {string} [options.bundleId]
+ * @param {string} [options.teamId]
+ * @param {boolean} [options.needsPush]
+ * @param {ReturnType<typeof scanInstalledProfiles>} [options.scan]
+ * @param {string} [options.workDir]
+ * @param {(command: string, args: string[], options?: object) => string} [options.run]
+ * @param {string} [options.homeDir]
+ * @param {Date} [options.now]
+ * @returns {{ sha1: string, name: string, teamId?: string, uuid: string, profileName?: string } | null}
+ */
+function findInstalledProfileIdentity({
+    profile,
+    bundleId,
+    teamId,
+    needsPush,
+    scan,
+    workDir,
+    run = defaultRun,
+    homeDir = os.homedir(),
+    now = new Date(),
+} = {}) {
+    const profiles = scan || scanInstalledProfiles({ run, homeDir, workDir })
+    return pickInstalledProfile(profiles, { profile, bundleId, teamId, needsPush, now }).identity
+}
+
+// ─── The team for signing with the Apple account in Xcode ──────────────────
+
+const XCODE_TEAM_HINT =
+    "Open Xcode > Settings > Accounts and sign in with the Apple account that has your company's team, or set WEBVIEW_CONFIG.ios.developmentTeam."
+
+/**
+ * The teams in IDEProvisioningTeamByIdentifier (account id -> teams), one
+ * per team id. `free` is isFreeProvisioningTeam, undefined when Xcode did
+ * not say. Null when the value is not that shape.
+ *
+ * @param {string} json
+ * @returns {{ teamId: string, teamName: string, free: boolean | undefined }[] | null}
+ */
+function parseXcodeTeams(json) {
+    let byAccount
+    try {
+        byAccount = JSON.parse(String(json || ""))
+    } catch (error) {
+        return null
+    }
+    if (!byAccount || typeof byAccount !== "object" || Array.isArray(byAccount)) return null
+    const teams = new Map()
+    for (const list of Object.values(byAccount)) {
+        for (const team of Array.isArray(list) ? list : []) {
+            const teamId = String(team?.teamID || "").trim()
+            if (!/^[A-Za-z0-9]+$/.test(teamId)) continue
+            const raw = team.isFreeProvisioningTeam
+            const free = raw === true || raw === 1 ? true : raw === false || raw === 0 ? false : undefined
+            const known = teams.get(teamId)
+            if (!known) teams.set(teamId, { teamId, teamName: String(team.teamName || "").trim(), free })
+            else if (known.free === undefined) known.free = free
+        }
+    }
+    return [...teams.values()]
+}
+
+/**
+ * The teams of the Apple accounts signed in to Xcode. Reads only the
+ * IDEProvisioningTeamByIdentifier key of Xcode's preferences, through
+ * plutil's stdin: no file, and the account emails stored beside it are
+ * never extracted or shown. Null when Xcode's preferences cannot be read.
+ *
+ * @param {object} [options]
+ * @param {(command: string, args: string[], options?: object) => string} [options.run]
+ */
+function readXcodeTeams({ run = defaultRun } = {}) {
+    try {
+        const preferences = run("defaults", ["export", "com.apple.dt.Xcode", "-"])
+        return parseXcodeTeams(
+            run("plutil", ["-extract", "IDEProvisioningTeamByIdentifier", "json", "-o", "-", "-"], {
+                input: preferences,
+            })
+        )
+    } catch (error) {
+        return null
+    }
+}
+
+/** True when this release signs with the Apple account in Xcode and has no team yet. */
+function needsXcodeTeam(plan, { release = false } = {}) {
+    return Boolean(release && plan?.style === "automatic" && plan.source === "Xcode account" && !plan.teamId)
+}
+
+/**
+ * The Xcode team to sign with. A personal (free) team cannot sign an App
+ * Store, release-testing or enterprise export, so it is left out unless the
+ * export is for debugging; a team Xcode did not mark either way is kept.
+ * One team is used; several are a question, NATIVE-005 without a terminal;
+ * none is IOS-010.
+ *
+ * @param {object} options
+ * @param {ReturnType<typeof parseXcodeTeams>} options.teams - from readXcodeTeams
+ * @param {string} [options.exportMethod]
+ * @param {boolean} [options.isTTY]
+ * @param {typeof select} [options.choose]
+ * @returns {Promise<{ teamId: string, teamName: string, free: boolean | undefined }>}
+ */
+async function chooseXcodeTeam({ teams, exportMethod = "app-store-connect", isTTY, choose = select }) {
+    if (!teams) {
+        throw nativeError("IOS-010", "could not read which teams are signed in to Xcode", {
+            hint: XCODE_TEAM_HINT,
+        })
+    }
+    const usable = exportMethod === "debugging" ? teams : teams.filter((team) => team.free !== true)
+    if (!usable.length) {
+        throw nativeError(
+            "IOS-010",
+            teams.length
+                ? `Xcode is signed in with a personal team only, and a personal team cannot sign ${exportMethod} builds`
+                : "no Apple account with a team is signed in to Xcode",
+            { hint: XCODE_TEAM_HINT }
+        )
+    }
+    if (usable.length === 1) return usable[0]
+    const label = (team) => `${team.teamName || "Unnamed team"} (${team.teamId})`
+    const question = "Which team signs this app?"
+    if (!(isTTY ?? isInteractive())) {
+        throw needsAnswerError(question, {
+            hint: `Set WEBVIEW_CONFIG.ios.developmentTeam in config/config.json to one of ${usable
+                .map(label)
+                .join(", ")}, or run the command in an interactive terminal.`,
+        })
+    }
+    const teamId = await choose(
+        question,
+        usable.map((team) => ({ label: label(team), value: team.teamId })),
+        { isTTY: true }
+    )
+    return usable.find((team) => team.teamId === teamId) || usable[0]
+}
+
+/**
+ * The team step for a release that signs with the Xcode account and has no
+ * ios.developmentTeam: choose the team (chooseXcodeTeam), then in a terminal
+ * save it with `save`; without one (CI, agents) only use it for this build,
+ * since config.json is never written there. Null when no team is needed.
+ *
+ * @param {object} options
+ * @param {ReturnType<typeof planIosSigning>} options.plan - from planSigningForConfig
+ * @param {boolean} [options.release]
+ * @param {string} [options.exportMethod]
+ * @param {boolean} [options.isTTY] - defaults to isInteractive()
+ * @param {() => ReturnType<typeof parseXcodeTeams>} [options.readTeams]
+ * @param {typeof select} [options.choose]
+ * @param {(teamId: string) => void} options.save - writes WEBVIEW_CONFIG.ios.developmentTeam
+ * @param {(message: string, type?: string) => void} [options.log]
+ * @returns {Promise<{ teamId: string, saved: boolean } | null>}
+ */
+async function settleXcodeTeam({
+    plan,
+    release = false,
+    exportMethod,
+    isTTY,
+    readTeams = readXcodeTeams,
+    choose = select,
+    save,
+    log = () => {},
+}) {
+    if (!needsXcodeTeam(plan, { release })) return null
+    const interactive = isTTY ?? isInteractive()
+    const team = await chooseXcodeTeam({ teams: readTeams(), exportMethod, isTTY: interactive, choose })
+    const label = `${team.teamName || "Unnamed team"} (${team.teamId})`
+    if (!interactive) {
+        log(`Using team ${label} from Xcode. Set WEBVIEW_CONFIG.ios.developmentTeam to keep it.`, "note")
+        return { teamId: team.teamId, saved: false }
+    }
+    log(`Signing for ${label}, signed in to Xcode`, "info")
+    save(team.teamId)
+    return { teamId: team.teamId, saved: true }
 }
 
 /**
@@ -588,7 +1061,7 @@ const SIGNING_FAILURE_PATTERNS = [
     /No profiles? for ['"].*['"] (?:were|was) found/i,
     /No signing certificate/i,
     /requires a provisioning profile/i,
-    /Provisioning profile ".*" (?:doesn't|does not|is not|has expired)/i,
+    /Provisioning profile ".*" (?:doesn't|does not|is not|has expired|has app ID)/i,
     /doesn't match the entitlements file's value/i,
     /errSecInternalComponent/i,
     /Code ?Sign(?:ing)? error/i,
@@ -604,14 +1077,39 @@ function isSigningFailure(output) {
 }
 
 /**
- * The coded error for a signing failure, keeping xcodebuild's transcript for the diagnostic.
+ * The first line of xcodebuild's output that names the signing problem
+ * (an error line when there is one),
+ * without the file path before ": error:", at most 300 characters.
+ *
+ * @param {string} [output]
+ * @returns {string | null}
+ */
+function signingFailureLine(output) {
+    const matching = String(output || "")
+        .split(/\r?\n/)
+        .filter((text) => SIGNING_FAILURE_PATTERNS.some((pattern) => pattern.test(text)))
+    // An error line over the echoed command line, which names -authenticationKeyPath.
+    const line = matching.find((text) => /\berror\b/i.test(text)) || matching[0]
+    if (!line) return null
+    let text = line
+        .trim()
+        .replace(/^.*?:\s*error:\s*/i, "")
+        .replace(/^error:\s*/i, "")
+    if (text.length > 300) text = `${text.slice(0, 297)}...`
+    return text || null
+}
+
+/**
+ * The coded error for a signing failure, keeping xcodebuild's transcript for
+ * the diagnostic. The detail ends with the line that says what went wrong.
  *
  * @param {string} detail
  * @param {any} [cause]
  * @returns {any}
  */
 function signingSetupError(detail, cause) {
-    const error = nativeError("IOS-010", detail)
+    const said = signingFailureLine(cause?.output)
+    const error = nativeError("IOS-010", said ? `${detail}: ${said}` : detail)
     if (cause) {
         error.cause = cause
         if (cause.output) error.output = cause.output
@@ -628,8 +1126,21 @@ export {
     readIosCredentials,
     xcodeAuthArgs,
     planIosSigning,
+    planSigningForConfig,
+    productBundleId,
     parseKeychainList,
     parseIdentity,
+    parseIdentities,
+    scanInstalledProfiles,
+    createProfileScanner,
+    pickInstalledProfile,
+    findInstalledProfileIdentity,
+    XCODE_TEAM_HINT,
+    parseXcodeTeams,
+    readXcodeTeams,
+    needsXcodeTeam,
+    chooseXcodeTeam,
+    settleXcodeTeam,
     profileMatchesBundleId,
     profileDirectories,
     readProvisioningProfile,
@@ -637,5 +1148,6 @@ export {
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,
+    signingFailureLine,
     signingSetupError,
 }

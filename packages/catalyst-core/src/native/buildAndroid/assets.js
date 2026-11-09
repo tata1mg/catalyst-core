@@ -3,6 +3,7 @@
 const fs = require("fs")
 const path = require("path")
 const { checkAppIcon } = require("../appIcon.js")
+const splashConfig = require("../splashConfig.js")
 
 function createAssetsPhase(ctx) {
     const { configPath, publicPath, pwd, progress } = ctx
@@ -144,8 +145,25 @@ function createAssetsPhase(ctx) {
         await copyPublicHtml("offline.html", "offline")
     }
 
+    // The page paints the native splash colour once it takes over, so it gets the
+    // colour the native side resolves (SplashActivity and themes.xml default to white).
     async function copySplashHtml() {
-        await copyPublicHtml("splashscreen.html", "splash", true)
+        let backgroundColor = "#ffffff"
+        try {
+            const { WEBVIEW_CONFIG = {} } = JSON.parse(fs.readFileSync(configPath, "utf8"))
+            backgroundColor = WEBVIEW_CONFIG.splashScreen?.backgroundColor || backgroundColor
+        } catch {
+            // An unreadable config fails the config phase; the copy itself still goes ahead.
+        }
+        try {
+            splashConfig.copySplashHtml(
+                `${process.cwd()}/public/splashscreen.html`,
+                `${pwd}/androidProject/app/src/main/assets/splash/splashscreen.html`,
+                backgroundColor
+            )
+        } catch (error) {
+            progress.log(`Warning: Error copying splashscreen.html: ${error.message}`, "warning")
+        }
     }
 
     /**

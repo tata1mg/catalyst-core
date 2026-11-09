@@ -39,7 +39,9 @@ You do not configure an address for it. Keep `LOCAL_IP` as `localhost`; each deb
 - iOS simulator: `localhost`
 - iPhone: your Mac's `<Local Hostname>.local` name, so it keeps working when your IP changes
 
-Apps set up before Catalyst 1.3.0 had a LAN address saved in `config/config.json`. The first build on 1.3.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
+Set `LOCAL_IP` to a real host, such as a staging server, only when you want the debug build to load that site instead of the dev server.
+
+Apps set up before Catalyst 1.2.0 had a LAN address saved in `config/config.json`. The first build on 1.2.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
 
 ## What does `CLIENT_ENV_VARIABLES` do?
 
@@ -69,6 +71,14 @@ First setup is slower because SDK and bridge checks are performed.
 ## Why does `npm run ios` build an IPA instead of opening the simulator?
 
 `WEBVIEW_CONFIG.ios.buildType` is `release` (in any case), which builds the store IPA like `--release` and prints a deprecation warning. Set it to `debug` or remove it, and use `npm run ios:release` for store builds. The same applies to `android.buildType`.
+
+## How do I share an Android test build?
+
+Set `WEBVIEW_CONFIG.LOCAL_IP` to a site the other phone can reach, such as your public staging site or one on your VPN, and run `npm run android` (`npm run buildApp:android` in apps created before 1.2.0). Send them `build-output/android/debug/<App>-debug.apk`. A `<App>-debug-devserver.apk` loads your computer's dev server and only works on your setup. You can also run `npm run android:release` and share the `<App>.apk` next to the AAB; it will not install over a copy from Google Play, so uninstall that first. See [Share a test build](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#share-a-test-build).
+
+## Do I need signing files for an iOS release?
+
+Not on your own Mac. Sign in to Xcode with your company team's Apple account (Xcode > Settings > Accounts), or have the App Store profile for the app installed, and `npm run ios:release` signs with that. The files in `credentials/ios/` are for CI. See [Set up signing](/content/Deployment/ios-production-release#2-set-up-signing).
 
 ## Common Errors
 

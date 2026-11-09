@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { ERROR_DEFINITIONS } from "../../src/errors/registry.js"
 import {
+    appIdSource,
     BUILD_NUMBER_EPOCH_MS,
     MAX_BUILD_NUMBER,
     assertReleaseHost,
@@ -101,6 +102,27 @@ describe("isPlaceholderAppId", () => {
         "",
     ])("%j is a placeholder", (id) => expect(isPlaceholderAppId(id)).toBe(true))
     it("accepts a real id", () => expect(isPlaceholderAppId("com.acme.shop")).toBe(false))
+})
+
+describe("appIdSource", () => {
+    it("names the key that wins: the platform key, then appId", () => {
+        const wv = {
+            appId: "com.acme.shop",
+            android: { packageName: " com.acme.droid " },
+            ios: { appBundleId: "com.acme.b", bundleIdentifier: "com.acme.a" },
+        }
+        expect(appIdSource("android", wv)).toEqual({ key: "android.packageName", value: "com.acme.droid" })
+        expect(appIdSource("ios", wv)).toEqual({ key: "ios.bundleIdentifier", value: "com.acme.a" })
+        expect(appIdSource("ios", { ...wv, ios: { appBundleId: "com.acme.b" } })).toEqual({
+            key: "ios.appBundleId",
+            value: "com.acme.b",
+        })
+        expect(appIdSource("android", { appId: "com.acme.shop", android: { packageName: "" } })).toEqual({
+            key: "appId",
+            value: "com.acme.shop",
+        })
+        expect(appIdSource("ios", {})).toBeNull()
+    })
 })
 
 describe("privateHostReason", () => {
@@ -264,14 +286,53 @@ describe("resolveNativeConfig: release", () => {
         expect(resolved.appId).toBe("com.acme.shop")
     })
 
-    it("prefers appId over the platform keys", () => {
-        const resolved = resolve(
+    it("prefers the platform keys over appId, and keeps both iOS keys equal", () => {
+        const ios = resolve(
             "ios",
             { WEBVIEW_CONFIG: { ...newShape.WEBVIEW_CONFIG, ios: { appBundleId: "com.old.id" } } },
             { release: true }
         )
-        expect(resolved.appId).toBe("com.acme.shop")
-        expect(resolved.WEBVIEW_CONFIG.ios.appBundleId).toBe("com.acme.shop")
+        expect(ios.appId).toBe("com.old.id")
+        // simctl reads appBundleId, the xcconfig bundleIdentifier || appBundleId: both get the one id.
+        expect(ios.WEBVIEW_CONFIG.ios).toMatchObject({
+            appBundleId: "com.old.id",
+            bundleIdentifier: "com.old.id",
+        })
+        const android = resolve(
+            "android",
+            { WEBVIEW_CONFIG: { ...newShape.WEBVIEW_CONFIG, android: { packageName: "com.acme.android" } } },
+            { release: true }
+        )
+        expect(android.appId).toBe("com.acme.android")
+        expect(android.WEBVIEW_CONFIG.android.packageName).toBe("com.acme.android")
+        // Without a platform key the shared appId applies.
+        expect(resolve("android", newShape, { release: true }).appId).toBe("com.acme.shop")
+        expect(resolve("ios", newShape, { release: true }).appId).toBe("com.acme.shop")
+    })
+
+    it("refuses a placeholder platform key even when appId is real (it wins)", () => {
+        const config = {
+            WEBVIEW_CONFIG: {
+                ...newShape.WEBVIEW_CONFIG,
+                android: { packageName: "io.yourname.androidproject" },
+            },
+        }
+        const error = thrown(() => resolve("android", config, { release: true }))
+        expect(error.code).toBe("NATIVE-003")
+        // The message names the key to fix: it is not the appId the user set.
+        expect(error.message).toContain('"io.yourname.androidproject" (WEBVIEW_CONFIG.android.packageName)')
+        expect(resolve("ios", config, { release: true }).appId).toBe("com.acme.shop")
+    })
+
+    it("validates the id that won (NATIVE-010), not the one it shadows", () => {
+        const config = {
+            WEBVIEW_CONFIG: { ...newShape.WEBVIEW_CONFIG, appId: "com.acme.my-shop", ios: {} },
+        }
+        expect(thrown(() => resolve("android", config, { release: true })).code).toBe("NATIVE-010")
+        const shadowed = {
+            WEBVIEW_CONFIG: { ...config.WEBVIEW_CONFIG, android: { packageName: "com.acme.myshop" } },
+        }
+        expect(resolve("android", shadowed, { release: true }).appId).toBe("com.acme.myshop")
     })
 
     it("reads the iOS id from bundleIdentifier, then appBundleId, and ships that one everywhere", () => {
@@ -513,21 +574,53 @@ describe("resolveNativeConfig: debug", () => {
         expect(resolved.WEBVIEW_CONFIG.accessControl).toEqual({ enabled: false, allowedUrls: null })
     })
 
-    it("keeps a legacy public LOCAL_IP with a warning and no dev server", () => {
-        const logs: string[] = []
+    it("loads a public LOCAL_IP with an info line and no dev server", () => {
+        const logs: Array<[string, string?]> = []
         const resolved = resolve(
             "android",
             { WEBVIEW_CONFIG: { LOCAL_IP: "shop.acme.com", port: "443", useHttps: true } },
-            { log: (message: string) => logs.push(message) }
+            { log: (message: string, type?: string) => logs.push([message, type]) }
         )
         expect(resolved.usesDevServer).toBe(false)
+        expect(resolved.devOrigin).toBeNull()
+        expect(resolved.startUrl).toBe("https://shop.acme.com:443/")
         expect(resolved.WEBVIEW_CONFIG.LOCAL_IP).toBe("shop.acme.com")
-        expect(logs.join("\n")).toContain("WEBVIEW_CONFIG.url")
+        expect(logs).toEqual([["Debug build loads shop.acme.com from WEBVIEW_CONFIG.LOCAL_IP", "info"]])
     })
 
-    it("replaces a LAN LOCAL_IP saved by an older setup with the dev host", () => {
-        const resolved = resolve("android", { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.1.20", port: "3005" } })
-        expect(resolved.WEBVIEW_CONFIG.LOCAL_IP).toBe("localhost")
+    it("loads a private LOCAL_IP that is not this machine (VPN or LAN staging)", () => {
+        const resolved = resolve("android", { WEBVIEW_CONFIG: { LOCAL_IP: "10.0.38.192", port: "8080" } })
+        expect(resolved.usesDevServer).toBe(false)
+        expect(resolved.startUrl).toBe("http://10.0.38.192:8080/")
+    })
+
+    it("loads LOCAL_IP even when url is set", () => {
+        const resolved = resolve("ios", {
+            WEBVIEW_CONFIG: { url: "https://shop.acme.com", LOCAL_IP: "staging.acme.com", port: "3005" },
+        })
+        expect(resolved.usesDevServer).toBe(false)
+        expect(resolved.WEBVIEW_CONFIG.LOCAL_IP).toBe("staging.acme.com")
+    })
+
+    it("uses the dev server for this machine's own address, localhost, loopback and 0.0.0.0", () => {
+        const here = new Set(["192.168.1.20", "jane-mac.local"])
+        for (const LOCAL_IP of [
+            "192.168.1.20",
+            "jane-mac.local",
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "0.0.0.0",
+            "",
+        ]) {
+            const resolved = resolve(
+                "android",
+                { WEBVIEW_CONFIG: { LOCAL_IP, port: "3005" } },
+                { localHosts: here }
+            )
+            expect(resolved.usesDevServer).toBe(true)
+            expect(resolved.WEBVIEW_CONFIG.LOCAL_IP).toBe("localhost")
+        }
     })
 
     it("fills platform blocks that are missing", () => {

@@ -6,15 +6,15 @@ id: releasing-a-full-app
 
 # Releasing a Full App
 
-This page takes a Catalyst app from a working debug build to a first release in Google Play internal testing and TestFlight. Follow it in order the first time. Later releases only need steps 3, 4 and 7.
+This page takes a Catalyst app from a working debug build to a first release in Google Play internal testing and TestFlight. Follow it in order the first time. Later releases only need steps 3 to 7.
 
 ## 1. Prepare the app
 
 1. Deploy the web app over HTTPS.
-2. In `config/config.json`, set `WEBVIEW_CONFIG.appId` to your own reverse-DNS id (not `com.example.`), `appName` to the name under the icon, and `url` to the deployed address, for example `https://shop.acme.com`. The id cannot change after the first upload.
+2. In `config/config.json`, set `WEBVIEW_CONFIG.appId` to your own reverse-DNS id (not `com.example.`), `appName` to the name under the icon, and `url` to the deployed address, for example `https://shop.acme.com`. The id cannot change after the first upload. If you leave the id or `url` unset, the first release in a terminal asks for them and saves your answers.
 3. Set the `version` in `package.json`, for example `1.0.0`.
 4. Replace `public/icon.png` with your icon: square, opaque, at least 1024x1024 pixels.
-5. For iOS, set `WEBVIEW_CONFIG.ios.developmentTeam` to your team ID.
+5. For iOS, sign in to Xcode with the Apple account that is in your company's developer team: Xcode > Settings > Accounts.
 
 See [Universal App Deployment](/content/Deployment/universal-app-deployment#configure-the-app) for what each key does.
 
@@ -29,7 +29,7 @@ App Store Connect:
 
 1. Under Certificates, Identifiers & Profiles on developer.apple.com, register an App ID with your `appId` as the bundle ID.
 2. In App Store Connect, choose Apps > + > New App and pick that bundle ID.
-3. For cloud signing, create an App Store Connect API key with the Admin role under Users and Access > Integrations, and download the `.p8`.
+3. For cloud signing in CI, create an App Store Connect API key with the Admin role under Users and Access > Integrations, and download the `.p8`.
 
 ## 3. Build the Android release
 
@@ -37,7 +37,7 @@ App Store Connect:
 npm run android:release
 ```
 
-Run it in a terminal. The first time, answer yes to creating the upload key and no to "Has this app been uploaded to Google Play before". Then back up the key right away:
+In apps created before 1.2.0, run `npm run buildApp:android -- --release`. Run it in a terminal. The first time, answer yes to creating the upload key and no to "Has this app been uploaded to Google Play before". Then back up the key right away:
 
 ```bash
 npx catalyst credentials:export android
@@ -45,7 +45,7 @@ npx catalyst credentials:export android
 
 Keep the printed value in a password manager. Without this key you cannot update the app.
 
-The bundle is in `build-output/android/<version>-<build>/` with `upload_certificate.pem` next to it.
+The build writes three files to `build-output/android/<version>-<build>/`: `<App>.aab`, the bundle for Google Play, `<App>.apk`, the same release for test phones, and `upload_certificate.pem`. The APK will not install over a copy from Google Play, so uninstall that first.
 
 ## 4. Upload to Google Play internal testing
 
@@ -58,9 +58,9 @@ Play Console checks the bundle after upload. App bundle explorer lists the targe
 
 ## 5. Build the iOS release
 
-1. Put the signing files in `credentials/ios/`: the `AuthKey_<KEYID>.p8` and a `signing.properties` with `ascIssuerId=<issuer id>` for cloud signing, or a `.p12`, its profile and `p12Password=` for local signing. [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release#2-add-the-signing-files) has the details.
-2. Run `npm run ios:release`.
-3. Back up the folder with `npx catalyst credentials:export ios`.
+1. Run `npm run ios:release` in a terminal (`npm run buildApp:ios -- --release` in apps created before 1.2.0).
+2. On a Mac signed in to Xcode, no signing files are needed. The build uses the App Store profile installed for the app when there is one, or signs with your Xcode account. The team comes from that profile or from Xcode. When Xcode has several teams, the build asks once which one to use, and a team read from Xcode is saved as `ios.developmentTeam`.
+3. For CI, put the signing files in `credentials/ios/` and back them up with `npx catalyst credentials:export ios`. [Building and Releasing a Catalyst iOS App](/content/Deployment/ios-production-release#2-set-up-signing) has the details.
 
 The IPA is in `build-output/ios/<version>-<build>/`.
 

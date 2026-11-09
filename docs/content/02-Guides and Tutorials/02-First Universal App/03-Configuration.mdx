@@ -161,7 +161,7 @@ Configure a custom splashscreen displayed during app startup.
 
 To show an animation while the app loads, add `public/splashscreen.html`. It goes at the root of `public/`, not in `public/android` or `public/ios`, and both platforms use the same file. It only takes effect when `splashScreen` is set in the config.
 
-On launch the app shows the native splash image, then the HTML splash, and then the app once its first page has loaded. Set `minDuration` to keep the animation on screen for at least that many milliseconds, even when the page loads sooner. If the page takes longer than 10 seconds, the HTML splash is dismissed anyway. `duration` is ignored in this mode.
+On launch the app shows the native splash image, then the HTML splash, and then the app once its first page has loaded. Set `minDuration` to keep the animation on screen for at least that many milliseconds, even when the page loads sooner. If the page takes longer than 10 seconds, the HTML splash is dismissed anyway. `duration` is ignored in this mode. New apps ship an HTML splash with `minDuration` set to `7000` so its animation can finish. Lower it for a shorter splash, or set it to `0` to dismiss the splash as soon as the page loads.
 
 ```json title="config/config.json"
 {
@@ -457,7 +457,7 @@ Control network access and navigation through URL whitelisting.
 
 ## Protocol Configuration
 
-A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds always load the dev server over HTTP.
+A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds load the dev server over HTTP, or `LOCAL_IP` when it is a real host.
 
 ```json title="config/config.json"
 {

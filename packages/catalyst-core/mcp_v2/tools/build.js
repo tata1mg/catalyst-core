@@ -107,7 +107,7 @@ const MASTER_FLOWS = {
             step: 4,
             cmd: null,
             label: "Install, reverse, launch",
-            detail: "Installs <appId>.debug, runs adb reverse for NODE_SERVER_PORT, the HMR port and every localhost:<port> in config.json, then launches. The app loads http://localhost:<port>; WEBVIEW_CONFIG.url is ignored in debug.",
+            detail: "Installs <appId>.debug, runs adb reverse for NODE_SERVER_PORT, the HMR port and every localhost:<port> in config.json, then launches. The app loads http://localhost:<port>, or WEBVIEW_CONFIG.LOCAL_IP when that is a real host (public or private, not localhost or this machine's own address); WEBVIEW_CONFIG.url is ignored in debug.",
         },
     ],
 
@@ -116,7 +116,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: "WEBVIEW_CONFIG.url (or --url) is the production origin; a localhost/LAN/.local/example host fails with NATIVE-001 unless allowPrivateHost is true. appId must not be com.example.* or a template id (NATIVE-003). Version from package.json; build number = minutes since 2024-01-01 UTC, or CATALYST_BUILD_NUMBER.",
+            detail: "WEBVIEW_CONFIG.url (or --url) is the production origin; a localhost/LAN/.local/example host fails with NATIVE-001 unless allowPrivateHost is true. The app id (android.packageName when set, else appId) must not be com.example.* or a template id (NATIVE-003). In a terminal, a missing app id or website is asked once and saved to config.json; without one (CI) these fail as described. Version from package.json; build number = minutes since 2024-01-01 UTC, or CATALYST_BUILD_NUMBER.",
         },
         {
             step: 2,
@@ -155,7 +155,7 @@ const MASTER_FLOWS = {
             step: 3,
             cmd: null,
             label: "Dev server",
-            detail: "Starts `catalyst start` when nothing answers and waits. Simulator: localhost. iPhone: <LocalHostName>.local (else the LAN IP), with the server bound to the network; a server already running for localhost only fails with NATIVE-006. Debug builds add NSAllowsLocalNetworking and ignore WEBVIEW_CONFIG.url.",
+            detail: "Starts `catalyst start` when nothing answers and waits. Simulator: localhost. iPhone: <LocalHostName>.local (else the LAN IP), with the server bound to the network; a server already running for localhost only fails with NATIVE-006. Debug builds add NSAllowsLocalNetworking and ignore WEBVIEW_CONFIG.url; a LOCAL_IP that is a real host (not localhost or this Mac) is loaded instead of the dev server.",
         },
         {
             step: 4,
@@ -170,7 +170,7 @@ const MASTER_FLOWS = {
             step: 1,
             cmd: null,
             label: "Pre-check: config",
-            detail: "WEBVIEW_CONFIG.url (or --url), appId (not com.example.*), ios.developmentTeam for cloud or Xcode-account signing (else IOS-010). Version from package.json, build number from the clock or CATALYST_BUILD_NUMBER.",
+            detail: "WEBVIEW_CONFIG.url (or --url), the app id (ios.bundleIdentifier or ios.appBundleId when set, else appId; not com.example.*; a terminal run asks for a missing id or url once and saves it), ios.developmentTeam for cloud or Xcode-account signing (else IOS-010). Version from package.json, build number from the clock or CATALYST_BUILD_NUMBER.",
         },
         {
             step: 2,
@@ -272,7 +272,7 @@ const MASTER_DIAGRAMS = {
             "→ [web path] hook falls back to browser API (navigator.vibrate, <input type=file>, etc.)",
         ],
         configurable_today: [
-            "appId: Android application id and iOS bundle id (release refuses com.example.*)",
+            "appId: Android application id and iOS bundle id; android.packageName / ios.bundleIdentifier / ios.appBundleId win when set (release refuses com.example.*)",
             "appName: name under the app icon on both platforms",
             "url: production origin release builds load (--url overrides); debug builds use the dev server",
             "allowPrivateHost: lets a release load a private host (internal apps)",
@@ -496,23 +496,60 @@ function getProjectContext(root) {
     }
 }
 
-/** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.3.0+). */
-function appIdentityWarnings(ctx, isRelease, warnings) {
+// The ids isPlaceholderAppId in src/native/nativeConfig.js refuses for a
+// release (TEMPLATE_APP_IDS, plus any com.example.* id). Copied because
+// mcp_v2 does not import from src/native; keep the two in step.
+const PLACEHOLDER_APP_IDS = ["io.yourname.androidproject", "com.catalyst.framework.app", "com.debug.webview"]
+
+function isPlaceholderAppId(appId) {
+    const id = String(appId || "")
+        .trim()
+        .toLowerCase()
+    return !id || id.startsWith("com.example.") || PLACEHOLDER_APP_IDS.includes(id)
+}
+
+// LOCAL_IP values a store build refuses when there is no url: empty, this
+// machine, a private or link-local IPv4 address, or a .local name (the same
+// hosts privateHostReason in src/native/nativeConfig.js fails with NATIVE-001).
+function isLocalOnlyHost(value) {
+    const host = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^\[|\]$/g, "")
+    return (
+        !host ||
+        ["localhost", "::1", "0.0.0.0"].includes(host) ||
+        host.endsWith(".local") ||
+        /^(0|10|127)\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+        /^(192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}$/.test(host)
+    )
+}
+
+// The first non-blank string, trimmed: appIdSource in nativeConfig.js skips
+// blank platform keys the same way.
+const firstSet = (...values) => values.map((v) => (typeof v === "string" ? v.trim() : "")).find(Boolean)
+
+/** Warnings shared by both platforms for appId, url and LOCAL_IP (catalyst-core 1.2.0+). */
+function appIdentityWarnings(ctx, isRelease, warnings, platform) {
     const wv = ctx.wv
-    const appId = wv.appId || wv.android?.packageName || wv.ios?.appBundleId || wv.ios?.bundleIdentifier
-    if (isRelease && (!appId || /^com\.example\./i.test(appId))) {
+    // The platform key wins over the shared appId, as in nativeConfig.js.
+    const appId =
+        platform === "android"
+            ? firstSet(wv.android?.packageName, wv.appId)
+            : firstSet(wv.ios?.bundleIdentifier, wv.ios?.appBundleId, wv.appId)
+    if (isRelease && isPlaceholderAppId(appId)) {
         warnings.push(
-            "WEBVIEW_CONFIG.appId is missing or a com.example placeholder: the release fails with NATIVE-003. Set your own reverse-DNS id."
+            "The app id (the platform key when set, else WEBVIEW_CONFIG.appId) is missing or a template placeholder (com.example.*, io.yourname.androidproject, com.catalyst.framework.app or com.debug.webview): a terminal run asks for it once, and without a terminal the release fails with NATIVE-003. Set your own reverse-DNS id."
         )
     }
-    if (isRelease && !wv.url && !wv.LOCAL_IP) {
+    if (isRelease && !wv.url && isLocalOnlyHost(wv.LOCAL_IP) && wv.allowPrivateHost !== true) {
         warnings.push(
-            "WEBVIEW_CONFIG.url not set: set the production origin (e.g. https://shop.acme.com) or pass --url."
+            "WEBVIEW_CONFIG.url not set and LOCAL_IP is empty, this machine, a private address or a .local name, so the release would load a host users' devices cannot reach and fails with NATIVE-001. Set the production origin (e.g. https://shop.acme.com) or pass --url."
         )
     }
-    if (wv.LOCAL_IP && /^\d{1,3}(\.\d{1,3}){3}$/.test(wv.LOCAL_IP) && wv.LOCAL_IP !== "127.0.0.1") {
+    if (wv.LOCAL_IP && !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(String(wv.LOCAL_IP).trim())) {
         warnings.push(
-            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}. Keep it "localhost"; debug builds work out the dev server address, and the first 1.3.0 build resets saved LAN addresses.`
+            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}: a debug build loads that host instead of the dev server, unless it is this machine's own address (which the first debug build puts back to localhost). Set it to "localhost" to develop against the dev server.`
         )
     }
 }
@@ -601,7 +638,7 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
 
         const isRelease = m === "release" || ctx.androidBuildType === "release"
         flow_key = isRelease ? "android_release" : "android_debug"
-        appIdentityWarnings(ctx, isRelease, warnings)
+        appIdentityWarnings(ctx, isRelease, warnings, "android")
         if (ctx.androidBuildType === "release") {
             warnings.push(
                 'android.buildType "release" is deprecated: use `npm run android:release` and set buildType to "debug" or remove it.'
@@ -623,7 +660,7 @@ function handle_get_build_flow({ platform, mode, symptom } = {}) {
 
         const isRelease = m === "release" || ctx.iosBuildType === "release"
         flow_key = isRelease ? "ios_release" : "ios_debug"
-        appIdentityWarnings(ctx, isRelease, warnings)
+        appIdentityWarnings(ctx, isRelease, warnings, "ios")
         if (ctx.iosBuildType === "release") {
             warnings.push(
                 'ios.buildType "release" is deprecated: use `npm run ios:release` and set buildType to "debug" or remove it.'
@@ -783,4 +820,4 @@ function handle_get_architecture_diagram({ feature, symptom } = {}) {
     }
 }
 
-module.exports = { init, handle_get_build_flow, handle_get_architecture_diagram }
+module.exports = { init, handle_get_build_flow, handle_get_architecture_diagram, appIdentityWarnings }

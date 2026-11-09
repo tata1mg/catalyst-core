@@ -22,7 +22,8 @@ export const onRouteMatch = () => {}
 export const onAppServerSideSuccess = () => {}
 export const onAppServerSideError = () => {}
 
-// Run after the matched route's serverFetcher resolves or fails. On failure the
+// onFetcherSuccess runs after the matched route's data has loaded. onFetcherError
+// runs when loading that data or preparing the page (metadata, assets) fails; the
 // page still renders, with the error's status_code (404 by default).
 // Receive { req, res, store }, plus `error` on failure.
 export const onFetcherSuccess = () => {}

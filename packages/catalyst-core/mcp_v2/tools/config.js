@@ -1,5 +1,6 @@
 "use strict"
 const fs = require("fs")
+const os = require("os")
 const path = require("path")
 
 let _projectInfo
@@ -14,6 +15,20 @@ function projectPath(root, rel) {
         return null
     }
     return `${root}${path.sep}${normalized}`
+}
+
+/** This machine's own addresses and hostname, as nativeConfig.js localMachineHosts() sees them. */
+function _machineAddresses() {
+    const hosts = new Set()
+    try {
+        for (const entries of Object.values(os.networkInterfaces())) {
+            for (const entry of entries || []) hosts.add(String(entry.address).toLowerCase())
+        }
+        hosts.add(os.hostname().toLowerCase())
+    } catch {
+        // Nothing to compare against.
+    }
+    return hosts
 }
 
 function handle_check_config({ project_path, platform = "both" } = {}) {
@@ -111,24 +126,26 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     const wc = config.WEBVIEW_CONFIG
 
-    // ── App identity and production URL (catalyst-core 1.3.0+) ─────────────────
-    // appId and appName apply to both platforms and win over the per-platform
-    // keys. url is the origin a release build loads; debug builds ignore it.
+    // ── App identity and production URL (catalyst-core 1.2.0+) ─────────────────
+    // appName applies to both platforms and wins over the per-platform appName.
+    // appId applies to both platforms, but a platform key wins over it
+    // (android.packageName; ios.bundleIdentifier, then ios.appBundleId). url is
+    // the origin a release build loads; debug builds ignore it.
     const PLACEHOLDER_APP_IDS = [
         "io.yourname.androidproject",
         "com.catalyst.framework.app",
         "com.debug.webview",
     ]
-    const legacyAppId = wc.android?.packageName || wc.ios?.appBundleId || wc.ios?.bundleIdentifier
+    const isPlaceholderId = (id) =>
+        String(id).toLowerCase().startsWith("com.example.") ||
+        PLACEHOLDER_APP_IDS.includes(String(id).toLowerCase())
+    const legacyAppId = wc.android?.packageName || wc.ios?.bundleIdentifier || wc.ios?.appBundleId
     const appId = typeof wc.appId === "string" && wc.appId.trim() ? wc.appId.trim() : null
     if (appId) {
-        if (
-            appId.toLowerCase().startsWith("com.example.") ||
-            PLACEHOLDER_APP_IDS.includes(appId.toLowerCase())
-        ) {
+        if (isPlaceholderId(appId)) {
             warnings.push({
                 field: "WEBVIEW_CONFIG.appId",
-                message: `appId "${appId}" is a placeholder. Debug builds work, but a release build refuses it (NATIVE-003). Set your own reverse-DNS id, e.g. "com.yourcompany.app"; it cannot change after the first store upload.`,
+                message: `appId "${appId}" is a placeholder. Debug builds work; a release build in a terminal asks for your own id once and saves it, and without a terminal refuses it (NATIVE-003). Set your own reverse-DNS id, e.g. "com.yourcompany.app"; it cannot change after the first store upload.`,
             })
         } else {
             passed.push({ field: "WEBVIEW_CONFIG.appId", value: appId })
@@ -137,7 +154,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         warnings.push({
             field: "WEBVIEW_CONFIG.appId",
             message:
-                'WEBVIEW_CONFIG.appId not set. It is the Android application id and the iOS bundle id (e.g. "com.yourcompany.app"); a release build refuses to ship without one (NATIVE-003).',
+                'WEBVIEW_CONFIG.appId not set. It is the Android application id and the iOS bundle id (e.g. "com.yourcompany.app"); a release build in a terminal asks for it once and saves it, and without a terminal refuses to ship without one (NATIVE-003).',
         })
     }
     if (typeof wc.appName === "string" && wc.appName.trim()) {
@@ -150,19 +167,32 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         } catch {
             parsed = null
         }
-        if (
-            !parsed ||
-            !["http:", "https:"].includes(parsed.protocol) ||
-            (parsed.pathname && parsed.pathname !== "/")
-        ) {
+        // The same rules as parseAppUrl in src/native/nativeConfig.js.
+        let urlProblem = null
+        if (!String(wc.url).trim()) {
+            urlProblem = "is empty"
+        } else if (!parsed) {
+            urlProblem = "is not a URL (expected e.g. https://shop.acme.com)"
+        } else if (!["http:", "https:"].includes(parsed.protocol)) {
+            urlProblem = "must start with https:// or http://"
+        } else if (parsed.username || parsed.password) {
+            urlProblem = "must not contain a user name or password"
+        } else if ((parsed.pathname && parsed.pathname !== "/") || parsed.search || parsed.hash) {
+            urlProblem = "must be an origin only, without a path, query or fragment"
+        } else if (!parsed.hostname) {
+            urlProblem = "has no host"
+        } else if (parsed.protocol === "https:" && parsed.port && parsed.port !== "443") {
+            urlProblem = "uses HTTPS on a port other than 443"
+        }
+        if (urlProblem) {
             issues.push({
                 field: "WEBVIEW_CONFIG.url",
                 severity: "error",
-                message: `WEBVIEW_CONFIG.url "${wc.url}" must be an http(s) origin without a path, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
+                message: `WEBVIEW_CONFIG.url "${wc.url}" ${urlProblem}. Use an http(s) origin, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
             })
         } else if (
-            /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/i.test(
-                parsed.hostname
+            /^(localhost|::1|0\.0\.0\.0)$|^(127|10|192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\.|\.local(host)?$/i.test(
+                parsed.hostname.replace(/^\[|\]$/g, "")
             ) &&
             wc.allowPrivateHost !== true
         ) {
@@ -182,19 +212,27 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     }
 
     // ── WEBVIEW_CONFIG.LOCAL_IP ───────────────────────────────────────────────
-    // Debug builds reach the dev server on their own (adb reverse on Android,
-    // localhost on the simulator, <mac>.local on an iPhone), so LOCAL_IP stays
-    // localhost. A LAN address saved by an older setup is put back to
-    // localhost by the first 1.3.0 build.
-    if (
-        wc.LOCAL_IP &&
-        !["localhost", "127.0.0.1"].includes(wc.LOCAL_IP) &&
-        /^\d{1,3}(\.\d{1,3}){3}$/.test(wc.LOCAL_IP)
-    ) {
-        warnings.push({
-            field: "WEBVIEW_CONFIG.LOCAL_IP",
-            message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}". Keep it "localhost": debug builds work out the dev server address themselves, and the first build on catalyst-core 1.3.0 resets a private address to localhost. Put the production address in WEBVIEW_CONFIG.url.`,
-        })
+    // With LOCAL_IP localhost, debug builds reach the dev server on their own
+    // (adb reverse on Android, localhost on the simulator, <mac>.local on an
+    // iPhone). A real host (public, or a private VPN/LAN staging server) is
+    // loaded by debug builds instead. This machine's own address, saved by an
+    // older setup, is put back to localhost by the first debug build.
+    const localIp = String(wc.LOCAL_IP || "")
+        .trim()
+        .toLowerCase()
+    if (localIp && !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(localIp)) {
+        if (_machineAddresses().has(localIp)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.LOCAL_IP",
+                message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}", this machine's own address. The first debug build puts it back to "localhost" and uses the dev server. Put the production address in WEBVIEW_CONFIG.url.`,
+            })
+        } else {
+            passed.push({
+                field: "WEBVIEW_CONFIG.LOCAL_IP",
+                value: wc.LOCAL_IP,
+                note: 'debug builds load this host instead of the dev server; set it to "localhost" to develop against the dev server',
+            })
+        }
     } else {
         passed.push({ field: "WEBVIEW_CONFIG.LOCAL_IP", value: wc.LOCAL_IP || "localhost (default)" })
     }
@@ -305,7 +343,13 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             passed.push({ field: "WEBVIEW_CONFIG.android.emulatorName", value: a.emulatorName })
         if (!wc.appName && a.appName)
             passed.push({ field: "WEBVIEW_CONFIG.android.appName", value: a.appName })
-        if (!wc.appId && a.packageName) {
+        // packageName wins over appId for Android.
+        if (a.packageName && isPlaceholderId(a.packageName)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.packageName",
+                message: `android.packageName "${a.packageName}" is a placeholder and wins over WEBVIEW_CONFIG.appId. Remove it to use appId, or set your own id; a release build refuses it (NATIVE-003).`,
+            })
+        } else if (a.packageName) {
             passed.push({ field: "WEBVIEW_CONFIG.android.packageName", value: a.packageName })
         }
         if (String(a.buildType || "").toLowerCase() === "release") {
@@ -347,14 +391,22 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     // in credentials/ios/ (CI: CATALYST_IOS_CREDENTIALS), never in config.json.
     if (platform === "ios" || platform === "both") {
         const ios = wc.ios || {}
-        if (!wc.appId && ios.appBundleId) {
-            if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(ios.appBundleId)) {
+        // bundleIdentifier, then appBundleId, wins over appId for iOS.
+        const iosKey = ios.bundleIdentifier ? "bundleIdentifier" : ios.appBundleId ? "appBundleId" : null
+        if (iosKey) {
+            const iosId = String(ios[iosKey])
+            if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(iosId)) {
                 warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.appBundleId",
-                    message: `appBundleId "${ios.appBundleId}" may not be valid; expected reverse-DNS format like "com.company.app". Prefer WEBVIEW_CONFIG.appId.`,
+                    field: `WEBVIEW_CONFIG.ios.${iosKey}`,
+                    message: `${iosKey} "${iosId}" may not be valid; expected reverse-DNS format like "com.company.app". It wins over WEBVIEW_CONFIG.appId.`,
+                })
+            } else if (isPlaceholderId(iosId)) {
+                warnings.push({
+                    field: `WEBVIEW_CONFIG.ios.${iosKey}`,
+                    message: `ios.${iosKey} "${iosId}" is a placeholder and wins over WEBVIEW_CONFIG.appId. Remove it to use appId, or set your own id; a release build refuses it (NATIVE-003).`,
                 })
             } else {
-                passed.push({ field: "WEBVIEW_CONFIG.ios.appBundleId", value: ios.appBundleId })
+                passed.push({ field: `WEBVIEW_CONFIG.ios.${iosKey}`, value: iosId })
             }
         }
         if (ios.simulatorName)

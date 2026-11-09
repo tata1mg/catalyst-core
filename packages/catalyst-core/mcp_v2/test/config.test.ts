@@ -149,3 +149,116 @@ describe("check_config: native port and cache patterns", () => {
         expect(fieldsOf(wrong.warnings)).toContain("WEBVIEW_CONFIG.ios.cachePattern")
     })
 })
+
+describe("check_config: app id precedence and LOCAL_IP", () => {
+    const fieldsOf = (list: Array<{ field: string }>) => list.map((f) => f.field)
+    const check = (WEBVIEW_CONFIG: unknown) =>
+        handle_check_config({ project_path: makeSplashProject({ WEBVIEW_CONFIG }) })
+
+    it("checks the platform keys even when appId is set, because they win", () => {
+        const placeholder = check({
+            appId: "com.acme.shop",
+            android: { packageName: "io.yourname.androidproject" },
+            ios: { bundleIdentifier: "com.example.ios", appBundleId: "com.acme.shop" },
+        })
+        expect(fieldsOf(placeholder.warnings)).toEqual(
+            expect.arrayContaining([
+                "WEBVIEW_CONFIG.android.packageName",
+                "WEBVIEW_CONFIG.ios.bundleIdentifier",
+            ])
+        )
+        expect(
+            placeholder.warnings.find((w) => w.field === "WEBVIEW_CONFIG.android.packageName")!.message
+        ).toMatch(/wins over WEBVIEW_CONFIG\.appId/)
+
+        const real = check({
+            appId: "com.acme.shop",
+            android: { packageName: "com.acme.droid" },
+            ios: { appBundleId: "com.acme.iphone" },
+        })
+        expect(fieldsOf(real.passed)).toEqual(
+            expect.arrayContaining(["WEBVIEW_CONFIG.android.packageName", "WEBVIEW_CONFIG.ios.appBundleId"])
+        )
+    })
+
+    it("passes a LOCAL_IP that is a real host, private ones included, with a note", () => {
+        for (const LOCAL_IP of ["10.0.38.192", "staging.acme.com"]) {
+            const r = check({ LOCAL_IP })
+            expect(fieldsOf(r.warnings)).not.toContain("WEBVIEW_CONFIG.LOCAL_IP")
+            const passed = r.passed.find((p) => p.field === "WEBVIEW_CONFIG.LOCAL_IP") as any
+            expect(passed.note).toMatch(/instead of the dev server/)
+        }
+        expect(fieldsOf(check({ LOCAL_IP: "localhost" }).passed)).toContain("WEBVIEW_CONFIG.LOCAL_IP")
+    })
+
+    it("warns about a LOCAL_IP that is this machine's own address", () => {
+        const loopbackFree = Object.values(os.networkInterfaces())
+            .flat()
+            .find((entry: any) => entry && !entry.internal && entry.family === "IPv4") as any
+        if (!loopbackFree) return
+        const r = check({ LOCAL_IP: loopbackFree.address })
+        expect(fieldsOf(r.warnings)).toContain("WEBVIEW_CONFIG.LOCAL_IP")
+    })
+})
+
+describe("check_config: WEBVIEW_CONFIG.url", () => {
+    const urlIssue = (url: string) =>
+        handle_check_config({ project_path: makeSplashProject({ WEBVIEW_CONFIG: { url } }) }).issues.find(
+            (i) => i.field === "WEBVIEW_CONFIG.url"
+        )
+
+    it("rejects what the release build rejects with NATIVE-004", () => {
+        const cases: Array<[string, RegExp]> = [
+            ["https://shop.acme.com/app", /without a path, query or fragment/],
+            ["https://shop.acme.com/?x=1", /without a path, query or fragment/],
+            ["https://shop.acme.com/#top", /without a path, query or fragment/],
+            ["https://user:secret@shop.acme.com", /user name or password/],
+            ["https://user@shop.acme.com", /user name or password/],
+            ["https://shop.acme.com:8443", /HTTPS on a port other than 443/],
+            ["ftp://shop.acme.com", /https:\/\/ or http:\/\//],
+            ["shop.acme.com", /not a URL/],
+        ]
+        for (const [url, why] of cases) {
+            const issue = urlIssue(url)
+            expect(issue, url).toBeDefined()
+            expect(issue!.message).toMatch(why)
+            expect(issue!.message).toMatch(/NATIVE-004/)
+        }
+    })
+
+    it("accepts an origin, with the default HTTPS port or any HTTP port", () => {
+        for (const url of [
+            "https://shop.acme.com",
+            "https://shop.acme.com/",
+            "https://shop.acme.com:443",
+            "http://shop.acme.com:8080",
+        ]) {
+            expect(urlIssue(url), url).toBeUndefined()
+        }
+    })
+
+    it("warns about a local or private host, IPv6 loopback and 0.0.0.0 included", () => {
+        const urlWarning = (url: string, allowPrivateHost?: boolean) =>
+            handle_check_config({
+                project_path: makeSplashProject({ WEBVIEW_CONFIG: { url, allowPrivateHost } }),
+            }).warnings.find((w) => w.field === "WEBVIEW_CONFIG.url")
+        for (const url of [
+            "http://localhost:3005",
+            "http://[::1]:3005",
+            "http://0.0.0.0:3005",
+            "http://127.0.0.1",
+            "http://10.0.0.4",
+            "http://172.20.1.1",
+            "http://192.168.1.5",
+            "http://169.254.0.9",
+            "http://my-mac.local",
+            "http://app.localhost",
+        ]) {
+            expect(urlWarning(url)?.message, url).toMatch(/NATIVE-001/)
+            expect(urlWarning(url, true), url).toBeUndefined()
+        }
+        for (const url of ["https://shop.acme.com", "https://localhostshop.com", "http://172.32.0.1"]) {
+            expect(urlWarning(url), url).toBeUndefined()
+        }
+    })
+})
