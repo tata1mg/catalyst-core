@@ -43,6 +43,10 @@ Set `LOCAL_IP` to a real host, such as a staging server, only when you want the 
 
 Apps set up before Catalyst 1.2.0 had a LAN address saved in `config/config.json`. The first build on 1.2.0 puts `localhost` back and prints what it changed. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
 
+## The dev server or app is stuck on an old IP address
+
+Apps set up before Catalyst 1.2.0 can have a LAN address in both `NODE_SERVER_HOSTNAME` and `WEBVIEW_CONFIG.LOCAL_IP`. After your IP address changes, for example on another Wi-Fi network, `npm run start` cannot bind it and the app cannot reach the dev server. The first debug build on 1.2.0 (`npm run android` or `npm run ios`) puts `localhost` back once and prints the change. To fix it by hand, set `NODE_SERVER_HOSTNAME` and `LOCAL_IP` to `localhost`. If you run the dev server yourself for a phone on the same Wi-Fi, set both to this machine's current IP address instead. Change any `PUBLIC_STATIC_ASSET_URL` or `API_URL` on the old address the same way. See [Fix a stale LAN address by hand](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#fix-a-stale-lan-address-by-hand).
+
 ## What does `CLIENT_ENV_VARIABLES` do?
 
 It controls which config values are exposed to the client bundle. Anything not listed remains server-only.

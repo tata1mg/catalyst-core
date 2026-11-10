@@ -64,7 +64,7 @@ Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
 | `WEBVIEW_CONFIG.allowPrivateHost` | No | `true` lets a release load a private or local host (internal apps). Defaults to `false` |
 | `WEBVIEW_CONFIG.port` | No | Debug builds load the dev server on `NODE_SERVER_PORT`, and on `port` only when that is not set. Apps without `url` also use it for the release host |
 | `WEBVIEW_CONFIG.LOCAL_IP` | No | Keep it `localhost` and debug builds work out the dev server address themselves. Set it to a real host, such as a staging server, and debug builds load that host, with `port` and `useHttps`. Apps without `url` also use it as the release host |
-| `WEBVIEW_CONFIG.appInfo` | Yes | Build identifier used by native tooling |
+| `WEBVIEW_CONFIG.appInfo` | No | Free-form text, such as a build label, that `useDeviceInfo()` reports as `appInfo` |
 | `WEBVIEW_CONFIG.useHttps` | No | Defaults to `false`. With `url`, the scheme of `url` decides |
 | `WEBVIEW_CONFIG.profiler.enabled` | No | Enables the debug-only Catalyst Profiler; defaults to `false` |
 

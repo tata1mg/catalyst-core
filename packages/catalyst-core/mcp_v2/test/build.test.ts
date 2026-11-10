@@ -102,3 +102,35 @@ describe("get_build_flow: app identity warnings", () => {
         expect(hostWarning(list)).toBe(false)
     })
 })
+
+describe("get_build_flow: stale LAN address", () => {
+    const staleWarning = (list: string[]) => list.some((w) => /NODE_SERVER_HOSTNAME are both/.test(w))
+
+    it("warns when a private LOCAL_IP is also NODE_SERVER_HOSTNAME", () => {
+        const wv = { appId: "com.acme.shop", LOCAL_IP: "192.168.1.20" }
+        for (const isRelease of [false, true]) {
+            const warnings: string[] = []
+            appIdentityWarnings(
+                { wv, config: { NODE_SERVER_HOSTNAME: "192.168.1.20", WEBVIEW_CONFIG: wv } },
+                isRelease,
+                warnings,
+                "android"
+            )
+            expect(staleWarning(warnings)).toBe(true)
+            expect(warnings.some((w) => /npm run android/.test(w))).toBe(true)
+        }
+    })
+
+    it("keeps the plain LOCAL_IP note for a LAN host the dev server does not use", () => {
+        const wv = { appId: "com.acme.shop", LOCAL_IP: "192.168.1.20" }
+        const warnings: string[] = []
+        appIdentityWarnings(
+            { wv, config: { NODE_SERVER_HOSTNAME: "localhost", WEBVIEW_CONFIG: wv } },
+            false,
+            warnings,
+            "ios"
+        )
+        expect(staleWarning(warnings)).toBe(false)
+        expect(warnings.some((w) => /debug build loads that host/.test(w))).toBe(true)
+    })
+})

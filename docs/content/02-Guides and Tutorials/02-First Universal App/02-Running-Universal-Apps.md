@@ -86,7 +86,22 @@ Catalyst then lets Xcode create the development certificate and profile and regi
 
 ### Upgrading from an older setup
 
-Before Catalyst 1.2.0, the emulator setup wrote your LAN address into `config/config.json`. The first debug build on 1.2.0 puts `localhost` back where that address was saved: any value equal to one of this machine's current IP addresses (such as `LOCAL_IP`, `NODE_SERVER_HOSTNAME` or `PUBLIC_STATIC_ASSET_URL`), and any `http://` URL on one of those addresses. It prints each change. Other addresses, such as `0.0.0.0`, `127.0.0.1`, a container's IP or a staging server on your network, are left as they are, and so is `WEBVIEW_CONFIG.url`. It runs once per checkout and records that in `.catalyst/local.json`. It never runs for a release build or when `CI` is set, and apps with `WEBVIEW_CONFIG.allowPrivateHost` set to `true` are left alone. Review the change and commit it.
+Before Catalyst 1.2.0, the emulator setup wrote your LAN address into `config/config.json`. The first debug build on 1.2.0 puts `localhost` back where that address was saved: any value equal to one of this machine's current IP addresses (such as `LOCAL_IP`, `NODE_SERVER_HOSTNAME` or `PUBLIC_STATIC_ASSET_URL`), and any `http://` URL on one of those addresses. A private `LOCAL_IP` that `NODE_SERVER_HOSTNAME` also holds counts as a saved address too, even when this machine now has a different one, for example on another Wi-Fi network. It prints each change. Other addresses, such as `0.0.0.0`, `127.0.0.1`, a container's IP or a staging server on your network, are left as they are, and so is `WEBVIEW_CONFIG.url`. It runs once per checkout and records that in `.catalyst/local.json`. It never runs for a release build or when `CI` is set, and apps with `WEBVIEW_CONFIG.allowPrivateHost` set to `true` are left alone. Review the change and commit it.
+
+#### Fix a stale LAN address by hand
+
+When `npm run start` cannot bind `NODE_SERVER_HOSTNAME`, or the app cannot reach the dev server after your IP address changed, the config still holds an address this machine no longer has. Set both keys to `localhost`:
+
+```json title="config/config.json"
+{
+  "NODE_SERVER_HOSTNAME": "localhost",
+  "WEBVIEW_CONFIG": {
+    "LOCAL_IP": "localhost"
+  }
+}
+```
+
+Debug builds then work out how the emulator, simulator or phone reaches the dev server. If you run the dev server yourself for a phone on the same Wi-Fi, use this machine's current IP address for both keys instead, and update it when the address changes. Change any `PUBLIC_STATIC_ASSET_URL` or `API_URL` on the old address the same way.
 
 ---
 
