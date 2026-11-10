@@ -431,6 +431,54 @@ describe("LAN address migration", () => {
         expect(migrated.WEBVIEW_CONFIG.LOCAL_IP).toBe("localhost")
     })
 
+    it("puts localhost back for a private LOCAL_IP that NODE_SERVER_HOSTNAME also holds", () => {
+        // Written on another network: not an address this machine has now.
+        for (const ip of ["10.0.0.4", "172.20.1.9", "192.168.0.7", "169.254.3.4"]) {
+            const leftover = {
+                NODE_SERVER_HOSTNAME: ip,
+                PUBLIC_STATIC_ASSET_URL: `http://${ip}:3005`,
+                API_URL: "https://api.acme.com",
+                WEBVIEW_CONFIG: { LOCAL_IP: ip, port: "3005" },
+            }
+            const { config, changes } = planLanAddressMigration(leftover, { localHosts: HERE })
+            expect(config).toMatchObject({
+                NODE_SERVER_HOSTNAME: "localhost",
+                PUBLIC_STATIC_ASSET_URL: "http://localhost:3005",
+                API_URL: "https://api.acme.com",
+                WEBVIEW_CONFIG: { LOCAL_IP: "localhost" },
+            })
+            expect(changes.map((change) => change.path)).toEqual([
+                "NODE_SERVER_HOSTNAME",
+                "PUBLIC_STATIC_ASSET_URL",
+                "WEBVIEW_CONFIG.LOCAL_IP",
+            ])
+            // Even when this machine reports no address at all.
+            expect(planLanAddressMigration(leftover, { localHosts: new Set() }).changes).toHaveLength(3)
+        }
+    })
+
+    it("leaves a public, VPN or staging LOCAL_IP alone, and a private one NODE_SERVER_HOSTNAME does not hold", () => {
+        const cases = [
+            // A public address or a hostname is a real server.
+            { NODE_SERVER_HOSTNAME: "8.8.8.8", WEBVIEW_CONFIG: { LOCAL_IP: "8.8.8.8" } },
+            { NODE_SERVER_HOSTNAME: "staging.acme.vpn", WEBVIEW_CONFIG: { LOCAL_IP: "staging.acme.vpn" } },
+            // Outside 172.16/12, and the CGNAT range some VPNs use.
+            { NODE_SERVER_HOSTNAME: "172.32.0.1", WEBVIEW_CONFIG: { LOCAL_IP: "172.32.0.1" } },
+            { NODE_SERVER_HOSTNAME: "100.64.0.1", WEBVIEW_CONFIG: { LOCAL_IP: "100.64.0.1" } },
+            // A LAN staging server the dev server does not bind.
+            { NODE_SERVER_HOSTNAME: "localhost", WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4" } },
+            { NODE_SERVER_HOSTNAME: "10.0.0.5", WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4" } },
+            { NODE_SERVER_HOSTNAME: "10.0.0.4", WEBVIEW_CONFIG: { LOCAL_IP: 10 } },
+            {
+                NODE_SERVER_HOSTNAME: "10.0.0.4",
+                WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4", allowPrivateHost: true },
+            },
+        ]
+        for (const config of cases) {
+            expect(planLanAddressMigration(config, { localHosts: HERE }).changes).toEqual([])
+        }
+    })
+
     it("leaves a Docker bind address, a container IP and loopback alone", () => {
         const docker = {
             NODE_SERVER_HOSTNAME: "0.0.0.0",
@@ -471,11 +519,15 @@ describe("LAN address migration", () => {
     it("rewrites config.json once, keeping its indentation, and says what changed", () => {
         const { cwd, file } = appWith(saved)
         const logs: string[] = []
+        const types: Array<string | undefined> = []
         const first = migrateLanAddresses({
             cwd,
             env: {},
             localHosts: HERE,
-            log: (message: string) => logs.push(message),
+            log: (message: string, type?: string) => {
+                logs.push(message)
+                types.push(type)
+            },
         })
         expect(first.ran).toBe(true)
         expect(first.changes).toHaveLength(3)
@@ -484,6 +536,8 @@ describe("LAN address migration", () => {
         expect(text.endsWith("}\n")).toBe(true)
         expect(JSON.parse(text).DB_HOST).toBe("172.18.0.5")
         expect(logs.join("\n")).toContain("NODE_SERVER_HOSTNAME: 192.168.1.20 -> localhost")
+        // Printed by default, not only with --verbose.
+        expect(types).toEqual(["note", "note", "note", "note"])
         expect(readLocalState({ cwd }).migrations.lanAddresses).toBeTruthy()
 
         // A private address added later is the user's own: left alone.

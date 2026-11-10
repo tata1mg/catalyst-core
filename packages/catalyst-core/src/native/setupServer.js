@@ -343,13 +343,15 @@ async function ensureDevServer({
 // One-time migration: older setups wrote this machine's LAN address into
 // config.json (every "localhost", and any http://<ip>), which makes Express
 // bind only that address and breaks adb reverse. Put localhost back, but only
-// for this machine's own addresses: a container IP, 0.0.0.0 or a loopback
-// address is the app's own setting.
+// for this machine's own addresses (or the one it had on another network):
+// a container IP, 0.0.0.0 or a loopback address is the app's own setting.
 // ---------------------------------------------------------------------------
 
 const MIGRATION_KEY = "lanAddresses"
 
 const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/
+// 10/8, 172.16/12, 192.168/16 and link-local 169.254/16.
+const PRIVATE_LAN_IPV4 = /^(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|169\.254)\./
 
 const isCI = (env) => {
     const value = env.CI
@@ -359,10 +361,13 @@ const isCI = (env) => {
 /**
  * The changes the migration would make, without writing anything. Only a
  * value equal to one of this machine's current IPv4 addresses, or an
- * http:// URL on one of them, goes back to localhost. Any other address,
- * private ones included (a LOCAL_IP pointing at a VPN or LAN staging server),
- * is the app's own setting. WEBVIEW_CONFIG.url is never touched, and nothing
- * is when WEBVIEW_CONFIG.allowPrivateHost is true.
+ * http:// URL on one of them, goes back to localhost. So does a private
+ * LOCAL_IP that NODE_SERVER_HOSTNAME also holds: an earlier setup wrote this
+ * machine's address on another network into both, and the dev server can't
+ * bind it here. Any other address, private ones included (a LOCAL_IP
+ * pointing at a VPN or LAN staging server), is the app's own setting.
+ * WEBVIEW_CONFIG.url is never touched, and nothing is when
+ * WEBVIEW_CONFIG.allowPrivateHost is true.
  *
  * @param {object} config - the parsed config.json (not modified)
  * @param {object} [options]
@@ -376,6 +381,15 @@ function planLanAddressMigration(config, { localHosts = localMachineHosts() } = 
     if (wv?.allowPrivateHost === true) return { config, changes }
     // This machine's IPv4 addresses, without loopback and 0.0.0.0/8.
     const saved = new Set([...localHosts].filter((host) => IPV4.test(host) && !/^(?:127|0)\./.test(host)))
+    // The LAN address this machine had when LOCAL_IP was written.
+    const leftover = typeof wv?.LOCAL_IP === "string" ? wv.LOCAL_IP.trim() : ""
+    if (
+        IPV4.test(leftover) &&
+        PRIVATE_LAN_IPV4.test(leftover) &&
+        String(config.NODE_SERVER_HOSTNAME ?? "").trim() === leftover
+    ) {
+        saved.add(leftover)
+    }
     if (!saved.size) return { config, changes }
 
     const restore = (value) => {
@@ -449,9 +463,9 @@ function migrateLanAddresses({
         if (changes.length) {
             log(
                 `Put localhost back in config/config.json where an earlier setup saved this machine's LAN address:`,
-                "info"
+                "note"
             )
-            for (const change of changes) log(`  ${change.path}: ${change.from} -> ${change.to}`, "info")
+            for (const change of changes) log(`  ${change.path}: ${change.from} -> ${change.to}`, "note")
         }
         const state = readLocalState({ cwd })
         writeLocalState(
