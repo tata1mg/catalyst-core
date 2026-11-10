@@ -1,0 +1,26 @@
+src/server/renderer/handler.jsx
+  s_aa018130c5df44::t_059fd4ea17ff76 437,439
+  s_aa018130c5df44::t_4e96a16e46fdd4 96-97
+  s_aa018130c5df44::t_d2d72ab7b4d9ff 247
+  s_aa018130c5df44::t_d7e99d860e708f 123
+  s_aa018130c5df44::t_49548afef48ac6 243
+  s_aa018130c5df44::t_00368767d6caf0 124-127
+src/server/renderer/extract.js
+  s_aa018130c5df44::t_5f8a17eff8c816 104-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45801071df806b73aa44fc2a0f0d41cd74246e79",
+  "prompts": {},
+  "sessions": {
+    "s_aa018130c5df44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6533bae5-44b2-4e1a-9ee2-d62cb64b9b88",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

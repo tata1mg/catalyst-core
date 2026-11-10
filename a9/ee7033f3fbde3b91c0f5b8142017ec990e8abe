@@ -1,0 +1,23 @@
+src/server/renderer/handler.jsx
+  d237197d2ab6df3f 307-308,337,355,361-362,366-367,437
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "a9ee7033f3fbde3b91c0f5b8142017ec990e8abe",
+  "prompts": {
+    "d237197d2ab6df3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d538aef8-efed-4e9f-842a-88a11fc95460",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 1,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
