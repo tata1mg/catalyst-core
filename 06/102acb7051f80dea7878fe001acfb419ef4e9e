@@ -1,0 +1,24 @@
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_72ea573755f477 40,82,97-100,646-647,765-775,839
+src/server/renderer/ppr.js
+  s_d931432877f59e::t_72ea573755f477 209-219,225-241
+  s_d931432877f59e::t_1fe8da44ca56bd 242
+test/ppr.test.mjs
+  s_d931432877f59e::t_0d1068064b9c06 117-118,139-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "06102acb7051f80dea7878fe001acfb419ef4e9e",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

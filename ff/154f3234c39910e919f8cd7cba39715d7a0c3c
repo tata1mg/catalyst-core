@@ -1,0 +1,42 @@
+src/server/renderer/ChunkExtractor.js
+  s_4e3c76ce08040b::t_a4b8a041ab170a 17
+src/web-router/components/Split.jsx
+  s_4e3c76ce08040b::t_457d15550fb0cd 103-104,198
+src/server/renderer/handler.jsx
+  s_4e3c76ce08040b::t_54f33ee0c3b3c9 317-318
+  s_4e3c76ce08040b::t_3b9e440b165d33 354
+  s_4e3c76ce08040b::t_b6c73040f858cb 444-445
+  s_4e3c76ce08040b::t_aaed63bdf248a3 186,190,193-199,204-211
+  s_4e3c76ce08040b::t_3f8b537a7fb09e 458-461
+  s_4e3c76ce08040b::t_273202596a4d46 848
+  s_4e3c76ce08040b::t_2b0f550e563ccb 187-189
+  s_d931432877f59e::t_326abef1734c60 212
+src/server/expressServer.js
+  s_4e3c76ce08040b::t_a4b8a041ab170a 106,115-116,118
+ppr-documentation.md
+  s_4e3c76ce08040b::t_d3571ecd029026 3,8,36,40,43,45-47,49,51,53-57,59-63,65,67,69,102,107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff154f3234c39910e919f8cd7cba39715d7a0c3c",
+  "prompts": {},
+  "sessions": {
+    "s_4e3c76ce08040b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9aa4d3e5-0594-48e4-8236-ab0fefc62203",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    },
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

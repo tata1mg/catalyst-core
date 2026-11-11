@@ -1,0 +1,26 @@
+test/ppr.test.mjs
+  s_d931432877f59e::t_248d00094d80be 129
+  s_d931432877f59e::t_2a78150d8afa5f 38
+src/server/renderer/ChunkExtractor.js
+  s_d931432877f59e::t_c7a7aa1eb6a324 29-31
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_972a8ce3eb1048 29,588
+src/server/renderer/ppr.js
+  s_d931432877f59e::t_1d87c6b7934bb9 24-28,98-103,105-112,215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "84e2b15224af9ff86450ecb73210166d312faa7b",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

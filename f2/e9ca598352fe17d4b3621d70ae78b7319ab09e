@@ -1,0 +1,37 @@
+src/web-router/components/PPR.jsx
+  s_d931432877f59e::t_28ce277613a0d6 1-82
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_e384fe5572895a 189-208,427
+  s_d931432877f59e::t_f9d63d3f447dd7 9-10,25-37,48-53,74-76,86-93,131-158,174-175,177,187-188,209-265,278,280-283,287-288,291,296,299,330-332,378-426,428-839,841-842,854-860,879-880,887-902,909-930,949,966,986,1006
+src/server/renderer/ppr.js
+  s_d931432877f59e::t_bbc5c64c67637b 26
+  s_d931432877f59e::t_f52fd3b3683a16 122-124,166-169
+  s_d931432877f59e::t_0fa2de9a023c20 1-25,27-91,94-121,125-165,170-172
+  s_d931432877f59e::t_8c80c21c32bb0b 92-93
+src/index.jsx
+  s_d931432877f59e::t_89821caeab822b 11
+src/router/ClientRouter.js
+  s_d931432877f59e::t_1072eda175f585 12-13,15
+src/server/renderer/document/Body.jsx
+  s_d931432877f59e::t_0e1029decc6759 10-11,22,36-41,46-48,61
+src/web-router/components/DataFetcher.jsx
+  s_d931432877f59e::t_280711dd743b28 1-2,5-13,17,19,21-27,30-43,46-52,56-63,65,68-82,84,87-90,95-97,99-100,102-103
+src/web-router/components/Split.jsx
+  s_d931432877f59e::t_5d006abe6aec38 47-51,59-61,103-104,198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2e9ca598352fe17d4b3621d70ae78b7319ab09e",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
