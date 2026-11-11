@@ -663,6 +663,7 @@ const prerenderPPRShell = async ({
 }
 
 const PPR_FAILED_RETRY_MS = 60 * 1000
+const LEARN_PRELOADS_MAX_BYTES = 512 * 1024
 const shellFailures = new Map()
 // Priority image preloads learned from resumed responses (see ppr.js).
 const learnedPreloads = new PreloadLearner()
@@ -812,7 +813,10 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
 
     await new Promise((resolve) => {
         let timeout
+        let abort
+        // Start of the resumed output, where React writes the priority image preloads.
         const resumed = []
+        let resumedBytes = 0
         const done = () => {
             clearTimeout(timeout)
             guard.restore()
@@ -827,7 +831,10 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
 
         const tail = new Transform({
             transform(chunk, _enc, cb) {
-                if (learnPreloads) resumed.push(chunk)
+                if (learnPreloads && resumedBytes < LEARN_PRELOADS_MAX_BYTES) {
+                    resumed.push(chunk)
+                    resumedBytes += chunk.length
+                }
                 cb(null, chunk)
             },
             flush(cb) {
@@ -868,7 +875,6 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         })
         tail.pipe(res)
 
-        let abort
         const stream = resumeToPipeableStream(
             <PPRDocument
                 phase="resume"
