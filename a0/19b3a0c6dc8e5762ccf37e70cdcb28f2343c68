@@ -1,0 +1,39 @@
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_9be17706afb3e3 12
+benchmarks/harness/lhreports.mjs
+  s_2b5c6c7a2de2aa::t_f13912936460af 1-16
+benchmarks/pokedex/results/lighthouse/README.md
+  s_2b5c6c7a2de2aa::t_90266f66bcd912 1-25
+benchmarks/pokedex/results/lighthouse/sveltekit.applied.html
+  s_2b5c6c7a2de2aa::t_3b97c9240c0b3a 1-2897
+benchmarks/pokedex/results/lighthouse/sveltekit.simulated.html
+  s_2b5c6c7a2de2aa::t_5ea76ef6c4e3bf 1-2897
+benchmarks/pokedex/results/lighthouse/catalyst-1.0.0.applied.html
+  s_2b5c6c7a2de2aa::t_282bce5693d799 1-2897
+benchmarks/pokedex/results/lighthouse/catalyst-1.0.0.simulated.html
+  s_2b5c6c7a2de2aa::t_6a08aaa5fe844e 1-2897
+benchmarks/pokedex/results/lighthouse/catalyst-1.1.0.applied.html
+  s_2b5c6c7a2de2aa::t_a346fc73e5a4a4 1-2897
+benchmarks/pokedex/results/lighthouse/catalyst-1.1.0.simulated.html
+  s_2b5c6c7a2de2aa::t_7715d61a67eb03 1-2897
+benchmarks/pokedex/results/lighthouse/exact.applied.html
+  s_2b5c6c7a2de2aa::t_96838f8d2b0df8 1-2897
+benchmarks/pokedex/results/lighthouse/exact.simulated.html
+  s_2b5c6c7a2de2aa::t_35f80d1e88e293 1-2897
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a019b3a0c6dc8e5762ccf37e70cdcb28f2343c68",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
