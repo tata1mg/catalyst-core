@@ -11,6 +11,6 @@ for (const [name, url] of Object.entries(targets)) for (const mode of ["simulate
     runs.push({ lcp: r.lhr.audits["largest-contentful-paint"].numericValue, html: r.report[0], json: r.report[1] }); await ch.kill()
   }
   runs.sort((a, b) => a.lcp - b.lcp); const m = runs[Math.floor(N / 2)]
-  writeFileSync(`${OUT}/${name}.${mode}.html`, m.html); writeFileSync(`${OUT}/${name}.${mode}.json`, m.json)
+  mkdirSync(`${OUT}/${name}`, { recursive: true }); writeFileSync(`${OUT}/${name}/lighthouse.${mode}.html`, m.html)
   console.log(name, mode, "LCP runs:", runs.map((x) => Math.round(x.lcp)).join("/"), "-> kept", Math.round(m.lcp))
 }

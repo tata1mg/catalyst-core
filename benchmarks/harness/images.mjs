@@ -1,12 +1,12 @@
-// Renders waterfall + interaction-timeline PNGs from pokedex/results/waterfall/*.json, and screenshots of the Lighthouse reports and the apps.
+// Renders waterfall + interaction-timeline PNGs from pokedex/results/<framework>/data/*.json, and screenshots of the Lighthouse report tops.
 // usage: node harness/images.mjs benchmarks/pokedex/results   (the app screenshots need the four apps running; they are not committed because they show the sprite artwork)
 import puppeteer from "puppeteer-core"; import { readFileSync, mkdirSync, existsSync } from "node:fs"; import { pathToFileURL } from "node:url"
-const R = process.argv[2], OUT = `${R}/images`; mkdirSync(OUT, { recursive: true })
+const R = process.argv[2]; const DIR = { catalyst: "catalyst-1.1.0", exact: "exact", sveltekit: "sveltekit" }; mkdirSync(`${R}/comparison`, { recursive: true })
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 const names = { catalyst: "Catalyst 1.1.0", exact: "Exact", sveltekit: "SvelteKit" }
-const wf = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/waterfall/wf-lh-${k}.json`)).picked]))
-const early = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/waterfall/early-${k}.json`))]))
-const late = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/waterfall/late-${k}.json`)).all]))
+const wf = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/${DIR[k]}/data/waterfall.json`)).picked]))
+const early = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/${DIR[k]}/data/early-typing.json`))]))
+const late = Object.fromEntries(Object.keys(names).map((k) => [k, JSON.parse(readFileSync(`${R}/${DIR[k]}/data/after-load-typing.json`)).all]))
 const med = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)]
 const XMAX = 4200, LW = 230, CW = 820, W = LW + CW + 40
 const x = (ms) => LW + (ms / XMAX) * CW
@@ -27,10 +27,10 @@ function chart(k, y0 = 0) {
 const page = (inner, h) => `<html><body style="margin:0;font-family:system-ui,sans-serif;background:#fff"><svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${h}">${inner}</svg></body></html>`
 function interaction() {
   const rows = Object.keys(names).map((k) => { const e = early[k].all, m = (f) => med(e.map((r) => r[f]).filter((v) => v != null)); const fl = e.map((r) => r.tFiltered).filter((v) => v != null)
-    return { k, input: m("tInput"), typed: m("tTyped"), load: m("tLoad"), filtered: fl.length === e.length ? med(fl) : null, lost: e.filter((r) => r.finalValue === "").length, n: e.length, after: med(late[k].map((r) => r.ms)), kib: med(late[k].map((r) => r.kib)) } })
+    return { k, input: m("tInput"), typed: m("tTyped"), load: m("tLoad"), filtered: fl.length === e.length ? med(fl) : null, lost: e.filter((r) => r.finalValue === "").length, n: e.length, after: med(late[k].map((r) => r.ms)), kib: med(late[k].map((r) => r.kib)), js: med(late[k].map((r) => r.jsKiB)) } })
   const XM = 2600, xx = (ms) => LW + (ms / XM) * CW; let g = `<text x="10" y="24" font-size="17" font-weight="700">Typing "pika" at the earliest moment the search box exists</text><text x="10" y="42" font-size="11" fill="#555">Lighthouse applied Slow 4G + 4x CPU, median of 5 runs. Times are ms from navigation start.</text>`
   rows.forEach((r, i) => { const y = 70 + i * 110
-    g += `<text x="10" y="${y + 14}" font-size="14" font-weight="700">${names[r.k]}</text><text x="10" y="${y + 32}" font-size="11" fill="#555">then, typed after load:</text><text x="10" y="${y + 46}" font-size="12" font-weight="700">${Math.round(r.after)} ms to filtered list</text><text x="10" y="${y + 60}" font-size="11" fill="#555">${r.kib.toFixed(0)} KiB fetched</text>`
+    g += `<text x="10" y="${y + 14}" font-size="14" font-weight="700">${names[r.k]}</text><text x="10" y="${y + 32}" font-size="11" fill="#555">then, typed after load:</text><text x="10" y="${y + 46}" font-size="12" font-weight="700">${Math.round(r.after)} ms to filtered list</text><text x="10" y="${y + 60}" font-size="11" fill="#555">${r.js.toFixed(0)} KiB of JS fetched (${r.kib.toFixed(0)} KiB all types)</text>`
     g += `<line x1="${LW}" y1="${y + 30}" x2="${xx(XM)}" y2="${y + 30}" stroke="#ccc" stroke-width="3"/>`
     for (let t = 0; t <= XM; t += 500) g += `<text x="${xx(t)}" y="${y + 80}" font-size="10" fill="#777" text-anchor="middle">${t}</text>`
     const dot = (ms, c, lbl, dy) => `<circle cx="${xx(ms)}" cy="${y + 30}" r="6" fill="${c}"/><text x="${xx(ms)}" y="${y + 30 + dy}" font-size="10" text-anchor="middle" fill="#222">${lbl}</text>`
@@ -38,11 +38,11 @@ function interaction() {
     g += r.filtered ? dot(r.filtered, "#1f77b4", `list filtered ${Math.round(r.filtered)}`, 22) : `<text x="${xx(1900)}" y="${y + 34}" font-size="13" font-weight="700" fill="#d62728">✗ never filtered: text wiped in ${r.lost}/${r.n} runs</text>` })
   return { g, h: 70 + 3 * 110 + 20 }
 }
-const b = await puppeteer.launch({ executablePath: CHROME, headless: "new", args: ["--no-sandbox"] }); const shot = async (html, h, f) => { const p = await b.newPage(); await p.setViewport({ width: W, height: h, deviceScaleFactor: 1.5 }); await p.setContent(html); await p.screenshot({ path: `${OUT}/${f}` }); await p.close() }
-let y = 0, all = ""; for (const k of Object.keys(names)) { const c = chart(k, y); all += c.g; await shot(page(chart(k, 0).g, c.H), c.H, `waterfall-${k}.png`); y += c.H + 10 }
-await shot(page(all, y), y, "waterfalls-all.png"); const it = interaction(); await shot(page(it.g, it.h), it.h, "interaction-timeline.png")
+const b = await puppeteer.launch({ executablePath: CHROME, headless: "new", args: ["--no-sandbox"] }); const shot = async (html, h, f) => { const p = await b.newPage(); await p.setViewport({ width: W, height: h, deviceScaleFactor: 1.5 }); await p.setContent(html); await p.screenshot({ path: f }); await p.close() }
+let y = 0, all = ""; for (const k of Object.keys(names)) { const c = chart(k, y); all += c.g; await shot(page(chart(k, 0).g, c.H), c.H, `${R}/${DIR[k]}/waterfall.png`); y += c.H + 10 }
+await shot(page(all, y), y, `${R}/comparison/waterfalls-all.png`); const it = interaction(); await shot(page(it.g, it.h), it.h, `${R}/comparison/interaction-timeline.png`)
 // Lighthouse report screenshots (top of each report)
-for (const k of ["catalyst-1.0.0", "catalyst-1.1.0", "exact", "sveltekit"]) for (const m of ["simulated", "applied"]) { const f = `${R}/lighthouse/${k}.${m}.html`; if (!existsSync(f)) continue; const p = await b.newPage(); await p.setViewport({ width: 1100, height: 1400 }); await p.goto(pathToFileURL(f).href, { waitUntil: "load" }); await new Promise((r) => setTimeout(r, 2500)); await p.screenshot({ path: `${OUT}/lighthouse-${k}-${m}.png` }); await p.close() }
-// app screenshots
-for (const [k, u] of [["catalyst-1.0.0", "http://localhost:3015/"], ["catalyst-1.1.0", "http://localhost:3016/"], ["exact", "http://127.0.0.1:8765/"], ["sveltekit", "http://localhost:3030/"]]) { try { const p = await b.newPage(); await p.setViewport({ width: 412, height: 823, isMobile: true, deviceScaleFactor: 2 }); await p.goto(u, { waitUntil: "load", timeout: 30000 }); await new Promise((r) => setTimeout(r, 2000)); await p.screenshot({ path: `${OUT}/app-${k}.png` }); await p.close() } catch (e) { console.log("skip app", k, e.message) } }
+for (const k of ["catalyst-1.0.0", "catalyst-1.1.0", "exact", "sveltekit"]) for (const m of ["simulated", "applied"]) { const f = `${R}/${k}/lighthouse.${m}.html`; if (!existsSync(f)) continue; const p = await b.newPage(); await p.setViewport({ width: 1100, height: 1400 }); await p.goto(pathToFileURL(f).href, { waitUntil: "load" }); await new Promise((r) => setTimeout(r, 2500)); await p.screenshot({ path: `${R}/${k}/lighthouse-report-top.${m}.png` }); await p.close() }
+// app screenshots (local only, not committed: they show the sprite artwork); set APPS=1 and run the four apps
+if (process.env.APPS) for (const [k, u] of [["catalyst-1.0.0", "http://localhost:3015/"], ["catalyst-1.1.0", "http://localhost:3016/"], ["exact", "http://127.0.0.1:8765/"], ["sveltekit", "http://localhost:3030/"]]) { try { const p = await b.newPage(); await p.setViewport({ width: 412, height: 823, isMobile: true, deviceScaleFactor: 2 }); await p.goto(u, { waitUntil: "load", timeout: 30000 }); await new Promise((r) => setTimeout(r, 2000)); await p.screenshot({ path: `/tmp/pokedex-app-${k}.png` }); await p.close() } catch (e) { console.log("skip app", k, e.message) } }
 await b.close(); console.log("done")

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 const names = { catalyst: "Catalyst 1.1.0", exact: "Exact", sveltekit: "SvelteKit" }
 for (const l of ["catalyst", "exact", "sveltekit"]) {
-  const d = JSON.parse(readFileSync(new URL(`../pokedex/results/waterfall/wf-lh-${l}.json`, import.meta.url))), p = d.picked
+  const d = JSON.parse(readFileSync(new URL(`../pokedex/results/${l === "catalyst" ? "catalyst-1.1.0" : l}/data/waterfall.json`, import.meta.url))), p = d.picked
   const nonImg = p.rows.filter((r) => r.type !== "Image"), imgs = p.rows.filter((r) => r.type === "Image")
   const end = Math.max(...p.rows.map((r) => r.e), p.lcp?.t || 0, p.load || 0), W = 44, sc = (ms) => Math.round((ms / end) * W)
   const bar = (s, e) => " ".repeat(sc(s)) + "█".repeat(Math.max(1, sc(e) - sc(s)))

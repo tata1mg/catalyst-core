@@ -1,6 +1,8 @@
 // usage: node waterfall.mjs <label> <url> <runs>   (applied mobile throttling: 4x CPU, Slow 4G, fresh browser per run)
 import puppeteer from "puppeteer-core"; import { writeFileSync } from "node:fs"
 const [label, url, runs = "5"] = process.argv.slice(2); const N = +runs
+const DIR = { catalyst: "catalyst-1.1.0" }[label] || label
+
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 // PROFILE=lh reproduces Lighthouse's applied Slow 4G (request latency 150 x 3.75 ms, throughput x 0.9); default is the milder 150 ms profile used by pokebench.mjs
 const LH = process.env.PROFILE === "lh"
@@ -28,5 +30,5 @@ async function waterfall() {
 }
 const all = []; for (let i = 0; i < N; i++) all.push(await waterfall())
 const lcps = all.map((r) => r.lcp?.t ?? 0); const pick = all.find((r) => (r.lcp?.t ?? 0) === med(lcps)) || all[0]
-writeFileSync(new URL(`../pokedex/results/waterfall/wf-${LH ? "lh-" : ""}${label}.json`, import.meta.url), JSON.stringify({ label, url, lcps, scriptMsAll: all.map((r) => r.scriptMs), picked: pick }, null, 1))
+writeFileSync(new URL(`../pokedex/results/${DIR}/data/waterfall${LH ? "" : "-mild-profile"}.json`, import.meta.url), JSON.stringify({ label, url, lcps, scriptMsAll: all.map((r) => r.scriptMs), picked: pick }, null, 1))
 console.log(label, "LCPs", lcps.map(Math.round).join("/"), "scriptMs", all.map((r) => Math.round(r.scriptMs)).join("/"))

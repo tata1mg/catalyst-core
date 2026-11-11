@@ -1,6 +1,8 @@
 // usage: node early.mjs <label> <url> <runs>  — type "pika" at the EARLIEST moment the search input exists; Lighthouse applied Slow 4G + 4x CPU
 import puppeteer from "puppeteer-core"; import { writeFileSync } from "node:fs"
 const [label, url, runs = "5"] = process.argv.slice(2); const N = +runs
+const DIR = { catalyst: "catalyst-1.1.0" }[label] || label
+
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 const CARD = 'a[href*="/pokemon/"]', INPUT = 'input[aria-label="Search Pokémon"]'
 const med = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null }
@@ -27,5 +29,5 @@ async function once() {
 }
 const all = []; for (let i = 0; i < N; i++) all.push(await once())
 const sum = Object.fromEntries(["tInput", "tTyped", "tFiltered", "tLoad"].map((k) => [k, med(all.map((r) => r[k]))]))
-writeFileSync(new URL(`../pokedex/results/waterfall/early-${label}.json`, import.meta.url), JSON.stringify({ label, sum, all }, null, 1))
+writeFileSync(new URL(`../pokedex/results/${DIR}/data/early-typing.json`, import.meta.url), JSON.stringify({ label, sum, all }, null, 1))
 console.log(label.padEnd(10), "input appears", Math.round(sum.tInput), "| typed", Math.round(sum.tTyped), "| list filtered", sum.tFiltered ? Math.round(sum.tFiltered) : "never (25s)", "| load event", Math.round(sum.tLoad), "| final input value:", all.map((r) => JSON.stringify(r.finalValue)).join(","), "| final cards:", all.map((r) => r.finalCards).join(","))
