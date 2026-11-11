@@ -13,6 +13,8 @@ const serialize = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u00
  * @param {number|string} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
  * @param {object} fetcherData - contains data from executing serverFetcher function
+ * @param {boolean} pprShell - PPR route: the state script is written per request after the
+ *   resumed app (it holds this request's store), so it must not be part of the shared shell
  * @param {object} children - contains any child elements defined within the component
  */
 export function Body(props) {
@@ -25,6 +27,7 @@ export function Body(props) {
         children,
         safeArea = DEFAULT_SAFE_AREA,
         nativeWebView = false,
+        pprShell = false,
     } = props
 
     return (
@@ -40,16 +43,18 @@ export function Body(props) {
                 <script type="module" src={`${process.env.APP_MOUNT_PATH || ""}/client/index.js`}></script>
             )}
             {jsx}
-            <script
-                /* eslint-disable */
-                dangerouslySetInnerHTML={{
-                    __html: `
+            {!pprShell && (
+                <script
+                    /* eslint-disable */
+                    dangerouslySetInnerHTML={{
+                        __html: `
                     window.__INITIAL_STATE__ = ${serialize(initialState)}
                     window.__STATUS_CODE__ = ${JSON.stringify(statusCode || null)}
                     window.__ROUTER_INITIAL_DATA__ = ${serialize(fetcherData)}
             `,
-                }}
-            />
+                    }}
+                />
+            )}
 
             {children}
         </body>

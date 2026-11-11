@@ -7,6 +7,8 @@ import React, { createContext } from "react"
  */
 export interface SsrRequestContextValue {
     isBot: boolean
+    /** This request's ChunkExtractor; split() registers rendered chunks with it. */
+    chunkExtractor?: { addComponent(cacheKey: any): void } | null
 }
 
 export interface SsrRequestProviderProps {

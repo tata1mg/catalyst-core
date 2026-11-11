@@ -1,4 +1,5 @@
 import React from "react"
+import { useCurrentRouteData } from "catalyst-core"
 
 // Fixture route table for the SSR handler tests (#348). Concrete routes
 // plus a catch-all so tests can exercise the 200 / 404 / fetcher-error
@@ -69,8 +70,34 @@ function RenderErrorPage() {
     throw new Error("render exploded")
 }
 
+// Partial prerendering: the shell holds pprFallback; the page renders per request with its
+// serverFetcher data (here, a value from the request's cookie, so the tests can check that one
+// visitor's data never reaches the next one's response).
+function PPRPage() {
+    const { data } = useCurrentRouteData()
+    return <p data-testid="ppr-user">user:{data?.user}</p>
+}
+const PPRLoadable = loadable({
+    default: Object.assign(PPRPage, {
+        renderMode: "ppr",
+        pprFallback: <p data-testid="ppr-skeleton">skeleton</p>,
+        serverFetcher: async ({ req }) => ({ user: req.cookies?.user || "anonymous" }),
+    }),
+})
+
+// Static full-page cache: rendered once, replayed byte for byte.
+let staticRenders = 0
+export const getStaticRenders = () => staticRenders
+function StaticPage() {
+    staticRenders++
+    return <p data-testid="static">static page</p>
+}
+StaticPage.renderMode = "static"
+
 const routes = [
     { path: "/", component: HomePage },
+    { path: "/ppr", component: PPRLoadable },
+    { path: "/static", component: StaticPage },
     { path: "/render-error", component: RenderErrorPage },
     { path: "/widget", component: WidgetPage },
     { path: "/fetcher-error", component: FetcherErrorLoadable },
