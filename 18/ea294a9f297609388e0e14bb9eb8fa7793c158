@@ -1,0 +1,45 @@
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_df90aed1b9298f 18-30
+benchmarks/harness/early.mjs
+  s_2b5c6c7a2de2aa::t_bfa38498bac319 1-31
+benchmarks/harness/late.mjs
+  s_2b5c6c7a2de2aa::t_905f435641f938 1-23
+benchmarks/harness/render.mjs
+  s_2b5c6c7a2de2aa::t_3536ee35c170d6 1-13
+benchmarks/harness/waterfall.mjs
+  s_2b5c6c7a2de2aa::t_a8c8ca3ee873cd 1-32
+benchmarks/pokedex/results/waterfall/early-catalyst.json
+  s_2b5c6c7a2de2aa::t_25c2f401030872 1-91
+benchmarks/pokedex/results/waterfall/early-exact.json
+  s_2b5c6c7a2de2aa::t_96443d7c36e1ad 1-76
+benchmarks/pokedex/results/waterfall/early-sveltekit.json
+  s_2b5c6c7a2de2aa::t_c9f1a146db8d76 1-126
+benchmarks/pokedex/results/waterfall/late-catalyst.json
+  s_2b5c6c7a2de2aa::t_66098a077462ce 1-35
+benchmarks/pokedex/results/waterfall/late-exact.json
+  s_2b5c6c7a2de2aa::t_6eb4d831fe9fcb 1-35
+benchmarks/pokedex/results/waterfall/late-sveltekit.json
+  s_2b5c6c7a2de2aa::t_4a1fd737a454cf 1-35
+benchmarks/pokedex/results/waterfall/wf-lh-catalyst.json
+  s_2b5c6c7a2de2aa::t_836c1d52c5b54f 1-578
+benchmarks/pokedex/results/waterfall/wf-lh-exact.json
+  s_2b5c6c7a2de2aa::t_52a09dd187cea9 1-396
+benchmarks/pokedex/results/waterfall/wf-lh-sveltekit.json
+  s_2b5c6c7a2de2aa::t_595fc318d5050d 1-662
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "18ea294a9f297609388e0e14bb9eb8fa7793c158",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
