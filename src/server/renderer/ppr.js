@@ -17,6 +17,8 @@ const toInt = (value, fallback) => {
 // classic path when PPR_ENABLE is not true, so it doubles as the production kill switch.
 export const isPPREnabled = () => process.env.PPR_ENABLE === true || process.env.PPR_ENABLE === "true"
 export const PPR_SHELL_CACHE_MAX = () => toInt(process.env.PPR_SHELL_CACHE_MAX, 50)
+// Shell prerenders allowed to run at the same time (each is a full React render).
+export const PPR_SHELL_BUILDS_MAX = () => toInt(process.env.PPR_SHELL_BUILDS_MAX, 8)
 // How long the prerender waits for the static parts before it is cut (the hole never settles).
 export const PPR_PRERENDER_SETTLE_MS = () => toInt(process.env.PPR_PRERENDER_SETTLE_MS, 50)
 // Upper bound for the resumed (dynamic) part; on timeout React hands the rest to the client.
@@ -32,6 +34,12 @@ export class ShellCache {
     constructor() {
         this.map = new Map()
         this.inflight = new Map()
+        // delete()/clear() bump these, so a build that started before them can't publish.
+        this.epoch = 0
+        this.versions = new Map()
+    }
+    token(key) {
+        return `${this.epoch}:${this.versions.get(key) || 0}`
     }
     get(key) {
         const value = this.map.get(key)
@@ -48,21 +56,36 @@ export class ShellCache {
     }
     delete(key) {
         this.map.delete(key)
+        this.inflight.delete(key)
+        this.versions.set(key, (this.versions.get(key) || 0) + 1)
+        if (this.versions.size > 10000) {
+            // Bounded: start a new epoch (running builds then don't publish).
+            this.versions.clear()
+            this.epoch++
+        }
     }
     clear() {
         this.map.clear()
         this.inflight.clear()
+        this.versions.clear()
+        this.epoch++
+    }
+    /** True when a new build for this key would exceed PPR_SHELL_BUILDS_MAX. */
+    isSaturated(key, max = PPR_SHELL_BUILDS_MAX()) {
+        return !this.inflight.has(key) && this.inflight.size >= max
     }
     /** One build per key at a time; concurrent requests for a missing shell share it. */
     async build(key, builder) {
         if (this.inflight.has(key)) return this.inflight.get(key)
+        const token = this.token(key)
         const pending = (async () => {
             try {
                 const shell = await builder()
-                if (shell) this.set(key, shell)
+                // Publish only if the key wasn't deleted/cleared while this build ran.
+                if (shell && this.token(key) === token) this.set(key, shell)
                 return shell
             } finally {
-                this.inflight.delete(key)
+                if (this.inflight.get(key) === pending) this.inflight.delete(key)
             }
         })()
         this.inflight.set(key, pending)

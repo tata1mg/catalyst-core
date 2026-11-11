@@ -48,15 +48,33 @@ A PPR response is written in three parts:
 
 The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`; as a guard, a shell that contains a value from the request's cookies is not cached. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server.
 
+```jsx
+// server/document.js (custom Document): per-request markup stays out of the shared shell
+import { PPRDynamic } from "catalyst-core"
+
+<Body {...props}>
+    <PPRDynamic>
+        <input type="hidden" id="_csrf" value={csrfToken} />
+    </PPRDynamic>
+</Body>
+
+// client/index.js
+import { PPRHydrationBoundary } from "catalyst-core"
+
+hydrateRoot(container, <PPRHydrationBoundary>{Application}</PPRHydrationBoundary>)
+```
+
+On a streaming (non-PPR) response both render their children as they are.
+
 Optional app hooks (`server/index.js`):
 
 | Hook | Purpose |
 | --- | --- |
 | `getPPRShellKey({ req, res, store, matches })` | Added to the shell cache key for every request property the shell markup depends on (language, platform). Return `null`/`false` to serve the request on the streaming path. |
 | `getPPRPreloadKey({ req, res, store })` | Request properties that change image URLs but not the shell (e.g. device pixel ratio). Keys learned LCP image preloads. |
-| `beforePPRFlush({ req, res, store })` | Last point to set headers/cookies before the shell is written (e.g. create a CSRF token). |
+| `beforePPRFlush({ req, res, store })` | Last point to set headers/cookies before the shell is written (e.g. create a CSRF token). Must be synchronous: its return value is not awaited. |
 
-Config (`config.json`): `PPR_ENABLE` (default `false`), `PPR_SHELL_CACHE_MAX` (50), `PPR_RESUME_TIMEOUT_MS` (15000; on timeout the rest renders on the client), `PPR_PRERENDER_SETTLE_MS` (50), `PPR_PROGRESSIVE_CHUNK_SIZE`, `PPR_LEARN_PRELOADS` (default on), `PPR_REVEAL_THROTTLE` (default off: resumed content is revealed without React 19.2's 300 ms batching).
+Config (`config.json`): `PPR_ENABLE` (default `false`), `PPR_SHELL_CACHE_MAX` (50), `PPR_SHELL_BUILDS_MAX` (8 shell prerenders at a time; a miss beyond that takes the streaming path), `PPR_RESUME_TIMEOUT_MS` (15000; on timeout the rest renders on the client), `PPR_PRERENDER_SETTLE_MS` (50), `PPR_PROGRESSIVE_CHUNK_SIZE`, `PPR_LEARN_PRELOADS` (default on), `PPR_REVEAL_THROTTLE` (default off: resumed content is revealed without React 19.2's 300 ms batching).
 
 Bots, `getPPRShellKey` returning `null`, a shell that could not be built (retried after 60 s) and `PPR_ENABLE=false` all take the streaming path. Requires React 19.2 (`resume` APIs).
 
@@ -80,7 +98,9 @@ StaticDemo.serverFetcher = async () => {
 StaticDemo.renderMode = "static"
 ```
 
-The entire page — not just a shell — is rendered once (via `prerenderToNodeStream` with no abort/postpone, so it waits for the whole tree, including `serverFetcher` data, to fully resolve) and cached in full. Every later request, from bots included, replays those exact bytes with no data fetch and no render at all.
+The entire page — not just a shell — is rendered once (via `prerenderToNodeStream` with no abort/postpone, so it waits for the whole tree, including `serverFetcher` data, to fully resolve) and cached in full, keyed by pathname plus the sorted query string. Every later request, bots included, runs `App.serverSideFunction` (so its redirects, auth checks and cookies still apply) and then replays those bytes with no data fetch and no render.
+
+The cached page includes the store state of the request that rendered it, so use static mode only for routes whose store holds nothing per-user. As a guard, a page that contains a value from the request's cookies is not cached.
 
 **`serverFetcher`/`clientFetcher` are only discovered on a lazily-loaded route** — `renderMode` and any fetchers must be set on a `split()`-wrapped component, not a plain direct import:
 

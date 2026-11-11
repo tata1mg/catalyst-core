@@ -154,3 +154,29 @@ test("learned preloads are replayed only once two responses for the key agree", 
     l.record("third", ["x"])
     assert.equal(l.entries.size, 1, "bounded: cleared when full")
 })
+
+test("ShellCache: a build started before delete/clear does not publish; concurrent builds are capped", async () => {
+    let release
+    const gate = new Promise((r) => (release = r))
+    const cache = new ShellCache()
+    const stale = cache.build("/a", () => gate.then(() => ({ v: "old" })))
+    cache.delete("/a") // e.g. the route learned new CSS while the old shell was building
+    const fresh = await cache.build("/a", async () => ({ v: "new" }))
+    release()
+    await stale
+    assert.deepEqual(cache.get("/a"), fresh, "the stale build must not overwrite the fresh shell")
+
+    let release2
+    const gate2 = new Promise((r) => (release2 = r))
+    const building = cache.build("/b", () => gate2.then(() => ({ v: "b" })))
+    cache.clear()
+    release2()
+    await building
+    assert.equal(cache.get("/b"), undefined, "a build that outlived clear() must not publish")
+
+    const hold = new Promise(() => {})
+    cache.build("/c", () => hold)
+    cache.build("/d", () => hold)
+    assert.equal(cache.isSaturated("/e", 2), true, "a third distinct key is refused at max 2")
+    assert.equal(cache.isSaturated("/c", 2), false, "a key already building can still be joined")
+})

@@ -155,6 +155,14 @@ const isBotRequest = (req) => {
 }
 
 const getPathname = (req) => new URL(req.originalUrl, "http://localhost").pathname
+// Static pages: route fetchers read req.query, so the (sorted) query is part of the key.
+const getStaticCacheKey = (req) => {
+    const url = new URL(req.originalUrl, "http://localhost")
+    url.searchParams.delete("__refresh_static_cache") // dev bypass refreshes the plain entry
+    url.searchParams.sort()
+    const query = url.searchParams.toString()
+    return query ? `${url.pathname}?${query}` : url.pathname
+}
 
 const routeStatus = (allMatches) => (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
 
@@ -426,7 +434,7 @@ const _renderMarkUpStatic = async (
     chunkExtractor,
     nonce
 ) => {
-    const cacheKey = getPathname(req)
+    const cacheKey = getStaticCacheKey(req)
     // One canonical version for every visitor, so no per-request bot branching.
     const isBot = false
 
@@ -473,9 +481,17 @@ const _renderMarkUpStatic = async (
 
         const buffer = Buffer.concat([preludeBuffer, Buffer.from(trailerParts.join(""))])
 
-        // Only cache a clean 200, never a transient error page or a redirect.
+        // Only cache a clean 200, never a transient error page or a redirect, and never a
+        // page that carries this visitor's cookie values (it would be replayed to everyone).
         if (status === 200) {
-            staticPageCache.set(cacheKey, { buffer, statusCode: status })
+            const leaked = findRequestValuesInShell(buffer.toString("utf8"), req)
+            if (leaked.length) {
+                getLogger().error?.(
+                    `[Static] ${cacheKey}: page contains request cookie values (${leaked.join(", ")}); not caching`
+                )
+            } else {
+                staticPageCache.set(cacheKey, { buffer, statusCode: status })
+            }
         }
 
         res.setHeader("x-rendering-mode", "static-cache-miss")
@@ -718,6 +734,8 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         // A key whose shell could not be built recently goes straight to the classic path
         // instead of paying for a prerender attempt on every request.
         if (shellFailures.has(key) && Date.now() - shellFailures.get(key) < PPR_FAILED_RETRY_MS) return false
+        // Too many shells being built at once (many distinct keys): serve this one classic.
+        if (shellCache.isSaturated(key)) return false
         shell = await shellCache.build(key, () =>
             prerenderPPRShell({
                 key,
@@ -777,12 +795,21 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                 safeCall(onFetcherSuccess, { req, res, store })
             }
         } catch (error) {
-            console.error("Error in executing serverFetcher functions:", error)
+            console.error(`[PPR] serverFetcher failed for ${req.originalUrl}:`, error)
             statusCode = 404
             safeCall(onFetcherError, { req, res, store, error })
         }
         return fetcherData
     })()
+    // Late cookie/redirect calls stay guarded until route data settles, even if the client
+    // goes away first; restore() is idempotent.
+    const restoreGuard = () => routeData.finally(() => guard.restore())
+
+    // A fetcher may have redirected or ended the response before its first await.
+    if (res.headersSent || res.writableEnded) {
+        restoreGuard()
+        return true
+    }
 
     let preloadKey = null
     if (isPreloadLearningEnabled()) {
@@ -819,7 +846,7 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         let resumedBytes = 0
         const done = () => {
             clearTimeout(timeout)
-            guard.restore()
+            restoreGuard()
             resolve()
         }
         res.once("finish", done)
@@ -967,16 +994,6 @@ async function _handler(req, res) {
         // A cached static page carries the nonce of the request that rendered it, so static
         // mode is skipped when the response uses a nonce-based CSP.
         const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce
-        if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
-            const cached = staticPageCache.get(getPathname(req))
-            if (cached) {
-                res.setHeader("x-rendering-mode", "static-cache-hit")
-                res.status(cached.statusCode)
-                res.set({ "content-type": "text/html; charset=utf-8" })
-                res.end(cached.buffer)
-                return
-            }
-        }
         const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
 
         try {
@@ -984,6 +1001,19 @@ async function _handler(req, res) {
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) return
+
+            // Static: replay a cached page only after App.serverSideFunction, so its redirects,
+            // auth checks and cookies still apply to every request.
+            if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
+                const cached = staticPageCache.get(getStaticCacheKey(req))
+                if (cached) {
+                    res.setHeader("x-rendering-mode", "static-cache-hit")
+                    res.status(cached.statusCode)
+                    res.set({ "content-type": "text/html; charset=utf-8" })
+                    res.end(cached.buffer)
+                    return
+                }
+            }
 
             if (renderMode === "ppr" && isPPREnabled() && !isBotRequest(req)) {
                 try {
