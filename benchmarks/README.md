@@ -28,3 +28,7 @@ All use Lighthouse's own applied Slow 4G profile (request latency 150 x 3.75 ms,
 | `harness/late.mjs` | waits for load + 2.5 s, taps the box, types "pika"; records time to filtered list, bytes fetched, heap | `late-*.json` |
 
 Note: `pokebench.mjs` (the first Pokédex runner) used a milder network profile (150 ms latency), so its interaction numbers for Exact are lower than the `late.mjs` ones.
+
+### Images (`pokedex/results/images/`)
+
+`waterfall-{catalyst,exact,sveltekit}.png` and `waterfalls-all.png` (same time axis) are drawn from `waterfall/wf-lh-*.json`; `interaction-timeline.png` from `early-*.json` and `late-*.json`; `lighthouse-*.png` are screenshots of the top of each Lighthouse report. `waterfall/waterfalls.txt` is the same waterfall data as text. Regenerate with `harness/images.mjs`. The apps' own screenshots are not committed because they show the sprite artwork.

@@ -1,0 +1,39 @@
+
+### Catalyst 1.1.0   (picked run: LCP 1168 ms; all 5 runs: 1176/1164/1168/1168/1172; main-thread script time 77 ms)
+start→end ms   KiB  type      name
+    0→607       7.2  Document  /                            ███████
+  589→1178      0.7  Script    main-BWj1rjwI.js                   ███████
+  589→1767     57.6  Script    vendor-react-CRcozs3N.js           █████████████
+  589→1290      4.2  Script    app-BwyKtvp_.js                    ████████
+  589→1599     31.2  Script    vendor-router-Cf8OGRCj.js          ███████████
+  589→1195      1.2  Script    Home-DUQfGf8G.js                   ███████
+ 1821→2394      1.2  Other     favicon.ico                                      ██████
+  + 32 image requests (sprites): first starts 588 ms, last ends 4040 ms, 31 KiB total
+markers: FCP 660 | LCP 1168 (IMG 2.png) | DOMContentLoaded 1794 | load 1796 | long tasks: none
+
+### Exact   (picked run: LCP 1228 ms; all 5 runs: 1244/1228/1224/1224/1232; main-thread script time 3 ms)
+start→end ms   KiB  type      name
+    0→623      10.6  Document  /                            █████████
+  583→1155      0.4  Manifest  manifest.json                         ████████
+  + 24 image requests (sprites): first starts 643 ms, last ends 2992 ms, 24 KiB total
+markers: FCP 656 | LCP 1228 (IMG 1.png) | DOMContentLoaded 656 | load 670 | long tasks: none
+
+### SvelteKit   (picked run: LCP 1224 ms; all 5 runs: 1220/1776/1224/1224/1224; main-thread script time 12 ms)
+start→end ms   KiB  type      name
+    0→856      53.9  Document  /                            ███████████
+  575→1149      0.7  Stylesheet 0.DcNDL5BU.css                      ███████
+  580→1364     10.4  Script    start.BpqLD-1r.js                   ██████████
+  580→1355      9.7  Script    JOAg28iE.js                         ██████████
+  580→1293      3.0  Script    Z7vKI4fa.js                         █████████
+  580→1182      0.5  Script    JmsXEvdU.js                         ████████
+  580→1444      3.5  Script    app.2q56BcZb.js                     ███████████
+  580→1738      3.4  Script    DwabCYUB.js                         ██████████████
+  581→1754      1.0  Script    X20OPxYD.js                         ███████████████
+  581→1865      1.2  Script    D2ThDd3q.js                         ████████████████
+  581→1927      0.6  Script    0.jjZID4wD.js                       █████████████████
+  581→2025      2.1  Script    2.BVLSOymE.js                       ██████████████████
+  581→1945      2.8  Script    DIHA38eN.js                         █████████████████
+ 1270→2318      2.0  Other     favicon.ico                                  █████████████
+ 1870→2436      0.6  Script    1.CicqhrNZ.js                                       ███████
+  + 30 image requests (sprites): first starts 586 ms, last ends 3558 ms, 29 KiB total
+markers: FCP 1208 | LCP 1224 (IMG 1.png) | DOMContentLoaded 1207 | load 1269 | long tasks: none
