@@ -100,8 +100,8 @@ export const split = (importFn, options = {}, thirdArg, fourthArg) => {
     const rootOptions = hasFourthArg
         ? thirdArg
         : hasThirdArg && typeof thirdArg !== "string"
-        ? thirdArg
-        : undefined
+          ? thirdArg
+          : undefined
 
     if (typeof window !== "undefined" && window.__SSR_RENDERED_COMPONENTS__?.has(cacheKey)) {
         const prefetch = importFn().then((mod) => {

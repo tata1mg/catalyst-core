@@ -1,11 +1,11 @@
 # Rendering Modes
 
-Every route in Catalyst renders in one of three modes. They trade off how fresh the content is against how cheap it is to serve — pick per route based on whether the content is personalized, semi-dynamic, or truly the same for everyone. PPR and static are both explicit per-route opt-ins via `Component.renderMode` — there's no global toggle; an unset `renderMode` is the streaming default.
+Every route in Catalyst renders in one of three modes. They trade off how fresh the content is against how cheap it is to serve — pick per route based on whether the content is personalized, semi-dynamic, or truly the same for everyone. PPR and static are explicit per-route opt-ins via `Component.renderMode`; an unset `renderMode` is the streaming default. PPR also needs `PPR_ENABLE: true` in `config.json` (default off), which doubles as its kill switch.
 
 | Mode      | What's cached      | What's fresh per request          | Applies to bots | Data fetching API |
 | --------- | ------------------- | ----------------------------------- | ---------------- | ------------------- |
 | Streaming | Nothing              | Everything (data + render)          | Yes (always)      | `serverFetcher` / `clientFetcher` |
-| PPR       | Static shell only    | `usePPRRouteData()` boundaries      | No                | `usePPRRouteData()` |
+| PPR       | Document + route skeleton (`pprFallback`) | The whole app, rendered with this request's data | No (bots get streaming) | `serverFetcher` / `clientFetcher`, or `usePPRRouteData()` |
 | Static    | The entire page      | Nothing, until cache is refreshed   | Yes               | `serverFetcher` / `clientFetcher` |
 
 ## Streaming (default)
@@ -33,50 +33,40 @@ Unlike PPR, there's no static/dynamic split here — the entire page is gated on
 
 ## Partial Prerendering (PPR)
 
-Opt a route in by setting `renderMode` on its component:
+Opt a route in by setting `renderMode` (and optionally a static skeleton) on its component, and turn PPR on with `PPR_ENABLE: true` in `config.json`:
 
 ```js
 Home.renderMode = "ppr"
+Home.pprFallback = <HomeSkeleton /> // what the cached shell shows until the app streams in
 ```
 
-A route's static markup — everything that doesn't read data through `usePPRRouteData()` — is rendered once, cached, and replayed as the shell for every subsequent request. Anything wrapped in `usePPRRouteData()` suspends during that initial prerender, gets cut from the cached shell, and is resolved fresh on every request when the shell resumes.
+A PPR response is written in three parts:
 
-All data fetching on a PPR route goes through [`usePPRRouteData()`/`DynamicDataProvider`](src/web-router/components/DataFetcher.jsx):
+1. **Shell**, prerendered once per `pathname | getPPRShellKey()` with `prerenderToNodeStream` and replayed from an in-memory LRU: the document (`<head>`, inlined CSS, preloads) and `pprFallback`. It is written as soon as `App.serverSideFunction` has run, before route data is fetched.
+2. **App**, the postponed hole: resumed with `resumeToPipeableStream` when this request's `serverFetcher` data is ready, so existing fetchers work unchanged.
+3. **Trailer**: this request's `__INITIAL_STATE__`, router data, rendered `split()` keys, deferred CSS/JS, and any cookies/redirects set after the headers went out (replayed client-side).
 
-```js
-import { usePPRRouteData, DynamicDataProvider } from "catalyst-core"
-import { Suspense } from "react"
+The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`; as a guard, a shell that contains a value from the request's cookies is not cached. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server.
 
-function fetchLiveStats() {
-    return fetch("/api/live-stats").then((res) => res.json())
-}
+Optional app hooks (`server/index.js`):
 
-function LiveStats() {
-    // Suspends on the prerender pass, so this subtree is excluded from the
-    // cached shell and re-fetched fresh on every request that resumes it.
-    const data = usePPRRouteData(fetchLiveStats)
-    return <p>{data.activeUsers} people online</p>
-}
+| Hook | Purpose |
+| --- | --- |
+| `getPPRShellKey({ req, res, store, matches })` | Added to the shell cache key for every request property the shell markup depends on (language, platform). Return `null`/`false` to serve the request on the streaming path. |
+| `getPPRPreloadKey({ req, res, store })` | Request properties that change image URLs but not the shell (e.g. device pixel ratio). Keys learned LCP image preloads. |
+| `beforePPRFlush({ req, res, store })` | Last point to set headers/cookies before the shell is written (e.g. create a CSRF token). |
 
-function ProductPage() {
-    return (
-        <div>
-            <h1>Static product info — cached in the shell</h1>
-            <DynamicDataProvider>
-                <Suspense fallback={<p>Loading…</p>}>
-                    <LiveStats />
-                </Suspense>
-            </DynamicDataProvider>
-        </div>
-    )
-}
-```
+Config (`config.json`): `PPR_ENABLE` (default `false`), `PPR_SHELL_CACHE_MAX` (50), `PPR_RESUME_TIMEOUT_MS` (15000; on timeout the rest renders on the client), `PPR_PRERENDER_SETTLE_MS` (50), `PPR_PROGRESSIVE_CHUNK_SIZE`, `PPR_LEARN_PRELOADS` (default on), `PPR_REVEAL_THROTTLE` (default off: resumed content is revealed without React 19.2's 300 ms batching).
 
-`<DynamicDataProvider>` is required around the dynamic subtree — it's what triggers the abort that cuts that content out of the cached prerender. A route with no `DynamicDataProvider`-wrapped content anywhere has nothing to postpone and is served like any other page; there's no requirement to wrap something dynamic on every route.
+Bots, `getPPRShellKey` returning `null`, a shell that could not be built (retried after 60 s) and `PPR_ENABLE=false` all take the streaming path. Requires React 19.2 (`resume` APIs).
 
-**Caveat:** `usePPRRouteData()`'s cache is keyed per-route (by pathname), not per call site. If a route calls it more than once with different fetchers, the second call reuses the first call's cached promise instead of fetching independently. Fetch everything that route needs in a single call (return one combined object) rather than calling `usePPRRouteData()` multiple times on the same page.
+**Behaviour changes on PPR responses:** the status line goes out with the shell, so it is 200 even when `serverFetcher` fails (the app renders its error state; `window.__STATUS_CODE__` has the real code); meta tags that depend on fetcher data arrive in the body.
 
-PPR is skipped for bot requests (crawlers get the full streaming path) regardless of `renderMode` — a single-pass crawler render doesn't benefit from a shell/dynamic split.
+### `usePPRRouteData()`
+
+Components can also read data with `usePPRRouteData(fetcher)` (React `use()`). It suspends without calling the fetcher while the shell is prerendered, caches per request on the server (never across users), and seeds the client from `window.cachedData` so hydration does not refetch. It works on the streaming path too. `DynamicDataProvider` is kept for compatibility and is a pass-through.
+
+**Caveat:** the cache is keyed by pathname, not per call site. If a route calls it more than once with different fetchers, the second call reuses the first call's result. Fetch everything the route needs in a single call.
 
 ## Static (full-page cache)
 
@@ -109,12 +99,12 @@ The cache is in-process and per-server: it's cleared on restart/redeploy, and (l
 
 ## x-rendering-mode reference
 
-PPR and static responses carry an `x-rendering-mode` header useful for debugging which path served a given request. Streaming responses carry **no such header at all** — its absence is itself the signal that a route rendered via the classic path.
+PPR and static responses carry an `x-rendering-mode` header useful for debugging which path served a given request. Streaming responses carry **no such header at all**.
 
 | Value                    | Meaning                                                    |
 | -------------------------- | ------------------------------------------------------------- |
 | *(header absent)*          | Streaming: classic path, rendered fresh, nothing cached        |
-| `1st Req`                  | PPR: first request for this route, shell just got cached      |
-| `resumeToPipeableStream`   | PPR: shell served from cache, dynamic content resumed live    |
+| `ppr-miss`                 | PPR: shell built for this request (and cached), app resumed   |
+| `ppr-hit`                  | PPR: shell served from cache, app resumed with this request's data |
 | `static-cache-miss`        | Static: no cache entry (or dev bypass) — rendered fresh        |
 | `static-cache-hit`         | Static: entire response served from cache                     |

@@ -103,20 +103,7 @@ async function createServer() {
     app.use(responseFlushMiddleware(SSR_SERVICE, "response.flush", "response.compress"))
 
     // The middleware will attempt to compress response bodies for all request that traverse through the middleware
-    app.use(
-        compression({
-            level: 6, // Balance between speed and compression (1-9)
-            threshold: 1024, // Only compress responses > 1KB
-            filter: (req, res) => {
-                // Don't compress if client doesn't accept it
-                if (req.headers["x-no-compression"]) {
-                    return false
-                }
-                // Use default filter (checks Accept-Encoding)
-                return compression.filter(req, res)
-            },
-        })
-    )
+    app.use(compression())
 
     let vite
 
@@ -125,17 +112,10 @@ async function createServer() {
         // loaded once at startup by ./manifestCache.js — handler reads from
         // that singleton instead of attaching them to every `req`.
         const buildPath = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-        // vite.config.client.js emits every chunk/asset under "client/assets/"
-        // (relative to outDir) — e.g. build/client/assets/foo.js. The mount
-        // prefix below is "client/assets", so publicPath must point at that
-        // same "assets" subfolder, or every request 404s one directory short.
-        const publicPath = path.join(buildPath, "client", "assets")
-        // Serve static assets — prefers pre-compressed .br / .gz files generated at build time.
-        // Leading slash is required: Express (path-to-regexp) treats a mount path
-        // without one as never matching, so this silently fell through to the SSR
-        // catch-all for every asset request.
+        const publicPath = path.join(buildPath, "client")
+        // Serve static assets — prefers pre-compressed .br / .gz files generated at build time
         app.use(
-            "/client/assets",
+            "client/assets",
             expressStaticGzip(publicPath, {
                 enableBrotli: true,
                 orderPreference: ["br", "gz"],

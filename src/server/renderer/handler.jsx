@@ -183,17 +183,32 @@ const _collectAssets = (req, allMatches) => {
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
 
 // ── JSX tree (classic, fully pre-fetched render) ────────────────────────
-const getComponent = (store, context, req, fetcherData, isBot, chunkExtractor) => (
+// requestCache: per-request store for usePPRRouteData. A PPR route can be served on this path
+// (bots, PPR_ENABLE=false, getPPRShellKey null); without a cache the hook calls its fetcher
+// again when React retries the suspended component, and the client gets no cachedData to
+// hydrate from, so it fetches a third time.
+const getComponent = (store, context, req, fetcherData, isBot, chunkExtractor, requestCache) => (
     <div id="app">
         <SsrRequestProvider value={{ isBot, chunkExtractor }}>
-            <Provider store={store}>
-                <StaticRouter context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
-                </StaticRouter>
-            </Provider>
+            <PPRDataProvider cacheKey={getPathname(req)} cache={requestCache}>
+                <Provider store={store}>
+                    <StaticRouter context={context} location={req.originalUrl}>
+                        <ServerRouter store={store} intialData={fetcherData} />
+                    </StaticRouter>
+                </Provider>
+            </PPRDataProvider>
         </SsrRequestProvider>
     </div>
 )
+
+// usePPRRouteData results for window.cachedData, so the client hydrates without refetching.
+const routeCacheScript = (requestCache, req, nonceAttr = "") => {
+    const cacheKey = getPathname(req)
+    const routeCache = getRequestCachedData(requestCache, cacheKey)
+    return routeCache === undefined
+        ? ""
+        : `<script${nonceAttr}>window.cachedData=${serializeForScript({ [cacheKey]: routeCache })}</script>`
+}
 
 // Shared <head>/<body> props for every render path.
 const buildShellStart = (req, allMatches, chunkExtractor, metaTags, isBot, fetcherData, nonce) => {
@@ -299,7 +314,8 @@ const _renderMarkUp = async (
     )
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor)
+    const requestCache = createPPRRequestCache()
+    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, nonce }
@@ -335,6 +351,7 @@ const _renderMarkUp = async (
                     this.push(
                         `<script${nonceAttr}>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`
                     )
+                    this.push(routeCacheScript(requestCache, req, nonceAttr))
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         this.push(
@@ -424,7 +441,8 @@ const _renderMarkUpStatic = async (
     )
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor)
+    const requestCache = createPPRRequestCache()
+    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, nonce }
     const CompleteDocument = () => renderDocument(finalProps)
@@ -437,7 +455,10 @@ const _renderMarkUpStatic = async (
         const preludeBuffer = result.prelude ? await collectStream(result.prelude) : Buffer.from("")
 
         const deferredAssets = chunkExtractor ? chunkExtractor.getDeferredAssets() : { js: [], css: [] }
-        const trailerParts = [`<script>window.__CATALYST_IS_BOT__=false;</script>`]
+        const trailerParts = [
+            `<script>window.__CATALYST_IS_BOT__=false;</script>`,
+            routeCacheScript(requestCache, req),
+        ]
         if (chunkExtractor) {
             const renderedKeys = chunkExtractor.getRenderedComponentKeys()
             trailerParts.push(
@@ -824,14 +845,7 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
                                 renderedKeys
                             )});</script>`
                     )
-                    const routeCache = getRequestCachedData(requestCache, cacheKey)
-                    if (routeCache !== undefined) {
-                        this.push(
-                            `<script${nonceAttr}>window.cachedData=${serializeForScript({
-                                [cacheKey]: routeCache,
-                            })}</script>`
-                        )
-                    }
+                    this.push(routeCacheScript(requestCache, req, nonceAttr))
                     if (learnPreloads) {
                         const seen = extractPriorityImagePreloads(
                             Buffer.concat(resumed.map((c) => Buffer.from(c))).toString("utf8")
