@@ -180,3 +180,5 @@ All `errorSampling` keys are optional and default to the values shown above (`RA
 ## Documentation
 
 Visit https://catalyst.1mg.com to view the full documentation.
+
+Rendering modes (streaming, partial prerendering, static full-page cache): [ppr-documentation.md](ppr-documentation.md).
