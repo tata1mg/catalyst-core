@@ -46,6 +46,19 @@ In this example:
 
 Keep this list small. Any key included here becomes visible in the client bundle.
 
+## Early Hints
+
+Optional keys. With `CLOUDFLARE_EARLY_HINTS_ENABLE` on, every server-rendered response carries a `Link` header that preloads the route's JavaScript. A CDN with Early Hints (for example Cloudflare) learns the header and replays it as a `103 Early Hints` on later requests to the same URL, so the browser starts downloading scripts while the server is still rendering.
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `CLOUDFLARE_EARLY_HINTS_ENABLE` | `boolean` | `false` | Send the `Link` header on rendered responses |
+| `EARLY_HINTS_LINKS` | `array` | `[]` | Static entries to add: `{ url, rel: "preconnect" \| "preload", as?, type?, crossorigin?, fetchPriority? }` |
+| `EARLY_HINTS_MAX_DEFERRED_LINKS` | `number` | `10` | How many `split()` chunks learned from earlier renders of the route are hinted at `fetchpriority=low`. `0` turns this off; a negative value means no cap |
+| `EARLY_HINTS_MAX_LINK_BYTES` | `number` | `4096` | Size budget for the header. Entries are kept in priority order until it is spent; a negative value means no budget |
+
+Order in the header: route scripts, `EARLY_HINTS_LINKS`, entries from the `getEarlyHintLinks({ req, res, matches })` export in `server/index.js` (for URLs that change per release or request), the route's static imports, then learned `split()` chunks.
+
 ## `WEBVIEW_CONFIG`
 
 Universal app settings live under `WEBVIEW_CONFIG` inside the same file.
