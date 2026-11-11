@@ -1,0 +1,76 @@
+{
+ "label": "exact",
+ "sum": {
+  "tInput": 648.1737079999984,
+  "tTyped": 737.612792,
+  "tFiltered": 2309.769042,
+  "tLoad": 671.153875
+ },
+ "all": [
+  {
+   "tInput": 645.9237919999999,
+   "tClick": 710.203958,
+   "tTyped": 737.612792,
+   "tFiltered": 2824.4973330000003,
+   "tLoad": 667.4971669999999,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "app.js@711",
+    "input-glue-CPaHxp_7.js@2827"
+   ]
+  },
+  {
+   "tInput": 655.344709,
+   "tClick": 718.8949590000002,
+   "tTyped": 748.3169170000001,
+   "tFiltered": 2307.3490840000013,
+   "tLoad": 676.9356250000001,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "app.js@719",
+    "input-glue-CPaHxp_7.js@2305"
+   ]
+  },
+  {
+   "tInput": 608.7139589999988,
+   "tClick": 720.2799589999995,
+   "tTyped": 728.6939590000002,
+   "tFiltered": 2309.769042,
+   "tLoad": 676.6181669999987,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "app.js@720",
+    "input-glue-CPaHxp_7.js@2308"
+   ]
+  },
+  {
+   "tInput": 648.1737079999984,
+   "tClick": 708.6932909999996,
+   "tTyped": 716.9178749999992,
+   "tFiltered": 2314.393,
+   "tLoad": 670.8595829999977,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "app.js@710",
+    "input-glue-CPaHxp_7.js@2316"
+   ]
+  },
+  {
+   "tInput": 648.9259579999998,
+   "tClick": 712.4686250000013,
+   "tTyped": 740.3942500000012,
+   "tFiltered": 2299.4533330000013,
+   "tLoad": 671.153875,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "app.js@713",
+    "input-glue-CPaHxp_7.js@2298"
+   ]
+  }
+ ]
+}

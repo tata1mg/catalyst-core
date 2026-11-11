@@ -1,0 +1,91 @@
+{
+ "label": "catalyst",
+ "sum": {
+  "tInput": 629.020875000002,
+  "tTyped": 700.25075,
+  "tFiltered": null,
+  "tLoad": 1790.7359579999998
+ },
+ "all": [
+  {
+   "tInput": 664.4127500000001,
+   "tClick": 690.835083,
+   "tTyped": 700.25075,
+   "tFiltered": null,
+   "tLoad": 1790.7359579999998,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-BWj1rjwI.js@582",
+    "vendor-react-CRcozs3N.js@583",
+    "app-BwyKtvp_.js@583",
+    "vendor-router-Cf8OGRCj.js@583",
+    "Home-DUQfGf8G.js@583"
+   ]
+  },
+  {
+   "tInput": 620.2806659999987,
+   "tClick": 673.7536250000012,
+   "tTyped": 682.8913749999992,
+   "tFiltered": null,
+   "tLoad": 1780.6422080000011,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-BWj1rjwI.js@581",
+    "vendor-react-CRcozs3N.js@581",
+    "app-BwyKtvp_.js@581",
+    "vendor-router-Cf8OGRCj.js@581",
+    "Home-DUQfGf8G.js@581"
+   ]
+  },
+  {
+   "tInput": 629.020875000002,
+   "tClick": 680.1817080000037,
+   "tTyped": 707.8828330000033,
+   "tFiltered": null,
+   "tLoad": 1797.137999999999,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-BWj1rjwI.js@587",
+    "vendor-react-CRcozs3N.js@587",
+    "app-BwyKtvp_.js@588",
+    "vendor-router-Cf8OGRCj.js@588",
+    "Home-DUQfGf8G.js@588"
+   ]
+  },
+  {
+   "tInput": 630.1127909999923,
+   "tClick": 677.9300829999993,
+   "tTyped": 707.0372079999943,
+   "tFiltered": null,
+   "tLoad": 1797.561791,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-BWj1rjwI.js@589",
+    "vendor-react-CRcozs3N.js@589",
+    "app-BwyKtvp_.js@589",
+    "vendor-router-Cf8OGRCj.js@589",
+    "Home-DUQfGf8G.js@589"
+   ]
+  },
+  {
+   "tInput": 620.242167000004,
+   "tClick": 671.7060420000053,
+   "tTyped": 698.3683750000055,
+   "tFiltered": null,
+   "tLoad": 1781.9139170000126,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-BWj1rjwI.js@580",
+    "vendor-react-CRcozs3N.js@580",
+    "app-BwyKtvp_.js@581",
+    "vendor-router-Cf8OGRCj.js@581",
+    "Home-DUQfGf8G.js@581"
+   ]
+  }
+ ]
+}

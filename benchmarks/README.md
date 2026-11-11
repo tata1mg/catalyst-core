@@ -15,3 +15,16 @@ Reproducible harness and apps behind the discussion on whether moving parts of C
 Notes for anyone re-running: use direct binaries instead of `npx` (it adds ~325 ms), stop other dev servers
 first, and compare Lighthouse's simulated numbers with applied throttling (they disagree a lot for
 JS-heavy first paints).
+
+### Waterfall and interaction runs (Pokédex)
+
+All use Lighthouse's own applied Slow 4G profile (request latency 150 x 3.75 ms, 1.6 Mbps x 0.9, 4x CPU), a fresh browser per run, cache disabled.
+
+| Script | What it records | Output |
+| --- | --- | --- |
+| `harness/waterfall.mjs` (`PROFILE=lh`) | every request with start/end/size, FCP, LCP element, DCL, load, long tasks, main-thread script time; 5 runs, the median-LCP run is kept | `pokedex/results/waterfall/wf-lh-*.json` |
+| `harness/render.mjs` | prints the kept runs as text waterfalls | stdout |
+| `harness/early.mjs` | types "pika" at the earliest moment the search box exists; records when (or whether) the list filters and what the input holds afterwards | `early-*.json` |
+| `harness/late.mjs` | waits for load + 2.5 s, taps the box, types "pika"; records time to filtered list, bytes fetched, heap | `late-*.json` |
+
+Note: `pokebench.mjs` (the first Pokédex runner) used a milder network profile (150 ms latency), so its interaction numbers for Exact are lower than the `late.mjs` ones.

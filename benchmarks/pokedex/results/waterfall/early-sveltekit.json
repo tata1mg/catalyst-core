@@ -1,0 +1,126 @@
+{
+ "label": "sveltekit",
+ "sum": {
+  "tInput": 616.260792,
+  "tTyped": 1228.7016670000012,
+  "tFiltered": 2062.9719999999998,
+  "tLoad": 1278.8925839999974
+ },
+ "all": [
+  {
+   "tInput": 616.260792,
+   "tClick": 1227.727209,
+   "tTyped": 1234.684375,
+   "tFiltered": 2062.9719999999998,
+   "tLoad": 1279.036417,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "start.BpqLD-1r.js@587",
+    "JOAg28iE.js@587",
+    "Z7vKI4fa.js@587",
+    "JmsXEvdU.js@587",
+    "app.2q56BcZb.js@587",
+    "DwabCYUB.js@587",
+    "X20OPxYD.js@587",
+    "D2ThDd3q.js@588",
+    "0.jjZID4wD.js@588",
+    "2.BVLSOymE.js@588",
+    "DIHA38eN.js@588",
+    "1.CicqhrNZ.js@1877"
+   ]
+  },
+  {
+   "tInput": 606.5631670000002,
+   "tClick": 1218.1537500000004,
+   "tTyped": 1223.430042,
+   "tFiltered": 2054.6940839999997,
+   "tLoad": 1270.448292,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "start.BpqLD-1r.js@578",
+    "JOAg28iE.js@578",
+    "Z7vKI4fa.js@578",
+    "JmsXEvdU.js@578",
+    "app.2q56BcZb.js@578",
+    "DwabCYUB.js@579",
+    "X20OPxYD.js@579",
+    "D2ThDd3q.js@579",
+    "0.jjZID4wD.js@579",
+    "2.BVLSOymE.js@579",
+    "DIHA38eN.js@579",
+    "1.CicqhrNZ.js@1867"
+   ]
+  },
+  {
+   "tInput": 609.0775000000012,
+   "tClick": 1216.398666000001,
+   "tTyped": 1223.3536660000009,
+   "tFiltered": 2059.7154580000006,
+   "tLoad": 1280.2538330000007,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "start.BpqLD-1r.js@580",
+    "JOAg28iE.js@580",
+    "Z7vKI4fa.js@580",
+    "JmsXEvdU.js@581",
+    "app.2q56BcZb.js@581",
+    "DwabCYUB.js@581",
+    "X20OPxYD.js@581",
+    "D2ThDd3q.js@581",
+    "0.jjZID4wD.js@581",
+    "2.BVLSOymE.js@581",
+    "DIHA38eN.js@581",
+    "1.CicqhrNZ.js@1871"
+   ]
+  },
+  {
+   "tInput": 616.8804999999993,
+   "tClick": 1222.2744999999995,
+   "tTyped": 1228.7016670000012,
+   "tFiltered": 2065.5941669999993,
+   "tLoad": 1277.2654169999987,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "start.BpqLD-1r.js@587",
+    "JOAg28iE.js@587",
+    "Z7vKI4fa.js@587",
+    "JmsXEvdU.js@587",
+    "app.2q56BcZb.js@587",
+    "DwabCYUB.js@588",
+    "X20OPxYD.js@588",
+    "D2ThDd3q.js@588",
+    "0.jjZID4wD.js@588",
+    "2.BVLSOymE.js@588",
+    "DIHA38eN.js@588",
+    "1.CicqhrNZ.js@1869"
+   ]
+  },
+  {
+   "tInput": 617.0238339999996,
+   "tClick": 1226.1020839999983,
+   "tTyped": 1232.7332499999975,
+   "tFiltered": 2063.539084,
+   "tLoad": 1278.8925839999974,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "start.BpqLD-1r.js@588",
+    "JOAg28iE.js@588",
+    "Z7vKI4fa.js@588",
+    "JmsXEvdU.js@588",
+    "app.2q56BcZb.js@588",
+    "DwabCYUB.js@588",
+    "X20OPxYD.js@588",
+    "D2ThDd3q.js@588",
+    "0.jjZID4wD.js@588",
+    "2.BVLSOymE.js@588",
+    "DIHA38eN.js@588",
+    "1.CicqhrNZ.js@1876"
+   ]
+  }
+ ]
+}
