@@ -1,0 +1,196 @@
+benchmarks/pokedex/sveltekit/src/routes/pokemon/[name]/+page.server.js
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-7
+benchmarks/run-deep-benchmarks.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 18-233
+  s_2b5c6c7a2de2aa::t_53b42cd46f61ba 1-17,234-435
+benchmarks/pokedex/exact/package.json
+  s_2b5c6c7a2de2aa::t_214a08dc053afe 1-9
+benchmarks/pokedex/exact/app.contract
+  s_2b5c6c7a2de2aa::t_2b06b3bb134260 1-27,30-122
+  s_2b5c6c7a2de2aa::t_d1ef327943e3e3 28-29
+benchmarks/harness/package.json
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-2
+benchmarks/pokedex/catalyst/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-10
+benchmarks/harness/bench.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-93
+benchmarks/pokedex/sveltekit/package.json
+  s_2b5c6c7a2de2aa::t_da1223539d14ba 1-3
+benchmarks/pokedex/catalyst/server/document.js
+  s_2b5c6c7a2de2aa::t_68339f2d475075 1-14
+benchmarks/pokedex/catalyst/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-23,25-28
+  s_2b5c6c7a2de2aa::t_7a91e83cf19615 24
+benchmarks/pokedex/catalyst/package.json
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-38
+benchmarks/pokedex/fetch.mjs
+  s_2b5c6c7a2de2aa::t_47da7d511aaef7 1-9
+benchmarks/pokedex/sveltekit/src/routes/+page.server.js
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-2
+benchmarks/pokedex/sveltekit/src/routes/pokemon/[name]/+page.svelte
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-14
+benchmarks/pokedex/sveltekit/vite.config.js
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-2
+benchmarks/harness/why.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-9
+benchmarks/harness/vphase.py
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-9
+benchmarks/pokedex/data/pokemon.json
+  s_2b5c6c7a2de2aa::t_47da7d511aaef7 1
+benchmarks/pokedex/exact/app.json
+  s_2b5c6c7a2de2aa::t_214a08dc053afe 1-21
+  s_2b5c6c7a2de2aa::t_4f99600308e613 22
+benchmarks/pokedex/sveltekit/src/app.html
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-11
+benchmarks/pokedex/sveltekit/src/routes/+layout.svelte
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-6
+benchmarks/harness/phases.py
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-12
+benchmarks/pokedex/sveltekit/src/lib/pokemon.json
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1
+benchmarks/harness/t.py
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-5
+benchmarks/pokedex/static-server.mjs
+  s_2b5c6c7a2de2aa::t_ec0f127fec56f9 1-5
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_58ba89d20bcbb6 1-16
+benchmarks/pokedex/catalyst/server/server.js
+  s_2b5c6c7a2de2aa::t_7a91e83cf19615 6-7
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-5,8-11
+benchmarks/harness/applied.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-6
+benchmarks/harness/pokebench.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-61
+benchmarks/pokedex/catalyst/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-7
+benchmarks/pokedex/catalyst/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1
+benchmarks/pokedex/exact/app.ts
+  s_2b5c6c7a2de2aa::t_214a08dc053afe 1-18
+benchmarks/pokedex/catalyst/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-10
+benchmarks/pokedex/sveltekit/src/app.css
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-10
+benchmarks/pokedex/sveltekit/src/routes/+page.svelte
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-30
+benchmarks/run-benchmarks.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 18
+  s_2b5c6c7a2de2aa::t_3cd3fb5ff86436 1-17,19-468
+benchmarks/pokedex/catalyst/client/styles.js
+  s_2b5c6c7a2de2aa::t_68339f2d475075 1-3
+benchmarks/pokedex/sveltekit/svelte.config.js
+  s_2b5c6c7a2de2aa::t_a73ae9d425b8c1 1-2
+benchmarks/pokedex/catalyst/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_7a91e83cf19615 47
+  s_2b5c6c7a2de2aa::t_b049fe1256f7f2 1-46,48-51
+benchmarks/pokedex/catalyst/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_8bf40cca0f7606 1-16
+benchmarks/harness/activate.mjs
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-23
+benchmarks/pokedex/catalyst/config/config.json
+  s_2b5c6c7a2de2aa::t_68339f2d475075 1-10
+benchmarks/pokedex/catalyst-latest/package.json
+  s_2b5c6c7a2de2aa::t_a4ddfef49d86f1 1-38
+benchmarks/exact-dog-adoption/app.json
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-25
+benchmarks/pokedex/catalyst-latest/config/config.json
+  s_2b5c6c7a2de2aa::t_a4ddfef49d86f1 1-10
+benchmarks/exact-error-catalog/app.json
+  s_2b5c6c7a2de2aa::t_4f99600308e613 1-19
+benchmarks/harness/load.mjs
+  s_2b5c6c7a2de2aa::t_58ba89d20bcbb6 1-14
+benchmarks/exact-error-catalog/app.contract
+  s_2b5c6c7a2de2aa::t_1b869098d9fe91 1-23
+benchmarks/pokedex/catalyst-latest/.gitignore
+  s_2b5c6c7a2de2aa::t_0f5ebd922f7aed 1-10
+benchmarks/pokedex/catalyst-latest/api.js
+  s_2b5c6c7a2de2aa::t_32d88eeff7b0cc 1-15
+benchmarks/pokedex/catalyst-latest/client/index.js
+  s_2b5c6c7a2de2aa::t_9f10dac2a47d97 1-23
+benchmarks/pokedex/catalyst-latest/client/styles.js
+  s_2b5c6c7a2de2aa::t_55923aaa782c97 1-3
+benchmarks/pokedex/catalyst-latest/server/document.js
+  s_2b5c6c7a2de2aa::t_3f607d779490a9 1-14
+benchmarks/pokedex/catalyst-latest/server/index.js
+  s_2b5c6c7a2de2aa::t_1e3baab55c9bb0 1-2
+benchmarks/pokedex/catalyst-latest/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_b53c72b7979d2d 1
+benchmarks/pokedex/catalyst-latest/server/server.js
+  s_2b5c6c7a2de2aa::t_37d7cbc229160b 1-11
+benchmarks/pokedex/catalyst-latest/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_81721241803b30 1-16
+benchmarks/pokedex/catalyst-latest/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_a58c22aca57feb 1-10
+benchmarks/pokedex/catalyst-latest/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_296503a791b56f 1-51
+benchmarks/pokedex/catalyst-latest/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_c3cb4a9a96d704 1-28
+benchmarks/pokedex/catalyst-latest/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_d9a543fe40fc5c 1-7
+benchmarks/pokedex/catalyst-latest/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_4ff1209737cb82 1-42
+benchmarks/pokedex/catalyst-latest/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_87d721148a9e14 1-10
+benchmarks/pokedex/catalyst-latest/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_a8a42509d8ca98 1-3
+benchmarks/pokedex/catalyst-latest/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_a458361a6820c6 1-6
+benchmarks/pokedex/catalyst/.gitignore
+  s_2b5c6c7a2de2aa::t_9879697be38752 1-10
+benchmarks/pokedex/catalyst/api.js
+  s_2b5c6c7a2de2aa::t_4951d3dcc959ab 1-15
+benchmarks/pokedex/catalyst/client/index.js
+  s_2b5c6c7a2de2aa::t_2d43c6a26acb02 1-23
+benchmarks/pokedex/catalyst/server/index.js
+  s_2b5c6c7a2de2aa::t_fa15fa26032420 1-2
+benchmarks/pokedex/catalyst/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_ffd6290a838c80 1-42
+benchmarks/pokedex/catalyst/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_2682b27b979de0 1-3
+benchmarks/pokedex/catalyst/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_04971d2624716b 1-6
+benchmarks/pokedex/results/poke-catalyst-1.0.0.json
+  s_2b5c6c7a2de2aa::t_48e51010008a63 1-483
+benchmarks/pokedex/results/poke-catalyst-1.1.0.json
+  s_2b5c6c7a2de2aa::t_692c0a0571a417 1-483
+benchmarks/pokedex/results/poke-exact.json
+  s_2b5c6c7a2de2aa::t_3756fa0f76b974 1-483
+benchmarks/pokedex/results/poke-sveltekit.json
+  s_2b5c6c7a2de2aa::t_e9ab9854c4ffb9 1-483
+benchmarks/deep-results.json
+  s_2b5c6c7a2de2aa::t_5f24ecc0644c2e 1-76
+benchmarks/exact-dog-adoption/app.contract
+  s_2b5c6c7a2de2aa::t_3ce5a4d5db5be5 1-132
+benchmarks/exact-dog-adoption/app.test.contract
+  s_2b5c6c7a2de2aa::t_855fc3e6f727a1 1-65
+benchmarks/exact-dog-adoption/app.ts
+  s_2b5c6c7a2de2aa::t_c22129df24efaa 1-48
+benchmarks/exact-dog-adoption/package.json
+  s_2b5c6c7a2de2aa::t_9f06b55f53c263 1-9
+benchmarks/exact-dog-adoption/server.ts
+  s_2b5c6c7a2de2aa::t_1f02113418822d 1-44
+benchmarks/exact-error-catalog/app.test.contract
+  s_2b5c6c7a2de2aa::t_f44b974a7afcb8 1-7
+benchmarks/exact-error-catalog/app.ts
+  s_2b5c6c7a2de2aa::t_c00286069b5e48 1-14
+benchmarks/exact-error-catalog/package.json
+  s_2b5c6c7a2de2aa::t_f9feace015870b 1-9
+benchmarks/results.json
+  s_2b5c6c7a2de2aa::t_ecbd12309686a2 1-564
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bfa86b803002b7e5be7356a25e01c58ed88c33c",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
