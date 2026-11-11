@@ -1,0 +1,23 @@
+packages/catalyst-core/src/server/renderer/handler.tsx
+  d237197d2ab6df3f 480-489,561-567,572
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "96a75bb51b2814fabc48010d84542c3b1db7c353",
+  "prompts": {
+    "d237197d2ab6df3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d538aef8-efed-4e9f-842a-88a11fc95460",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 1,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
