@@ -1,0 +1,132 @@
+use EmptyState from "exact:content"
+
+routes nav
+  home "/" render=build
+    breed "/breed/:breed" render=request
+  about "/about" render=build
+  notfound render=build
+
+shape Breed
+  id: string
+  name: string
+
+shape DogItem
+  id: string
+  imageUrl: string
+  label: string
+  age: string
+
+shape BreedPayload
+  breed: string
+  dogs: DogItem[]
+
+style Card
+  background-color="-exact-secondary-grouped-background"
+  border-radius=8
+  padding=15
+  border="-exact-separator"
+
+style Btn
+  background-color="AccentColor"
+  color="-exact-label"
+  padding="8px 16px"
+  border-radius=4
+  text-decoration="none"
+
+component App
+  resource breeds = loadBreeds() as shape Breed[] else empty()
+  derive selectedBreed = match stack(nav).filter(e => e.name == "breed").at(-1) { case some(e) => e.params.breed, case none => "" }
+  resource breedData = loadBreedDetails(selectedBreed) as shape BreedPayload else empty()
+
+  action follow(url: string)
+    nav = go(nav, url)
+
+  view
+    view navigationKey=`${top(nav).id}` navigationBack="back" navigate=follow testId="app" width="100%" height="100%"
+      head description="Dog Adoption Center built with Exact"
+      for e in stack(nav) key=e.id
+        if e.name == "home"
+          column navigationKey=`${e.id}` navigationScroll="home-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader(current="home")
+            scroll document id="home-page" flex=1 min-height=0
+              main display="flex" flex-direction="column" gap=20 padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                head title="Home"
+                text "Available Dog Breeds" role="heading" aria-level=1 font-size=28 font-weight=700
+                list display="grid" grid-template-columns="repeat(auto-fill, minmax(15rem, 1fr))" gap=20
+                  for b in breeds key=b.id
+                    column class=Card gap=10
+                      text b.name role="heading" aria-level=2 font-size=20 font-weight=600
+                      text "Click to see available dogs" color="-exact-secondary-label"
+                      row
+                        link href=path("breed", b.id) class=Btn testId=b.id
+                          text "View Dogs"
+              SiteFooter()
+        if e.name == "breed"
+          column navigationKey=`${e.id}` navigationScroll="breed-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader(current="breed")
+            scroll document id="breed-page" flex=1 min-height=0
+              main display="flex" flex-direction="column" gap=20 padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                head title=`${e.params.breed} Dogs`
+                row
+                  link href="/" text-decoration="none" testId="back-link"
+                    text "← Back to All Breeds"
+                text `${e.params.breed} Dogs Available for Adoption` role="heading" aria-level=1 font-size=28 font-weight=700
+                if pending(breedData)
+                  progress aria-label="Loading breed details" testId="loading"
+                else if failed(breedData)
+                  EmptyState(symbol="symbol:alert", title="Error loading breed details", message="Could not fetch breed images.")
+                else
+                  list display="grid" grid-template-columns="repeat(auto-fill, minmax(17.5rem, 1fr))" gap=20
+                    for d in breedData.dogs key=d.id
+                      column class=Card gap=12
+                        image d.imageUrl alt=d.label width="100%" height=250 object-fit="cover"
+                        column gap=6
+                          text d.label role="heading" aria-level=2 font-size=18 font-weight=600
+                          text d.age color="-exact-secondary-label"
+                  text "localhost" testId="server-var" color="-exact-secondary-label"
+              SiteFooter()
+        if e.name == "about"
+          column navigationKey=`${e.id}` navigationScroll="about-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader(current="about")
+            scroll document id="about-page" flex=1 min-height=0
+              main display="flex" flex-direction="column" gap=16 padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                head title="About"
+                text "About Our Dog Adoption Center" role="heading" aria-level=1 font-size=28 font-weight=700
+                text "We are dedicated to finding loving homes for all dogs in need."
+                text "Our mission is to connect dog lovers with animals looking for a forever home."
+                text "This is a demo application built with Exact to showcase server-side rendering capabilities."
+                text "It uses the Dog API to display information about different dog breeds."
+              SiteFooter()
+        if e.name == "notfound"
+          column navigationKey=`${e.id}` navigationScroll="missing-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader(current="notfound")
+            scroll document id="missing-page" flex=1 min-height=0
+              head title="Not Found"
+              main padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                EmptyState(symbol="symbol:alert", title="No Such Page", message="Its link may be out of date.")
+                  link href="/" testId="notfound-home"
+                    text "Back Home"
+              SiteFooter()
+
+component SiteHeader
+  props
+    current: string
+  view
+    header appearance="none" padding="10px 20px" border-bottom="-exact-separator"
+      row flex-wrap="wrap" align-items="center" justify-content="space-between" gap=16 max-width="75rem" margin-left="auto" margin-right="auto"
+        link href="/" text-decoration="none" testId="brand"
+          text "Dog Adoption Center" font="-exact-headline"
+        nav aria-label="Main Navigation"
+          row gap=20 align-items="center"
+            link href="/" aria-current=(current == "home" ? "page" : "false") text-decoration="none" testId="nav-home"
+              text "Home"
+            link href="/about" aria-current=(current == "about" ? "page" : "false") text-decoration="none" testId="nav-about"
+              text "About"
+
+component SiteFooter
+  view
+    footer padding=20 margin-top=50
+      column gap=8 align-items="center" max-width="75rem" margin-left="auto" margin-right="auto"
+        text "© 2025 Dog Adoption Center. All rights reserved." font="-exact-footnote" color="-exact-secondary-label"
+        text "Data provided by Dog API" font="-exact-footnote" color="-exact-secondary-label"
+        text "This is a demo application built with Exact." font="-exact-footnote" color="-exact-secondary-label"

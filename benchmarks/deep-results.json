@@ -1,0 +1,76 @@
+{
+  "diagnostics": {
+    "catalystPreflight003Ms": 440.04,
+    "catalystBundle000SyntaxErrorMs": 746.22,
+    "exactCliCompileErrorMs": 291.07,
+    "exactRustBinaryDirectCompileErrorMs": 167.76
+  },
+  "browser": {
+    "catalystDogNoExternalFonts": {
+      "label": "Catalyst Core (catalyst-core-test, no external Google Fonts)",
+      "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://localhost:3015/\nTrace bounds: {min: 1320348636207µs, max: 1320349884167µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://localhost:3015/\nBounds: {min: 1320348637745µs, max: 1320349884167µs}\nMetrics (lab / observed):\n  - LCP: 35 ms, event: (eventKey: r-2361, ts: 1320348672564), nodeId: 9\n  - LCP breakdown:\n    - TTFB: 11 ms, bounds: {min: 1320348637745µs, max: 1320348648385µs}\n    - Render delay: 24 ms, bounds: {min: 1320348648385µs, max: 1320348672564µs}\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n  - insight name: LCPBreakdown\n    description: Each [subpart has specific improvement strategies](https://d",
+      "metricsMean5Runs": {
+        "ttfbMs": 4.58,
+        "responseEndMs": 6.66,
+        "domInteractiveMs": 14.56,
+        "domContentLoadedMs": 31.98,
+        "loadEventEndMs": 32.14,
+        "fpMs": 30.4,
+        "fcpMs": 30.4,
+        "resourceCount": 8,
+        "jsResourceCount": 7,
+        "totalTransferBytes": 105406,
+        "totalDecodedBytes": 309849,
+        "domNodes": 88,
+        "usedJSHeapBytes": 4910345
+      },
+      "postInteraction": {
+        "transitionMs": 17.7,
+        "pathname": "/breed/beagle",
+        "jsResourcesAfterClick": 8,
+        "totalDecodedBytesAfterClick": 314552,
+        "usedJSHeapAfterClick": 13299397
+      }
+    },
+    "exactDogWithInteraction": {
+      "label": "Exact Framework (exact-dog-adoption, with click activation)",
+      "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://127.0.0.1:8765/\nTrace bounds: {min: 1320355935735µs, max: 1320357157360µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://127.0.0.1:8765/\nBounds: {min: 1320355938013µs, max: 1320357157360µs}\nMetrics (lab / observed):\n  - LCP: 34 ms, event: (eventKey: r-1792, ts: 1320355971519), nodeId: 10\n  - LCP breakdown:\n    - TTFB: 4 ms, bounds: {min: 1320355938013µs, max: 1320355942021.9998µs}\n    - Render delay: 29 ms, bounds: {min: 1320355942021.9998µs, max: 1320355971519µs}\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n  - insight name: LCPBreakdown\n    description: Each [subpart has specific improvement strategies]",
+      "metricsMean5Runs": {
+        "ttfbMs": 3.2,
+        "responseEndMs": 6,
+        "domInteractiveMs": 11.24,
+        "domContentLoadedMs": 11.28,
+        "loadEventEndMs": 12.08,
+        "fpMs": 24.8,
+        "fcpMs": 24.8,
+        "resourceCount": 1,
+        "jsResourceCount": 0,
+        "totalTransferBytes": 300,
+        "totalDecodedBytes": 185,
+        "domNodes": 126,
+        "usedJSHeapBytes": 1704841
+      },
+      "postInteraction": null
+    },
+    "catalystErrorCatalogFullSsr": {
+      "label": "Catalyst Core (error-catalog with full Head/Body SSR)",
+      "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://localhost:3016/\nTrace bounds: {min: 1320362499381µs, max: 1320363732691µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://localhost:3016/\nBounds: {min: 1320362500613µs, max: 1320363732691µs}\nMetrics (lab / observed):\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n\n## Details on call tree & network request formats:\nInformation on performance traces may contain main thread activity represented as call frames and network requests.\n\nEach call frame is presented in the following format:\n\n'id;eventKey;name;duration;selfTime;urlIndex;childRange;[line];[column];[S]'\n\nKey definitions:\n\n* id: A unique numerical identi",
+      "metricsMean5Runs": {
+        "ttfbMs": 2.8,
+        "responseEndMs": 4.96,
+        "domInteractiveMs": 11.22,
+        "domContentLoadedMs": 25.34,
+        "loadEventEndMs": 27.32,
+        "fpMs": null,
+        "fcpMs": null,
+        "resourceCount": 5,
+        "jsResourceCount": 4,
+        "totalTransferBytes": 93814,
+        "totalDecodedBytes": 279845,
+        "domNodes": 20,
+        "usedJSHeapBytes": 3745801
+      },
+      "postInteraction": null
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Exact Dog Adoption",
+  "short_name": "Exact Dog Adoption",
+  "id": "com.example.exact-dog-adoption-c827e7",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.example.exact-dog-adoption-c827e7",
+    "name": "Exact Dog Adoption"
+  },
+  "host": {
+    "web": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  },
+  "env": [
+    "API_BASE_URL"
+  ],
+  "server": {
+    "database": false
+  }
+}

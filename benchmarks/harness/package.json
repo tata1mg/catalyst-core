@@ -1,0 +1,2 @@
+{ "name": "catalyst-bench-harness", "private": true, "type": "module",
+  "dependencies": { "lighthouse": "12.8.2", "puppeteer-core": "23.11.1", "chrome-launcher": "1.2.3" } }

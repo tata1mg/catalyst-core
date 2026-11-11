@@ -1,0 +1,65 @@
+// Run by `test` or `verify`, which start server.ts, the API's stand-in, for the whole run. A fetch fault names a
+// path under the API (`/planets`), so it follows API_BASE_URL wherever it points.
+test "the table sorts by the column pressed, and the other way when pressed again"
+  clock data
+  expect state shown.0 .name == "Mercury"
+  tap "sort-name"
+  expect state shown.0 .name == "Earth"
+  tap "sort-name"
+  expect state shown.0 .name == "Venus"
+  tap "sort-au"
+  expect state shown.0 .name == "Mercury"
+
+test "a planet's page opens at its details, with the API's figures as they are when it is visited"
+  at "/planet/7#details"
+  clock data
+  clock settle
+  expect text "planet-name" == "Uranus"
+  expect state opened == "details"
+  expect text "moons" == "28"
+  request PATCH "/planets/7" {"moons": 29}
+  tap "home"
+  clock settle
+  tap "planet-7"
+  clock data
+  clock settle
+  expect state opened == ""
+  expect text "moons" == "29"
+
+test "a lost API is said on the page, and Try Again asks again"
+  clock data
+  fail fetch "/planets"
+  tap "planet-5"
+  clock data
+  clock settle
+  expect tree has "retry"
+  pass fetch "/planets"
+  tap "retry"
+  clock data
+  expect text "summary" == "The largest planet, its Great Red Spot a storm wider than Earth."
+
+test "an id no planet has says so, with a way home"
+  at "/planet/99"
+  clock data
+  expect tree has "missing-home"
+  tap "missing-home"
+  clock settle
+  expect tree has "planet-1"
+
+test "the kind chosen filters the table and is the location's query"
+  clock data
+  type "kind" "Gas giant"
+  clock settle
+  expect state kind == "Gas giant"
+  expect state shown.length == 2
+  type "kind" ""
+  clock settle
+  expect state shown.length == 8
+
+test "a path no route matches is the not-found page, with a way home"
+  at "/no/such/page"
+  clock data
+  expect tree has "notfound-home"
+  tap "notfound-home"
+  clock settle
+  expect tree has "planet-1"

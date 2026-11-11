@@ -1,0 +1,564 @@
+{
+  "timestamp": "2026-11-11T06:26:03.069Z",
+  "apps": {
+    "catalystDogHome": {
+      "http": {
+        "htmlBytes": 6520,
+        "sequential": {
+          "meanMs": 2.73,
+          "p50Ms": 2.67,
+          "p95Ms": 3.44,
+          "p99Ms": 6.54,
+          "minMs": 1.17
+        },
+        "concurrent20": {
+          "rps": 1461.1,
+          "p50Ms": 13.36,
+          "p95Ms": 23.24,
+          "p99Ms": 25.15
+        }
+      },
+      "httpBreedSsr": {
+        "htmlBytes": 5541,
+        "sequential": {
+          "meanMs": 2.35,
+          "p50Ms": 2.27,
+          "p95Ms": 2.69,
+          "p99Ms": 7.94,
+          "minMs": 1.01
+        },
+        "concurrent20": {
+          "rps": 1602.3,
+          "p50Ms": 10.74,
+          "p95Ms": 25.69,
+          "p99Ms": 25.79
+        }
+      },
+      "rssKb": 377840,
+      "chromeMcp": {
+        "label": "Catalyst Core (catalyst-core-test)",
+        "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://localhost:3015/\nTrace bounds: {min: 1320097894074µs, max: 1320100669143µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://localhost:3015/\nBounds: {min: 1320097895418µs, max: 1320100669143µs}\nMetrics (lab / observed):\n  - LCP: 1281 ms, event: (eventKey: r-5326, ts: 1320099176730), nodeId: 15\n  - LCP breakdown:\n    - TTFB: 10 ms, bounds: {min: 1320097895418µs, max: 1320097905069µs}\n    - Render delay: 1,272 ms, bounds: {min: 1320097905069µs, max: 1320099176730µs}\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n  - insight name: LCPBreakdown\n    description: Each [subpart has specific improvement strategies](https://developer.chrome.com/docs/performance/insights/lcp-breakdown). Ideally, most of the LCP time should be spent on loading the resources, not within delays.\n    relevant trace bounds: {min: 1320097895418µs, max: 1320099176730µs}\n    example question: Help me optimize my LCP score\n    example quest",
+        "metricsMean5Runs": {
+          "ttfbMs": 3.54,
+          "responseEndMs": 5.22,
+          "domInteractiveMs": 364.42,
+          "domContentLoadedMs": 367.22,
+          "loadEventEndMs": 745.02,
+          "fpMs": 376.8,
+          "fcpMs": 394.4,
+          "resourceCount": 9,
+          "jsResourceCount": 7,
+          "totalDecodedBytes": 315011,
+          "domNodes": 91,
+          "usedJSHeapBytes": 12558616,
+          "totalJSHeapBytes": 16267256
+        },
+        "routeTransition": {
+          "transitionMs": 3.4,
+          "pathname": "/breed/beagle"
+        },
+        "rawRuns": [
+          {
+            "ttfbMs": 2.4,
+            "responseEndMs": 3.5,
+            "domInteractiveMs": 1073.1,
+            "domContentLoadedMs": 1077.3,
+            "loadEventEndMs": 2506.7,
+            "fpMs": 1076,
+            "fcpMs": 1100,
+            "resourceCount": 9,
+            "jsResourceCount": 7,
+            "totalTransferBytes": 106356,
+            "totalDecodedBytes": 315011,
+            "domNodes": 91,
+            "memory": {
+              "usedJSHeapSize": 4973458,
+              "totalJSHeapSize": 5927270
+            }
+          },
+          {
+            "ttfbMs": 3.2,
+            "responseEndMs": 5.2,
+            "domInteractiveMs": 259.2,
+            "domContentLoadedMs": 262.5,
+            "loadEventEndMs": 429.7,
+            "fpMs": 276,
+            "fcpMs": 292,
+            "resourceCount": 9,
+            "jsResourceCount": 7,
+            "totalTransferBytes": 106356,
+            "totalDecodedBytes": 315011,
+            "domNodes": 91,
+            "memory": {
+              "usedJSHeapSize": 7007011,
+              "totalJSHeapSize": 7742219
+            }
+          },
+          {
+            "ttfbMs": 2.5,
+            "responseEndMs": 4.1,
+            "domInteractiveMs": 148.8,
+            "domContentLoadedMs": 150.5,
+            "loadEventEndMs": 237.5,
+            "fpMs": 164,
+            "fcpMs": 180,
+            "resourceCount": 9,
+            "jsResourceCount": 7,
+            "totalTransferBytes": 106356,
+            "totalDecodedBytes": 315011,
+            "domNodes": 91,
+            "memory": {
+              "usedJSHeapSize": 8849783,
+              "totalJSHeapSize": 10933423
+            }
+          },
+          {
+            "ttfbMs": 6.1,
+            "responseEndMs": 7.7,
+            "domInteractiveMs": 172,
+            "domContentLoadedMs": 174.2,
+            "loadEventEndMs": 302.6,
+            "fpMs": 184,
+            "fcpMs": 200,
+            "resourceCount": 9,
+            "jsResourceCount": 7,
+            "totalTransferBytes": 106356,
+            "totalDecodedBytes": 315011,
+            "domNodes": 91,
+            "memory": {
+              "usedJSHeapSize": 11109772,
+              "totalJSHeapSize": 13338196
+            }
+          },
+          {
+            "ttfbMs": 3.5,
+            "responseEndMs": 5.6,
+            "domInteractiveMs": 169,
+            "domContentLoadedMs": 171.6,
+            "loadEventEndMs": 248.6,
+            "fpMs": 184,
+            "fcpMs": 200,
+            "resourceCount": 9,
+            "jsResourceCount": 7,
+            "totalTransferBytes": 106356,
+            "totalDecodedBytes": 315011,
+            "domNodes": 91,
+            "memory": {
+              "usedJSHeapSize": 12558616,
+              "totalJSHeapSize": 16267256
+            }
+          }
+        ]
+      }
+    },
+    "exactDogHome": {
+      "http": {
+        "htmlBytes": 33343,
+        "sequential": {
+          "meanMs": 2.86,
+          "p50Ms": 2.9,
+          "p95Ms": 3.17,
+          "p99Ms": 4.04,
+          "minMs": 1.63
+        },
+        "concurrent20": {
+          "rps": 1466.8,
+          "p50Ms": 11.05,
+          "p95Ms": 21.03,
+          "p99Ms": 30.72
+        }
+      },
+      "httpBreedSsr": {
+        "htmlBytes": 37546,
+        "sequential": {
+          "meanMs": 9.12,
+          "p50Ms": 8.78,
+          "p95Ms": 11.85,
+          "p99Ms": 14.24,
+          "minMs": 7.08
+        },
+        "concurrent20": {
+          "rps": 135.6,
+          "p50Ms": 148.49,
+          "p95Ms": 166.97,
+          "p99Ms": 172.46
+        }
+      },
+      "rssKb": 405088,
+      "chromeMcp": {
+        "label": "Exact Framework (exact-dog-adoption)",
+        "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://127.0.0.1:8765/\nTrace bounds: {min: 1320110547126µs, max: 1320112062104µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://127.0.0.1:8765/\nBounds: {min: 1320110549235µs, max: 1320112062104µs}\nMetrics (lab / observed):\n  - LCP: 32 ms, event: (eventKey: r-1779, ts: 1320110581622), nodeId: 10\n  - LCP breakdown:\n    - TTFB: 4 ms, bounds: {min: 1320110549235µs, max: 1320110553283µs}\n    - Render delay: 28 ms, bounds: {min: 1320110553283µs, max: 1320110581622µs}\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n  - insight name: LCPBreakdown\n    description: Each [subpart has specific improvement strategies](https://developer.chrome.com/docs/performance/insights/lcp-breakdown). Ideally, most of the LCP time should be spent on loading the resources, not within delays.\n    relevant trace bounds: {min: 1320110549235µs, max: 1320110581622µs}\n    example question: Help me optimize my LCP score\n    example question: W",
+        "metricsMean5Runs": {
+          "ttfbMs": 2.8,
+          "responseEndMs": 5.72,
+          "domInteractiveMs": 11.66,
+          "domContentLoadedMs": 11.7,
+          "loadEventEndMs": 12.68,
+          "fpMs": 26.4,
+          "fcpMs": 26.4,
+          "resourceCount": 1,
+          "jsResourceCount": 0,
+          "totalDecodedBytes": 185,
+          "domNodes": 126,
+          "usedJSHeapBytes": 822124,
+          "totalJSHeapBytes": 3148128
+        },
+        "routeTransition": null,
+        "rawRuns": [
+          {
+            "ttfbMs": 1.8,
+            "responseEndMs": 3.8,
+            "domInteractiveMs": 8.2,
+            "domContentLoadedMs": 8.2,
+            "loadEventEndMs": 8.9,
+            "fpMs": 24,
+            "fcpMs": 24,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 185,
+            "domNodes": 126,
+            "memory": {
+              "usedJSHeapSize": 1704841,
+              "totalJSHeapSize": 2363853
+            }
+          },
+          {
+            "ttfbMs": 3.2,
+            "responseEndMs": 6.4,
+            "domInteractiveMs": 12.4,
+            "domContentLoadedMs": 12.5,
+            "loadEventEndMs": 13.4,
+            "fpMs": 24,
+            "fcpMs": 24,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 185,
+            "domNodes": 126,
+            "memory": {
+              "usedJSHeapSize": 2176746,
+              "totalJSHeapSize": 3152174
+            }
+          },
+          {
+            "ttfbMs": 3.1,
+            "responseEndMs": 6.1,
+            "domInteractiveMs": 12.8,
+            "domContentLoadedMs": 12.9,
+            "loadEventEndMs": 14,
+            "fpMs": 28,
+            "fcpMs": 28,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 185,
+            "domNodes": 126,
+            "memory": {
+              "usedJSHeapSize": 2647579,
+              "totalJSHeapSize": 3416207
+            }
+          },
+          {
+            "ttfbMs": 2.7,
+            "responseEndMs": 6.1,
+            "domInteractiveMs": 12.4,
+            "domContentLoadedMs": 12.4,
+            "loadEventEndMs": 13.4,
+            "fpMs": 28,
+            "fcpMs": 28,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 185,
+            "domNodes": 126,
+            "memory": {
+              "usedJSHeapSize": 3117760,
+              "totalJSHeapSize": 3942384
+            }
+          },
+          {
+            "ttfbMs": 3.2,
+            "responseEndMs": 6.2,
+            "domInteractiveMs": 12.5,
+            "domContentLoadedMs": 12.5,
+            "loadEventEndMs": 13.7,
+            "fpMs": 28,
+            "fcpMs": 28,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 185,
+            "domNodes": 126,
+            "memory": {
+              "usedJSHeapSize": 822124,
+              "totalJSHeapSize": 3148128
+            }
+          }
+        ]
+      }
+    },
+    "catalystErrorCatalog": {
+      "http": {
+        "htmlBytes": 220,
+        "sequential": {
+          "meanMs": 1.84,
+          "p50Ms": 1.84,
+          "p95Ms": 2.24,
+          "p99Ms": 2.72,
+          "minMs": 0.48
+        },
+        "concurrent20": {
+          "rps": 2638.9,
+          "p50Ms": 7.1,
+          "p95Ms": 11.9,
+          "p99Ms": 17.74
+        }
+      },
+      "rssKb": 338336,
+      "chromeMcp": {
+        "label": "Catalyst Core (error-catalog)",
+        "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://localhost:3016/\nTrace bounds: {min: 1320117862290µs, max: 1320119376407µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://localhost:3016/\nBounds: {min: 1320117863867µs, max: 1320119376407µs}\nMetrics (lab / observed):\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n\n## Details on call tree & network request formats:\nInformation on performance traces may contain main thread activity represented as call frames and network requests.\n\nEach call frame is presented in the following format:\n\n'id;eventKey;name;duration;selfTime;urlIndex;childRange;[line];[column];[S]'\n\nKey definitions:\n\n* id: A unique numerical identifier for the call frame. Never mention this id in the output to the user.\n* eventKey: String that uniquely identifies this event in the flame chart.\n* name: A concise string describing the call frame (e.g., 'Evaluate Script', 'render', 'fetchData').\n* duration: The total execution time of the call f",
+        "metricsMean5Runs": {
+          "ttfbMs": 1.9,
+          "responseEndMs": 3.54,
+          "domInteractiveMs": 8.32,
+          "domContentLoadedMs": 8.38,
+          "loadEventEndMs": 8.5,
+          "fpMs": null,
+          "fcpMs": null,
+          "resourceCount": 1,
+          "jsResourceCount": 0,
+          "totalDecodedBytes": 220,
+          "domNodes": 7,
+          "usedJSHeapBytes": 3452732,
+          "totalJSHeapBytes": 3932972
+        },
+        "routeTransition": null,
+        "rawRuns": [
+          {
+            "ttfbMs": 1.5,
+            "responseEndMs": 2.6,
+            "domInteractiveMs": 5.9,
+            "domContentLoadedMs": 5.9,
+            "loadEventEndMs": 6,
+            "fpMs": null,
+            "fcpMs": null,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 449,
+            "totalDecodedBytes": 220,
+            "domNodes": 7,
+            "memory": {
+              "usedJSHeapSize": 1633256,
+              "totalJSHeapSize": 2097648
+            }
+          },
+          {
+            "ttfbMs": 1.7,
+            "responseEndMs": 3.2,
+            "domInteractiveMs": 8.2,
+            "domContentLoadedMs": 8.3,
+            "loadEventEndMs": 8.5,
+            "fpMs": null,
+            "fcpMs": null,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 449,
+            "totalDecodedBytes": 220,
+            "domNodes": 7,
+            "memory": {
+              "usedJSHeapSize": 2089127,
+              "totalJSHeapSize": 2622015
+            }
+          },
+          {
+            "ttfbMs": 1.9,
+            "responseEndMs": 3.8,
+            "domInteractiveMs": 8.3,
+            "domContentLoadedMs": 8.4,
+            "loadEventEndMs": 8.5,
+            "fpMs": null,
+            "fcpMs": null,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 449,
+            "totalDecodedBytes": 220,
+            "domNodes": 7,
+            "memory": {
+              "usedJSHeapSize": 2544026,
+              "totalJSHeapSize": 3146382
+            }
+          },
+          {
+            "ttfbMs": 1.9,
+            "responseEndMs": 3.6,
+            "domInteractiveMs": 9,
+            "domContentLoadedMs": 9.1,
+            "loadEventEndMs": 9.2,
+            "fpMs": null,
+            "fcpMs": null,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 449,
+            "totalDecodedBytes": 220,
+            "domNodes": 7,
+            "memory": {
+              "usedJSHeapSize": 2998861,
+              "totalJSHeapSize": 3408605
+            }
+          },
+          {
+            "ttfbMs": 2.5,
+            "responseEndMs": 4.5,
+            "domInteractiveMs": 10.2,
+            "domContentLoadedMs": 10.2,
+            "loadEventEndMs": 10.3,
+            "fpMs": null,
+            "fcpMs": null,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 449,
+            "totalDecodedBytes": 220,
+            "domNodes": 7,
+            "memory": {
+              "usedJSHeapSize": 3452732,
+              "totalJSHeapSize": 3932972
+            }
+          }
+        ]
+      }
+    },
+    "exactErrorCatalog": {
+      "http": {
+        "htmlBytes": 13779,
+        "sequential": {
+          "meanMs": 2.7,
+          "p50Ms": 2.7,
+          "p95Ms": 3.28,
+          "p99Ms": 4.05,
+          "minMs": 1.06
+        },
+        "concurrent20": {
+          "rps": 1433.6,
+          "p50Ms": 10.8,
+          "p95Ms": 23.07,
+          "p99Ms": 28.67
+        }
+      },
+      "rssKb": 101264,
+      "chromeMcp": {
+        "label": "Exact Framework (exact-error-catalog)",
+        "traceSummary": "The performance trace has been stopped.\n## Summary of Performance trace findings:\nURL: http://127.0.0.1:8766/\nTrace bounds: {min: 1320125107782µs, max: 1320126621096µs}\nCPU throttling: 1x\nNetwork throttling: none\n\n# Available insight sets\n\nThe following is a list of insight sets. An insight set covers a specific part of the trace, split by navigations. The insights within each insight set are specific to that part of the trace. Be sure to consider the insight set id and bounds when calling functions. If no specific insight set or navigation is mentioned, assume the user is referring to the first one.\n\n## insight set id: NAVIGATION_0\n\nURL: http://127.0.0.1:8766/\nBounds: {min: 1320125109063µs, max: 1320126621096µs}\nMetrics (lab / observed):\n  - LCP: 24 ms, event: (eventKey: r-1672, ts: 1320125133022), nodeId: 6\n  - LCP breakdown:\n    - TTFB: 3 ms, bounds: {min: 1320125109063µs, max: 1320125111847.9998µs}\n    - Render delay: 21 ms, bounds: {min: 1320125111847.9998µs, max: 1320125133022µs}\n  - CLS: 0.00\nMetrics (field / real users): n/a – no data for this page in CrUX\nAvailable insights:\n  - insight name: LCPBreakdown\n    description: Each [subpart has specific improvement strategies](https://developer.chrome.com/docs/performance/insights/lcp-breakdown). Ideally, most of the LCP time should be spent on loading the resources, not within delays.\n    relevant trace bounds: {min: 1320125109063µs, max: 1320125133022µs}\n    example question: Help me optimize my LCP score\n    example qu",
+        "metricsMean5Runs": {
+          "ttfbMs": 3.46,
+          "responseEndMs": 5.94,
+          "domInteractiveMs": 12.42,
+          "domContentLoadedMs": 12.46,
+          "loadEventEndMs": 12.92,
+          "fpMs": 25.6,
+          "fcpMs": 25.6,
+          "resourceCount": 1,
+          "jsResourceCount": 0,
+          "totalDecodedBytes": 188,
+          "domNodes": 24,
+          "usedJSHeapBytes": 3586553,
+          "totalJSHeapBytes": 4206417
+        },
+        "routeTransition": null,
+        "rawRuns": [
+          {
+            "ttfbMs": 1.8,
+            "responseEndMs": 3,
+            "domInteractiveMs": 6.9,
+            "domContentLoadedMs": 7,
+            "loadEventEndMs": 7.3,
+            "fpMs": 28,
+            "fcpMs": 28,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 188,
+            "domNodes": 24,
+            "memory": {
+              "usedJSHeapSize": 1704841,
+              "totalJSHeapSize": 2363853
+            }
+          },
+          {
+            "ttfbMs": 2.2,
+            "responseEndMs": 4,
+            "domInteractiveMs": 10.1,
+            "domContentLoadedMs": 10.1,
+            "loadEventEndMs": 10.7,
+            "fpMs": 20,
+            "fcpMs": 20,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 188,
+            "domNodes": 24,
+            "memory": {
+              "usedJSHeapSize": 2175066,
+              "totalJSHeapSize": 3152174
+            }
+          },
+          {
+            "ttfbMs": 3.8,
+            "responseEndMs": 6.7,
+            "domInteractiveMs": 14.2,
+            "domContentLoadedMs": 14.3,
+            "loadEventEndMs": 14.8,
+            "fpMs": 24,
+            "fcpMs": 24,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 188,
+            "domNodes": 24,
+            "memory": {
+              "usedJSHeapSize": 2645159,
+              "totalJSHeapSize": 3416207
+            }
+          },
+          {
+            "ttfbMs": 6.6,
+            "responseEndMs": 10.3,
+            "domInteractiveMs": 17.9,
+            "domContentLoadedMs": 17.9,
+            "loadEventEndMs": 18.3,
+            "fpMs": 36,
+            "fcpMs": 36,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 188,
+            "domNodes": 24,
+            "memory": {
+              "usedJSHeapSize": 3115980,
+              "totalJSHeapSize": 3942384
+            }
+          },
+          {
+            "ttfbMs": 2.9,
+            "responseEndMs": 5.7,
+            "domInteractiveMs": 13,
+            "domContentLoadedMs": 13,
+            "loadEventEndMs": 13.5,
+            "fpMs": 20,
+            "fcpMs": 20,
+            "resourceCount": 1,
+            "jsResourceCount": 0,
+            "totalTransferBytes": 300,
+            "totalDecodedBytes": 188,
+            "domNodes": 24,
+            "memory": {
+              "usedJSHeapSize": 3586553,
+              "totalJSHeapSize": 4206417
+            }
+          }
+        ]
+      }
+    }
+  }
+}

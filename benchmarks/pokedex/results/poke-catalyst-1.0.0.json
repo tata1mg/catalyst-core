@@ -1,0 +1,483 @@
+{
+ "sum": {
+  "label": "catalyst-1.0.0",
+  "lhSim": {
+   "perf": 98,
+   "lcp": 2105.2001,
+   "fcp": 1656.6956,
+   "tbt": 0,
+   "cls": 0,
+   "si": 1656.6956,
+   "jsKiB": 101.12890625,
+   "jsCount": 5,
+   "docKiB": 7.1826171875,
+   "reqs": 45
+  },
+  "lhApplied": {
+   "perf": 100,
+   "lcp": 1172.781,
+   "fcp": 674.949,
+   "tbt": 0,
+   "cls": 0,
+   "si": 913,
+   "jsKiB": 101.12890625,
+   "jsCount": 5,
+   "docKiB": 7.1826171875,
+   "reqs": 39
+  },
+  "search": {
+   "desktop": {
+    "heap0MB": 3.0125732421875,
+    "heap1MB": 2.2521133422851562,
+    "jsLoadKiB": 298.435546875,
+    "jsLoadCount": 5,
+    "jsActKiB": 0,
+    "jsActCount": 0,
+    "actMs": 66.96962500002701,
+    "maxEventMs": 32,
+    "longTaskMs": 0,
+    "fullNav": 0,
+    "nodes": 64
+   },
+   "mobile": {
+    "heap0MB": 2.9932174682617188,
+    "heap1MB": 2.2546730041503906,
+    "jsLoadKiB": 298.435546875,
+    "jsLoadCount": 5,
+    "jsActKiB": 0,
+    "jsActCount": 0,
+    "actMs": 97.42616599999019,
+    "maxEventMs": 40,
+    "longTaskMs": 0,
+    "fullNav": 0,
+    "nodes": 64
+   }
+  },
+  "click": {
+   "desktop": {
+    "heap0MB": 3.0124473571777344,
+    "heap1MB": 2.5655784606933594,
+    "jsLoadKiB": 298.435546875,
+    "jsLoadCount": 5,
+    "jsActKiB": 1.404296875,
+    "jsActCount": 1,
+    "actMs": 53.230334000021685,
+    "maxEventMs": 24,
+    "longTaskMs": 0,
+    "fullNav": 0,
+    "nodes": 118
+   },
+   "mobile": {
+    "heap0MB": 3.014484405517578,
+    "heap1MB": 2.566753387451172,
+    "jsLoadKiB": 298.435546875,
+    "jsLoadCount": 5,
+    "jsActKiB": 1.404296875,
+    "jsActCount": 1,
+    "actMs": 82.70925000001444,
+    "maxEventMs": 32,
+    "longTaskMs": 0,
+    "fullNav": 0,
+    "nodes": 118
+   }
+  }
+ },
+ "raw": {
+  "lhSim": [
+   {
+    "perf": 99,
+    "lcp": 2035.3864999999998,
+    "fcp": 1660.3865,
+    "tbt": 0,
+    "cls": 0,
+    "si": 1660.3865,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 45
+   },
+   {
+    "perf": 99,
+    "lcp": 2033.3625000000002,
+    "fcp": 1658.3625,
+    "tbt": 0,
+    "cls": 0,
+    "si": 1658.3625,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 45
+   },
+   {
+    "perf": 98,
+    "lcp": 2106.3207,
+    "fcp": 1656.3207,
+    "tbt": 0,
+    "cls": 0,
+    "si": 1656.3207,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 45
+   },
+   {
+    "perf": 98,
+    "lcp": 2106.6956,
+    "fcp": 1656.6956,
+    "tbt": 0,
+    "cls": 0,
+    "si": 1656.6956,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 45
+   },
+   {
+    "perf": 98,
+    "lcp": 2105.2001,
+    "fcp": 1655.2001,
+    "tbt": 0,
+    "cls": 0,
+    "si": 1655.2001,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 45
+   }
+  ],
+  "lhApplied": [
+   {
+    "perf": 100,
+    "lcp": 1164.056,
+    "fcp": 657.944,
+    "tbt": 0,
+    "cls": 0,
+    "si": 895,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 39
+   },
+   {
+    "perf": 100,
+    "lcp": 1172.781,
+    "fcp": 675.507,
+    "tbt": 0,
+    "cls": 0,
+    "si": 913,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 39
+   },
+   {
+    "perf": 100,
+    "lcp": 1194.512,
+    "fcp": 674.949,
+    "tbt": 0,
+    "cls": 0,
+    "si": 919,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 39
+   },
+   {
+    "perf": 100,
+    "lcp": 1163.194,
+    "fcp": 651.179,
+    "tbt": 0,
+    "cls": 0,
+    "si": 895,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 39
+   },
+   {
+    "perf": 100,
+    "lcp": 1192.023,
+    "fcp": 675.096,
+    "tbt": 0,
+    "cls": 0,
+    "si": 918,
+    "jsKiB": 101.12890625,
+    "jsCount": 5,
+    "docKiB": 7.1826171875,
+    "reqs": 39
+   }
+  ],
+  "search": {
+   "desktop": [
+    {
+     "heap0MB": 3.0119972229003906,
+     "heap1MB": 2.2520790100097656,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 85.44787500001257,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 3.0125656127929688,
+     "heap1MB": 2.2485084533691406,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 63.63454199998523,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 3.012645721435547,
+     "heap1MB": 2.2521133422851562,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 68.99762500001816,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 3.012653350830078,
+     "heap1MB": 2.2521209716796875,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 66.96962500002701,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 3.0125732421875,
+     "heap1MB": 2.254413604736328,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 46.35450000001583,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    }
+   ],
+   "mobile": [
+    {
+     "heap0MB": 3.014484405517578,
+     "heap1MB": 2.2559356689453125,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 101.04045800000313,
+     "maxEventMs": 40,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 2.989055633544922,
+     "heap1MB": 2.2851219177246094,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 97.42616599999019,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 2.9932174682617188,
+     "heap1MB": 2.2529983520507812,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 91.79920800001128,
+     "maxEventMs": 40,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 3.0104713439941406,
+     "heap1MB": 2.2546730041503906,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 98.97591700000339,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    },
+    {
+     "heap0MB": 2.991870880126953,
+     "heap1MB": 2.251636505126953,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 0,
+     "jsActCount": 0,
+     "actMs": 95.12525000001187,
+     "maxEventMs": 56,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 64
+    }
+   ]
+  },
+  "click": {
+   "desktop": [
+    {
+     "heap0MB": 3.0127334594726562,
+     "heap1MB": 2.5658111572265625,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 54.03991700001643,
+     "maxEventMs": 16,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.0123977661132812,
+     "heap1MB": 2.5655517578125,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 52.34116699997685,
+     "maxEventMs": 24,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.013317108154297,
+     "heap1MB": 2.5664710998535156,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 53.230334000021685,
+     "maxEventMs": 24,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 2.980640411376953,
+     "heap1MB": 2.541027069091797,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 52.422667000006186,
+     "maxEventMs": 16,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.0124473571777344,
+     "heap1MB": 2.5655784606933594,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 75.65516699998989,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    }
+   ],
+   "mobile": [
+    {
+     "heap0MB": 3.0145339965820312,
+     "heap1MB": 2.566753387451172,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 79.76108300001943,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.014484405517578,
+     "heap1MB": 2.5627403259277344,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 83.23854199997731,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.0145645141601562,
+     "heap1MB": 2.5667648315429688,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 83.41720900000655,
+     "maxEventMs": 40,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 2.9899520874023438,
+     "heap1MB": 2.5459327697753906,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 82.70925000001444,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    },
+    {
+     "heap0MB": 3.011322021484375,
+     "heap1MB": 2.5833816528320312,
+     "jsLoadKiB": 298.435546875,
+     "jsLoadCount": 5,
+     "jsActKiB": 1.404296875,
+     "jsActCount": 1,
+     "actMs": 81.61391600000206,
+     "maxEventMs": 32,
+     "longTaskMs": 0,
+     "fullNav": 0,
+     "nodes": 118
+    }
+   ]
+  }
+ }
+}

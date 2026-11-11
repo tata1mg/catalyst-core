@@ -1,0 +1,19 @@
+{
+  "name": "Exact Error Catalog",
+  "short_name": "Exact Error Catalog",
+  "id": "com.example.exact-error-catalog-683112",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.example.exact-error-catalog-683112",
+    "name": "Exact Error Catalog"
+  },
+  "host": {
+    "web": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  }
+}

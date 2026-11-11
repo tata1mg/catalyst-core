@@ -1,0 +1,7 @@
+test "the greeting loads"
+  expect tree has "root"
+  expect text "greeting" == "Hello from Exact Error Catalog."
+
+test "the header's button likes it"
+  tap "like"
+  expect state liked == true

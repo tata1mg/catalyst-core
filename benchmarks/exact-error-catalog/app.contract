@@ -1,0 +1,23 @@
+routes nav
+  home "/" render=build
+  notfound render=build
+
+shape AppInfo
+  title: string
+
+component App
+  resource info = loadInfo() as shape AppInfo else empty()
+  action follow(url: string)
+    nav = go(nav, url)
+  view
+    view navigationKey=`${top(nav).id}` navigationBack="back" navigate=follow testId="app" width="100%" height="100%"
+      head title="Error Catalog App" description="Minimal Error Catalog App built with Exact"
+      for e in stack(nav) key=e.id
+        if e.name == "home"
+          main navigationKey=`${e.id}` padding=16
+            head title="Error Catalog App"
+            text info.title testId="title"
+        if e.name == "notfound"
+          main navigationKey=`${e.id}` padding=16
+            head title="Not Found"
+            text "Not Found"

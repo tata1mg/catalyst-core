@@ -1,0 +1,22 @@
+{
+  "name": "Exact Pokedex",
+  "short_name": "Exact Pokedex",
+  "id": "com.example.exact-pokedex-a1b2c3",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.example.exact-pokedex-a1b2c3",
+    "name": "Exact Pokedex"
+  },
+  "host": {
+    "web": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  },
+  "server": {
+    "database": false
+  }
+}

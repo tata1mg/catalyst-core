@@ -1,0 +1,122 @@
+routes nav
+  home "/" render=build
+    pokemon "/pokemon/:name" render=request
+  notfound render=build
+
+shape Item
+  id: string
+  name: string
+  types: string[]
+  img: string
+  num: string
+
+shape Detail
+  id: string
+  name: string
+  img: string
+  types: string[]
+  height: string
+  weight: string
+  moves: string[]
+  games: string[]
+
+style Card
+  background-color="-exact-secondary-grouped-background"
+  border-radius=8
+  padding=12
+  border="-exact-separator"
+  display="flex"
+  flex-direction="column"
+  align-items="center"
+  text-decoration="none"
+
+style Badge
+  background-color="-exact-separator"
+  border-radius=10
+  padding="2px 8px"
+  font-size=12
+
+component App
+  state q = ""
+  state typ = ""
+  resource list = loadList() as shape Item[] else empty()
+  derive selected = match stack(nav).filter(e => e.name == "pokemon").at(-1) { case some(e) => e.params.name, case none => "" }
+  resource detail = loadDetail(selected) as shape Detail else empty()
+  derive shown = list.filter(p => p.name.includes(q.toLowerCase()) && (typ == "" || p.types.includes(typ)))
+
+  action follow(url: string)
+    nav = go(nav, url)
+  action setQ(v: string)
+    q = v
+  action setType(v: string)
+    typ = v
+
+  view
+    view navigationKey=`${top(nav).id}` navigationBack="back" navigate=follow testId="app" width="100%" height="100%"
+      head description="Pokédex built with Exact"
+      for e in stack(nav) key=e.id
+        if e.name == "home"
+          column navigationKey=`${e.id}` navigationScroll="home-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader()
+            scroll document id="home-page" flex=1 min-height=0
+              main display="flex" flex-direction="column" gap=16 padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                head title="Pokédex"
+                text "Pokédex" role="heading" aria-level=1 font-size=28 font-weight=700
+                row gap=12 flex-wrap="wrap"
+                  input value=q input=setQ aria-label="Search Pokémon" placeholder="Search by name" padding="8px 10px" font-size=16
+                  select value=typ change=setType aria-label="Filter by type" padding="8px 10px" font-size=16
+                    option "All types" value=""
+                    for t in ["bug", "dragon", "electric", "fairy", "fighting", "fire", "flying", "ghost", "grass", "ground", "ice", "normal", "poison", "psychic", "rock", "steel", "water"] key=t
+                      option t value=t
+                list display="grid" grid-template-columns="repeat(auto-fill, minmax(11rem, 1fr))" gap=16
+                  for p in shown key=p.id
+                    link href=path("pokemon", p.name) class=Card testId=p.name
+                      image p.img alt=p.name width=96 height=96
+                      text p.num color="-exact-secondary-label" font-size=13
+                      text p.name font-size=18 font-weight=600
+                      row gap=4 flex-wrap="wrap" justify-content="center"
+                        for t in p.types key=t
+                          text t class=Badge
+        if e.name == "pokemon"
+          column navigationKey=`${e.id}` navigationScroll="pokemon-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader()
+            scroll document id="pokemon-page" flex=1 min-height=0
+              main display="flex" flex-direction="column" gap=16 padding=20 max-width="75rem" margin-left="auto" margin-right="auto"
+                head title=`${e.params.name}`
+                row
+                  link href="/" text-decoration="none" testId="back-link"
+                    text "← All Pokémon"
+                if pending(detail)
+                  progress aria-label="Loading" testId="loading"
+                else
+                  text `${detail.name} ${detail.id}` role="heading" aria-level=1 font-size=28 font-weight=700
+                  image detail.img alt=detail.name width=96 height=96
+                  row gap=6
+                    for t in detail.types key=t
+                      text t class=Badge
+                    text `${detail.height} · ${detail.weight}`
+                  row gap=24 flex-wrap="wrap" align-items="flex-start"
+                    column gap=8 flex=1
+                      text "Moves" role="heading" aria-level=2 font-size=20 font-weight=600
+                      row gap=6 flex-wrap="wrap"
+                        for m in detail.moves key=m
+                          text m class=Badge
+                    column gap=8 flex=1
+                      text "Games" role="heading" aria-level=2 font-size=20 font-weight=600
+                      row gap=6 flex-wrap="wrap"
+                        for g in detail.games key=g
+                          text g class=Badge
+        if e.name == "notfound"
+          column navigationKey=`${e.id}` navigationScroll="missing-page" position="absolute" inset=0 display="flex" flex-direction="column"
+            SiteHeader()
+            scroll document id="missing-page" flex=1 min-height=0
+              head title="Not Found"
+              main padding=20
+                text "No such page" role="heading" aria-level=1
+
+component SiteHeader
+  view
+    header appearance="none" padding="10px 20px" border-bottom="-exact-separator"
+      row max-width="75rem" margin-left="auto" margin-right="auto"
+        link href="/" text-decoration="none" testId="brand"
+          text "Pokédex" font="-exact-headline"
