@@ -94,7 +94,7 @@ test("late cookie/redirect/header calls after the shell is sent are replayed, no
     res.cookie("early", "1")
     assert.deepEqual(res.calls[0], ["cookie", "early", "1", {}])
     res.headersSent = true
-    res.cookie("xsell", "3", { maxAge: 1000, sameSite: "lax", secure: true })
+    res.cookie("promo", "3", { maxAge: 1000, sameSite: "lax", secure: true })
     res.cookie("session", "s", { httpOnly: true })
     res.clearCookie("old")
     res.setHeader("x-late", "1")
@@ -102,7 +102,7 @@ test("late cookie/redirect/header calls after the shell is sent are replayed, no
     assert.equal(res.calls.length, 1, "late calls must not reach the real response")
     const js = guard.scripts("N")
     assert.ok(js.startsWith('<script nonce="N">'))
-    assert.match(js, /document\.cookie="xsell=3; Max-Age=1; Expires=[^"]+; Path=\/; Secure; SameSite=lax"/)
+    assert.match(js, /document\.cookie="promo=3; Max-Age=1; Expires=[^"]+; Path=\/; Secure; SameSite=lax"/)
     assert.ok(!js.includes("session="), "httpOnly cookies cannot be set from JS")
     assert.match(js, /document\.cookie="old=; Expires=Thu, 01 Jan 1970/)
     assert.ok(js.includes('window.location.replace("/new-home")'))

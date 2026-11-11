@@ -148,7 +148,7 @@ const getRenderMode = (allMatches) => allMatches[allMatches.length - 1]?.route?.
 
 const isBotRequest = (req) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
+    // Wider than search engines: synthetic monitors (StatusCake) and AI crawlers
     // also need the bot code path — no JS, and split(... ssr: false ...) widgets that
     // previously read state.shellReducer.isBot now read this via SsrRequestContext.
     return !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
@@ -556,7 +556,7 @@ const findRequestValuesInShell = (html, req) => {
     const leaked = []
     for (const [name, value] of Object.entries(req.cookies || {})) {
         const v = typeof value === "string" ? value : ""
-        // Whole value and its parts: some cookies pack several tokens (csrf-csrf: token|hash).
+        // Whole value and its parts: some cookies pack several tokens (e.g. CSRF "token|hash").
         const parts = [v, ...v.split(/[|:.]/)].filter((p) => p.length >= 12)
         if (parts.some((p) => html.includes(p) || html.includes(encodeURIComponent(p)))) leaked.push(name)
     }

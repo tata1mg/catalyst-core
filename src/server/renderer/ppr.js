@@ -235,9 +235,9 @@ export const guardLateResponseCalls = (res, logger = console) => {
 // A wrong preload is worse than none: it downloads an image the page never shows, on the
 // connection the real LCP image needs. So:
 // - the preload key is the shell key plus getPPRPreloadKey() from the app's server hooks,
-//   which must cover every request property that changes image URLs (mweb: device pixel
-//   ratio and screen width, set from cookies); otherwise a returning visitor's dpr=1 URLs
-//   were preloaded for every new visitor after it;
+//   which must cover every request property that changes image URLs (e.g. a device pixel
+//   ratio or screen width read from a cookie); otherwise one visitor's image URLs would be
+//   preloaded for the next visitors, who render different ones;
 // - a preload is replayed only after the last two responses for that key both wrote it, so
 //   per-user or rotating images are not preloaded for the next visitor.
 export const isPreloadLearningEnabled = () =>
