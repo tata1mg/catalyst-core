@@ -546,10 +546,11 @@ const _renderMarkUp = async (
                 abort(new Error(DEFER_CLIENT_GONE))
             })
 
-            if (deferred?.isStreaming) {
+            if (deferred?.isStreaming && !settled) {
                 // Deferred work that never settles must not hold the response open. On abort React
                 // sends what is still pending to the client to render, then ends the stream.
                 deferredTimer = setTimeout(() => {
+                    if (settled) return
                     getLogger().warn?.(`[defer] ${req.originalUrl} timed out; the rest renders on the client`)
                     for (const name of deferred.pending()) {
                         reportDeferredError({ req, res, store, name, error: new Error(DEFER_TIMED_OUT) })
