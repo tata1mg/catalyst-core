@@ -23,6 +23,7 @@
         "prettify": "prettier . --write",
         "test:ppr": "node --test test/ppr.test.mjs",
         "test:deferred": "node --test test/deferred.test.mjs",
+        "test:render": "node --import ./test/support/jsx-loader.mjs --test test/deferred.render.test.mjs",
         "prepare": "rm -rf ./dist && cp -r ./src ./dist ",
         "prepublishOnly": "npm i && npm run prepare"
     },
