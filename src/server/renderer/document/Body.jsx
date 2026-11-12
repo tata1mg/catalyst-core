@@ -7,6 +7,8 @@ import path from "path"
  * @param {object} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
  * @param {object} fetcherData - contains data from executing serverFetcher function
+ * @param {boolean} pprShell - PPR route: the state script is written per request after the
+ *   resumed app (it holds this request's store), so it must not be part of the shared shell
  * @param {object} children - contains any child elements defined within the component
  */
 export function Body(props) {
@@ -17,6 +19,7 @@ export function Body(props) {
 
         fetcherData = {},
         nonce,
+        pprShell = false,
         children,
     } = props
 
@@ -30,17 +33,19 @@ export function Body(props) {
                 ></script>
             )}
             {jsx}
-            <script
-                nonce={nonce}
-                /* eslint-disable */
-                dangerouslySetInnerHTML={{
-                    __html: `
+            {!pprShell && (
+                <script
+                    nonce={nonce}
+                    /* eslint-disable */
+                    dangerouslySetInnerHTML={{
+                        __html: `
                     window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
                     window.__STATUS_CODE__ = ${statusCode}
                     window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
             `,
-                }}
-            />
+                    }}
+                />
+            )}
 
             {children}
         </body>
@@ -53,5 +58,6 @@ Body.propTypes = {
     statusCode: PropTypes.string,
     fetcherData: PropTypes.object,
     nonce: PropTypes.string,
+    pprShell: PropTypes.bool,
     children: PropTypes.node,
 }
