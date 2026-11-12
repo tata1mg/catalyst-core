@@ -37,6 +37,7 @@ const recorder = () => {
 }
 const storeWith = (state) => ({ getState: () => state })
 const turn = () => new Promise((resolve) => setImmediate(resolve))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 test("the script marks the section and patches only the listed slices into __INITIAL_STATE__", () => {
     const js = buildDeferredScript({
@@ -260,6 +261,68 @@ test("outside production, slices changed after the shell but listed nowhere are 
     registry.scriptFor("orders", result)
     assert.equal(warnings.filter((w) => w.includes("cart")).length, 1)
     assert.ok(!warnings.some((w) => w.includes("orders,")))
+})
+
+test("only the store's own slices are handed over (no 'valueOf' through the prototype)", () => {
+    const js = buildDeferredScript({ name: "a", stateKeys: ["valueOf", "toString", "k"], state: { k: 1 } })
+    const { window } = runScripts(js, { __INITIAL_STATE__: {} })
+    assert.deepEqual(Object.keys(window.__INITIAL_STATE__), ["k"])
+})
+
+test("the dev checks never break the render, and warn once per slice", async () => {
+    const { warnings, errors, logger } = recorder()
+    const state = {
+        orders: { list: [] },
+        get broken() {
+            throw new Error("getter bug")
+        },
+    }
+    const registry = createDeferredRegistry({ store: storeWith(state), logger })
+    registry.defer("orders", Promise.resolve(), { stateKeys: ["orders"] })
+    registry.setSnapshot({ orders: state.orders })
+    const [result] = await registry.settleAll()
+    assert.equal(typeof registry.scriptFor("orders", result), "string")
+    assert.equal(errors.length, 1, "the throwing getter is reported, not thrown")
+
+    const calm = recorder()
+    const live = { orders: { list: [] }, cart: 0, user: 0 }
+    const second = createDeferredRegistry({ store: storeWith(live), logger: calm.logger })
+    second.defer("orders", Promise.resolve(), { stateKeys: ["orders"] })
+    second.setSnapshot({ ...live })
+    const [ok] = await second.settleAll()
+    live.cart = 1
+    second.scriptFor("orders", ok)
+    live.user = 1
+    second.scriptFor("orders", ok)
+    assert.deepEqual(
+        calm.warnings.filter((w) => w.includes("changed after the shell")).map((w) => w.match(/"(\w+)"/)[1]),
+        ["cart", "user"]
+    )
+})
+
+test("abandon() still reports failures of a blocking registry, now or later", async () => {
+    const reported = []
+    const registry = createDeferredRegistry({
+        store: storeWith({}),
+        blocking: true,
+        onSettledError: (name, error) => reported.push([name, error.message]),
+        logger: silent,
+    })
+    registry.defer("now", Promise.reject(new Error("a")))
+    registry.defer(
+        "later",
+        delay(20).then(() => Promise.reject(new Error("b")))
+    )
+    registry.defer("fine", Promise.resolve())
+    await turn()
+    registry.abandon()
+    await delay(40)
+    assert.deepEqual(reported, [
+        ["now", "a"],
+        ["later", "b"],
+    ])
+    registry.defer("sealed", Promise.resolve())
+    assert.equal(registry.size, 3)
 })
 
 test("a plain value can be deferred", async () => {

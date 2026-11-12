@@ -1,6 +1,6 @@
 // One page, /orders: a header, then an orders section that waits for deferred work. Its behaviour
 // is driven by globalThis.__T (set by test/handler.test.mjs).
-import React, { Suspense } from "react"
+import React, { Suspense, use } from "react"
 import { useSelector } from "react-redux"
 import { Deferred } from "../../../src/web-router/components/Deferred.jsx"
 
@@ -17,7 +17,10 @@ const Thrower = () => {
 }
 
 const Page = () => {
+    T().renders = (T().renders || 0) + 1
     if (T().throwInShell) throw new Error("shell render bug")
+    // Holds the shell itself (no Suspense around the page).
+    if (T().shellWait) use(T().shellWait)
     return h(
         "main",
         null,

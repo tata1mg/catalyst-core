@@ -53,6 +53,7 @@ after(() => {
 beforeEach(() => {
     Object.assign(T, { calls: [], hooks: {}, warnings: [], blocking: false, renderMode: undefined })
     Object.assign(T, { throwInOrders: false, throwInShell: false, throwInBoundary: false, shellPad: "" })
+    Object.assign(T, { renders: 0, shellWait: null })
     handled.length = 0
 })
 
@@ -300,6 +301,187 @@ test("work that settled before the render is written in the shell and merged by 
     const r = await get("/orders")
     assert.ok(r.html.includes("orders:1") && !r.html.includes("loading"))
     assert.deepEqual(clientState(r.html).orders, { list: [9] })
+})
+
+test("a page that fails to render is rendered once, and gets a bare 500 when no hook answers", async () => {
+    T.throwInBoundary = true
+    T.fetcher = () => ({})
+    const r = await get("/orders")
+    assert.ok(!r.hung, "response ended")
+    assert.equal(r.status, 500)
+    assert.equal(T.renders, 1, "not rendered again after it failed")
+    assert.deepEqual(
+        T.calls.map(([name]) => name).filter((name) => name !== "onRenderError"),
+        ["onFetcherError", "onAppServerSideError", "onRequestError"]
+    )
+})
+
+test("a shell that waits longer than DEFER_TIMEOUT_MS is not cut by the deferred timer", async () => {
+    T.shellWait = delay(600)
+    T.fetcher = deferOrders(100, [1])
+    const r = await get("/orders")
+    assert.ok(!r.hung)
+    assert.equal(r.status, 200)
+    assert.ok(r.html.includes("orders:1"))
+    assert.deepEqual(hookCalls("onDeferredError"), [])
+})
+
+test("PPR: a resumed app larger than compression()'s buffer arrives before the deferred work", async () => {
+    process.env.PPR_ENABLE = "true"
+    try {
+        T.renderMode = "ppr"
+        T.shellPad = "x".repeat(200 * 1024)
+        T.fetcher = deferOrders(300, [1])
+        await get("/orders") // builds the shell
+        const r = await get("/orders")
+        assert.match(String(r.headers["x-rendering-mode"]), /^ppr-/)
+        assert.equal(r.headers["x-accel-buffering"], "no")
+        const appAt = arrivedAt(r, "loading")
+        assert.ok(appAt >= 0 && appAt < 200, `resumed app readable at ${appAt} ms`)
+        assert.ok(arrivedAt(r, "orders:1") >= 280, "section after the work")
+    } finally {
+        delete process.env.PPR_ENABLE
+    }
+})
+
+test("PPR: defer() after the serverFetcher returned is ignored with a warning", async () => {
+    process.env.PPR_ENABLE = "true"
+    try {
+        T.renderMode = "ppr"
+        T.fetcher = (_props, { defer }) => {
+            setTimeout(() => defer("orders", NEVER, { stateKeys: ["orders"] }), 30)
+            return {}
+        }
+        await get("/orders")
+        const r = await get("/orders")
+        await delay(60)
+        assert.match(String(r.headers["x-rendering-mode"]), /^ppr-/)
+        assert.ok(!r.hung && r.ms < 300, "not held by the late work")
+        assert.ok(T.warnings.some((w) => w.includes("after rendering started")))
+    } finally {
+        delete process.env.PPR_ENABLE
+    }
+})
+
+test("static: the page renders complete and is cached", async () => {
+    T.renderMode = "static"
+    T.fetcher = deferOrders(50, [1, 2])
+    const first = await get("/orders?static=complete")
+    assert.equal(first.headers["x-rendering-mode"], "static-cache-miss")
+    assert.ok(first.html.includes("orders:2") && !first.html.includes("loading"))
+    const second = await get("/orders?static=complete")
+    assert.equal(second.headers["x-rendering-mode"], "static-cache-hit")
+    assert.ok(second.html.includes("orders:2"))
+})
+
+test("static: a client that leaves during the wait does not leave an incomplete page in the cache", async () => {
+    T.renderMode = "static"
+    T.fetcher = deferOrders(300, [1, 2])
+    const gone = await get("/orders?static=gone", { timeout: 60 })
+    assert.ok(gone.hung, "client gave up")
+    await delay(400)
+    const next = await get("/orders?static=gone")
+    assert.equal(next.headers["x-rendering-mode"], "static-cache-miss")
+    assert.ok(next.html.includes("orders:2"))
+})
+
+test("a bot and DEFER_STREAMING_ENABLE=false get the whole page in the first response", async () => {
+    T.fetcher = deferOrders(50, [1, 2])
+    const bot = await get("/orders", {
+        headers: { "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" },
+    })
+    assert.ok(bot.html.includes("orders:2") && !bot.html.includes("loading"))
+    assert.ok(!bot.html.includes("__CATALYST_DEFERRED__"))
+    process.env.DEFER_STREAMING_ENABLE = "false"
+    try {
+        const off = await get("/orders")
+        assert.ok(off.html.includes("orders:2") && !off.html.includes("loading"))
+        assert.equal(off.headers["x-accel-buffering"], undefined)
+    } finally {
+        delete process.env.DEFER_STREAMING_ENABLE
+    }
+})
+
+test("blocking request: a client that leaves ends the wait at once", async () => {
+    T.blocking = true
+    T.fetcher = (_props, { defer }) => {
+        defer("orders", NEVER, { stateKeys: ["orders"] })
+        return {}
+    }
+    const r = await get("/orders", { timeout: 60 })
+    assert.ok(r.hung, "client gave up")
+    await delay(150)
+    assert.equal(handled.length, 1, "handler returned before the 400 ms timeout")
+})
+
+test("blocking request: a fetcher error is answered at once, and a later deferred failure is still reported", async () => {
+    T.blocking = true
+    T.fetcher = (_props, { defer }) => {
+        defer(
+            "orders",
+            delay(30).then(() => Promise.reject(new Error("late failure"))),
+            { stateKeys: ["orders"] }
+        )
+        throw Object.assign(new Error("fetch failed"), { status_code: 500 })
+    }
+    T.hooks.onFetcherError = ({ res, error }) => res.status(error.status_code || 500).end("err")
+    const r = await get("/orders")
+    assert.ok(!r.hung && r.ms < 250, `answered in ${r.ms} ms`)
+    await delay(80)
+    assert.deepEqual(hookCalls("onDeferredError"), [["onDeferredError", "late failure"]])
+})
+
+test("blocking request: with two failures, the first takes the fetcher error path and the other is reported", async () => {
+    T.blocking = true
+    T.fetcher = (_props, { defer }) => {
+        defer("orders", Promise.reject(new Error("first")), { stateKeys: ["orders"] })
+        defer(
+            "extra",
+            delay(10).then(() => Promise.reject(new Error("second"))),
+            { stateKeys: ["extra"] }
+        )
+        return {}
+    }
+    await get("/orders")
+    assert.deepEqual(
+        T.calls.filter(([name]) => name === "onFetcherError" || name === "onDeferredError"),
+        [
+            ["onDeferredError", "second"],
+            ["onFetcherError", "first"],
+        ]
+    )
+})
+
+test("a client gone before the render: the handler returns without rendering", async () => {
+    T.fetcher = async (_props, { defer }) => {
+        defer("orders", NEVER, { stateKeys: ["orders"] })
+        await delay(120)
+        return {}
+    }
+    const r = await get("/orders", { timeout: 40 })
+    assert.ok(r.hung)
+    await delay(250)
+    assert.equal(handled.length, 1, "handler returned before the 400 ms timeout")
+    assert.equal(T.renders, 0)
+})
+
+test("an onRenderError hook that ends the response stops the render, with one warning", async () => {
+    T.throwInOrders = true
+    T.fetcher = deferOrders(30, [1])
+    T.hooks.onRenderError = ({ res }) => res.end()
+    const uncaught = []
+    const onUncaught = (error) => uncaught.push(error.code || error.message)
+    process.on("uncaughtException", onUncaught)
+    try {
+        const r = await get("/orders", { headers: { "accept-encoding": "identity" } })
+        await delay(100)
+        assert.ok(!r.hung)
+        assert.equal(T.warnings.filter((w) => w.includes("onRenderError ended")).length, 1)
+        assert.deepEqual(uncaught, [])
+        assert.equal(handled.length, 1)
+    } finally {
+        process.off("uncaughtException", onUncaught)
+    }
 })
 
 test("concurrent requests keep their own nonce and data", async () => {
