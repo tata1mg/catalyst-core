@@ -675,9 +675,25 @@ function findInstalledProfileIdentity({
 const XCODE_TEAM_HINT =
     "Open Xcode > Settings > Accounts and sign in with the Apple account that has your company's team, or set WEBVIEW_CONFIG.ios.developmentTeam."
 
-/** IOS-010's hint for a debug build on an iPhone: any team signs a development build. */
+/**
+ * IOS-010's hint when Xcode could not sign a debug build for an iPhone. That
+ * build signs with what config/config.json sets, nothing else: the team, and
+ * an installed development profile when ios.provisioningProfile names one.
+ */
 const DEVICE_TEAM_HINT =
-    "Open Xcode > Settings > Accounts and sign in with your Apple account (a personal team can sign a development build), or set WEBVIEW_CONFIG.ios.developmentTeam."
+    "Set WEBVIEW_CONFIG.ios.developmentTeam in config/config.json to your 10-character team ID. With Xcode signed in to that team, Xcode signs automatically. Or also set ios.provisioningProfile to the name of an installed development profile that includes this iPhone."
+
+/**
+ * DEVICE_TEAM_HINT, or for a plan that signs with ios.provisioningProfile
+ * what to check in that profile.
+ *
+ * @param {ReturnType<typeof planIosSigning>} [plan]
+ * @returns {string}
+ */
+function deviceSigningHint(plan) {
+    if (!plan?.provisioningProfile) return DEVICE_TEAM_HINT
+    return `Check that the profile "${plan.provisioningProfile}" set in WEBVIEW_CONFIG.ios.provisioningProfile includes this iPhone, matches the bundle id, and that its certificate is in your keychain.`
+}
 
 /**
  * IOS-010's detail and hint for an App Store release that found no installed
@@ -751,14 +767,9 @@ function readXcodeTeams({ run = defaultRun } = {}) {
     }
 }
 
-/**
- * True when this release, or debug build for an iPhone (`device`), signs
- * with the Apple account in Xcode and has no team yet.
- */
-function needsXcodeTeam(plan, { release = false, device = false } = {}) {
-    return Boolean(
-        (release || device) && plan?.style === "automatic" && plan.source === "Xcode account" && !plan.teamId
-    )
+/** True when this release signs with the Apple account in Xcode and has no team yet. */
+function needsXcodeTeam(plan, { release = false } = {}) {
+    return Boolean(release && plan?.style === "automatic" && plan.source === "Xcode account" && !plan.teamId)
 }
 
 /**
@@ -766,8 +777,7 @@ function needsXcodeTeam(plan, { release = false, device = false } = {}) {
  * Store, release-testing or enterprise export, so it is left out unless the
  * export is for debugging; a team Xcode did not mark either way is kept.
  * One team is used; several are a question, NATIVE-005 without a terminal;
- * none is IOS-010, which leads with `missingProfileFor` when that is set
- * and otherwise carries `hint`.
+ * none is IOS-010, which leads with `missingProfileFor` when that is set.
  *
  * @param {object} options
  * @param {ReturnType<typeof parseXcodeTeams>} options.teams - from readXcodeTeams
@@ -775,7 +785,6 @@ function needsXcodeTeam(plan, { release = false, device = false } = {}) {
  * @param {boolean} [options.isTTY]
  * @param {typeof select} [options.choose]
  * @param {string} [options.missingProfileFor] - plan.missingProfileFor
- * @param {string} [options.hint] - IOS-010's hint when no team can sign
  * @returns {Promise<{ teamId: string, teamName: string, free: boolean | undefined }>}
  */
 async function chooseXcodeTeam({
@@ -784,13 +793,12 @@ async function chooseXcodeTeam({
     isTTY,
     choose = select,
     missingProfileFor,
-    hint = XCODE_TEAM_HINT,
 }) {
     const noTeam = (detail) => {
         const missing = missingProfileError(missingProfileFor, detail)
         return missing
             ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
-            : nativeError("IOS-010", detail, { hint })
+            : nativeError("IOS-010", detail, { hint: XCODE_TEAM_HINT })
     }
     if (!teams) throw noTeam("could not read which teams are signed in to Xcode")
     const usable = exportMethod === "debugging" ? teams : teams.filter((team) => team.free !== true)
@@ -820,17 +828,14 @@ async function chooseXcodeTeam({
 }
 
 /**
- * The team step for a release, or a debug build for an iPhone, that signs
- * with the Xcode account and has no ios.developmentTeam: choose the team
- * (chooseXcodeTeam), then in a terminal save it with `save`; without one
- * (CI, agents) only use it for this build, since config.json is never
- * written there. Null when no team is needed. A debug build signs for
- * development, so a personal team can sign it.
+ * The team step for a release that signs with the Xcode account and has no
+ * ios.developmentTeam: choose the team (chooseXcodeTeam), then in a terminal
+ * save it with `save`; without one (CI, agents) only use it for this build,
+ * since config.json is never written there. Null when no team is needed.
  *
  * @param {object} options
  * @param {ReturnType<typeof planIosSigning>} options.plan - from planSigningForConfig
  * @param {boolean} [options.release]
- * @param {boolean} [options.device] - a debug build for a physical iPhone
  * @param {string} [options.exportMethod]
  * @param {boolean} [options.isTTY] - defaults to isInteractive()
  * @param {() => ReturnType<typeof parseXcodeTeams>} [options.readTeams]
@@ -842,7 +847,6 @@ async function chooseXcodeTeam({
 async function settleXcodeTeam({
     plan,
     release = false,
-    device = false,
     exportMethod,
     isTTY,
     readTeams = readXcodeTeams,
@@ -850,15 +854,14 @@ async function settleXcodeTeam({
     save,
     log = () => {},
 }) {
-    if (!needsXcodeTeam(plan, { release, device })) return null
+    if (!needsXcodeTeam(plan, { release })) return null
     const interactive = isTTY ?? isInteractive()
     const team = await chooseXcodeTeam({
         teams: readTeams(),
-        exportMethod: release ? exportMethod : "debugging",
+        exportMethod,
         isTTY: interactive,
         choose,
         missingProfileFor: plan.missingProfileFor,
-        hint: release ? XCODE_TEAM_HINT : DEVICE_TEAM_HINT,
     })
     const label = `${team.teamName || "Unnamed team"} (${team.teamId})`
     if (!interactive) {
@@ -1210,7 +1213,7 @@ function signingFailureLine(output) {
  * @param {any} [cause]
  * @param {object} [options]
  * @param {string} [options.missingProfileFor] - plan.missingProfileFor
- * @param {string} [options.hint] - over the registry's hint, e.g. DEVICE_TEAM_HINT
+ * @param {string} [options.hint] - over the registry's hint, e.g. deviceSigningHint(plan)
  * @returns {any}
  */
 function signingSetupError(detail, cause, { missingProfileFor, hint } = {}) {
@@ -1248,6 +1251,7 @@ export {
     findInstalledProfileIdentity,
     XCODE_TEAM_HINT,
     DEVICE_TEAM_HINT,
+    deviceSigningHint,
     missingProfileError,
     parseXcodeTeams,
     readXcodeTeams,

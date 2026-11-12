@@ -48,8 +48,7 @@ export function withExtraAllowedHosts(allowedHosts, extra) {
         .filter(Boolean)
     if (allowedHosts === true || hosts.length === 0) return allowedHosts
     const base = Array.isArray(allowedHosts) ? allowedHosts : []
-    const known = new Set(base.map((host) => String(host).toLowerCase()))
-    return [...base, ...hosts.filter((host) => !known.has(host))]
+    return [...base, ...hosts.filter((host) => !base.includes(host))]
 }
 
 /**

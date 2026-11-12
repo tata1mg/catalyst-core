@@ -125,9 +125,12 @@ test("withExtraAllowedHosts: adds the env hosts to the app's list", () => {
     assert.equal(withExtraAllowedHosts(undefined, ""), undefined)
 })
 
-test("withExtraAllowedHosts: lowercases the env hosts and skips ones the app lists in any case", () => {
+test("withExtraAllowedHosts: lowercases the env hosts and compares them exactly, as Vite does", () => {
     assert.deepEqual(withExtraAllowedHosts(undefined, "G206F1WHVF.local"), ["g206f1whvf.local"])
-    assert.deepEqual(withExtraAllowedHosts(["My-Mac.local"], "my-mac.local"), ["My-Mac.local"])
+    assert.deepEqual(withExtraAllowedHosts(["My-Mac.local"], "my-mac.local"), [
+        "My-Mac.local",
+        "my-mac.local",
+    ])
 })
 
 test("buildDevServer: CATALYST_DEV_ALLOWED_HOSTS reaches server.allowedHosts", () => {

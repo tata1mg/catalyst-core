@@ -72,19 +72,17 @@ async function askAndSave(options) {
 
 /**
  * A release that will sign with the Apple account in Xcode needs
- * ios.developmentTeam, and so does a debug build for an iPhone (`device`).
- * When it is unset, use the one team Xcode has that can sign this export
- * (or ask which, in a terminal); a debug build takes a personal team too.
- * A release that auto-picked an installed App Store profile pins it as
- * ios.provisioningProfile. In a terminal the team or profile is saved to
- * config/config.json; without one it is used for this build only. Plans
- * with planSigningForConfig, the same function createIosBuild signs with.
- * Returns the appConfig to build with.
+ * ios.developmentTeam. When it is unset, use the one team Xcode has that can
+ * sign this export (or ask which, in a terminal). A release that auto-picked
+ * an installed App Store profile pins it as ios.provisioningProfile. In a
+ * terminal the team or profile is saved to config/config.json; without one
+ * it is used for this build only. Plans with planSigningForConfig, the same
+ * function createIosBuild signs with. Returns the appConfig to build with.
  *
  * Config and credential errors are left for createIosBuild, which reports
  * them the usual way.
  */
-async function ensureSigningTeam({ appConfig, release, device = false, url, cwd, log, scanProfiles }) {
+async function ensureSigningTeam({ appConfig, release, url, cwd, log, scanProfiles }) {
     let plan
     let exportMethod
     let found = null
@@ -115,7 +113,6 @@ async function ensureSigningTeam({ appConfig, release, device = false, url, cwd,
     const team = await settleXcodeTeam({
         plan,
         release,
-        device,
         exportMethod,
         log,
         save: (teamId) => writeConfigKeys(file, { "WEBVIEW_CONFIG.ios.developmentTeam": teamId }, { log }),
@@ -193,17 +190,6 @@ async function main() {
                     "info"
                 )
                 progress.complete("target")
-                // An iPhone needs a team to sign for; the simulator never signs.
-                if (target.target === "device") {
-                    appConfig = await ensureSigningTeam({
-                        appConfig,
-                        release,
-                        device: true,
-                        cwd,
-                        log,
-                        scanProfiles,
-                    })
-                }
             }
         }
         build = createIosBuild(appConfig, { ...flags, devHost, target, progress, appRoot: cwd, scanProfiles })

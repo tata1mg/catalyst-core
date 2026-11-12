@@ -77,11 +77,25 @@ A debug build also adds the dev server's address to `accessControl.allowedUrls`,
 
 ### Run on a physical iPhone
 
-An iPhone build is signed, even in debug. Sign in to Xcode with your Apple account once: Xcode > Settings > Accounts. A free Apple account works.
+An iPhone build is signed, even in debug. It signs with what `config/config.json` sets and looks nothing up on its own.
 
-The Mac signs the build with the team of the Apple account signed in to Xcode. With one team the build uses it, and with several it asks once which one. Run in a terminal, the build saves the team as `WEBVIEW_CONFIG.ios.developmentTeam` in `config/config.json`. Without a terminal it uses the team for that build only, so set `ios.developmentTeam` yourself. With a paid account the team ID is under Membership details at developer.apple.com/account. When no Apple account is signed in to Xcode and `ios.developmentTeam` is not set, the build stops with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md).
+Set `WEBVIEW_CONFIG.ios.developmentTeam` to your 10-character Apple team ID. With a paid account it is under Membership details at developer.apple.com/account. With a free account, open any Xcode project, choose your Personal Team under Signing & Capabilities, and copy `DEVELOPMENT_TEAM` from Build Settings. With Xcode signed in to that team (Xcode > Settings > Accounts), Xcode signs automatically: it creates the development certificate and profile and registers the iPhone.
 
-Catalyst then lets Xcode create the development certificate and profile and register the iPhone. With a free account, the first install also needs you to trust the developer on the iPhone (Settings > General > VPN & Device Management), and the app stops opening after seven days until you build it again.
+To sign with a development profile you already installed, also set `ios.provisioningProfile` to its name. The profile must include this iPhone and match the app's bundle ID, and its certificate must be in your keychain. Set `ios.bundleIdentifier` when the profile is for a different ID than `appId`.
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "ios": {
+      "bundleIdentifier": "com.acme.shop",
+      "developmentTeam": "ABCDE12345",
+      "provisioningProfile": "Acme Shop Development"
+    }
+  }
+}
+```
+
+When Xcode cannot sign it, the build stops with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md), which includes Xcode's line saying why. With a free account, the first install also needs you to trust the developer on the iPhone (Settings > General > VPN & Device Management), and the app stops opening after seven days until you build it again.
 
 macOS Keychain may ask for your login password while the build signs the app. Choose Always Allow so later builds do not ask again.
 
