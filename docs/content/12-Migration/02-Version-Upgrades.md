@@ -63,7 +63,7 @@ Before 1.2.0, the emulator setup wrote this machine's LAN address into `config/c
 - any value equal to one of this machine's current IP addresses, such as `LOCAL_IP`, `NODE_SERVER_HOSTNAME` or `PUBLIC_STATIC_ASSET_URL`, and any `http://` URL on one of those addresses;
 - a private `LOCAL_IP` that `NODE_SERVER_HOSTNAME` also holds. That is usually the address this machine had on another network, so every value on it goes back to `localhost` too.
 
-Other addresses, such as a staging server on your network, are left as they are, and so is `url`. The rewrite runs once per checkout and records that in `.catalyst/local.json`. It never runs for a release build or when `CI` is set, and it leaves the file alone when `allowPrivateHost` is `true`. Review the change and commit it.
+Other addresses, such as a staging server on your network, are left as they are, and so is `url`. The rewrite runs once per checkout and records that in `.catalyst/local.json`. It never runs for a release build or when `CI` is set, and it leaves the file alone when `allowPrivateHost` is `true`. Review the change and commit it. If this checkout already ran a 1.2.0 debug build, for example a canary, the rewrite will not run again, so set `LOCAL_IP` and `NODE_SERVER_HOSTNAME` to `localhost` by hand.
 
 To fix a stale address by hand, set `LOCAL_IP` and `NODE_SERVER_HOSTNAME` to `localhost`. Debug builds work out how the emulator, simulator or phone reaches the dev server. If you start the dev server yourself for a phone on the same Wi-Fi, use this machine's current IP instead. See [How the app reaches the dev server](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
 

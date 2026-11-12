@@ -86,19 +86,39 @@ describe("get_conversion_status: native scripts and app identity", () => {
         expect(find("T7b_NATIVE_SCRIPTS").reason).toMatch(/1\.2\.0/)
     })
 
-    it("asks a 1.2.0 app for appId, appName and url instead of per-platform blocks", () => {
+    it("asks a 1.2.0 app for appId and appName instead of per-platform blocks", () => {
         const scripts = { ...conversion.ONE_STEP_NATIVE_SCRIPTS }
         const done = conversionStatus("1.2.0", scripts, identity).find
         expect(done("T9_WEBVIEW_ANDROID").reason).toBeUndefined()
         expect(done("T10_WEBVIEW_IOS").reason).toBeUndefined()
+        expect(done("T9_WEBVIEW_ANDROID").note).toBeNull()
 
         const empty = conversionStatus("1.2.0", scripts, { LOCAL_IP: "localhost" }).find
-        expect(empty("T9_WEBVIEW_ANDROID").reason).toMatch(/appId, appName, url/)
-        expect(empty("T10_WEBVIEW_IOS").reason).toMatch(/appId, appName, url/)
+        expect(empty("T9_WEBVIEW_ANDROID").reason).toMatch(/missing: appId, appName\./)
+        expect(empty("T10_WEBVIEW_IOS").reason).toMatch(/missing: appId, appName\./)
 
         const underscore = conversionStatus("1.2.0", scripts, { ...identity, appId: "com.acme.my_shop" }).find
         expect(underscore("T9_WEBVIEW_ANDROID").reason).toBeUndefined()
         expect(underscore("T10_WEBVIEW_IOS").native_risk).toMatch(/NATIVE-010/)
+    })
+
+    it("treats a missing url as advice, not a gap: a release falls back to LOCAL_IP, port and useHttps", () => {
+        const scripts = { ...conversion.ONE_STEP_NATIVE_SCRIPTS }
+        const noUrl = { appId: identity.appId, appName: identity.appName }
+        const { status, find } = conversionStatus("1.2.0", scripts, {
+            ...noUrl,
+            LOCAL_IP: "shop.acme.com",
+            port: 443,
+            useHttps: true,
+        })
+        for (const id of ["T9_WEBVIEW_ANDROID", "T10_WEBVIEW_IOS"]) {
+            expect(
+                status.gaps.find((t: any) => t.id === id),
+                id
+            ).toBeUndefined()
+            expect(find(id).note, id).toMatch(/WEBVIEW_CONFIG\.url is not set.*LOCAL_IP, port and useHttps/)
+        }
+        expect(conversion.missingAppIdentity(noUrl, "android")).toMatchObject({ missing: [], noUrl: true })
     })
 
     it("reports the version gate with the 1.2.0 scripts", () => {

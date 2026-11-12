@@ -40,7 +40,8 @@ const PRIVATE_LAN_IPV4 = /^(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|169\.254)\./
  * True when WEBVIEW_CONFIG.LOCAL_IP is a private IPv4 address that
  * NODE_SERVER_HOSTNAME also holds: an older setup wrote this machine's LAN
  * address (maybe from another network) into both. The first debug build on
- * catalyst-core 1.2.0 puts localhost back, unless allowPrivateHost is true.
+ * catalyst-core 1.2.0 puts localhost back, once per checkout, unless
+ * allowPrivateHost is true.
  */
 function isStaleLanAddress(config) {
     const wv = config?.WEBVIEW_CONFIG || {}
@@ -55,7 +56,7 @@ function isStaleLanAddress(config) {
 }
 
 const STALE_LAN_ADDRESS_MESSAGE = (ip) =>
-    `WEBVIEW_CONFIG.LOCAL_IP and NODE_SERVER_HOSTNAME are both "${ip}", a LAN address an older setup saved. If this machine's address has changed, the dev server cannot start on it and the app cannot reach it. The first debug build on catalyst-core 1.2.0 (npm run android or npm run ios) puts localhost back in both and prints the change. To fix it by hand, set both to "localhost" (or to this machine's current IP for a phone on the same Wi-Fi).`
+    `WEBVIEW_CONFIG.LOCAL_IP and NODE_SERVER_HOSTNAME are both "${ip}", a LAN address an older setup saved. If this machine's address has changed, the dev server cannot start on it and the app cannot reach it. The first debug build on catalyst-core 1.2.0 (npm run android or npm run ios) puts localhost back in both and prints the change, but only once per checkout (recorded in .catalyst/local.json). If this checkout already ran a 1.2.0 debug build (for example a canary), set WEBVIEW_CONFIG.LOCAL_IP and NODE_SERVER_HOSTNAME to "localhost" by hand (or to this machine's current IP for a phone on the same Wi-Fi).`
 
 function handle_check_config({ project_path, platform = "both" } = {}) {
     const root = project_path || _projectInfo.dir
@@ -256,7 +257,8 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     // (adb reverse on Android, localhost on the simulator, <mac>.local on an
     // iPhone). A real host (public, or a private VPN/LAN staging server) is
     // loaded by debug builds instead. This machine's own address, saved by an
-    // older setup, is put back to localhost by the first debug build.
+    // older setup, is put back to localhost by the first debug build (once
+    // per checkout).
     const localIp = String(wc.LOCAL_IP || "")
         .trim()
         .toLowerCase()
@@ -269,7 +271,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         } else if (_machineAddresses().has(localIp)) {
             warnings.push({
                 field: "WEBVIEW_CONFIG.LOCAL_IP",
-                message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}", this machine's own address. The first debug build puts it back to "localhost" and uses the dev server. Put the production address in WEBVIEW_CONFIG.url.`,
+                message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}", this machine's own address, so debug builds use the dev server. The first 1.2.0 debug build puts it back to "localhost", once per checkout; if this checkout already ran one (for example a canary), set it to "localhost" by hand. Put the production address in WEBVIEW_CONFIG.url.`,
             })
         } else {
             passed.push({

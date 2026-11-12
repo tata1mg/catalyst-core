@@ -53,8 +53,10 @@ function hasOneStepNativeScripts(installedVersion) {
 
 /**
  * What WEBVIEW_CONFIG still needs on 1.2.0+: appId (unless the platform key
- * sets it), appName and url, plus an iOS-valid bundle id. Mirrors
- * appIdSource / appIdProblem in src/native/nativeConfig.js.
+ * sets it) and appName, plus an iOS-valid bundle id. Mirrors appIdSource /
+ * appIdProblem in src/native/nativeConfig.js. url is not required: without
+ * it a release builds its start URL from LOCAL_IP, port and useHttps (or
+ * --url), so `noUrl` is advice, not a gap.
  */
 function missingAppIdentity(webviewConfig, platform) {
     const wv = webviewConfig || {}
@@ -66,10 +68,14 @@ function missingAppIdentity(webviewConfig, platform) {
     const missing = []
     if (!appId) missing.push("appId")
     if (!set(wv.appName) && !set(block.appName)) missing.push("appName")
-    if (!set(wv.url)) missing.push("url")
+    const noUrl = !set(wv.url)
     const invalidIosId = platform === "ios" && appId && !/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(appId)
-    return { missing, appId, invalidIosId }
+    return { missing, appId, invalidIosId, noUrl }
 }
+
+// Advice for a 1.2.0+ app with no WEBVIEW_CONFIG.url; not a gap.
+const NO_URL_NOTE =
+    "WEBVIEW_CONFIG.url is not set. A release then uses LOCAL_IP, port and useHttps (or --url), and in a terminal asks for the website when that host is local or private. Set url to the deployed https:// origin to make releases explicit."
 
 let _projectInfo
 let _conversionTasks
@@ -368,14 +374,14 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
             if (hasOneStepNativeScripts(installedVersion)) {
                 // 1.2.0+: the build installs the SDK, JDK and emulator itself, so
                 // only the app's identity is needed (the android block is optional).
-                const { missing } = missingAppIdentity(webviewConfig, "android")
+                const { missing, noUrl } = missingAppIdentity(webviewConfig, "android")
                 if (missing.length)
                     return {
                         status: "gap",
-                        native_risk: `A release build asks for (or, without a terminal, fails on) a missing app id or website. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
-                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop"), appName and url (the deployed https:// origin).`,
+                        native_risk: `A release asks for a missing app id (or, without a terminal, fails with NATIVE-003), and a missing appName keeps the template's default display name. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
+                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop") and appName; url (the deployed https:// origin) is recommended.`,
                     }
-                return { status: "completed" }
+                return noUrl ? { status: "completed", note: NO_URL_NOTE } : { status: "completed" }
             }
             const android = webviewConfig.android
             if (!android)
@@ -405,7 +411,7 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     reason: "WEBVIEW_CONFIG missing (see T1_CONFIG)",
                 }
             if (hasOneStepNativeScripts(installedVersion)) {
-                const { missing, appId, invalidIosId } = missingAppIdentity(webviewConfig, "ios")
+                const { missing, appId, invalidIosId, noUrl } = missingAppIdentity(webviewConfig, "ios")
                 if (invalidIosId)
                     return {
                         status: "gap",
@@ -415,10 +421,10 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                 if (missing.length)
                     return {
                         status: "gap",
-                        native_risk: `A release build asks for (or, without a terminal, fails on) a missing app id or website. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
-                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop"), appName and url (the deployed https:// origin).`,
+                        native_risk: `A release asks for a missing app id (or, without a terminal, fails with NATIVE-003), and a missing appName keeps the template's default display name. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
+                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop") and appName; url (the deployed https:// origin) is recommended.`,
                     }
-                return { status: "completed" }
+                return noUrl ? { status: "completed", note: NO_URL_NOTE } : { status: "completed" }
             }
             const ios = webviewConfig.ios
             if (!ios)

@@ -81,6 +81,7 @@ The app version comes from `package.json`, and the build number from the clock o
 | `WEBVIEW_CONFIG.android.outputPath` | No | Folder for release builds instead of `build-output/android` |
 | `WEBVIEW_CONFIG.android.keystoreConfig.organizationInfo` | No | Certificate details used when Catalyst creates the upload key. Passwords here are no longer used |
 | `WEBVIEW_CONFIG.android.buildOptimisation` | No | Enables Android build optimisation, in release builds too |
+| `WEBVIEW_CONFIG.android.cachePattern` | No | Comma-separated string of glob-style URL patterns (e.g. `"*.css,*.js,*.png"`) the native WebView cache should match. When unset, no pattern-based caching is enabled |
 
 ### iOS fields
 
@@ -91,7 +92,7 @@ The app version comes from `package.json`, and the build number from the clock o
 | `WEBVIEW_CONFIG.ios.simulatorName` | No | Simulator for debug builds. Without it (or when it does not exist) the build uses the last pick, a booted iPhone simulator or the newest one, and creates "Catalyst iPhone" only when there is none |
 | `WEBVIEW_CONFIG.ios.deviceUDID` | No | Which iPhone `--device` uses when several are connected and there is no terminal to ask |
 | `WEBVIEW_CONFIG.ios.developmentTeam` | Yes for iPhone builds and CI releases | Apple team ID. With no `.p12` in `credentials/ios/` and no `provisioningProfile`, Xcode signs automatically for this team. A release on a Mac signed in to Xcode reads it from Xcode or an installed profile, and saves it here when it came from Xcode |
-| `WEBVIEW_CONFIG.ios.provisioningProfile` | No | Name of an installed profile for manual signing |
+| `WEBVIEW_CONFIG.ios.provisioningProfile` | No | Name (or UUID) of an installed profile for manual signing. A release run in a terminal saves the installed App Store profile it picked here, which pins later releases to it. Remove the key to let the build pick again |
 | `WEBVIEW_CONFIG.ios.exportMethod` | No | How the release archive is exported: `app-store-connect` (default), `release-testing`, `enterprise` or `debugging` |
 | `WEBVIEW_CONFIG.ios.cachePattern` | No | Array of glob-style URL patterns (e.g. `["*.css", "*.js"]`) the native WebView cache should match — a single string is treated as one literal pattern, not comma-split; when unset, no pattern-based caching is enabled (offline-route caching can still apply) |
 

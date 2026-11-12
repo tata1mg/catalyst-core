@@ -51,10 +51,12 @@ The release signs with the first of these it finds:
 1. A `.p12` and its profile in `credentials/ios/` (local signing).
 2. `ios.provisioningProfile`, the name of a profile you installed yourself, with its certificate in your login keychain.
 3. An App Store Connect API key in `credentials/ios/` (cloud signing).
-4. An App Store profile installed on this Mac for this exact app id, with its certificate in your keychain, for example one Xcode downloaded. The newest valid one is used, and the team comes from it. Wildcard, development, ad hoc and enterprise profiles are skipped, and with notifications on the profile must include push notifications. This step only applies when `ios.exportMethod` is `app-store-connect`, the default.
+4. An App Store profile installed on this Mac for this exact app id, with its certificate in your keychain, for example one Xcode downloaded. The newest valid one is used, and the team comes from it. Wildcard, development, ad hoc and enterprise profiles are skipped, and with notifications on the profile must include push notifications. This step only applies when `ios.exportMethod` is `app-store-connect`, the default. Run in a terminal, the build saves the profile it picked as `ios.provisioningProfile` (its name, or its UUID when another installed profile has the same name), so later releases sign with it through step 2. In CI it is used for that build only.
 5. The Apple account signed in to Xcode. The team is read from Xcode's accounts: one team is used as it is, and with several the build asks once in a terminal. In a terminal the team is saved as `ios.developmentTeam`; in CI it is used for that build only. Personal teams cannot publish to the App Store and are skipped.
 
 So on your own Mac, with Xcode signed in, `npm run ios:release` needs no files in `credentials/ios/`. The files are for CI, where no one is signed in to Xcode. When none of the five is there, the build fails with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md) and asks you to open Xcode > Settings > Accounts and sign in, or to set `ios.developmentTeam`. When Xcode itself refuses to sign, the error includes Xcode's line saying why.
+
+When a release saves `ios.provisioningProfile` or `ios.developmentTeam`, review the change to `config/config.json` and commit it. A saved `ios.provisioningProfile` pins every later release to that profile, even after you install a newer one. Remove the key to let the build pick again.
 
 ### Signing files
 

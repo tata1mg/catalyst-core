@@ -30,11 +30,13 @@ Universal apps can cache selected files through `cachePattern` in `WEBVIEW_CONFI
       "cachePattern": "*.css,*.js,*.png"
     },
     "ios": {
-      "cachePattern": "*.css,*.js,*.png"
+      "cachePattern": ["*.css", "*.js", "*.png"]
     }
   }
 }
 ```
+
+Android reads `cachePattern` as a comma-separated string. iOS reads an array, and a single string there is one pattern, not split on commas.
 
 This cache is implemented natively and is separate from the browser’s default storage.
 

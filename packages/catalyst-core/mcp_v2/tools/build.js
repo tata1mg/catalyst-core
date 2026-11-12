@@ -556,7 +556,7 @@ function appIdentityWarnings(ctx, isRelease, warnings, platform) {
         !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(String(wv.LOCAL_IP).trim())
     ) {
         warnings.push(
-            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}: a debug build loads that host instead of the dev server, unless it is this machine's own address (which the first debug build puts back to localhost). Set it to "localhost" to develop against the dev server.`
+            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}: a debug build loads that host instead of the dev server, unless it is this machine's own address (which the first 1.2.0 debug build puts back to localhost, but only once per checkout: after an earlier 1.2.0 debug build, for example a canary, it stays). Set it to "localhost" by hand to develop against the dev server.`
         )
     }
 }

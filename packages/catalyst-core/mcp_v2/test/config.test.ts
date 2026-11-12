@@ -364,6 +364,10 @@ describe("check_config: app id and LAN address", () => {
             const finding = r.warnings.find((w) => w.field === "WEBVIEW_CONFIG.LOCAL_IP")
             expect(finding?.message, ip).toMatch(/localhost/)
             expect(finding?.message, ip).toMatch(/npm run android/)
+            // The rewrite runs once per checkout, so a checkout that already
+            // ran a 1.2.0 debug build (a canary) has to fix it by hand.
+            expect(finding?.message, ip).toMatch(/once per checkout/)
+            expect(finding?.message, ip).toMatch(/already ran a 1\.2\.0 debug build.*by hand/)
         }
     })
 
