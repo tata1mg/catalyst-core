@@ -29,7 +29,37 @@ LiveOrders.serverFetcher = async () => {
 export default LiveOrders
 ```
 
-Unlike PPR, there's no static/dynamic split here — the entire page is gated on `serverFetcher` resolving, every time. That's the tradeoff: simplest mental model (one fetch, one render, nothing cached), at the cost of paying full data-fetch + render latency on every request, for every visitor.
+Unlike PPR, there's no static/dynamic split here — the entire page is gated on `serverFetcher` resolving, every time. That's the tradeoff: simplest mental model (one fetch, one render, nothing cached), at the cost of paying full data-fetch + render latency on every request, for every visitor. To send the page before a slow API returns, defer that data (next section).
+
+### Deferred data (`defer` + `<Deferred>`)
+
+A fetcher can hand slow work to `defer()` and return without awaiting it. The shell (document, header, the section's fallback) goes out at once, and the section wrapped in `<Deferred>` streams into the same response when its data arrives. It works on the streaming and PPR paths.
+
+```jsx
+import { Deferred } from "catalyst-core"
+
+const MyBookings = () => (
+    <Deferred name="orders" fallback={<OrdersSkeleton />}>
+        <OrdersList />
+    </Deferred>
+)
+
+MyBookings.serverFetcher = ({ req }, { store, defer }) => {
+    store.dispatch(setPageTitle("My Lab Tests")) // goes out with the shell
+    defer("orders", store.dispatch(fetchOrders()), {
+        stateKeys: ["ordersReducer"],
+        onError: (error) => (error?.status_code === 401 ? "/login" : null),
+    })
+}
+```
+
+- `defer(name, promise, { stateKeys, onError })`: `name` is unique per request and matches `<Deferred name>`. The work updates the store itself; `stateKeys` lists the slices it changes, which are handed to the client when it settles. Do not list a slice the shell already rendered (e.g. the header's): it hydrates against the shell's state, so apply data-dependent header changes on mount. `onError(error)` returns the redirect the server would have issued had it waited: a URL (`location.replace`) or `{ redirect, mode: "assign" }` (keeps history; use it for app deep links in a WebView). `javascript:`/`data:` URLs are refused.
+- `<Deferred name fallback>`: the shell shows `fallback` and the section streams in when the work settles. Without a matching `defer()` (a client-side navigation, a blocking request) it renders its children as they are, so the page fetches on the client as usual.
+- **Blocking requests** await every `defer()` before rendering, so the first response holds the whole page: bots, static routes, `DEFER_STREAMING_ENABLE: false` (the kill switch) and requests for which the app's `isBlockingRequest({ req, res, store })` hook returns `true` (e.g. link-preview scrapers). A failure there is handled like a failed fetcher: its `onError` redirect, otherwise `onFetcherError`.
+- **After the shell** the status code and headers are fixed. A failed deferred request is reported to `onDeferredError({ req, res, store, error, name })` (notify only; logged when the hook is absent), the response stays 200 and only `onError`'s redirect is applied, client-side. Meta tags that depend on deferred data are not in the shell. Deferred work must not call `res.cookie` / `res.redirect`.
+- **Limits:** sections still pending after `DEFER_TIMEOUT_MS` (15000) render on the client; a client that disconnects stops the render.
+- **With PPR:** the resumed app waits only for the fetchers, which no longer wait for deferred work, so the real header renders as soon as they return and each `<Deferred>` section streams in when its own data lands (within `PPR_RESUME_TIMEOUT_MS`).
+- `onRenderError` is notify-only: after the shell, a render error inside a Suspense boundary is sent to the client to render and the response still ends. Apps must not end or redirect the response from the hook.
 
 ## Partial Prerendering (PPR)
 
