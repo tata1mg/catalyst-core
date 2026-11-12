@@ -901,10 +901,8 @@ const _renderMarkUpPPR = async ({
             }
             const data = await fetcherResult
             fetcherData = data || {}
-            if (deferred?.blocking && deferred.size) {
-                await settleBlockingDeferred({ req, res, store, deferred })
-            }
-            const err = fetcherData?.[req.originalUrl]?.error
+            const deferredError = await settleBlockingDeferred({ res, deferred })
+            const err = fetcherData?.[req.originalUrl]?.error || deferredError
             if (err) {
                 statusCode = err.status_code || 404
                 safeCall(onFetcherError, { req, res, store, error: err })
@@ -1093,16 +1091,18 @@ const reportDeferredError = ({ req, res, store, error, name }) => {
 
 // A blocking request (bot, static route, DEFER_STREAMING_ENABLE=false, isBlockingRequest) awaits
 // its deferred work before rendering, so the page renders complete, as if the fetcher had awaited
-// it. A failure is handled like a failed fetcher: the redirect its onError mapped it to, otherwise
-// onFetcherError. On a PPR response the headers are out, so res.redirect is replayed client-side.
-const settleBlockingDeferred = async ({ req, res, store, deferred }) => {
+// it. A failure is handled like a failed fetcher: the redirect its onError mapped it to, or else
+// the error is returned for the caller's fetcher-error path (onFetcherError, error status). On a
+// PPR response the headers are out, so res.redirect is replayed client-side.
+const settleBlockingDeferred = async ({ res, deferred }) => {
+    if (!deferred?.blocking || !deferred.size) return null
     const failed = (await deferred.settleAll()).find((result) => !result.ok)
-    if (!failed || res.writableEnded) return
+    if (!failed || res.writableEnded) return null
     if (failed.redirect) {
         res.redirect(failed.redirect)
-        return
+        return null
     }
-    safeCall(onFetcherError, { req, res, store, error: failed.error })
+    return asError(failed.error)
 }
 const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
@@ -1269,12 +1269,10 @@ async function _handler(req, res) {
 
                 if (res.headersSent) return
 
-                if (deferred.blocking && deferred.size) {
-                    await settleBlockingDeferred({ req, res, store, deferred })
-                    if (res.headersSent) return
-                }
+                const deferredError = await settleBlockingDeferred({ res, deferred })
+                if (res.headersSent) return
 
-                const err = fetcherData?.[req.originalUrl]?.error
+                const err = fetcherData?.[req.originalUrl]?.error || deferredError
                 allTags = tracedGetMetaData(allMatches, fetcherData)
                 const chunkExtractor = collectAssets(req, allMatches)
 
