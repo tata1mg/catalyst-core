@@ -18,6 +18,9 @@
  * No React import here, so it can be unit tested on its own.
  */
 import { serializeForScript } from "./ppr.js"
+import { DEFERRED_STATE_MERGE } from "./document/deferredStateMerge.js"
+
+export { DEFERRED_STATE_MERGE }
 
 // config.json → process.env. On unless explicitly disabled.
 export const isDeferredStreamingEnabled = () =>
@@ -45,7 +48,8 @@ const isDev = () => process.env.NODE_ENV !== "production"
  * anyway. Call it for every chunk that reached `res` (the 'data' event of the stream piped into
  * it), so parts written after a 'drain' are flushed too. Each flush ends a gzip block
  * (compression() uses Z_FULL_FLUSH), so flushing once per turn rather than per write keeps the
- * size overhead small: about 2% with one deferred section, 13% with ten.
+ * size overhead small for typical pages (a few percent; brotli 2% or less). On a large gzip shell
+ * each flush costs more (measured about 6-7% on Node 22, about 27% on Node 20, at 400-580 KB).
  */
 export const createFlushScheduler = (res) => {
     let queued = false
@@ -59,7 +63,9 @@ export const createFlushScheduler = (res) => {
     }
 }
 
-const OPEN_TAGS = [Buffer.from("<head"), Buffer.from("<body")]
+// Built on first use, so loading this module needs no Node globals.
+let openTags = null
+const getOpenTags = () => (openTags ??= [Buffer.from("<head"), Buffer.from("<body")])
 const GT = 0x3e
 const isTagNameEnd = (byte) =>
     byte === GT || byte === 0x20 || byte === 0x0a || byte === 0x09 || byte === 0x0d || byte === 0x2f
@@ -71,7 +77,7 @@ const isTagNameEnd = (byte) =>
  */
 export const insertAfterOpenTag = (chunk, text) => {
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    for (const tag of OPEN_TAGS) {
+    for (const tag of getOpenTags()) {
         let at = buf.indexOf(tag)
         // Skip longer names that share the prefix (header, bodyguard...).
         while (at !== -1 && !isTagNameEnd(buf[at + tag.length])) at = buf.indexOf(tag, at + 1)
@@ -109,6 +115,9 @@ const toRedirect = (mapped) => {
 
 // Names and state keys become property names on the client.
 const RESERVED = new Set(["__proto__", "constructor", "prototype"])
+// Own slices only: a key such as "valueOf" must not resolve through the prototype.
+const hasSlice = (state, key) =>
+    Boolean(state) && Object.prototype.hasOwnProperty.call(state, key) && state[key] !== undefined
 
 /**
  * The inline script a streamed `<Deferred>` section writes before its content:
@@ -128,7 +137,7 @@ export const buildDeferredScript = ({
     mode = "replace",
 }) => {
     let js = `(window.__CATALYST_DEFERRED__=window.__CATALYST_DEFERRED__||{})[${serializeForScript(name)}]=1;`
-    const keys = stateKeys.filter((key) => state?.[key] !== undefined)
+    const keys = stateKeys.filter((key) => hasSlice(state, key))
     if (keys.length) {
         js +=
             "(function(s){var d,v;" +
@@ -148,16 +157,6 @@ export const buildDeferredScript = ({
     }
     return js
 }
-
-/**
- * Run right after window.__INITIAL_STATE__ is assigned (Body.jsx): merges the slices of sections
- * written before it, then drops the temporary object. Only own properties of a plain object are
- * merged, so a DOM element with that id (named access on window) is ignored.
- */
-export const DEFERRED_STATE_MERGE =
-    ";(function(d,s){if(!d||!s||Object.getPrototypeOf(d)!==Object.prototype)return;" +
-    "for(var k in d)if(Object.prototype.hasOwnProperty.call(d,k))s[k]=d[k];" +
-    "try{delete window.__CATALYST_DEFERRED_STATE__}catch(e){}})(window.__CATALYST_DEFERRED_STATE__,window.__INITIAL_STATE__)"
 
 // React's use() reads a settled thenable synchronously when it carries status/value, so a
 // section whose work is already done renders without its fallback (no suspension).
@@ -195,6 +194,13 @@ export const createDeferredRegistry = ({
     let sealed = false
     let snapshot = null
     const warned = new Set()
+    const report = (name, error) => {
+        try {
+            onSettledError?.(name, error)
+        } catch (hookError) {
+            logger?.error?.(`[defer] reporting the failure of "${name}" threw:`, hookError)
+        }
+    }
     const warnOnce = (key, message) => {
         if (warned.has(key)) return
         warned.add(key)
@@ -242,13 +248,7 @@ export const createDeferredRegistry = ({
         const settled = Promise.resolve(promise).then(
             () => ({ name, ok: true, error: null, redirect: null, mode: "replace", status: null }),
             (error) => {
-                if (!blocking) {
-                    try {
-                        onSettledError?.(name, error)
-                    } catch (hookError) {
-                        logger?.error?.(`[defer] reporting the failure of "${name}" threw:`, hookError)
-                    }
-                }
+                if (!blocking) report(name, error)
                 let mapped = null
                 try {
                     mapped = typeof onError === "function" ? onError(error) : null
@@ -285,25 +285,29 @@ export const createDeferredRegistry = ({
         }
         const keys = entry?.stateKeys || []
         if (isDev()) {
-            for (const key of keys) {
-                if (state?.[key] === undefined) {
-                    warnOnce(
-                        `missing:${key}`,
-                        `[defer] "${name}": stateKeys names "${key}", which is not in the store`
-                    )
+            // Checks only: they must never break the render.
+            try {
+                for (const key of keys) {
+                    if (!hasSlice(state, key)) {
+                        warnOnce(
+                            `missing:${key}`,
+                            `[defer] "${name}": stateKeys names "${key}", which is not in the store`
+                        )
+                    }
                 }
-            }
-            if (snapshot) {
-                const listed = listedKeys()
-                const changed = Object.keys(state || {}).filter(
-                    (key) => state[key] !== snapshot[key] && !listed.has(key)
-                )
-                if (changed.length) {
-                    warnOnce(
-                        `changed:${changed.join(",")}`,
-                        `[defer] store slices changed after the shell but are not in any stateKeys: ${changed.join(", ")}. The client does not get them; a section that renders them will not hydrate.`
-                    )
+                if (snapshot) {
+                    const listed = listedKeys()
+                    for (const key of Object.keys(state || {})) {
+                        if (state[key] !== snapshot[key] && !listed.has(key)) {
+                            warnOnce(
+                                `changed:${key}`,
+                                `[defer] store slice "${key}" changed after the shell but is in no stateKeys. The client does not get it; a section that renders it will not hydrate.`
+                            )
+                        }
+                    }
                 }
+            } catch (error) {
+                logger?.error?.(`[defer] checking the state of "${name}" failed:`, error)
             }
         }
         try {
@@ -337,6 +341,19 @@ export const createDeferredRegistry = ({
         /** Called when rendering starts: later defer() calls are ignored. */
         seal() {
             sealed = true
+        },
+        /**
+         * Nothing will wait for the deferred work any more (a blocking request that answered with
+         * a fetcher error, timed out, or lost its client): seals, and still reports every failure,
+         * now or when it happens.
+         */
+        abandon() {
+            sealed = true
+            for (const entry of entries.values()) {
+                entry.result.then((result) => {
+                    if (!result.ok) report(result.name, result.error)
+                })
+            }
         },
         /** The store state the shell is rendered from (dev check for unlisted slices). */
         setSnapshot(state) {

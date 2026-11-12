@@ -1,7 +1,7 @@
 import React from "react"
 import PropTypes from "prop-types"
 import path from "path"
-import { DEFERRED_STATE_MERGE } from "../deferred.js"
+import { DEFERRED_STATE_MERGE } from "./deferredStateMerge.js"
 /**
  * Body component which will be used in page component
  * @param {object} jsx - page jsx code

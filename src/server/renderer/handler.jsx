@@ -473,6 +473,22 @@ const _renderMarkUp = async (
                 settle(value)
             }
 
+            // Deferred work that never settles must not hold the response open. Started once the
+            // shell is out (a shell that waits is the shell's own problem, not a deferred section's).
+            // On abort React sends what is still pending to the client to render, then ends.
+            let abortRender = () => {}
+            const startDeferredTimer = () => {
+                if (!deferred?.isStreaming || settled) return
+                deferredTimer = setTimeout(() => {
+                    if (settled) return
+                    getLogger().warn?.(`[defer] ${req.originalUrl} timed out; the rest renders on the client`)
+                    for (const name of deferred.pending()) {
+                        reportDeferredError({ req, res, store, name, error: new Error(DEFER_TIMED_OUT) })
+                    }
+                    abortRender(new Error(DEFER_TIMED_OUT))
+                }, DEFER_TIMEOUT_MS())
+            }
+
             const { pipe, abort } = renderToPipeableStream(<CompleteDocument />, {
                 // React's own inline scripts (Suspense reveals) need it under a nonce-based CSP.
                 ...(appNonce ? { nonce: appNonce } : {}),
@@ -483,7 +499,7 @@ const _renderMarkUp = async (
                     // client. Nothing has been written yet, so the handler's error path runs, as
                     // before deferred streaming.
                     if (shellError) {
-                        done(reject, shellError)
+                        done(reject, asRenderFailure(shellError))
                         tail.destroy()
                         abort(new Error(RENDER_STOPPED))
                         return
@@ -502,7 +518,9 @@ const _renderMarkUp = async (
                         done(reject, error)
                         tail.destroy()
                         abort(new Error(RENDER_STOPPED))
+                        return
                     }
+                    startDeferredTimer()
                 },
 
                 onAllReady() {
@@ -513,8 +531,8 @@ const _renderMarkUp = async (
                 // that went away before the shell needs no answer.
                 onShellError(error) {
                     tail.destroy()
-                    if (isDeferAbort(error)) done(resolve)
-                    else done(reject, error)
+                    if (error?.message === DEFER_CLIENT_GONE || res.destroyed) done(resolve)
+                    else done(reject, asRenderFailure(error))
                 },
 
                 // Called for every render error. After the shell, an error inside a Suspense
@@ -539,30 +557,19 @@ const _renderMarkUp = async (
                 },
             })
 
+            abortRender = abort
+
             // A client that goes away stops the render (and any deferred work it waits for).
             res.once("close", () => {
                 if (res.writableFinished || settled) return
                 clearTimeout(deferredTimer)
                 abort(new Error(DEFER_CLIENT_GONE))
             })
-
-            if (deferred?.isStreaming && !settled) {
-                // Deferred work that never settles must not hold the response open. On abort React
-                // sends what is still pending to the client to render, then ends the stream.
-                deferredTimer = setTimeout(() => {
-                    if (settled) return
-                    getLogger().warn?.(`[defer] ${req.originalUrl} timed out; the rest renders on the client`)
-                    for (const name of deferred.pending()) {
-                        reportDeferredError({ req, res, store, name, error: new Error(DEFER_TIMED_OUT) })
-                    }
-                    abort(new Error(DEFER_TIMED_OUT))
-                }, DEFER_TIMEOUT_MS())
-            }
         })
     } catch (error) {
         console.error("Error in rendering document on server:", error)
         safeCall(onRenderError, { req, res, store, error })
-        return Promise.reject(error)
+        return Promise.reject(asRenderFailure(error))
     }
 }
 
@@ -591,6 +598,8 @@ const _renderMarkUpStatic = async (
     deferred
 ) => {
     deferred?.seal()
+    // The client went away while the data was fetched: nothing to render (or to cache).
+    if (res.destroyed) return
     const cacheKey = getStaticCacheKey(req)
     // One canonical version for every visitor, so no per-request bot branching.
     const isBot = false
@@ -983,11 +992,11 @@ const _renderMarkUpPPR = async ({
             }
             const data = await fetcherResult
             fetcherData = data || {}
-            const settled = fetcherData?.[req.originalUrl]?.error
-                ? null
-                : await settleBlockingDeferred({ req, res, store, deferred })
-            // Redirected (replayed client-side): the route's success/error hooks do not apply.
-            if (settled?.redirected) return fetcherData
+            let settled = null
+            if (fetcherData?.[req.originalUrl]?.error) deferred?.abandon()
+            else settled = await settleBlockingDeferred({ req, res, store, deferred })
+            // Redirected (replayed client-side) or the client left: the route's hooks do not apply.
+            if (settled?.redirected || settled?.gone) return fetcherData
             const err = fetcherData?.[req.originalUrl]?.error || settled?.error
             if (err) {
                 statusCode = err.status_code || 404
@@ -1171,6 +1180,16 @@ const tracedParallelWork = withObservability(
 )
 const asError = (error) => (error && typeof error === "object" ? error : new Error(String(error)))
 
+// Errors a page's render failed with. The handler reports them through its hooks as before, but
+// does not render the same page again for them (it would fail the same way).
+const renderFailures = new WeakSet()
+const asRenderFailure = (error) => {
+    const failure = asError(error)
+    renderFailures.add(failure)
+    return failure
+}
+const isRenderFailure = (error) => Boolean(error) && typeof error === "object" && renderFailures.has(error)
+
 const reportDeferredError = ({ req, res, store, error, name }) => {
     if (typeof onDeferredError === "function")
         return safeCall(onDeferredError, { req, res, store, error, name })
@@ -1202,7 +1221,9 @@ const settleBlockingDeferred = async ({ req, res, store, deferred }) => {
     ])
     clearTimeout(timer)
     res.off("close", onClose)
-    if (outcome === "gone" || res.writableEnded) return null
+    if (outcome === "gone" || outcome === "timeout") deferred.abandon()
+    // The client left: nothing renders, so nothing incomplete reaches the static cache.
+    if (outcome === "gone" || res.writableEnded) return { gone: true }
     if (outcome === "timeout") {
         const error = new Error(`${DEFER_TIMED_OUT}: ${deferred.pending().join(", ")}`)
         error.status_code = 504
@@ -1403,9 +1424,9 @@ async function _handler(req, res) {
 
                 // A fetcher error is answered without waiting for deferred work.
                 let settled = null
-                if (fetcherData?.[req.originalUrl]?.error) deferred.seal()
+                if (fetcherData?.[req.originalUrl]?.error) deferred.abandon()
                 else settled = await settleBlockingDeferred({ req, res, store, deferred })
-                if (res.headersSent) return
+                if (settled?.gone || res.headersSent) return
 
                 const err = fetcherData?.[req.originalUrl]?.error || settled?.error
                 allTags = tracedGetMetaData(allMatches, fetcherData)
@@ -1454,6 +1475,8 @@ async function _handler(req, res) {
                 safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) return
+                // The page itself failed to render: rendering it again would fail the same way.
+                if (isRenderFailure(error)) throw error
 
                 const chunkExtractor = collectAssets(req, allMatches)
                 await renderMarkUp(
@@ -1471,13 +1494,15 @@ async function _handler(req, res) {
                 )
             }
         } catch (error) {
-            console.error("Error in executing serverSideFunction inside App:", error)
+            if (isRenderFailure(error)) console.error("Error in rendering the page:", error)
+            else console.error("Error in executing serverSideFunction inside App:", error)
             // serverSideFunction can throw with parallel work still running. A parallel failure is
             // only traced here; the hook below still gets the error this catch received.
             if (parallelWork.length) await waitForParallelWork()
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
+            if (isRenderFailure(error)) throw error
 
             const chunkExtractor = collectAssets(req, allMatches)
             await renderMarkUp(
@@ -1496,7 +1521,14 @@ async function _handler(req, res) {
         }
     } catch (error) {
         console.error("Error in handling document request:", error)
-        safeCall(onRequestError, { req, res, error })
+        const answer = safeCall(onRequestError, { req, res, error })
+        if (answer && typeof answer.then === "function") await answer.catch(() => {})
+        // No hook answered: end the request rather than leave it open until the proxy times out.
+        if (!res.headersSent && !res.destroyed) {
+            res.status(500)
+            res.set({ "content-type": "text/html; charset=utf-8" })
+            res.end("<!DOCTYPE html><title>Server error</title>")
+        }
     }
 }
 
