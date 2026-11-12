@@ -396,11 +396,21 @@ const _renderMarkUp = async (
                     resolve()
                 },
 
+                // Nothing has been written: the handler renders its error page instead.
+                onShellError(error) {
+                    tail.destroy()
+                    reject(error)
+                },
+
+                // Called for every render error. After the shell, an error inside a Suspense
+                // boundary is recoverable: React sends that boundary to the client to render and
+                // still ends its stream, which ends `tail` and the response. Destroying `tail`
+                // here stopped the output without ending the response, so the page kept loading
+                // until the proxy timed out. onRenderError only reports the error; it must not
+                // end or redirect the response.
                 onError(error) {
                     console.error("Error in renderToPipeableStream:", error)
-                    safeCall(onRenderError, { req, res, store, error })
-                    tail.destroy(error)
-                    reject(error)
+                    safeCall(onRenderError, { req, res, store, error, headersSent: res.headersSent })
                 },
             })
         })
