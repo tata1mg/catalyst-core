@@ -1,4 +1,4 @@
-import React, { Suspense, use, useContext, useEffect, useState } from "react"
+import React, { Suspense, use, useContext } from "react"
 import { SsrRequestContext } from "./SsrRequestContext.jsx"
 import { PPRRenderContext } from "./PPR.jsx"
 
@@ -16,7 +16,8 @@ function DeferredServer({ name, children }) {
     // before rendering and its state is in window.__INITIAL_STATE__): plain content, no script.
     if (!entry || deferred.blocking) return children
 
-    const { html } = use(entry.result)
+    // Built now, from the same store state this section's HTML is rendered from.
+    const html = deferred.scriptFor(name, use(entry.result))
     return (
         <>
             <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: html }} />
@@ -25,19 +26,20 @@ function DeferredServer({ name, children }) {
     )
 }
 
+const hasServerScript = (name) => {
+    const markers = window.__CATALYST_DEFERRED__
+    return Boolean(markers) && Object.prototype.hasOwnProperty.call(markers, name)
+}
+
 function DeferredClient({ name, children }) {
     // The server wrote a script before this section's content and it set this marker. The client
     // renders the same (empty) element at the same position so hydration matches; React never
-    // runs it again. The marker is consumed once hydrated, so a later client-side visit renders
-    // the content only.
-    const [hasServerScript] = useState(() => Boolean(window.__CATALYST_DEFERRED__?.[name]))
-    useEffect(() => {
-        if (hasServerScript && window.__CATALYST_DEFERRED__) delete window.__CATALYST_DEFERRED__[name]
-    }, [hasServerScript, name])
-
+    // runs it. The marker is kept: every section with this name (e.g. at different Suspense
+    // depths) hydrates against it, and on a later client-side visit the empty script is inert.
+    const withScript = hasServerScript(name)
     return (
         <>
-            {hasServerScript && <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: "" }} />}
+            {withScript && <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: "" }} />}
             {children}
         </>
     )
