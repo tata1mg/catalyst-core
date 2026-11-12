@@ -1,0 +1,36 @@
+packages/catalyst-core/src/server/renderer/ChunkExtractor.ts
+  s_815f812c6324b6::t_415d6acaff50bd 19,21-25,38-41,44,112-115,117,119,131-149,163-170,172,174-175,180,182,184-185
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_815f812c6324b6::t_fb2348d1b9ddb2 31-32,188-189,199-201,225-277,304-347,406-408,420,483,500,522,608-611
+  s_815f812c6324b6::t_a2e21d9c26a02d 612
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_815f812c6324b6::t_e7a1d0f2d543c4 87-91,228,268,285,308,321,336-337,345,347-395
+  s_815f812c6324b6::t_d4e7bf35dd710e 338-344,346
+  s_815f812c6324b6::t_e9511dc2ad27e7 396-401
+packages/catalyst-core/src/server/renderer/extract.ts
+  s_815f812c6324b6::t_415d6acaff50bd 105-143
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_815f812c6324b6::t_0dc9c2501cc269 25-26,76,83,95-118,123-129
+  s_815f812c6324b6::t_d4e7bf35dd710e 119-122
+  s_815f812c6324b6::t_afc6db96adbc89 130
+packages/catalyst-core/test/server/extract.test.ts
+  s_815f812c6324b6::t_08dd00c42a1afb 4-5
+  s_815f812c6324b6::t_ff5491d516cdae 128-158
+  s_815f812c6324b6::t_055ad2fa2106bd 22,25,100,105,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46899be627623a4e87b817223505208ea11f1950",
+  "prompts": {},
+  "sessions": {
+    "s_815f812c6324b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "204501dd-cda6-49c5-8ea0-208477f6b6cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

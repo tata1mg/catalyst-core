@@ -1,0 +1,31 @@
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_1b903cc6415961 456-459
+  s_d931432877f59e::t_85debc106a0ed5 664,814-815,817,832-835,853
+  s_d931432877f59e::t_70b06dd20dca4c 186-188,191-197,202-210,315-316,352,442-443
+src/web-router/components/Split.jsx
+  s_d931432877f59e::t_e358f5ee74a392 103-104
+src/server/expressServer.js
+  s_d931432877f59e::t_e358f5ee74a392 106,115-116,118
+ppr-documentation.md
+  s_d931432877f59e::t_d30cd2d4119222 3,8,36-38,41-43,46-49,51,53,55-58,60,62-90,92-100,102,104-106,135,144-145
+test/ppr.test.mjs
+  s_d931432877f59e::t_1b903cc6415961 117-119
+src/server/renderer/ChunkExtractor.js
+  s_d931432877f59e::t_e358f5ee74a392 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "935ce1c8dca6883ef6118e9bbe4b209111fbcd92",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

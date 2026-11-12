@@ -1,0 +1,23 @@
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_64e92d5f7cebfa 31-34
+benchmarks/harness/images.mjs
+  s_2b5c6c7a2de2aa::t_88068b90c96bdf 1-48
+benchmarks/pokedex/results/waterfall/waterfalls.txt
+  s_2b5c6c7a2de2aa::t_1d5552244a88e2 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3488e93ca1e0935a7440930298e667c8836f2b90",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
