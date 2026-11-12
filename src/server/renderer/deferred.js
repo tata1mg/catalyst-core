@@ -32,6 +32,47 @@ export const DEFER_CLIENT_GONE = "Deferred data: client disconnected"
 export const isDeferAbort = (error) =>
     error?.message === DEFER_TIMED_OUT || error?.message === DEFER_CLIENT_GONE
 
+/**
+ * Flushes the response at most once per event-loop turn while it streams. compression() holds
+ * gzip output until its buffer fills, which would hold the shell until the deferred data arrives
+ * anyway. React writes in small pieces, so one flush per turn keeps each React flush going out at
+ * once without closing a compressed block per piece (which makes the response larger).
+ */
+export const createFlushScheduler = (res) => {
+    let queued = false
+    return () => {
+        if (queued || typeof res.flush !== "function") return
+        queued = true
+        setImmediate(() => {
+            queued = false
+            if (!res.writableEnded) res.flush()
+        })
+    }
+}
+
+const OPEN_TAGS = [Buffer.from("<head"), Buffer.from("<body")]
+const GT = 0x3e
+const isTagNameEnd = (byte) => byte === GT || byte === 0x20 || byte === 0x0a || byte === 0x09 || byte === 0x0d || byte === 0x2f
+
+/**
+ * Inserts `text` right after the opening head tag (or the body tag when there is no head) of
+ * the document's first bytes. Works on bytes, so a multi-byte character split across chunks is
+ * left intact. Returns null when neither tag is in `chunk`.
+ */
+export const insertAfterOpenTag = (chunk, text) => {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    for (const tag of OPEN_TAGS) {
+        let at = buf.indexOf(tag)
+        // Skip longer names that share the prefix (header, bodyguard...).
+        while (at !== -1 && !isTagNameEnd(buf[at + tag.length])) at = buf.indexOf(tag, at + 1)
+        if (at === -1) continue
+        const end = buf.indexOf(GT, at)
+        if (end === -1) return null
+        return Buffer.concat([buf.subarray(0, end + 1), Buffer.from(text), buf.subarray(end + 1)])
+    }
+    return null
+}
+
 // A deferred redirect runs as a script navigation, which would also run these schemes.
 // Browsers ignore whitespace and control characters inside the scheme ("java\tscript:").
 const UNSAFE_SCHEME = /^(javascript|data|vbscript):/i

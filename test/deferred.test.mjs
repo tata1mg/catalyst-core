@@ -9,6 +9,8 @@ import {
     isDeferredStreamingEnabled,
     isDeferAbort,
     DEFER_TIMED_OUT,
+    createFlushScheduler,
+    insertAfterOpenTag,
 } from "../src/server/renderer/deferred.js"
 
 // Runs a generated inline script against a fake window and returns it.
@@ -174,6 +176,40 @@ test("a plain value can be deferred", async () => {
     registry.defer("value", 42)
     const [result] = await registry.settleAll()
     assert.equal(result.ok, true)
+})
+
+test("the reveal script goes right after the opening head tag, not into a header", () => {
+    const S = "<script>X</script>"
+    const at = (html) => insertAfterOpenTag(Buffer.from(html), S)?.toString()
+    assert.equal(at("<!DOCTYPE html><html><head><meta/>"), `<!DOCTYPE html><html><head>${S}<meta/>`)
+    assert.equal(at('<html><head lang="en"><title>'), `<html><head lang="en">${S}<title>`)
+    assert.equal(at("<html><header>x</header><head>y"), `<html><header>x</header><head>${S}y`)
+    assert.equal(at('<html><body class="a">z'), `<html><body class="a">${S}z`)
+    assert.equal(at("<div>no document tags</div>"), undefined)
+})
+
+test("inserting the reveal script leaves a multi-byte character split across chunks intact", () => {
+    const first = Buffer.from("<html><head><title>नमस्ते")
+    const cut = first.subarray(0, first.length - 1) // ends inside the last character
+    const script = "<s>"
+    const out = insertAfterOpenTag(cut, script)
+    assert.deepEqual(out.subarray(out.length - 8), cut.subarray(cut.length - 8))
+    assert.equal(out.length, cut.length + Buffer.byteLength(script))
+})
+
+test("the response is flushed once per event-loop turn, and not after it ended", async () => {
+    const res = { flushes: 0, writableEnded: false, flush() { this.flushes++ } }
+    const schedule = createFlushScheduler(res)
+    schedule()
+    schedule()
+    schedule()
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(res.flushes, 1)
+    schedule()
+    res.writableEnded = true
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(res.flushes, 1)
+    createFlushScheduler({})() // no flush() (no compression): nothing to do
 })
 
 test("DEFER_STREAMING_ENABLE=false is the kill switch; abort reasons are recognised", () => {

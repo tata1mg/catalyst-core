@@ -33,6 +33,8 @@ import {
     createNoncePlaceholder,
     applyNonce,
     prepareReactScripts,
+    isRevealThrottleEnabled,
+    noRevealThrottleScript,
     serializeForScript,
     guardLateResponseCalls,
     isPreloadLearningEnabled,
@@ -48,6 +50,8 @@ import {
     DEFER_TIMED_OUT,
     DEFER_CLIENT_GONE,
     isDeferAbort,
+    createFlushScheduler,
+    insertAfterOpenTag,
 } from "./deferred.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -340,6 +344,11 @@ const _renderMarkUp = async (
         nonce
     )
 
+    // The nonce of this response's CSP header (the app's middleware, or Catalyst's own).
+    const appNonce = res.locals?.cspNonce || nonce
+    // Deferred sections stream after the shell: nothing on the way may hold the shell back.
+    const isStreaming = Boolean(deferred?.isStreaming)
+
     const state = store.getState()
     const requestCache = createPPRRequestCache()
     const jsx = getComponent(
@@ -351,7 +360,7 @@ const _renderMarkUp = async (
         chunkExtractor,
         requestCache,
         deferred,
-        res.locals?.cspNonce || nonce
+        appNonce
     )
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
@@ -363,6 +372,16 @@ const _renderMarkUp = async (
         const status = errorCode || routeStatus(allMatches)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+        // nginx buffers proxied responses; this header turns that off for this response.
+        if (isStreaming) res.setHeader("X-Accel-Buffering", "no")
+
+        // React 19.2 reveals a streamed section no sooner than 300 ms after the previous paint and
+        // holds anything that lands between 2.0 s and 2.3 s until 2.3 s. For a deferred section that
+        // only delays the content replacing its fallback, so the throttle is turned off, as on PPR
+        // shells (PPR_REVEAL_THROTTLE=true keeps it). The script must run before React's own.
+        let revealScript = isStreaming && !isRevealThrottleEnabled() ? noRevealThrottleScript(appNonce) : null
+        let scannedBytes = 0
+        const scheduleFlush = isStreaming ? createFlushScheduler(res) : null
 
         return new Promise((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
@@ -373,7 +392,15 @@ const _renderMarkUp = async (
             // (see issue #320).
             const tail = new Transform({
                 transform(chunk, _enc, cb) {
+                    if (revealScript) {
+                        const withScript = insertAfterOpenTag(chunk, revealScript)
+                        scannedBytes += chunk.length
+                        if (withScript) chunk = withScript
+                        // The head is in the first bytes; give up rather than scan the whole page.
+                        if (withScript || scannedBytes > 64 * 1024) revealScript = null
+                    }
                     cb(null, chunk)
+                    scheduleFlush?.()
                 },
                 flush(cb) {
                     // Deferred assets — injected after body (non-blocking)
@@ -417,6 +444,8 @@ const _renderMarkUp = async (
 
             let deferredTimer
             const { pipe, abort } = renderToPipeableStream(<CompleteDocument />, {
+                // React's own inline scripts (Suspense reveals) need it under a nonce-based CSP.
+                ...(appNonce ? { nonce: appNonce } : {}),
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
                     pipe(tail)
@@ -844,6 +873,8 @@ const _renderMarkUpPPR = async ({
     res.status(statusCode)
     res.setHeader("content-type", "text/html; charset=utf-8")
     res.setHeader("x-rendering-mode", hit ? "ppr-hit" : "ppr-miss")
+    // The shell is sent before the data exists; nginx must not buffer it (or the resumed parts).
+    res.setHeader("X-Accel-Buffering", "no")
 
     // Route data runs while the shell is on the wire. Same hooks as the classic path; the
     // status line is already sent, so a fetcher error is rendered by the app with the
@@ -925,6 +956,7 @@ const _renderMarkUpPPR = async ({
     })
     const nonceAttr = appNonce ? ` nonce="${appNonce}"` : ""
     const shellCss = new Set(shell.cssPaths)
+    const scheduleFlush = createFlushScheduler(res)
 
     await new Promise((resolve) => {
         let timeout
@@ -951,6 +983,8 @@ const _renderMarkUpPPR = async ({
                     resumedBytes += chunk.length
                 }
                 cb(null, chunk)
+                // Resumed parts (the app, then each deferred section) go out as React flushes them.
+                scheduleFlush()
             },
             flush(cb) {
                 try {
