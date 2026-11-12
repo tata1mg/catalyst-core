@@ -179,6 +179,15 @@ function readIosCredentials(dir, { env = process.env, mask = maskSecret } = {}) 
 }
 
 /**
+ * xcodebuild build settings for every debug build, simulator and iPhone.
+ * ENABLE_DEBUG_DYLIB=NO: for Xcode's Previews a Debug app is split into the
+ * app, <app>.debug.dylib and __preview.dylib, each signed on its own, so an
+ * iPhone build asked for the Keychain password three times. A command line
+ * build has no use for Previews. The release archive does not use them.
+ */
+const DEBUG_BUILD_SETTINGS = ["ENABLE_DEBUG_DYLIB=NO"]
+
+/**
  * xcodebuild flags that let automatic signing create and fetch certificates
  * and profiles: with the API key when there is one (cloud signing),
  * otherwise with the Apple account signed in to Xcode.
@@ -665,6 +674,26 @@ function findInstalledProfileIdentity({
 
 const XCODE_TEAM_HINT =
     "Open Xcode > Settings > Accounts and sign in with the Apple account that has your company's team, or set WEBVIEW_CONFIG.ios.developmentTeam."
+
+/**
+ * IOS-010's hint when Xcode could not sign a debug build for an iPhone. That
+ * build signs with what config/config.json sets, nothing else: the team, and
+ * an installed development profile when ios.provisioningProfile names one.
+ */
+const DEVICE_TEAM_HINT =
+    "Set WEBVIEW_CONFIG.ios.developmentTeam in config/config.json to your 10-character team ID. With Xcode signed in to that team, Xcode signs automatically. Or also set ios.provisioningProfile to the name of an installed development profile that includes this iPhone."
+
+/**
+ * DEVICE_TEAM_HINT, or for a plan that signs with ios.provisioningProfile
+ * what to check in that profile.
+ *
+ * @param {ReturnType<typeof planIosSigning>} [plan]
+ * @returns {string}
+ */
+function deviceSigningHint(plan) {
+    if (!plan?.provisioningProfile) return DEVICE_TEAM_HINT
+    return `Check that the profile "${plan.provisioningProfile}" set in WEBVIEW_CONFIG.ios.provisioningProfile includes this iPhone, matches the bundle id, and that its certificate is in your keychain.`
+}
 
 /**
  * IOS-010's detail and hint for an App Store release that found no installed
@@ -1184,15 +1213,16 @@ function signingFailureLine(output) {
  * @param {any} [cause]
  * @param {object} [options]
  * @param {string} [options.missingProfileFor] - plan.missingProfileFor
+ * @param {string} [options.hint] - over the registry's hint, e.g. deviceSigningHint(plan)
  * @returns {any}
  */
-function signingSetupError(detail, cause, { missingProfileFor } = {}) {
+function signingSetupError(detail, cause, { missingProfileFor, hint } = {}) {
     const said = signingFailureLine(cause?.output)
     const failed = said ? `${detail}: ${said}` : detail
     const missing = missingProfileError(missingProfileFor, failed)
     const error = missing
         ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
-        : nativeError("IOS-010", failed)
+        : nativeError("IOS-010", failed, { hint })
     if (cause) {
         error.cause = cause
         if (cause.output) error.output = cause.output
@@ -1207,6 +1237,7 @@ export {
     resolveExportMethod,
     parseProperties,
     readIosCredentials,
+    DEBUG_BUILD_SETTINGS,
     xcodeAuthArgs,
     planIosSigning,
     planSigningForConfig,
@@ -1219,6 +1250,8 @@ export {
     pickInstalledProfile,
     findInstalledProfileIdentity,
     XCODE_TEAM_HINT,
+    DEVICE_TEAM_HINT,
+    deviceSigningHint,
     missingProfileError,
     parseXcodeTeams,
     readXcodeTeams,

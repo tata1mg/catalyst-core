@@ -5,8 +5,10 @@ import path from "path"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    DEVICE_TEAM_HINT,
     XCODE_TEAM_HINT,
     chooseXcodeTeam,
+    deviceSigningHint,
     missingProfileError,
     createProfileScanner,
     findInstalledProfileIdentity,
@@ -742,5 +744,27 @@ describe("signing failure detail", () => {
         expect(signingSetupError("Xcode could not sign the release archive", { output }).hint).toMatch(
             /^For an App Store release/
         )
+    })
+
+    it("gives a device build the config hint: the team, or what to check in the profile", () => {
+        const output = 'error: Signing for "iosnativeWebView" requires a development team.'
+        const automatic = planIosSigning({ iosConfig: {} })
+        const error = signingSetupError(
+            "Xcode could not sign the device build",
+            { output },
+            {
+                hint: deviceSigningHint(automatic),
+            }
+        )
+        expect(error.hint).toBe(DEVICE_TEAM_HINT)
+        expect(error.hint).toMatch(/WEBVIEW_CONFIG\.ios\.developmentTeam in config\/config\.json/)
+        expect(error.hint).not.toMatch(/App Store/)
+        const manual = planIosSigning({
+            iosConfig: { developmentTeam: "ABCDE12345", provisioningProfile: "Shop Dev" },
+        })
+        expect(deviceSigningHint(manual)).toBe(
+            'Check that the profile "Shop Dev" set in WEBVIEW_CONFIG.ios.provisioningProfile includes this iPhone, matches the bundle id, and that its certificate is in your keychain.'
+        )
+        expect(deviceSigningHint(undefined)).toBe(DEVICE_TEAM_HINT)
     })
 })

@@ -21,6 +21,7 @@ const {
     createProfileScanner,
     pickInstalledProfile,
     XCODE_TEAM_HINT,
+    deviceSigningHint,
     missingProfileError,
     buildExportOptions,
     writeExportOptionsPlist,
@@ -445,11 +446,13 @@ function createIosBuild(
                     progress.complete("build")
                 } catch (error) {
                     // The diagnostic in the catch below shows what xcodebuild
-                    // said. A signing failure gets IOS-010, which names both
-                    // ways to set signing up. Not checked up front: an Apple
-                    // account signed in to Xcode signs fine without either.
+                    // said. A signing failure gets IOS-010 with the
+                    // development hint (ios.developmentTeam, or what to check
+                    // in ios.provisioningProfile), not the App Store one.
                     const failure = isSigningFailure(error.output)
-                        ? signingSetupError("Xcode could not sign the device build", error)
+                        ? signingSetupError("Xcode could not sign the device build", error, {
+                              hint: deviceSigningHint(signingPlan),
+                          })
                         : error
                     failure.stage = failure.stage || "Building for the device"
                     throw failure

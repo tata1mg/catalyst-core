@@ -72,6 +72,8 @@ The build writes to `build-output/android/<version>-<build>/`:
 - `<app name>.apk`, signed with the same upload key, for installing on test phones. It will not install over a copy from Google Play; uninstall that first
 - `upload_certificate.pem`, the upload certificate. Play asks for it when you register or reset an upload key
 
+A release build checks the device when it opens, and on an emulator it shows a Security Alert instead of the app. To try a release APK on an emulator, set `WEBVIEW_CONFIG.android.security.mode` to `"custom"`: the app then skips the alert and only reports the check in `WebBridge.getDeviceInfo()`. That also turns the alert off on rooted phones, so remove the key before you upload.
+
 `android.outputPath` moves the folder. The app targets Android API 36 (minimum 24), and its 64-bit native libraries are aligned for 16 KB memory pages, which Google Play requires for apps that target Android 15 and later.
 
 To upload, open the app in Play Console and go to Test and release > Testing > Internal testing. Create a release, upload the `.aab`, then review and roll it out to your tester list. On the first upload, Play App Signing keeps the app signing key and your key becomes the upload key.
