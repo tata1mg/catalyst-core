@@ -689,7 +689,7 @@ const learnedPreloads = new PreloadLearner()
  * request should take the classic path instead (no shell key, or the shell could not be
  * built). Never resolves false once anything has been written.
  */
-const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, nonce }) => {
+const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, nonce, waitForParallelWork }) => {
     let appKey = ""
     if (typeof getPPRShellKey === "function") {
         try {
@@ -782,10 +782,23 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
     // status it would have had exposed as window.__STATUS_CODE__.
     const routeData = (async () => {
         try {
-            const data = await tracedServerDataFetcher(
+            const fetcherResult = tracedServerDataFetcher(
                 { routes: cachedRoutes, req, res, url: req.originalUrl },
                 { store }
             )
+            // Work serverSideFunction passed to runInParallel finishes before the resumed
+            // app reads route data, so the serialized state holds its results. A failure is
+            // handled like a rejected serverSideFunction on the classic path.
+            const parallelResult = waitForParallelWork?.() ?? null
+            await fetcherResult.catch(() => {})
+            const failed = await parallelResult
+            if (failed) {
+                console.error("Error in executing serverSideFunction inside App:", failed.error)
+                if (failed.error?.status_code) statusCode = failed.error.status_code
+                safeCall(onAppServerSideError, { req, res, store, error: failed.error })
+                return fetcherData
+            }
+            const data = await fetcherResult
             fetcherData = data || {}
             const err = fetcherData?.[req.originalUrl]?.error
             if (err) {
@@ -952,6 +965,17 @@ const tracedAppServerSideFunction = withObservability(
     "App.serverSideFunction"
 )
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+// Waits for the promises passed to runInParallel. Its own span keeps their time and any rejection
+// in the trace, which serverSideFunction's span covered when it awaited them itself.
+const tracedParallelWork = withObservability(
+    SSR_SERVICE,
+    async (work) => {
+        const failed = (await Promise.all(work)).find(Boolean)
+        if (failed) throw failed.error
+    },
+    "App.serverSideFunction.runInParallel"
+)
+const asError = (error) => (error && typeof error === "object" ? error : new Error(String(error)))
 const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
 // ── Express middleware ──────────────────────────────────────────────────
@@ -959,7 +983,8 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  * SSR request handler. Execution pipeline per request:
  *   1. Match route
  *   2. Static route (renderMode "static") with a cached page: replay it and stop
- *   3. App.serverSideFunction (app-level server hook; may set cookies or redirect)
+ *   3. App.serverSideFunction (app-level server hook; may set cookies or redirect), plus
+ *      anything it passed to runInParallel()
  *   4a. PPR route (renderMode "ppr", PPR_ENABLE on, not a bot, getPPRShellKey not null):
  *       write the cached shell, then resume the app with this request's serverFetcher data
  *   4b. Otherwise: serverDataFetcher, then renderMarkUp → renderToPipeableStream
@@ -996,17 +1021,56 @@ async function _handler(req, res) {
         const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce
         const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
 
+        const parallelWork = []
+
+        // Handle each promise immediately so a rejection is never unhandled. A reason that isn't an
+        // object (null, undefined, a string) becomes an Error, since the tracing wrapper and the catch
+        // below read its properties.
+        const runInParallel = (...promises) => {
+            for (const promise of promises) {
+                parallelWork.push(
+                    Promise.resolve(promise).then(
+                        () => null,
+                        (error) => ({ error: asError(error) })
+                    )
+                )
+            }
+        }
+
+        // Every exit below waits through this, so each request records its parallel work on one span.
+        // No span when nothing was registered, so apps that never call runInParallel trace as before.
+        let parallelDone = null
+        const waitForParallelWork = () => {
+            if (!parallelWork.length) return null
+            if (!parallelDone) {
+                parallelDone = tracedParallelWork(parallelWork).then(
+                    () => null,
+                    (error) => ({ error })
+                )
+            }
+            return parallelDone
+        }
+
         try {
-            await tracedAppServerSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res, runInParallel })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
-            if (res.headersSent) return
+            if (res.headersSent) {
+                // The response is already out, but registered work still finishes before the handler returns.
+                if (parallelWork.length) await waitForParallelWork()
+                return
+            }
 
             // Static: replay a cached page only after App.serverSideFunction, so its redirects,
             // auth checks and cookies still apply to every request.
             if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
                 const cached = staticPageCache.get(getStaticCacheKey(req))
                 if (cached) {
+                    // Registered parallel work still finishes first; a failure takes the
+                    // serverSideFunction catch below, as on the rendered path.
+                    const failed = await waitForParallelWork()
+                    if (res.headersSent) return
+                    if (failed) throw failed.error
                     res.setHeader("x-rendering-mode", "static-cache-hit")
                     res.status(cached.statusCode)
                     res.set({ "content-type": "text/html; charset=utf-8" })
@@ -1024,24 +1088,42 @@ async function _handler(req, res) {
                         allMatches,
                         cachedRoutes,
                         nonce,
+                        waitForParallelWork,
                     })
-                    if (served || res.headersSent) return
+                    if (served || res.headersSent) {
+                        if (parallelWork.length) await waitForParallelWork()
+                        return
+                    }
                 } catch (error) {
                     console.error("[PPR] Failed to serve PPR route:", error)
                     safeCall(onRenderError, { req, res, store, error })
                     if (res.headersSent) {
                         res.end()
+                        if (parallelWork.length) await waitForParallelWork()
                         return
                     }
                     // Nothing written yet: fall through to the classic path.
                 }
             }
 
+            // Page fetchers can now run while parallel work is still running.
+            const fetcherResult = tracedServerDataFetcher(
+                { routes: cachedRoutes, req, res, url: req.originalUrl },
+                { store }
+            )
+            const parallelResult = waitForParallelWork()
+
+            // Both finish before any fetcher hook runs or store state is serialized.
+            // A fetcher rejection is ignored here and rethrown by the await below.
+            await fetcherResult.catch(() => {})
+            const failed = await parallelResult
+
+            // A response a fetcher already sent (e.g. a redirect) wins over a parallel failure.
+            // Otherwise it takes the same catch below as a rejected serverSideFunction.
+            if (failed && !res.headersSent) throw failed.error
+
             try {
-                fetcherData = await tracedServerDataFetcher(
-                    { routes: cachedRoutes, req, res, url: req.originalUrl },
-                    { store }
-                )
+                fetcherData = await fetcherResult
 
                 if (res.headersSent) return
 
@@ -1107,6 +1189,9 @@ async function _handler(req, res) {
             }
         } catch (error) {
             console.error("Error in executing serverSideFunction inside App:", error)
+            // serverSideFunction can throw with parallel work still running. A parallel failure is
+            // only traced here; the hook below still gets the error this catch received.
+            if (parallelWork.length) await waitForParallelWork()
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
