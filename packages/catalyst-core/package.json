@@ -78,8 +78,8 @@
         "cookie-parser": "^1.4.6",
         "express": "^4.22.3",
         "express-static-gzip": "^2.1.7",
-        "react": "19.0.0",
-        "react-dom": "19.0.0",
+        "react": "19.2.9",
+        "react-dom": "19.2.9",
         "react-redux": "^9.2.0",
         "react-refresh": "^0.14.0",
         "redux": "^4.2.1",
@@ -139,8 +139,8 @@
     },
     "overrides": {
         "react-redux": {
-            "react": "19.0.0",
-            "react-dom": "19.0.0"
+            "react": "19.2.9",
+            "react-dom": "19.2.9"
         }
     }
 }

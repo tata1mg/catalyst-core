@@ -1,4 +1,7 @@
 import React from "react"
+import { useCurrentRouteData } from "catalyst-core"
+// From source, so the hook shares the PPR data context with the handler under test.
+import { usePPRRouteData } from "../../../../../../../src/web-router/components/DataFetcher.jsx"
 
 // Fixture route table for the SSR handler tests (#348). Concrete routes
 // plus a catch-all so tests can exercise the 200 / 404 / fetcher-error
@@ -69,8 +72,72 @@ function RenderErrorPage() {
     throw new Error("render exploded")
 }
 
+// Partial prerendering: the shell holds pprFallback; the page renders per request with its
+// serverFetcher data (here, a value from the request's cookie, so the tests can check that one
+// visitor's data never reaches the next one's response).
+function PPRPage() {
+    const { data } = useCurrentRouteData()
+    if (data?.user === "throw-while-resuming") throw new Error("resume exploded")
+    return <p data-testid="ppr-user">user:{data?.user}</p>
+}
+const PPRLoadable = loadable({
+    default: Object.assign(PPRPage, {
+        renderMode: "ppr",
+        pprFallback: <p data-testid="ppr-skeleton">skeleton</p>,
+        // ?late sets a cookie after the shell went out; ?slow delays the data.
+        serverFetcher: async ({ req, res }) => {
+            if (req.query?.slow !== undefined) await new Promise((resolve) => setTimeout(resolve, 100))
+            if (req.query?.late !== undefined) res.cookie("late", "1")
+            return { user: req.cookies?.user || "anonymous" }
+        },
+    }),
+})
+
+// PPR route whose serverFetcher fails: the status line is already out, so the code reaches
+// the client as window.__STATUS_CODE__.
+function PPRErrorPage() {
+    return <p>ppr error page</p>
+}
+const PPRErrorLoadable = loadable({
+    default: Object.assign(PPRErrorPage, {
+        renderMode: "ppr",
+        serverFetcher: async () => {
+            const e = new Error("ppr fetcher exploded")
+            e.status_code = 503
+            throw e
+        },
+    }),
+})
+
+// PPR route that reads its data with usePPRRouteData instead of serverFetcher.
+const fetchHookData = async () => ({ value: "hook data" })
+function PPRHookPage() {
+    const data = usePPRRouteData(fetchHookData)
+    return <p data-testid="ppr-hook">{data.value}</p>
+}
+PPRHookPage.renderMode = "ppr"
+
+function StaticErrorPage() {
+    throw new Error("static render exploded")
+}
+StaticErrorPage.renderMode = "static"
+
+// Static full-page cache: rendered once, replayed byte for byte.
+let staticRenders = 0
+export const getStaticRenders = () => staticRenders
+function StaticPage() {
+    staticRenders++
+    return <p data-testid="static">static page</p>
+}
+StaticPage.renderMode = "static"
+
 const routes = [
     { path: "/", component: HomePage },
+    { path: "/ppr", component: PPRLoadable },
+    { path: "/ppr-error", component: PPRErrorLoadable },
+    { path: "/ppr-hook", component: PPRHookPage },
+    { path: "/static-error", component: StaticErrorPage },
+    { path: "/static", component: StaticPage },
     { path: "/render-error", component: RenderErrorPage },
     { path: "/widget", component: WidgetPage },
     { path: "/fetcher-error", component: FetcherErrorLoadable },
