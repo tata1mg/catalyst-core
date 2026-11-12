@@ -52,7 +52,8 @@ export const createFlushScheduler = (res) => {
 
 const OPEN_TAGS = [Buffer.from("<head"), Buffer.from("<body")]
 const GT = 0x3e
-const isTagNameEnd = (byte) => byte === GT || byte === 0x20 || byte === 0x0a || byte === 0x09 || byte === 0x0d || byte === 0x2f
+const isTagNameEnd = (byte) =>
+    byte === GT || byte === 0x20 || byte === 0x0a || byte === 0x09 || byte === 0x0d || byte === 0x2f
 
 /**
  * Inserts `text` right after the opening head tag (or the body tag when there is no head) of
@@ -77,7 +78,9 @@ export const insertAfterOpenTag = (chunk, text) => {
 // Browsers ignore whitespace and control characters inside the scheme ("java\tscript:").
 const UNSAFE_SCHEME = /^(javascript|data|vbscript):/i
 export const isSafeRedirect = (url) =>
-    typeof url === "string" && url.length > 0 && !UNSAFE_SCHEME.test(url.replace(/[\u0000- \u007f-\u009f]/g, ""))
+    typeof url === "string" &&
+    url.length > 0 &&
+    !UNSAFE_SCHEME.test(url.replace(/[\u0000- \u007f-\u009f]/g, ""))
 
 // onError may return a URL, or { redirect, mode }. "assign" keeps the page in history
 // (and is what opens app deep links in a WebView); "replace" is the default.
@@ -98,7 +101,13 @@ const toRedirect = (mapped) => {
  *   started is written inside the shell, before that script;
  * - navigates when the work failed and onError mapped the failure to a redirect.
  */
-export const buildDeferredScript = ({ name, stateKeys = [], state = {}, redirect = null, mode = "replace" }) => {
+export const buildDeferredScript = ({
+    name,
+    stateKeys = [],
+    state = {},
+    redirect = null,
+    mode = "replace",
+}) => {
     let js = `(window.__CATALYST_DEFERRED__=window.__CATALYST_DEFERRED__||{})[${serializeForScript(name)}]=1;`
     if (stateKeys.length) {
         js +=
@@ -142,7 +151,12 @@ const track = (thenable) => {
  * @param {(name: string, error: any) => void} [options.onSettledError] reports a failed promise
  * @param {object} [options.logger]
  */
-export const createDeferredRegistry = ({ store, blocking = false, onSettledError, logger = console } = {}) => {
+export const createDeferredRegistry = ({
+    store,
+    blocking = false,
+    onSettledError,
+    logger = console,
+} = {}) => {
     const entries = new Map()
 
     const outcome = (name, keys, result) => {

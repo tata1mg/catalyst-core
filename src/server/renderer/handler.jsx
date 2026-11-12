@@ -217,7 +217,17 @@ const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collec
 // again when React retries the suspended component, and the client gets no cachedData to
 // hydrate from, so it fetches a third time.
 // deferred: this request's defer() registry, read by <Deferred>; nonce: for the scripts it writes.
-const getComponent = (store, context, req, fetcherData, isBot, chunkExtractor, requestCache, deferred, nonce) => (
+const getComponent = (
+    store,
+    context,
+    req,
+    fetcherData,
+    isBot,
+    chunkExtractor,
+    requestCache,
+    deferred,
+    nonce
+) => (
     <div id="app">
         <SsrRequestProvider value={{ isBot, chunkExtractor, deferred, nonce }}>
             <PPRDataProvider cacheKey={getPathname(req)} cache={requestCache}>
@@ -610,7 +620,17 @@ const _renderMarkUpStatic = async (
 // put the property they depend on into getPPRShellKey. As a guard, a shell that
 // contains a value from the request's cookies is not cached.
 
-const getPPRAppTree = ({ store, req, chunkExtractor, phase, requestCache, fallback, cacheKey, deferred, nonce }) => (
+const getPPRAppTree = ({
+    store,
+    req,
+    chunkExtractor,
+    phase,
+    requestCache,
+    fallback,
+    cacheKey,
+    deferred,
+    nonce,
+}) => (
     <div id="app">
         <SsrRequestProvider value={{ isBot: false, chunkExtractor, deferred, nonce }}>
             <PPRDataProvider phase={phase} cacheKey={cacheKey} cache={requestCache}>
@@ -1085,7 +1105,8 @@ const tracedParallelWork = withObservability(
 const asError = (error) => (error && typeof error === "object" ? error : new Error(String(error)))
 
 const reportDeferredError = ({ req, res, store, error, name }) => {
-    if (typeof onDeferredError === "function") return safeCall(onDeferredError, { req, res, store, error, name })
+    if (typeof onDeferredError === "function")
+        return safeCall(onDeferredError, { req, res, store, error, name })
     console.error(`[defer] "${name}" failed for ${req.originalUrl}:`, error)
 }
 

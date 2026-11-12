@@ -45,7 +45,9 @@ const stream = (element, { afterShell, nonce } = {}) =>
     new Promise((resolve, reject) => {
         const chunks = []
         let shell = null
-        const sink = sinkInto(chunks, () => resolve({ shell: shell ?? chunks.join(""), html: chunks.join("") }))
+        const sink = sinkInto(chunks, () =>
+            resolve({ shell: shell ?? chunks.join(""), html: chunks.join("") })
+        )
         const { pipe } = renderToPipeableStream(element, {
             nonce,
             onShellReady() {
@@ -59,7 +61,8 @@ const stream = (element, { afterShell, nonce } = {}) =>
         })
     })
 
-const withRegistry = (registry, page, nonce = "N0NCE") => h(SsrRequestProvider, { value: { deferred: registry, nonce } }, page)
+const withRegistry = (registry, page, nonce = "N0NCE") =>
+    h(SsrRequestProvider, { value: { deferred: registry, nonce } }, page)
 
 test("a deferred section streams after the shell, with its state script before its content", async () => {
     const { state, page, store } = makePage()

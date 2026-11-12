@@ -78,14 +78,24 @@ test("the script cannot break out of its script tag and leaks no globals", () =>
 })
 
 test("a redirect navigates with replace by default and assign when asked", () => {
-    assert.deepEqual(runScript(buildDeferredScript({ name: "a", redirect: "/login" })).calls, [["replace", "/login"]])
-    assert.deepEqual(runScript(buildDeferredScript({ name: "a", redirect: "app://x", mode: "assign" })).calls, [
-        ["assign", "app://x"],
+    assert.deepEqual(runScript(buildDeferredScript({ name: "a", redirect: "/login" })).calls, [
+        ["replace", "/login"],
     ])
+    assert.deepEqual(
+        runScript(buildDeferredScript({ name: "a", redirect: "app://x", mode: "assign" })).calls,
+        [["assign", "app://x"]]
+    )
 })
 
 test("unsafe redirect schemes are refused", () => {
-    for (const url of ["javascript:alert(1)", " JavaScript:x", "java\tscript:x", "data:text/html,x", "vbscript:x", ""]) {
+    for (const url of [
+        "javascript:alert(1)",
+        " JavaScript:x",
+        "java\tscript:x",
+        "data:text/html,x",
+        "vbscript:x",
+        "",
+    ]) {
         assert.equal(isSafeRedirect(url), false, url)
     }
     for (const url of ["/login?next=/a", "https://example.com/x", "onemg://www.1mg.com/home", "login"]) {
@@ -151,7 +161,10 @@ test("a failure is reported and mapped to a redirect; unsafe or throwing mappers
             [false, null, "replace"],
         ]
     )
-    assert.deepEqual(reported.map((r) => r[0]), ["string", "object", "unsafe", "throws", "none"])
+    assert.deepEqual(
+        reported.map((r) => r[0]),
+        ["string", "object", "unsafe", "throws", "none"]
+    )
     assert.ok(!results[2].html.includes("javascript"))
 })
 
@@ -198,7 +211,13 @@ test("inserting the reveal script leaves a multi-byte character split across chu
 })
 
 test("the response is flushed once per event-loop turn, and not after it ended", async () => {
-    const res = { flushes: 0, writableEnded: false, flush() { this.flushes++ } }
+    const res = {
+        flushes: 0,
+        writableEnded: false,
+        flush() {
+            this.flushes++
+        },
+    }
     const schedule = createFlushScheduler(res)
     schedule()
     schedule()
