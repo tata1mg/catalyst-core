@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/buildIos/signing.js
+  b5146ae36c857cb1 679-682,684-696
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "64a9dfa7fb47eaf46e3ba93e1ee94abba944c92c",
+  "prompts": {
+    "b5146ae36c857cb1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95e541c1-e6ff-467e-bb62-7b73f9a87e5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 2,
+      "accepted_lines": 17,
+      "overriden_lines": 0
+    }
+  }
+}
