@@ -1,0 +1,385 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.5",
+  "base_commit_sha": "48a2cd0531341827caaea0df51022f2970c63aa4",
+  "prompts": {
+    "1206d03410dd56f0": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385508",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 79,
+      "total_deletions": 43,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "12528417eaacfb58": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "391898",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 4,
+      "accepted_lines": 12,
+      "overriden_lines": 0
+    },
+    "130ec22c2f9e29f5": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "386368",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 416,
+      "total_deletions": 18,
+      "accepted_lines": 409,
+      "overriden_lines": 1
+    },
+    "165d72366b24c5e9": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "386355",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "18827348be707f09": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385605",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 1,
+      "accepted_lines": 13,
+      "overriden_lines": 2
+    },
+    "1c3580bf1c6a9042": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "391953",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 6,
+      "accepted_lines": 29,
+      "overriden_lines": 3
+    },
+    "250ad2db134ae31a": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385038",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 280,
+      "total_deletions": 139,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "2c426bffdec3a937": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385167",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1004,
+      "total_deletions": 1106,
+      "accepted_lines": 309,
+      "overriden_lines": 10
+    },
+    "32df341158ee2300": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385049",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 521,
+      "total_deletions": 109,
+      "accepted_lines": 429,
+      "overriden_lines": 1
+    },
+    "338b03c9ad48c035": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385898",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 3541,
+      "total_deletions": 4,
+      "accepted_lines": 3431,
+      "overriden_lines": 34
+    },
+    "3d8cdedb9b800e4c": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384657",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 551,
+      "total_deletions": 594,
+      "accepted_lines": 75,
+      "overriden_lines": 0
+    },
+    "73b6f7ea9745c6f8": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385692",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 39,
+      "total_deletions": 2,
+      "accepted_lines": 28,
+      "overriden_lines": 4
+    },
+    "74b30e82f94bc332": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385886",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 334,
+      "total_deletions": 294,
+      "accepted_lines": 332,
+      "overriden_lines": 0
+    },
+    "8632cb6e39ceee0b": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385571",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1421,
+      "total_deletions": 54,
+      "accepted_lines": 1413,
+      "overriden_lines": 0
+    },
+    "8b825f02a8e2c276": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385068",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 32,
+      "total_deletions": 11,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "93366736a42f71ca": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385089",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1296,
+      "total_deletions": 538,
+      "accepted_lines": 554,
+      "overriden_lines": 0
+    },
+    "949703d39b709077": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385292",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 3,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "9c6fcd2cbc95c451": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "391812",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 63,
+      "total_deletions": 20,
+      "accepted_lines": 5,
+      "overriden_lines": 8
+    },
+    "9e90bcfb8b956987": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385389",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 549,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    },
+    "a7eaf982a608ef1e": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "384071",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 413,
+      "total_deletions": 36,
+      "accepted_lines": 389,
+      "overriden_lines": 0
+    },
+    "b121e0ae7251c67c": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385413",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 692,
+      "total_deletions": 235,
+      "accepted_lines": 561,
+      "overriden_lines": 0
+    },
+    "b420de9aea8c767c": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "387157",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 3300,
+      "total_deletions": 80,
+      "accepted_lines": 3042,
+      "overriden_lines": 8
+    },
+    "b7cb377452f40e14": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385523",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 889,
+      "total_deletions": 804,
+      "accepted_lines": 478,
+      "overriden_lines": 0
+    },
+    "cadf6c87fe76cdaa": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385109",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 35,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "ce194a28807576f1": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "391730",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1726,
+      "total_deletions": 210,
+      "accepted_lines": 1701,
+      "overriden_lines": 3
+    },
+    "d7e685a8a6d3f704": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385462",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 1891,
+      "total_deletions": 365,
+      "accepted_lines": 1633,
+      "overriden_lines": 7
+    },
+    "d896bd4702eda19d": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "392352",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 467,
+      "total_deletions": 6,
+      "accepted_lines": 131,
+      "overriden_lines": 0
+    },
+    "e3f7934175874b4b": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "387148",
+        "model": "CLAUDE_4_POINT_5_SONNET"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 157,
+      "total_deletions": 221,
+      "accepted_lines": 155,
+      "overriden_lines": 0
+    },
+    "fac01dc9225d4a2f": {
+      "agent_id": {
+        "tool": "DeputyDev",
+        "id": "385503",
+        "model": "AUTO"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>",
+      "messages": [],
+      "total_additions": 262,
+      "total_deletions": 209,
+      "accepted_lines": 169,
+      "overriden_lines": 11
+    }
+  }
+}
