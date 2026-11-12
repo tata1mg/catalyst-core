@@ -38,15 +38,18 @@ export function resolveDevFsAllow(devFs, frameworkPaths) {
  * CATALYST_DEV_ALLOWED_HOSTS. `catalyst buildApp:ios` sets it to the Mac's
  * `<name>.local` when a physical iPhone loads the dev server by that name:
  * Vite answers 403 to any Host header that is not localhost or an IP.
+ * Hosts are lowercased: browsers send the Host header lowercased and Vite
+ * compares it exactly.
  */
 export function withExtraAllowedHosts(allowedHosts, extra) {
     const hosts = String(extra || "")
         .split(",")
-        .map((host) => host.trim())
+        .map((host) => host.trim().toLowerCase())
         .filter(Boolean)
     if (allowedHosts === true || hosts.length === 0) return allowedHosts
     const base = Array.isArray(allowedHosts) ? allowedHosts : []
-    return [...base, ...hosts.filter((host) => !base.includes(host))]
+    const known = new Set(base.map((host) => String(host).toLowerCase()))
+    return [...base, ...hosts.filter((host) => !known.has(host))]
 }
 
 /**

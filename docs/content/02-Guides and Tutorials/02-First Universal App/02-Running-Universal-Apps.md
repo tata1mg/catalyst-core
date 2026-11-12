@@ -77,12 +77,15 @@ A debug build also adds the dev server's address to `accessControl.allowedUrls`,
 
 ### Run on a physical iPhone
 
-An iPhone build is signed, even in debug. You need to do this once:
+An iPhone build is signed, even in debug. Sign in to Xcode with your Apple account once: Xcode > Settings > Accounts. A free Apple account works.
 
-1. Sign in to Xcode with your Apple account: Xcode > Settings > Accounts. A free Apple account works.
-2. Set `WEBVIEW_CONFIG.ios.developmentTeam` to your team ID. With a paid account it is under Membership details at developer.apple.com/account. With a free account, open any Xcode project, choose your Personal Team under Signing & Capabilities, and copy `DEVELOPMENT_TEAM` from Build Settings.
+The Mac signs the build with the team of the Apple account signed in to Xcode. With one team the build uses it, and with several it asks once which one. Run in a terminal, the build saves the team as `WEBVIEW_CONFIG.ios.developmentTeam` in `config/config.json`. Without a terminal it uses the team for that build only, so set `ios.developmentTeam` yourself. With a paid account the team ID is under Membership details at developer.apple.com/account. When no Apple account is signed in to Xcode and `ios.developmentTeam` is not set, the build stops with [IOS-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-010.md).
 
 Catalyst then lets Xcode create the development certificate and profile and register the iPhone. With a free account, the first install also needs you to trust the developer on the iPhone (Settings > General > VPN & Device Management), and the app stops opening after seven days until you build it again.
+
+macOS Keychain may ask for your login password while the build signs the app. Choose Always Allow so later builds do not ask again.
+
+The iPhone must be on the same Wi-Fi as the Mac, and the app needs Local Network access to reach the dev server. Allow it when iOS asks the first time the app opens, or turn it on later in Settings > Privacy & Security > Local Network.
 
 ### Upgrading from an older setup
 

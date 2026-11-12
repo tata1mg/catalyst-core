@@ -8,6 +8,7 @@ import { fileURLToPath } from "url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    DEBUG_BUILD_SETTINGS,
     buildExportOptions,
     findInstalledProfileIdentity,
     isReleaseBuildType,
@@ -781,6 +782,20 @@ describe("signing failures", () => {
         expect(error.hint).toMatch(/CATALYST_IOS_CREDENTIALS/)
         expect(error.hint).toMatch(/catalyst credentials:export ios/)
         expect(error.hint).not.toMatch(/CATALYST_ASC_|CATALYST_IOS_P12/)
+    })
+})
+
+describe("debug xcodebuild settings", () => {
+    it("turn off Xcode's debug dylib, so a debug build signs only the app", () => {
+        expect(DEBUG_BUILD_SETTINGS).toEqual(["ENABLE_DEBUG_DYLIB=NO"])
+    })
+
+    it("go into the simulator command and the iPhone arguments, not the release archive", () => {
+        const build = fs.readFileSync(path.join(here, "../../src/native/buildIos/build.js"), "utf8")
+        expect(build).toContain('${DEBUG_BUILD_SETTINGS.join(" ")} \\')
+        expect(build).toMatch(/"ONLY_ACTIVE_ARCH=YES",\s+\.\.\.DEBUG_BUILD_SETTINGS,/)
+        const index = fs.readFileSync(path.join(here, "../../src/native/buildIos/index.js"), "utf8")
+        expect(index).not.toContain("DEBUG_BUILD_SETTINGS")
     })
 })
 

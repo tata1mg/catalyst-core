@@ -470,7 +470,8 @@ async function chooseIosTarget({
 /**
  * The host a debug build reaches the dev server on. The simulator shares the
  * Mac's network, so localhost. An iPhone uses the Mac's Bonjour name
- * (`<LocalHostName>.local`), else its LAN IP; IOS-015 when there is neither.
+ * (`<localhostname>.local`, lowercased), else its LAN IP; IOS-015 when there
+ * is neither.
  * It goes into the build only, never into config.json.
  *
  * @param {{ target: string, name?: string } | null} target

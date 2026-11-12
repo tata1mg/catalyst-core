@@ -125,6 +125,11 @@ test("withExtraAllowedHosts: adds the env hosts to the app's list", () => {
     assert.equal(withExtraAllowedHosts(undefined, ""), undefined)
 })
 
+test("withExtraAllowedHosts: lowercases the env hosts and skips ones the app lists in any case", () => {
+    assert.deepEqual(withExtraAllowedHosts(undefined, "G206F1WHVF.local"), ["g206f1whvf.local"])
+    assert.deepEqual(withExtraAllowedHosts(["My-Mac.local"], "my-mac.local"), ["My-Mac.local"])
+})
+
 test("buildDevServer: CATALYST_DEV_ALLOWED_HOSTS reaches server.allowedHosts", () => {
     const before = process.env.CATALYST_DEV_ALLOWED_HOSTS
     process.env.CATALYST_DEV_ALLOWED_HOSTS = "my-mac.local"

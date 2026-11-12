@@ -58,8 +58,8 @@ function getLocalIPAddress(interfaces = os.networkInterfaces()) {
 
 /**
  * The host a physical device on the same network reaches this Mac on:
- * `<LocalHostName>.local` (Bonjour, survives DHCP changes), else the LAN IP.
- * Null when neither is available.
+ * `<localhostname>.local` (Bonjour, survives DHCP changes, lowercased), else
+ * the LAN IP. Null when neither is available.
  *
  * @param {object} [options]
  * @param {() => string} [options.localHostName] - returns `scutil --get LocalHostName`
@@ -73,7 +73,9 @@ function getDeviceReachableHost({ localHostName = readLocalHostName, interfaces 
     } catch (error) {
         // Not macOS, or scutil failed: fall back to the LAN IP.
     }
-    if (/^[A-Za-z0-9-]+$/.test(name)) return { host: `${name}.local`, source: "bonjour" }
+    // Lowercase: WebKit sends the Host header lowercased, and Vite's
+    // server.allowedHosts compares it exactly.
+    if (/^[A-Za-z0-9-]+$/.test(name)) return { host: `${name.toLowerCase()}.local`, source: "bonjour" }
     const ip = getLocalIPAddress(interfaces)
     return ip ? { host: ip, source: "lan" } : null
 }

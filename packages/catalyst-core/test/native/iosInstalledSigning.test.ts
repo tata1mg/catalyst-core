@@ -5,6 +5,7 @@ import path from "path"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    DEVICE_TEAM_HINT,
     XCODE_TEAM_HINT,
     chooseXcodeTeam,
     missingProfileError,
@@ -498,6 +499,12 @@ describe("the team signed in to Xcode", () => {
         )
         expect(needsXcodeTeam(undefined, { release: true })).toBe(false)
         expect(needsXcodeTeam(xcode)).toBe(false)
+        // A debug build for an iPhone signs too; the simulator never does.
+        expect(needsXcodeTeam(xcode, { device: true })).toBe(true)
+        expect(needsXcodeTeam({ ...xcode, teamId: "T" }, { device: true })).toBe(false)
+        expect(needsXcodeTeam({ style: "manual", source: "ios.provisioningProfile" }, { device: true })).toBe(
+            false
+        )
     })
 
     const acme = { teamId: "TEAM123", teamName: "Acme", free: false }
@@ -634,6 +641,46 @@ describe("settleXcodeTeam", () => {
         )
         expect(missing.message).toMatch(/no App Store provisioning profile for com\.acme\.shop/)
     })
+
+    const personal = { teamId: "PERS000001", teamName: "Jo (Personal Team)", free: true }
+    const device = (options: Record<string, any>) =>
+        settle({ release: false, device: true, exportMethod: "app-store-connect", ...options })
+
+    it("signs a debug build for an iPhone with the one Xcode team, a personal team included", async () => {
+        const tty = device({ isTTY: true, readTeams: () => [personal] })
+        expect(await tty.result).toEqual({ teamId: "PERS000001", saved: true })
+        expect(tty.saved).toEqual(["PERS000001"])
+        const ci = device({ isTTY: false })
+        expect(await ci.result).toEqual({ teamId: "TEAM123", saved: false })
+        expect(ci.saved).toEqual([])
+        expect(ci.logs[0].message).toMatch(/^Using team Acme \(TEAM123\) from Xcode\./)
+    })
+
+    it("asks which team for an iPhone build when several are signed in, and needs a terminal for it", async () => {
+        const asked: any[] = []
+        const choose = async (question: string, choices: any[]) => {
+            asked.push(choices)
+            return "PERS000001"
+        }
+        const tty = device({ isTTY: true, readTeams: () => [acme, personal], choose })
+        expect(await tty.result).toEqual({ teamId: "PERS000001", saved: true })
+        expect(asked[0].map((choice: any) => choice.value)).toEqual(["TEAM123", "PERS000001"])
+        const error = await rejection(device({ isTTY: false, readTeams: () => [acme, personal] }).result)
+        expect(error.code).toBe("NATIVE-005")
+    })
+
+    it("is IOS-010 with the development hint when no team is signed in for an iPhone build", async () => {
+        for (const readTeams of [() => [], () => null]) {
+            const error = await rejection(device({ isTTY: false, readTeams }).result)
+            expect(error.code).toBe("IOS-010")
+            expect(error.hint).toBe(DEVICE_TEAM_HINT)
+            expect(error.hint).not.toMatch(/App Store/)
+        }
+        // A release keeps the company team hint and still drops personal teams.
+        const release = await rejection(settle({ isTTY: false, readTeams: () => [personal] }).result)
+        expect(release.hint).toBe(XCODE_TEAM_HINT)
+        expect(release.message).toMatch(/personal team/)
+    })
 })
 
 describe("settleInstalledProfile", () => {
@@ -742,5 +789,10 @@ describe("signing failure detail", () => {
         expect(signingSetupError("Xcode could not sign the release archive", { output }).hint).toMatch(
             /^For an App Store release/
         )
+        // The device build passes the development hint.
+        expect(
+            signingSetupError("Xcode could not sign the device build", { output }, { hint: DEVICE_TEAM_HINT })
+                .hint
+        ).toBe(DEVICE_TEAM_HINT)
     })
 })

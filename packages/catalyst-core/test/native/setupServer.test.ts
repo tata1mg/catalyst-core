@@ -56,9 +56,15 @@ describe("getDeviceReachableHost", () => {
         expect(
             getDeviceReachableHost({ localHostName: () => "Janes-MacBook-Pro\n", interfaces: {} as any })
         ).toEqual({
-            host: "Janes-MacBook-Pro.local",
+            host: "janes-macbook-pro.local",
             source: "bonjour",
         })
+    })
+
+    it("lowercases the Bonjour name, since WebKit sends the Host header lowercased", () => {
+        expect(
+            getDeviceReachableHost({ localHostName: () => "G206F1WHVF", interfaces: {} as any })?.host
+        ).toBe("g206f1whvf.local")
     })
 
     it("falls back to the LAN IP, then null", () => {

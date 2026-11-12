@@ -5,7 +5,7 @@ const os = require("os")
 const path = require("path")
 const { execSync, execFileSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
-const { xcodeAuthArgs } = require("./signing.js")
+const { DEBUG_BUILD_SETTINGS, xcodeAuthArgs } = require("./signing.js")
 
 module.exports = function createBuildPhase(ctx) {
     const {
@@ -135,6 +135,7 @@ module.exports = function createBuildPhase(ctx) {
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=NO \
         ONLY_ACTIVE_ARCH=YES \
+        ${DEBUG_BUILD_SETTINGS.join(" ")} \
         BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
         CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
         OS_ACTIVITY_MODE=debug \
@@ -383,6 +384,7 @@ module.exports = function createBuildPhase(ctx) {
             `platform=iOS,id=${device.udid}`,
             `PRODUCT_BUNDLE_IDENTIFIER=${bundleId}`,
             "ONLY_ACTIVE_ARCH=YES",
+            ...DEBUG_BUILD_SETTINGS,
             ...signingArgs,
             "build",
         ])
