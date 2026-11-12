@@ -21,6 +21,7 @@ const {
     createProfileScanner,
     pickInstalledProfile,
     XCODE_TEAM_HINT,
+    missingProfileError,
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,
@@ -160,11 +161,15 @@ function createIosBuild(
     const apiKey = release ? resolveApiKey() : null
     if (release && signingPlan.style === "automatic" && !signingPlan.teamId) {
         credentials?.cleanup()
-        throw nativeError(
-            "IOS-010",
-            "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam",
-            signingPlan.source === "Xcode account" ? { hint: XCODE_TEAM_HINT } : {}
-        )
+        const detail = "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam"
+        const missing = missingProfileError(signingPlan.missingProfileFor, detail)
+        throw missing
+            ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
+            : nativeError(
+                  "IOS-010",
+                  detail,
+                  signingPlan.source === "Xcode account" ? { hint: XCODE_TEAM_HINT } : {}
+              )
     }
 
     const iosConfig = WEBVIEW_CONFIG.ios
@@ -591,7 +596,9 @@ function createIosBuild(
                 ])
             } catch (error) {
                 const failure = isSigningFailure(error.output)
-                    ? signingSetupError("Xcode could not sign the release archive", error)
+                    ? signingSetupError("Xcode could not sign the release archive", error, {
+                          missingProfileFor: signing.missingProfileFor,
+                      })
                     : error
                 failure.stage = "Archiving the release build"
                 throw failure
@@ -624,7 +631,9 @@ function createIosBuild(
                 ])
             } catch (error) {
                 const failure = isSigningFailure(error.output)
-                    ? signingSetupError("Xcode could not sign the IPA for export", error)
+                    ? signingSetupError("Xcode could not sign the IPA for export", error, {
+                          missingProfileFor: signing.missingProfileFor,
+                      })
                     : error
                 failure.stage = "Exporting the IPA"
                 throw failure

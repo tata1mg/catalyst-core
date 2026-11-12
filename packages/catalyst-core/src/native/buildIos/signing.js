@@ -260,7 +260,14 @@ function planIosSigning({
     if (release && credentials?.apiKey) return automatic("App Store Connect API key")
     if (release && exportMethod === "app-store-connect" && bundleId && scanProfiles) {
         const scan = scanProfiles()
-        const { identity } = pickInstalledProfile(scan, { bundleId, teamId, needsPush: notifications, now })
+        const { identity, missing } = pickInstalledProfile(scan, {
+            bundleId,
+            teamId,
+            needsPush: notifications,
+            now,
+        })
+        // Nothing else to sign with: IOS-010 leads with the missing profile.
+        if (missing) return { ...automatic("Xcode account"), missingProfileFor: bundleId }
         if (identity) {
             // By name, as people know it, unless another installed profile shares it.
             const sameName = scan.profiles.filter((profile) => profile.name === identity.profileName).length
@@ -535,7 +542,9 @@ function isAppStoreProfile(profile) {
  * profile (.mobileprovision, no devices, get-task-allow false) for exactly
  * this bundle id, for `teamId` when set, with aps-environment when
  * `needsPush`. Expired profiles are skipped; the newest one whose
- * certificate is in the keychain wins. Without a match, `reason` says why.
+ * certificate is in the keychain wins. Without a match, `reason` says why,
+ * and `missing` is true when no App Store profile for the bundle id is
+ * installed at all.
  *
  * @param {ReturnType<typeof scanInstalledProfiles>} scan
  * @param {object} options
@@ -544,7 +553,7 @@ function isAppStoreProfile(profile) {
  * @param {string} [options.teamId]
  * @param {boolean} [options.needsPush]
  * @param {Date} [options.now]
- * @returns {{ identity: { sha1: string, name: string, teamId?: string, uuid: string, profileName?: string } | null, reason?: string }}
+ * @returns {{ identity: { sha1: string, name: string, teamId?: string, uuid: string, profileName?: string } | null, reason?: string, missing?: boolean }}
  */
 function pickInstalledProfile(scan, { profile, bundleId, teamId, needsPush = false, now = new Date() } = {}) {
     const wanted = String(profile || "").trim()
@@ -579,8 +588,9 @@ function pickInstalledProfile(scan, { profile, bundleId, teamId, needsPush = fal
                       c.applicationIdentifier &&
                       appIdOf(c) === bundleId,
                   () => `no installed profile is for exactly ${bundleId}`,
+                  true,
               ],
-              [isAppStoreProfile, () => `no installed App Store profile is for ${bundleId}`],
+              [isAppStoreProfile, () => `no installed App Store profile is for ${bundleId}`, true],
               [
                   (c) => !teamId || c.teamId === teamId,
                   () => `no installed App Store profile for ${bundleId} is for team ${teamId}`,
@@ -594,9 +604,13 @@ function pickInstalledProfile(scan, { profile, bundleId, teamId, needsPush = fal
                   () => `every installed App Store profile for ${bundleId} has expired`,
               ],
           ]
-    for (const [keep, reason] of steps) {
+    for (const [keep, reason, missing] of steps) {
         const left = candidates.filter(keep)
-        if (!left.length) return { identity: null, reason: reason(candidates) }
+        if (!left.length) {
+            return missing
+                ? { identity: null, reason: reason(candidates), missing: true }
+                : { identity: null, reason: reason(candidates) }
+        }
         candidates = left
     }
     const newestFirst = [...candidates].sort((a, b) => b.expires - a.expires)
@@ -651,6 +665,25 @@ function findInstalledProfileIdentity({
 
 const XCODE_TEAM_HINT =
     "Open Xcode > Settings > Accounts and sign in with the Apple account that has your company's team, or set WEBVIEW_CONFIG.ios.developmentTeam."
+
+/**
+ * IOS-010's detail and hint for an App Store release that found no installed
+ * App Store profile for its bundle id (plan.missingProfileFor) and has no
+ * other signing source: the missing profile first, then every way to sign,
+ * the Xcode account last. Null for any other plan.
+ *
+ * @param {string | undefined} bundleId - plan.missingProfileFor
+ * @param {string} [detail] - what failed after that, e.g. the Xcode account
+ * @returns {{ detail: string, hint: string } | null}
+ */
+function missingProfileError(bundleId, detail) {
+    if (!bundleId) return null
+    const missing = `no App Store provisioning profile for ${bundleId} is installed on this Mac`
+    return {
+        detail: detail ? `${missing}, and ${detail}` : missing,
+        hint: `Install the App Store profile for ${bundleId} (download it from developer.apple.com, or with Xcode > Settings > Accounts > Download Manual Profiles), set WEBVIEW_CONFIG.ios.provisioningProfile to an installed profile's name, put a .p12 and its profile or an App Store Connect API key in credentials/ios/, or sign in to Xcode (Xcode > Settings > Accounts) with the Apple account that has your company's team.`,
+    }
+}
 
 /**
  * The teams in IDEProvisioningTeamByIdentifier (account id -> teams), one
@@ -715,29 +748,36 @@ function needsXcodeTeam(plan, { release = false } = {}) {
  * Store, release-testing or enterprise export, so it is left out unless the
  * export is for debugging; a team Xcode did not mark either way is kept.
  * One team is used; several are a question, NATIVE-005 without a terminal;
- * none is IOS-010.
+ * none is IOS-010, which leads with `missingProfileFor` when that is set.
  *
  * @param {object} options
  * @param {ReturnType<typeof parseXcodeTeams>} options.teams - from readXcodeTeams
  * @param {string} [options.exportMethod]
  * @param {boolean} [options.isTTY]
  * @param {typeof select} [options.choose]
+ * @param {string} [options.missingProfileFor] - plan.missingProfileFor
  * @returns {Promise<{ teamId: string, teamName: string, free: boolean | undefined }>}
  */
-async function chooseXcodeTeam({ teams, exportMethod = "app-store-connect", isTTY, choose = select }) {
-    if (!teams) {
-        throw nativeError("IOS-010", "could not read which teams are signed in to Xcode", {
-            hint: XCODE_TEAM_HINT,
-        })
+async function chooseXcodeTeam({
+    teams,
+    exportMethod = "app-store-connect",
+    isTTY,
+    choose = select,
+    missingProfileFor,
+}) {
+    const noTeam = (detail) => {
+        const missing = missingProfileError(missingProfileFor, detail)
+        return missing
+            ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
+            : nativeError("IOS-010", detail, { hint: XCODE_TEAM_HINT })
     }
+    if (!teams) throw noTeam("could not read which teams are signed in to Xcode")
     const usable = exportMethod === "debugging" ? teams : teams.filter((team) => team.free !== true)
     if (!usable.length) {
-        throw nativeError(
-            "IOS-010",
+        throw noTeam(
             teams.length
                 ? `Xcode is signed in with a personal team only, and a personal team cannot sign ${exportMethod} builds`
-                : "no Apple account with a team is signed in to Xcode",
-            { hint: XCODE_TEAM_HINT }
+                : "no Apple account with a team is signed in to Xcode"
         )
     }
     if (usable.length === 1) return usable[0]
@@ -787,7 +827,13 @@ async function settleXcodeTeam({
 }) {
     if (!needsXcodeTeam(plan, { release })) return null
     const interactive = isTTY ?? isInteractive()
-    const team = await chooseXcodeTeam({ teams: readTeams(), exportMethod, isTTY: interactive, choose })
+    const team = await chooseXcodeTeam({
+        teams: readTeams(),
+        exportMethod,
+        isTTY: interactive,
+        choose,
+        missingProfileFor: plan.missingProfileFor,
+    })
     const label = `${team.teamName || "Unnamed team"} (${team.teamId})`
     if (!interactive) {
         log(`Using team ${label} from Xcode. Set WEBVIEW_CONFIG.ios.developmentTeam to keep it.`, "note")
@@ -796,6 +842,36 @@ async function settleXcodeTeam({
     log(`Signing for ${label}, signed in to Xcode`, "info")
     save(team.teamId)
     return { teamId: team.teamId, saved: true }
+}
+
+/**
+ * The profile step for a release that auto-picked an installed App Store
+ * profile (planIosSigning's "installed profile"): in a terminal save it as
+ * ios.provisioningProfile with `save`, so later builds sign with the same
+ * one; without a terminal (CI, agents) only use it for this build, since
+ * config.json is never written there. Null for any other plan.
+ *
+ * @param {object} options
+ * @param {ReturnType<typeof planIosSigning>} options.plan - from planSigningForConfig
+ * @param {boolean} [options.isTTY] - defaults to isInteractive()
+ * @param {(profile: string) => void} options.save - writes WEBVIEW_CONFIG.ios.provisioningProfile
+ * @param {(message: string, type?: string) => void} [options.log]
+ * @returns {{ provisioningProfile: string, saved: boolean } | null}
+ */
+function settleInstalledProfile({ plan, isTTY, save, log = () => {} }) {
+    if (plan?.source !== "installed profile") return null
+    // The name, or the UUID when another installed profile shares the name.
+    const profile = plan.provisioningProfile
+    if (!(isTTY ?? isInteractive())) {
+        log(
+            `Using the installed profile "${plan.profileName}". Set WEBVIEW_CONFIG.ios.provisioningProfile to keep it.`,
+            "note"
+        )
+        return { provisioningProfile: profile, saved: false }
+    }
+    log(`Signing with the installed profile "${plan.profileName}" (team ${plan.teamId})`, "info")
+    save(profile)
+    return { provisioningProfile: profile, saved: true }
 }
 
 /**
@@ -1101,15 +1177,22 @@ function signingFailureLine(output) {
 
 /**
  * The coded error for a signing failure, keeping xcodebuild's transcript for
- * the diagnostic. The detail ends with the line that says what went wrong.
+ * the diagnostic. The detail ends with the line that says what went wrong,
+ * and starts with the missing App Store profile when `missingProfileFor` is set.
  *
  * @param {string} detail
  * @param {any} [cause]
+ * @param {object} [options]
+ * @param {string} [options.missingProfileFor] - plan.missingProfileFor
  * @returns {any}
  */
-function signingSetupError(detail, cause) {
+function signingSetupError(detail, cause, { missingProfileFor } = {}) {
     const said = signingFailureLine(cause?.output)
-    const error = nativeError("IOS-010", said ? `${detail}: ${said}` : detail)
+    const failed = said ? `${detail}: ${said}` : detail
+    const missing = missingProfileError(missingProfileFor, failed)
+    const error = missing
+        ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
+        : nativeError("IOS-010", failed)
     if (cause) {
         error.cause = cause
         if (cause.output) error.output = cause.output
@@ -1136,11 +1219,13 @@ export {
     pickInstalledProfile,
     findInstalledProfileIdentity,
     XCODE_TEAM_HINT,
+    missingProfileError,
     parseXcodeTeams,
     readXcodeTeams,
     needsXcodeTeam,
     chooseXcodeTeam,
     settleXcodeTeam,
+    settleInstalledProfile,
     profileMatchesBundleId,
     profileDirectories,
     readProvisioningProfile,

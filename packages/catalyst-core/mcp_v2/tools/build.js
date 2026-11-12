@@ -6,6 +6,7 @@ const {
     catalystGeneration,
     VITE_RUNTIME_VERSION,
 } = require("../lib/helpers")
+const { isStaleLanAddress, STALE_LAN_ADDRESS_MESSAGE } = require("./config")
 
 let _db
 
@@ -481,6 +482,7 @@ function getProjectContext(root) {
     const scripts = pkg.scripts || {}
 
     return {
+        config,
         wv,
         scripts,
         hasAndroid: !!wv.android,
@@ -547,9 +549,14 @@ function appIdentityWarnings(ctx, isRelease, warnings, platform) {
             "WEBVIEW_CONFIG.url not set and LOCAL_IP is empty, this machine, a private address or a .local name, so the release would load a host users' devices cannot reach and fails with NATIVE-001. Set the production origin (e.g. https://shop.acme.com) or pass --url."
         )
     }
-    if (wv.LOCAL_IP && !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(String(wv.LOCAL_IP).trim())) {
+    if (isStaleLanAddress(ctx.config || { WEBVIEW_CONFIG: wv })) {
+        warnings.push(STALE_LAN_ADDRESS_MESSAGE(wv.LOCAL_IP))
+    } else if (
+        wv.LOCAL_IP &&
+        !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(String(wv.LOCAL_IP).trim())
+    ) {
         warnings.push(
-            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}: a debug build loads that host instead of the dev server, unless it is this machine's own address (which the first debug build puts back to localhost). Set it to "localhost" to develop against the dev server.`
+            `WEBVIEW_CONFIG.LOCAL_IP is ${wv.LOCAL_IP}: a debug build loads that host instead of the dev server, unless it is this machine's own address (which the first 1.2.0 debug build puts back to localhost, but only once per checkout: after an earlier 1.2.0 debug build, for example a canary, it stays). Set it to "localhost" by hand to develop against the dev server.`
         )
     }
 }

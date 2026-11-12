@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
     XCODE_TEAM_HINT,
     chooseXcodeTeam,
+    missingProfileError,
     createProfileScanner,
     findInstalledProfileIdentity,
     needsXcodeTeam,
@@ -17,6 +18,7 @@ import {
     productBundleId,
     readXcodeTeams,
     scanInstalledProfiles,
+    settleInstalledProfile,
     settleXcodeTeam,
     signingFailureLine,
     signingSetupError,
@@ -125,8 +127,24 @@ describe("pickInstalledProfile: auto-pick", () => {
             identity: null,
             reason: "the keychain has no valid signing certificate",
         })
-        expect(pick({ identities, profiles: [] }).reason).toMatch(/exactly/)
+        expect(pick({ identities, profiles: [] })).toMatchObject({ reason: /exactly/, missing: true })
         expect(pick(null as any).identity).toBeNull()
+    })
+
+    it("says missing only when no App Store profile for the bundle id is installed", () => {
+        expect(pick(scanOf(appStore({ applicationIdentifier: "TEAM123.com.acme.other" }))).missing).toBe(true)
+        expect(pick(scanOf(appStore({ devices: 3 }))).missing).toBe(true)
+        for (const result of [
+            pick(scanOf(appStore()), { teamId: "OTHER99999" }),
+            pick(scanOf(appStore({ apsEnvironment: undefined })), { needsPush: true }),
+            pick(scanOf(appStore({ expires: NOW.getTime() - 1 }))),
+            pick(scanOf(appStore({ certificates: [sha1("x")] }))),
+            pick({ identities: [], profiles: [] }),
+            pick(scanOf(appStore({ name: "Other" })), { profile: "Missing" }),
+        ]) {
+            expect(result.identity).toBeNull()
+            expect(result.missing).toBeUndefined()
+        }
     })
 })
 
@@ -350,11 +368,27 @@ describe("planIosSigning order", () => {
     it("falls back to the Xcode account when nothing matches, or the export is not for the App Store", () => {
         expect(plan({ scanProfiles: scanner(scanOf()).scanProfiles }).source).toBe("Xcode account")
         expect(plan({}).source).toBe("Xcode account")
+        expect(plan({}).missingProfileFor).toBeUndefined()
         for (const exportMethod of ["release-testing", "enterprise", "debugging"]) {
             const { scanProfiles, calls } = scanner()
             expect(plan({ exportMethod, scanProfiles }).source).toBe("Xcode account")
             expect(calls.count).toBe(0)
         }
+    })
+
+    it("remembers a missing App Store profile, but not one it could not use", () => {
+        expect(plan({ scanProfiles: scanner(scanOf()).scanProfiles })).toEqual({
+            style: "automatic",
+            source: "Xcode account",
+            p12: false,
+            teamId: "",
+            apsEnvironment: "development",
+            missingProfileFor: "com.acme.shop",
+        })
+        const expired = scanner(scanOf(appStore({ expires: NOW.getTime() - 1 }))).scanProfiles
+        expect(plan({ scanProfiles: expired }).missingProfileFor).toBeUndefined()
+        const noKeychain = scanner({ identities: [], profiles: [] }).scanProfiles
+        expect(plan({ scanProfiles: noKeychain }).missingProfileFor).toBeUndefined()
     })
 
     it("leaves debug builds alone", () => {
@@ -513,6 +547,31 @@ describe("the team signed in to Xcode", () => {
         expect((await rejection(chooseXcodeTeam({ teams: [personal] }))).message).toMatch(/personal team/)
         expect((await rejection(chooseXcodeTeam({ teams: null }))).message).toMatch(/could not read/)
     })
+
+    it("leads with the missing App Store profile, not Xcode, when there is no other way to sign", async () => {
+        for (const teams of [[personal], [], null]) {
+            const error = await rejection(
+                chooseXcodeTeam({
+                    teams,
+                    exportMethod: "app-store-connect",
+                    missingProfileFor: "com.acme.shop",
+                })
+            )
+            expect(error.code).toBe("IOS-010")
+            expect(error.message).toMatch(
+                /^iOS code signing is not set up: no App Store provisioning profile for com\.acme\.shop is installed on this Mac, and /
+            )
+            expect(error.hint).toBe(missingProfileError("com.acme.shop")?.hint)
+            expect(error.hint).toMatch(/^Install the App Store profile for com\.acme\.shop /)
+            expect(error.hint).toContain("WEBVIEW_CONFIG.ios.provisioningProfile")
+            expect(error.hint).toContain("credentials/ios/")
+            expect(error.hint).toMatch(/or sign in to Xcode .* company's team\.$/)
+        }
+        expect(missingProfileError(undefined, "x")).toBeNull()
+        expect(missingProfileError("com.acme.shop")?.detail).toBe(
+            "no App Store provisioning profile for com.acme.shop is installed on this Mac"
+        )
+    })
 })
 
 describe("settleXcodeTeam", () => {
@@ -570,6 +629,68 @@ describe("settleXcodeTeam", () => {
         expect(reads.count).toBe(0)
         const error = await rejection(settle({ isTTY: false, readTeams: () => null }).result)
         expect(error.code).toBe("IOS-010")
+        const missing = await rejection(
+            settle({ plan: { ...xcodePlan, missingProfileFor: "com.acme.shop" }, readTeams: () => [] }).result
+        )
+        expect(missing.message).toMatch(/no App Store provisioning profile for com\.acme\.shop/)
+    })
+})
+
+describe("settleInstalledProfile", () => {
+    const installedPlan = {
+        style: "manual",
+        source: "installed profile",
+        p12: false,
+        teamId: "TEAM123",
+        provisioningProfile: "Shop App Store",
+        profileName: "Shop App Store",
+        apsEnvironment: "production",
+    }
+    function settle(options: Record<string, any>) {
+        const saved: string[] = []
+        const logs: { message: string; type?: string }[] = []
+        const result = settleInstalledProfile({
+            plan: installedPlan as any,
+            save: (profile: string) => saved.push(profile),
+            log: (message: string, type?: string) => logs.push({ message, type }),
+            ...options,
+        })
+        return { result, saved, logs }
+    }
+
+    it("saves the auto-picked profile in a terminal", () => {
+        const { result, saved, logs } = settle({ isTTY: true })
+        expect(result).toEqual({ provisioningProfile: "Shop App Store", saved: true })
+        expect(saved).toEqual(["Shop App Store"])
+        expect(logs).toEqual([
+            { message: 'Signing with the installed profile "Shop App Store" (team TEAM123)', type: "info" },
+        ])
+        // The UUID when another installed profile has the same name, as the plan says.
+        const byUuid = settle({ isTTY: true, plan: { ...installedPlan, provisioningProfile: "AAAA-0001" } })
+        expect(byUuid.saved).toEqual(["AAAA-0001"])
+    })
+
+    it("uses the profile for this build only without a terminal, never saving", () => {
+        const { result, saved, logs } = settle({ isTTY: false })
+        expect(result).toEqual({ provisioningProfile: "Shop App Store", saved: false })
+        expect(saved).toEqual([])
+        expect(logs).toEqual([
+            {
+                message:
+                    'Using the installed profile "Shop App Store". Set WEBVIEW_CONFIG.ios.provisioningProfile to keep it.',
+                type: "note",
+            },
+        ])
+    })
+
+    it("does nothing for any other signing source", () => {
+        for (const source of ["ios.provisioningProfile", "credentials/ios .p12", "Xcode account"]) {
+            const { result, saved, logs } = settle({ isTTY: true, plan: { ...installedPlan, source } })
+            expect(result).toBeNull()
+            expect(saved).toEqual([])
+            expect(logs).toEqual([])
+        }
+        expect(settle({ plan: undefined }).result).toBeNull()
     })
 })
 
@@ -602,6 +723,24 @@ describe("signing failure detail", () => {
         expect(signingFailureLine(undefined)).toBeNull()
         expect(signingSetupError("Xcode could not sign the device build").message).toBe(
             "iOS code signing is not set up: Xcode could not sign the device build"
+        )
+    })
+
+    it("leads with the missing App Store profile when the plan found none", () => {
+        const output = "error: No Accounts: Add a new account in Accounts settings."
+        const error = signingSetupError(
+            "Xcode could not sign the release archive",
+            { output },
+            { missingProfileFor: "com.acme.shop" }
+        )
+        expect(error.message).toBe(
+            "iOS code signing is not set up: no App Store provisioning profile for com.acme.shop is installed on this Mac, and Xcode could not sign the release archive: No Accounts: Add a new account in Accounts settings."
+        )
+        expect(error.hint).toBe(missingProfileError("com.acme.shop")?.hint)
+        expect(error.output).toBe(output)
+        // Without it, the registry's hint as before.
+        expect(signingSetupError("Xcode could not sign the release archive", { output }).hint).toMatch(
+            /^For an App Store release/
         )
     })
 })

@@ -23,6 +23,7 @@ const {
     planSigningForConfig,
     readIosCredentials,
     resolveExportMethod,
+    settleInstalledProfile,
     settleXcodeTeam,
 } = require("./buildIos/signing.js")
 const { resolveNativeConfig } = require("./nativeConfig.js")
@@ -72,10 +73,11 @@ async function askAndSave(options) {
 /**
  * A release that will sign with the Apple account in Xcode needs
  * ios.developmentTeam. When it is unset, use the one team Xcode has that can
- * sign this export (or ask which, in a terminal). In a terminal the team is
- * saved to config/config.json; without one it is used for this build only.
- * Plans with planSigningForConfig, the same function createIosBuild signs
- * with. Returns the appConfig to build with.
+ * sign this export (or ask which, in a terminal). A release that auto-picked
+ * an installed App Store profile pins it as ios.provisioningProfile. In a
+ * terminal the team or profile is saved to config/config.json; without one
+ * it is used for this build only. Plans with planSigningForConfig, the same
+ * function createIosBuild signs with. Returns the appConfig to build with.
  *
  * Config and credential errors are left for createIosBuild, which reports
  * them the usual way.
@@ -102,6 +104,12 @@ async function ensureSigningTeam({ appConfig, release, url, cwd, log, scanProfil
         found?.cleanup()
     }
     const file = path.join(cwd, "config", "config.json")
+    const profile = settleInstalledProfile({
+        plan,
+        log,
+        save: (name) => writeConfigKeys(file, { "WEBVIEW_CONFIG.ios.provisioningProfile": name }, { log }),
+    })
+    if (profile?.saved) return loadAppConfig()
     const team = await settleXcodeTeam({
         plan,
         release,
@@ -140,7 +148,7 @@ async function main() {
         const migration = migrateLanAddresses({ cwd, release: flags.release, platform: "ios" })
         let appConfig = migration.changes.length ? loadAppConfig() : { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
         for (const change of migration.changes) {
-            log(`config.json ${change.path}: ${change.from} -> ${change.to}`, "info")
+            log(`config.json ${change.path}: ${change.from} -> ${change.to}`, "note")
         }
         const release = flags.release || isReleaseBuildType(appConfig.WEBVIEW_CONFIG?.ios?.buildType)
         // A store build in a terminal asks once for a missing app id or
