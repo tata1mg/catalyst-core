@@ -1,12 +1,16 @@
 import React from "react"
 import PropTypes from "prop-types"
 import path from "path"
+import { DEFERRED_STATE_MERGE } from "./deferredStateMerge.js"
 /**
  * Body component which will be used in page component
  * @param {object} jsx - page jsx code
  * @param {object} statusCode - document request status code
  * @param {object} initialState - initial state object for redux store
  * @param {object} fetcherData - contains data from executing serverFetcher function
+ * The state script also merges window.__CATALYST_DEFERRED_STATE__: state from a <Deferred>
+ * section whose data was ready before the render started, so it was written before this script.
+ * Only own properties of a plain object are merged (a DOM element with that id is ignored).
  * @param {boolean} pprShell - PPR route: the state script is written per request after the
  *   resumed app (it holds this request's store), so it must not be part of the shared shell
  * @param {object} children - contains any child elements defined within the component
@@ -42,6 +46,7 @@ export function Body(props) {
                     window.__INITIAL_STATE__ = ${JSON.stringify(initialState)}
                     window.__STATUS_CODE__ = ${statusCode}
                     window.__ROUTER_INITIAL_DATA__ = ${JSON.stringify(fetcherData)}
+                    ${DEFERRED_STATE_MERGE}
             `,
                     }}
                 />

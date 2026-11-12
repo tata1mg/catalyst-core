@@ -29,7 +29,41 @@ LiveOrders.serverFetcher = async () => {
 export default LiveOrders
 ```
 
-Unlike PPR, there's no static/dynamic split here — the entire page is gated on `serverFetcher` resolving, every time. That's the tradeoff: simplest mental model (one fetch, one render, nothing cached), at the cost of paying full data-fetch + render latency on every request, for every visitor.
+Unlike PPR, there's no static/dynamic split here — the entire page is gated on `serverFetcher` resolving, every time. That's the tradeoff: simplest mental model (one fetch, one render, nothing cached), at the cost of paying full data-fetch + render latency on every request, for every visitor. To send the page before a slow API returns, defer that data (next section).
+
+### Deferred data (`defer` + `<Deferred>`)
+
+A fetcher can hand slow work to `defer()` and return without awaiting it. The shell (document, header, the section's fallback) goes out at once, and the section wrapped in `<Deferred>` streams into the same response when its data arrives. It works on the streaming and PPR paths.
+
+```jsx
+import { Deferred } from "catalyst-core"
+
+const MyBookings = () => (
+    <Deferred name="orders" fallback={<OrdersSkeleton />}>
+        <OrdersList />
+    </Deferred>
+)
+
+MyBookings.serverFetcher = ({ req }, { store, defer }) => {
+    store.dispatch(setPageTitle("My Lab Tests")) // goes out with the shell
+    defer("orders", store.dispatch(fetchOrders()), {
+        stateKeys: ["ordersReducer"],
+        onError: (error) => (error?.status_code === 401 ? "/login" : null),
+    })
+}
+```
+
+- `defer(name, promise, { stateKeys, onError })` (server only; `clientFetcher` gets no `defer`): call it before the fetcher's promise settles. Rendering seals the request, and a later call is ignored with a warning. `name` is unique per request and matches `<Deferred name>`.
+- **State:** the work updates the store itself, and `stateKeys` lists the slices it changes. They are read when the section renders and handed to the client with it, so list every slice the section renders from that work (outside production, a missing or unknown key, and slices changed after the shell but listed nowhere, are warned about). Do not list a slice the shell already rendered (e.g. the header's): it hydrates against the shell's state, so apply data-dependent header changes on mount.
+- **Errors:** `onError(error)` returns the redirect the server would have issued had it waited: a URL (`location.replace`), or `{ redirect, mode: "assign" }` (keeps history; use it for app deep links in a WebView). `status` (300-308) is used where the redirect can still be a real one (blocking requests). Only `javascript:`/`data:`/`vbscript:` URLs are refused; the URL is otherwise trusted.
+- `<Deferred name fallback>`: the shell shows `fallback` and the section streams in when the work settles. Without a matching `defer()` (a client-side navigation, a blocking request) it renders its children as they are, so the page fetches on the client as usual. A page that fetches on mount when its data is missing also recovers from a section that timed out.
+- **Blocking requests** await every `defer()` before rendering, so the first response holds the whole page: bots, static routes, `DEFER_STREAMING_ENABLE: false` (the kill switch) and requests for which the app's synchronous `isBlockingRequest({ req, res, store })` hook returns `true` (e.g. link-preview scrapers; it runs after `App.serverSideFunction`). The wait is bounded by `DEFER_TIMEOUT_MS` (then a 504 error) and ends if the client goes away (nothing is rendered or cached). A fetcher error is answered without waiting. A failure is handled like a failed fetcher: its `onError` redirect, otherwise `onFetcherError` and the error's status (`status_code`, else 404); any other failure, including work nothing waits for any more, is reported to `onDeferredError`.
+- **After the shell** the status code and headers are fixed. A failed deferred request, and one still pending at the timeout, is reported to `onDeferredError({ req, res, store, error, name })` (notify only; logged when the hook is absent), the response stays 200 and only `onError`'s redirect is applied, client-side. Meta tags that depend on deferred data are not in the shell. Deferred work must not call `res.cookie` / `res.redirect`.
+- **Limits:** sections still pending after `DEFER_TIMEOUT_MS` (15000) render on the client; a client that disconnects stops the render.
+- **Nothing holds the shell back:** a response with deferred sections (and every PPR response) sets `X-Accel-Buffering: no` for nginx and is flushed once per event-loop turn, as the bytes reach the response, through `compression()` (each flush ends a gzip block: a few percent for typical pages, more on very large shells; brotli 2% or less). React 19.2's reveal throttle (a streamed section no sooner than 300 ms after the previous paint, and nothing between 2.0 s and 2.3 s) is turned off for them, as for PPR shells; `PPR_REVEAL_THROTTLE: true` keeps it. With a CSP nonce, React's own inline scripts get it too.
+- **Client:** the section scripts update `window.__INITIAL_STATE__` before the client bundle runs (Catalyst's scripts are `type="module"`, which run after the whole streamed document). Catalyst's `<Body>` merges sections written before its state script; a custom Document that writes its own state script must use `<Body>`.
+- **With PPR:** the resumed app waits only for the fetchers, which no longer wait for deferred work, so the real header renders as soon as they return and each `<Deferred>` section streams in when its own data lands (within `PPR_RESUME_TIMEOUT_MS`).
+- **Render errors:** `onRenderError` is notify-only. A render error before the shell is ready (e.g. inside a `split()`) takes the error path: `onFetcherError`, `onAppServerSideError`, then `onRequestError`, without rendering the failed page again; if none of them answers, the response is a bare 500. After the shell, an error inside a Suspense boundary is sent to the client to render and the response still ends. Apps must not end or redirect the response from the hook.
 
 ## Partial Prerendering (PPR)
 

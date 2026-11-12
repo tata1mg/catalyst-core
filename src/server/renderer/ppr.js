@@ -114,7 +114,8 @@ export const applyNonce = (html, placeholder, nonce) =>
 // For a PPR shell that only delays the page replacing the skeleton, so by default the script
 // is dropped and content is revealed on the next frame, as with React 19.0.
 // PPR_REVEAL_THROTTLE=true keeps React's behaviour. React writes the script without the
-// nonce option, so it gets the shell's nonce placeholder.
+// nonce option, so it gets the shell's nonce placeholder. Deferred sections on the streaming path
+// turn the throttle off the same way (see handler.jsx), with the same switch.
 export const isRevealThrottleEnabled = () =>
     process.env.PPR_REVEAL_THROTTLE === true || process.env.PPR_REVEAL_THROTTLE === "true"
 const REACT_REVEAL_TIMER = /<script id="_R_">[^<]*<\/script>/g
@@ -124,6 +125,8 @@ const NO_REVEAL_THROTTLE = (nonce) =>
     `<script${
         nonce ? ` nonce="${nonce}"` : ""
     }>Object.defineProperty(window,"$RT",{configurable:true,get:function(){},set:function(){}})</script>`
+/** The script that turns React's reveal throttle off; it must run before React's own scripts. */
+export const noRevealThrottleScript = (nonce) => NO_REVEAL_THROTTLE(nonce)
 export const prepareReactScripts = (html, placeholder) => {
     if (!isRevealThrottleEnabled()) {
         const stripped = html.replace(REACT_REVEAL_TIMER, "")

@@ -33,6 +33,8 @@ import {
     createNoncePlaceholder,
     applyNonce,
     prepareReactScripts,
+    isRevealThrottleEnabled,
+    noRevealThrottleScript,
     serializeForScript,
     guardLateResponseCalls,
     isPreloadLearningEnabled,
@@ -41,6 +43,17 @@ import {
     findHeadPreloadOffset,
     insertAt,
 } from "./ppr.js"
+import {
+    createDeferredRegistry,
+    isDeferredStreamingEnabled,
+    DEFER_TIMEOUT_MS,
+    DEFER_TIMED_OUT,
+    DEFER_CLIENT_GONE,
+    RENDER_STOPPED,
+    isDeferAbort,
+    createFlushScheduler,
+    insertAfterOpenTag,
+} from "./deferred.js"
 import path from "path"
 import crypto from "node:crypto"
 import { Transform } from "node:stream"
@@ -80,7 +93,9 @@ let _onRouteMatch,
     _onRequestError,
     getPPRShellKey,
     getPPRPreloadKey,
-    beforePPRFlush
+    beforePPRFlush,
+    isBlockingRequest,
+    _onDeferredError
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -102,6 +117,12 @@ try {
     // point where headers and cookies can be set (e.g. create a CSRF token whose cookie
     // has to go out with the headers).
     beforePPRFlush = hooks.beforePPRFlush
+    // ({ req, res, store }) => boolean. true makes this request await every defer() before
+    // rendering, as bots do (e.g. link-preview scrapers, or a runtime switch to turn streaming off).
+    isBlockingRequest = hooks.isBlockingRequest
+    // ({ req, res, store, error, name }) => void. Reports deferred work that failed after the
+    // response started (notify only: the headers are out). Without it the failure is logged.
+    _onDeferredError = hooks.onDeferredError
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
 }
@@ -138,6 +159,7 @@ const onAppServerSideSuccess = traceHook(_onAppServerSideSuccess, "onAppServerSi
 const onAppServerSideError = traceHook(_onAppServerSideError, "onAppServerSideError")
 const onRenderError = traceHook(_onRenderError, "onRenderError")
 const onRequestError = traceHook(_onRequestError, "onRequestError")
+const onDeferredError = traceHook(_onDeferredError, "onDeferredError")
 
 const getLogger = () => global?.logger || console
 
@@ -195,9 +217,20 @@ const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collec
 // (bots, PPR_ENABLE=false, getPPRShellKey null); without a cache the hook calls its fetcher
 // again when React retries the suspended component, and the client gets no cachedData to
 // hydrate from, so it fetches a third time.
-const getComponent = (store, context, req, fetcherData, isBot, chunkExtractor, requestCache) => (
+// deferred: this request's defer() registry, read by <Deferred>; nonce: for the scripts it writes.
+const getComponent = (
+    store,
+    context,
+    req,
+    fetcherData,
+    isBot,
+    chunkExtractor,
+    requestCache,
+    deferred,
+    nonce
+) => (
     <div id="app">
-        <SsrRequestProvider value={{ isBot, chunkExtractor }}>
+        <SsrRequestProvider value={{ isBot, chunkExtractor, deferred, nonce }}>
             <PPRDataProvider cacheKey={getPathname(req)} cache={requestCache}>
                 <Provider store={store}>
                     <StaticRouter context={context} location={req.originalUrl}>
@@ -307,8 +340,13 @@ const _renderMarkUp = async (
     allMatches,
     context,
     chunkExtractor,
-    nonce
+    nonce,
+    deferred
 ) => {
+    // The client went away while the data was fetched: nothing to render.
+    if (res.destroyed) return
+    // Rendering starts: a later defer() is ignored (see deferred.js).
+    deferred?.seal()
     const isBot = isBotRequest(req)
 
     const { deferredRouteKey, buildDir, integrityManifest, shellStart } = buildShellStart(
@@ -321,9 +359,25 @@ const _renderMarkUp = async (
         nonce
     )
 
+    // The nonce of this response's CSP header (the app's middleware, or Catalyst's own).
+    const appNonce = res.locals?.cspNonce || nonce
+    // Deferred sections stream after the shell: nothing on the way may hold the shell back.
+    const isStreaming = Boolean(deferred?.isStreaming)
+
     const state = store.getState()
+    deferred?.setSnapshot(state)
     const requestCache = createPPRRequestCache()
-    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
+    const jsx = getComponent(
+        store,
+        context,
+        req,
+        fetcherData,
+        isBot,
+        chunkExtractor,
+        requestCache,
+        deferred,
+        appNonce
+    )
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, nonce }
@@ -334,6 +388,16 @@ const _renderMarkUp = async (
         const status = errorCode || routeStatus(allMatches)
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+        // nginx buffers proxied responses; this header turns that off for this response.
+        if (isStreaming) res.setHeader("X-Accel-Buffering", "no")
+
+        // React 19.2 reveals a streamed section no sooner than 300 ms after the previous paint and
+        // holds anything that lands between 2.0 s and 2.3 s until 2.3 s. For a deferred section that
+        // only delays the content replacing its fallback, so the throttle is turned off, as on PPR
+        // shells (PPR_REVEAL_THROTTLE=true keeps it). The script must run before React's own.
+        let revealScript = isStreaming && !isRevealThrottleEnabled() ? noRevealThrottleScript(appNonce) : null
+        let scannedBytes = 0
+        const scheduleFlush = isStreaming ? createFlushScheduler(res) : null
 
         return new Promise((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
@@ -344,6 +408,13 @@ const _renderMarkUp = async (
             // (see issue #320).
             const tail = new Transform({
                 transform(chunk, _enc, cb) {
+                    if (revealScript) {
+                        const withScript = insertAfterOpenTag(chunk, revealScript)
+                        scannedBytes += chunk.length
+                        if (withScript) chunk = withScript
+                        // The head is in the first bytes; give up rather than scan the whole page.
+                        if (withScript || scannedBytes > 64 * 1024) revealScript = null
+                    }
                     cb(null, chunk)
                 },
                 flush(cb) {
@@ -385,29 +456,120 @@ const _renderMarkUp = async (
                 },
             })
             tail.pipe(res)
+            // Flush once the bytes have reached `res`, not when they enter `tail`: a shell larger
+            // than compression()'s buffer is written in parts after 'drain', and every part must
+            // be flushed or the rest of the shell waits for the first deferred section.
+            if (scheduleFlush) tail.on("data", scheduleFlush)
 
-            const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+            let deferredTimer
+            let settled = false
+            let shellReady = false
+            // First render error before the shell was ready (see onShellReady).
+            let shellError = null
+            const done = (settle, value) => {
+                if (settled) return
+                settled = true
+                clearTimeout(deferredTimer)
+                settle(value)
+            }
+
+            // Deferred work that never settles must not hold the response open. Started once the
+            // shell is out (a shell that waits is the shell's own problem, not a deferred section's).
+            // On abort React sends what is still pending to the client to render, then ends.
+            let abortRender = () => {}
+            const startDeferredTimer = () => {
+                if (!deferred?.isStreaming || settled) return
+                deferredTimer = setTimeout(() => {
+                    if (settled) return
+                    getLogger().warn?.(`[defer] ${req.originalUrl} timed out; the rest renders on the client`)
+                    for (const name of deferred.pending()) {
+                        reportDeferredError({ req, res, store, name, error: new Error(DEFER_TIMED_OUT) })
+                    }
+                    abortRender(new Error(DEFER_TIMED_OUT))
+                }, DEFER_TIMEOUT_MS())
+            }
+
+            const { pipe, abort } = renderToPipeableStream(<CompleteDocument />, {
+                // React's own inline scripts (Suspense reveals) need it under a nonce-based CSP.
+                ...(appNonce ? { nonce: appNonce } : {}),
                 onShellReady() {
-                    res.setHeader("content-type", "text/html")
-                    pipe(tail)
+                    shellReady = true
+                    // A render error before the shell was ready (e.g. a component inside a split()
+                    // that throws) would otherwise go out as a 200 with that part left to the
+                    // client. Nothing has been written yet, so the handler's error path runs, as
+                    // before deferred streaming.
+                    if (shellError) {
+                        done(reject, asRenderFailure(shellError))
+                        tail.destroy()
+                        abort(new Error(RENDER_STOPPED))
+                        return
+                    }
+                    // A hook already answered (e.g. redirected) while the shell rendered.
+                    if (res.headersSent || res.writableEnded) {
+                        done(resolve)
+                        tail.destroy()
+                        abort(new Error(RENDER_STOPPED))
+                        return
+                    }
+                    try {
+                        res.setHeader("content-type", "text/html")
+                        pipe(tail)
+                    } catch (error) {
+                        done(reject, error)
+                        tail.destroy()
+                        abort(new Error(RENDER_STOPPED))
+                        return
+                    }
+                    startDeferredTimer()
                 },
 
                 onAllReady() {
-                    resolve()
+                    done(resolve)
                 },
 
+                // Nothing has been written: the handler renders its error page instead. A client
+                // that went away before the shell needs no answer.
+                onShellError(error) {
+                    tail.destroy()
+                    if (error?.message === DEFER_CLIENT_GONE || res.destroyed) done(resolve)
+                    else done(reject, asRenderFailure(error))
+                },
+
+                // Called for every render error. After the shell, an error inside a Suspense
+                // boundary is recoverable: React sends that boundary to the client to render and
+                // still ends its stream, which ends `tail` and the response. Destroying `tail`
+                // here stopped the output without ending the response, so the page kept loading
+                // until the proxy timed out. onRenderError only reports the error; it must not
+                // end or redirect the response.
                 onError(error) {
+                    if (settled || isDeferAbort(error)) return
                     console.error("Error in renderToPipeableStream:", error)
                     safeCall(onRenderError, { req, res, store, error })
-                    tail.destroy(error)
-                    reject(error)
+                    if (!shellReady) {
+                        shellError = shellError || error
+                    } else if (res.writableEnded) {
+                        // The hook ended the response anyway: stop rendering into it.
+                        getLogger().warn?.("[render] onRenderError ended the response; it must only report")
+                        tail.unpipe(res)
+                        done(resolve)
+                        abort(new Error(RENDER_STOPPED))
+                    }
                 },
+            })
+
+            abortRender = abort
+
+            // A client that goes away stops the render (and any deferred work it waits for).
+            res.once("close", () => {
+                if (res.writableFinished || settled) return
+                clearTimeout(deferredTimer)
+                abort(new Error(DEFER_CLIENT_GONE))
             })
         })
     } catch (error) {
         console.error("Error in rendering document on server:", error)
         safeCall(onRenderError, { req, res, store, error })
-        return Promise.reject(error)
+        return Promise.reject(asRenderFailure(error))
     }
 }
 
@@ -432,8 +594,12 @@ const _renderMarkUpStatic = async (
     allMatches,
     context,
     chunkExtractor,
-    nonce
+    nonce,
+    deferred
 ) => {
+    deferred?.seal()
+    // The client went away while the data was fetched: nothing to render (or to cache).
+    if (res.destroyed) return
     const cacheKey = getStaticCacheKey(req)
     // One canonical version for every visitor, so no per-request bot branching.
     const isBot = false
@@ -450,7 +616,8 @@ const _renderMarkUpStatic = async (
 
     const state = store.getState()
     const requestCache = createPPRRequestCache()
-    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
+    // Static routes are blocking: defer() work was awaited, so <Deferred> writes no script.
+    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache, deferred)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
     const finalProps = { ...shellStart, ...shellEnd, jsx, req, res, nonce }
     const CompleteDocument = () => renderDocument(finalProps)
@@ -522,9 +689,19 @@ const _renderMarkUpStatic = async (
 // put the property they depend on into getPPRShellKey. As a guard, a shell that
 // contains a value from the request's cookies is not cached.
 
-const getPPRAppTree = ({ store, req, chunkExtractor, phase, requestCache, fallback, cacheKey }) => (
+const getPPRAppTree = ({
+    store,
+    req,
+    chunkExtractor,
+    phase,
+    requestCache,
+    fallback,
+    cacheKey,
+    deferred,
+    nonce,
+}) => (
     <div id="app">
-        <SsrRequestProvider value={{ isBot: false, chunkExtractor }}>
+        <SsrRequestProvider value={{ isBot: false, chunkExtractor, deferred, nonce }}>
             <PPRDataProvider phase={phase} cacheKey={cacheKey} cache={requestCache}>
                 <Provider store={store}>
                     <PPRRouteBoundary fallback={fallback}>
@@ -689,7 +866,16 @@ const learnedPreloads = new PreloadLearner()
  * request should take the classic path instead (no shell key, or the shell could not be
  * built). Never resolves false once anything has been written.
  */
-const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, nonce, waitForParallelWork }) => {
+const _renderMarkUpPPR = async ({
+    req,
+    res,
+    store,
+    allMatches,
+    cachedRoutes,
+    nonce,
+    waitForParallelWork,
+    deferred,
+}) => {
     let appKey = ""
     if (typeof getPPRShellKey === "function") {
         try {
@@ -776,21 +962,27 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
     res.status(statusCode)
     res.setHeader("content-type", "text/html; charset=utf-8")
     res.setHeader("x-rendering-mode", hit ? "ppr-hit" : "ppr-miss")
+    // The shell is sent before the data exists; nginx must not buffer it (or the resumed parts).
+    res.setHeader("X-Accel-Buffering", "no")
 
     // Route data runs while the shell is on the wire. Same hooks as the classic path; the
     // status line is already sent, so a fetcher error is rendered by the app with the
     // status it would have had exposed as window.__STATUS_CODE__.
+    // Work a fetcher hands to defer() is not part of it: the app resumes as soon as the
+    // fetchers return, and each <Deferred> section streams in when its own work settles.
     const routeData = (async () => {
         try {
             const fetcherResult = tracedServerDataFetcher(
                 { routes: cachedRoutes, req, res, url: req.originalUrl },
-                { store }
+                { store, defer: deferred?.defer }
             )
             // Work serverSideFunction passed to runInParallel finishes before the resumed
             // app reads route data, so the serialized state holds its results. A failure is
             // handled like a rejected serverSideFunction on the classic path.
             const parallelResult = waitForParallelWork?.() ?? null
             await fetcherResult.catch(() => {})
+            // The fetchers have returned: a later defer() is ignored (see deferred.js).
+            deferred?.seal()
             const failed = await parallelResult
             if (failed) {
                 console.error("Error in executing serverSideFunction inside App:", failed.error)
@@ -800,7 +992,12 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
             }
             const data = await fetcherResult
             fetcherData = data || {}
-            const err = fetcherData?.[req.originalUrl]?.error
+            let settled = null
+            if (fetcherData?.[req.originalUrl]?.error) deferred?.abandon()
+            else settled = await settleBlockingDeferred({ req, res, store, deferred })
+            // Redirected (replayed client-side) or the client left: the route's hooks do not apply.
+            if (settled?.redirected || settled?.gone) return fetcherData
+            const err = fetcherData?.[req.originalUrl]?.error || settled?.error
             if (err) {
                 statusCode = err.status_code || 404
                 safeCall(onFetcherError, { req, res, store, error: err })
@@ -847,9 +1044,12 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
         requestCache,
         fallback,
         cacheKey,
+        deferred,
+        nonce: appNonce,
     })
     const nonceAttr = appNonce ? ` nonce="${appNonce}"` : ""
     const shellCss = new Set(shell.cssPaths)
+    const scheduleFlush = createFlushScheduler(res)
 
     await new Promise((resolve) => {
         let timeout
@@ -914,6 +1114,9 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, non
             },
         })
         tail.pipe(res)
+        // Resumed parts (the app, then each deferred section) go out as React flushes them; flushed
+        // after they reach `res` so the parts written after a 'drain' are flushed too.
+        tail.on("data", scheduleFlush)
 
         const stream = resumeToPipeableStream(
             <PPRDocument
@@ -976,6 +1179,79 @@ const tracedParallelWork = withObservability(
     "App.serverSideFunction.runInParallel"
 )
 const asError = (error) => (error && typeof error === "object" ? error : new Error(String(error)))
+
+// Errors a page's render failed with. The handler reports them through its hooks as before, but
+// does not render the same page again for them (it would fail the same way).
+const renderFailures = new WeakSet()
+const asRenderFailure = (error) => {
+    const failure = asError(error)
+    renderFailures.add(failure)
+    return failure
+}
+const isRenderFailure = (error) => Boolean(error) && typeof error === "object" && renderFailures.has(error)
+
+const reportDeferredError = ({ req, res, store, error, name }) => {
+    if (typeof onDeferredError === "function")
+        return safeCall(onDeferredError, { req, res, store, error, name })
+    console.error(`[defer] "${name}" failed for ${req.originalUrl}:`, error)
+}
+
+// A blocking request (bot, static route, DEFER_STREAMING_ENABLE=false, isBlockingRequest) awaits
+// its deferred work before rendering, so the page renders complete, as if the fetcher had awaited
+// it. The wait is bounded by DEFER_TIMEOUT_MS (then a 504 error) and ends if the client goes away.
+// The first failure is handled like a failed fetcher: the redirect its onError mapped it to
+// ({ redirected: true }), or else { error } for the caller's fetcher-error path (onFetcherError,
+// error status); other failures are reported to onDeferredError. On a PPR response the headers
+// are out, so res.redirect is replayed client-side.
+const settleBlockingDeferred = async ({ req, res, store, deferred }) => {
+    if (!deferred?.blocking) return null
+    deferred.seal()
+    if (!deferred.size) return null
+    let timer
+    let onClose
+    const outcome = await Promise.race([
+        deferred.settleAll(),
+        new Promise((resolve) => {
+            timer = setTimeout(() => resolve("timeout"), DEFER_TIMEOUT_MS())
+        }),
+        new Promise((resolve) => {
+            onClose = () => resolve("gone")
+            res.once("close", onClose)
+        }),
+    ])
+    clearTimeout(timer)
+    res.off("close", onClose)
+    if (outcome === "gone" || outcome === "timeout") deferred.abandon()
+    // The client left: nothing renders, so nothing incomplete reaches the static cache.
+    if (outcome === "gone" || res.writableEnded) return { gone: true }
+    if (outcome === "timeout") {
+        const error = new Error(`${DEFER_TIMED_OUT}: ${deferred.pending().join(", ")}`)
+        error.status_code = 504
+        return { error }
+    }
+    const [failed, ...others] = outcome.filter((result) => !result.ok)
+    for (const other of others) reportDeferredError({ req, res, store, error: other.error, name: other.name })
+    if (!failed) return null
+    if (failed.redirect) {
+        if (failed.status) res.redirect(failed.status, failed.redirect)
+        else res.redirect(failed.redirect)
+        return { redirected: true }
+    }
+    return { error: asError(failed.error) }
+}
+
+// The app's isBlockingRequest hook must answer synchronously.
+const isBlockingByApp = (args) => {
+    const result = safeCall(isBlockingRequest, args)
+    if (result && typeof result.then === "function") {
+        result.then(undefined, () => {})
+        getLogger().warn?.(
+            "[defer] isBlockingRequest returned a promise; it must return a boolean, so the request streams"
+        )
+        return false
+    }
+    return result === true
+}
 const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
 // ── Express middleware ──────────────────────────────────────────────────
@@ -1020,6 +1296,22 @@ async function _handler(req, res) {
         // mode is skipped when the response uses a nonce-based CSP.
         const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce
         const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
+
+        // defer() for this request's serverFetchers: their slow work streams in after the shell
+        // instead of holding it, unless the request is blocking. Created after
+        // App.serverSideFunction, so isBlockingRequest can read what it set up.
+        let deferred = null
+        const createRequestDeferred = () =>
+            createDeferredRegistry({
+                store,
+                blocking:
+                    !isDeferredStreamingEnabled() ||
+                    isStaticRoute ||
+                    isBotRequest(req) ||
+                    isBlockingByApp({ req, res, store }),
+                onSettledError: (name, error) => reportDeferredError({ req, res, store, error, name }),
+                logger: getLogger(),
+            })
 
         const parallelWork = []
 
@@ -1079,6 +1371,8 @@ async function _handler(req, res) {
                 }
             }
 
+            deferred = createRequestDeferred()
+
             if (renderMode === "ppr" && isPPREnabled() && !isBotRequest(req)) {
                 try {
                     const served = await tracedRenderMarkUpPPR({
@@ -1089,6 +1383,7 @@ async function _handler(req, res) {
                         cachedRoutes,
                         nonce,
                         waitForParallelWork,
+                        deferred,
                     })
                     if (served || res.headersSent) {
                         if (parallelWork.length) await waitForParallelWork()
@@ -1109,7 +1404,7 @@ async function _handler(req, res) {
             // Page fetchers can now run while parallel work is still running.
             const fetcherResult = tracedServerDataFetcher(
                 { routes: cachedRoutes, req, res, url: req.originalUrl },
-                { store }
+                { store, defer: deferred.defer }
             )
             const parallelResult = waitForParallelWork()
 
@@ -1127,7 +1422,13 @@ async function _handler(req, res) {
 
                 if (res.headersSent) return
 
-                const err = fetcherData?.[req.originalUrl]?.error
+                // A fetcher error is answered without waiting for deferred work.
+                let settled = null
+                if (fetcherData?.[req.originalUrl]?.error) deferred.abandon()
+                else settled = await settleBlockingDeferred({ req, res, store, deferred })
+                if (settled?.gone || res.headersSent) return
+
+                const err = fetcherData?.[req.originalUrl]?.error || settled?.error
                 allTags = tracedGetMetaData(allMatches, fetcherData)
                 const chunkExtractor = collectAssets(req, allMatches)
 
@@ -1147,7 +1448,8 @@ async function _handler(req, res) {
                         allMatches,
                         context,
                         chunkExtractor,
-                        nonce
+                        nonce,
+                        deferred
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -1164,7 +1466,8 @@ async function _handler(req, res) {
                         allMatches,
                         context,
                         chunkExtractor,
-                        nonce
+                        nonce,
+                        deferred
                     )
                 }
             } catch (error) {
@@ -1172,6 +1475,8 @@ async function _handler(req, res) {
                 safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) return
+                // The page itself failed to render: rendering it again would fail the same way.
+                if (isRenderFailure(error)) throw error
 
                 const chunkExtractor = collectAssets(req, allMatches)
                 await renderMarkUp(
@@ -1184,17 +1489,20 @@ async function _handler(req, res) {
                     allMatches,
                     context,
                     chunkExtractor,
-                    nonce
+                    nonce,
+                    deferred
                 )
             }
         } catch (error) {
-            console.error("Error in executing serverSideFunction inside App:", error)
+            if (isRenderFailure(error)) console.error("Error in rendering the page:", error)
+            else console.error("Error in executing serverSideFunction inside App:", error)
             // serverSideFunction can throw with parallel work still running. A parallel failure is
             // only traced here; the hook below still gets the error this catch received.
             if (parallelWork.length) await waitForParallelWork()
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
+            if (isRenderFailure(error)) throw error
 
             const chunkExtractor = collectAssets(req, allMatches)
             await renderMarkUp(
@@ -1207,12 +1515,20 @@ async function _handler(req, res) {
                 allMatches,
                 context,
                 chunkExtractor,
-                nonce
+                nonce,
+                deferred
             )
         }
     } catch (error) {
         console.error("Error in handling document request:", error)
-        safeCall(onRequestError, { req, res, error })
+        const answer = safeCall(onRequestError, { req, res, error })
+        if (answer && typeof answer.then === "function") await answer.catch(() => {})
+        // No hook answered: end the request rather than leave it open until the proxy times out.
+        if (!res.headersSent && !res.destroyed) {
+            res.status(500)
+            res.set({ "content-type": "text/html; charset=utf-8" })
+            res.end("<!DOCTYPE html><title>Server error</title>")
+        }
     }
 }
 
