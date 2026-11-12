@@ -3,7 +3,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { Writable } from "node:stream"
-import { createElement as h } from "react"
+import { createElement as h, Suspense } from "react"
 import { renderToPipeableStream, renderToString, resumeToPipeableStream } from "react-dom/server"
 import { prerenderToNodeStream } from "react-dom/static"
 import { Deferred } from "../src/web-router/components/Deferred.jsx"
@@ -82,7 +82,10 @@ test("a deferred section streams after the shell, with its state script before i
     assert.ok(!shell.includes("orders:"), "shell does not wait for the orders")
     const script = html.indexOf('<script nonce="N0NCE">(window.__CATALYST_DEFERRED__')
     assert.ok(script > shell.length - 1, "the section's script streams after the shell")
-    assert.ok(html.includes('d["orders"]={"list":[1,2]}'), "the script carries the settled state slice")
+    assert.ok(
+        html.includes('{\\"list\\":[1,2]}') && html.includes('s["orders"]=v'),
+        "the script carries the state slice"
+    )
     assert.ok(html.indexOf("orders:2") > script, "the content follows its script")
 })
 
@@ -130,11 +133,44 @@ test("the client renders the same elements the server streamed, so hydration mat
         const client = renderToString(withRegistry(undefined, page))
         assert.equal(client.replace(SCRIPT, "<script></script>"), server.replace(SCRIPT, "<script></script>"))
         delete globalThis.window.__CATALYST_DEFERRED__
-        const later = renderToString(withRegistry(undefined, page)) // a later client-side visit
-        assert.ok(!later.includes("<script"))
+        const fresh = renderToString(withRegistry(undefined, page)) // a page the server did not stream
+        assert.ok(!fresh.includes("<script"))
     } finally {
         delete globalThis.window
     }
+})
+
+test("sections with the same name at different Suspense depths both match the server", async () => {
+    const { state, store } = makePage()
+    const Orders = () => h("ul", null, `orders:${state.orders.list.length}`)
+    const section = (fallback) => h(Deferred, { name: "orders", fallback: h("p", null, fallback) }, h(Orders))
+    const page = h("main", null, section("a"), h(Suspense, { fallback: null }, h("div", null, section("b"))))
+    const registry = createDeferredRegistry({ store, logger: silent })
+    state.orders = { list: [1] }
+    registry.defer("orders", Promise.resolve(), { stateKeys: ["orders"] })
+    await registry.settleAll()
+    const server = renderToString(withRegistry(registry, page))
+    assert.equal(server.match(SCRIPT).length, 2)
+
+    globalThis.window = { __CATALYST_DEFERRED__: { orders: 1 } }
+    try {
+        // The marker is not consumed by the first section, so the nested one still renders its script.
+        const client = renderToString(withRegistry(undefined, page))
+        assert.equal(client.replace(SCRIPT, "<script></script>"), server.replace(SCRIPT, "<script></script>"))
+    } finally {
+        delete globalThis.window
+    }
+})
+
+test("the script carries the store as the section renders, not as it was when the work settled", async () => {
+    const { state, page, store } = makePage()
+    const registry = createDeferredRegistry({ store, logger: silent })
+    registry.defer("orders", Promise.resolve(), { stateKeys: ["orders"] })
+    await registry.settleAll()
+    state.orders = { list: [1, 2, 3] } // written after the work settled, before the render
+    const { shell } = await stream(withRegistry(registry, page))
+    assert.ok(shell.includes("orders:3"))
+    assert.ok(shell.includes('{\\"list\\":[1,2,3]}'), "the script matches the rendered HTML")
 })
 
 test("PPR: the section is postponed out of the shell and streams in on resume", async () => {
@@ -180,6 +216,6 @@ test("PPR: the section is postponed out of the shell and streams in on resume", 
             }
         )
     })
-    assert.ok(html.includes('d["orders"]={"list":[7]}'), "the resumed section carries its state slice")
+    assert.ok(html.includes('{\\"list\\":[7]}'), "the resumed section carries its state slice")
     assert.ok(html.includes("orders:1"), "the resumed section has its content")
 })
