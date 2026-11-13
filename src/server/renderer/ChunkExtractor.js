@@ -136,6 +136,28 @@ export class ChunkExtractor {
         }
     }
 
+    /**
+     * URLs of chunks that the essential entries import directly but that are not in either bucket
+     * (for mweb today: the shared `app` chunk). The browser only finds these after the entry
+     * downloads, so they can be preloaded. Read-only: does not touch the buckets or CSS.
+     */
+    getEntryStaticImportUrls() {
+        const urls = new Set()
+        for (const entry of Object.values(this.assetManifest.essential || {})) {
+            for (const key of entry?.imports || []) {
+                const file =
+                    this.assetManifest.essential?.[key]?.file ||
+                    this.assetManifest.ssrTrue?.[key]?.file ||
+                    this.assetManifest.ssrFalse?.[key]?.file ||
+                    this.manifest[key]?.file
+                if (!file) continue
+                const url = this._toUrl(file)
+                if (!this.critical.js.has(url) && !this.deferred.js.has(url)) urls.add(url)
+            }
+        }
+        return Array.from(urls)
+    }
+
     getRenderedComponentKeys() {
         return Array.from(this.components)
     }
