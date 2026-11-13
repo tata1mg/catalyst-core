@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-11-13
 
 This release builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Universal apps should read the breaking changes below and the 1.1.x to 1.2.0 section of the Version Upgrades guide. After upgrading, run `npm audit fix`: the `body-parser` floor is raised to `^1.20.9`.
 
