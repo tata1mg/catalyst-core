@@ -28,6 +28,8 @@ import {
     registerDeferredAssetsForRoute,
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
+    generateLinkHeader,
+    generateCustomLinkHeader,
 } from "./extract.js"
 import path from "path"
 import { Transform } from "node:stream"
@@ -183,7 +185,8 @@ let _onRouteMatch: any,
     _onAppServerSideSuccess: any,
     _onAppServerSideError: any,
     _onRenderError: any,
-    _onRequestError: any
+    _onRequestError: any,
+    _getEarlyHintLinks: any
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -193,6 +196,9 @@ try {
     _onAppServerSideError = hooks.onAppServerSideError
     _onRenderError = hooks.onRenderError
     _onRequestError = hooks.onRequestError
+    // ({ req, res, matches }) => EarlyHintLink[]: per-request preconnect/preload entries for the
+    // early-hints Link header (URLs that change per release or request; see EARLY_HINTS_LINKS).
+    _getEarlyHintLinks = (hooks as any).getEarlyHintLinks
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
 }
@@ -215,6 +221,59 @@ if ((process.env.OTEL_ENABLE as any) === true) {
 }
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
+
+// ── Early Hints config (config.json) ───────────────────────────────────
+// CLOUDFLARE_EARLY_HINTS_ENABLE: when on, the early-hint links are sent as a `Link` header on rendered
+// responses so a fronting CDN (e.g. Cloudflare Early Hints) can learn them and replay them as a 103 on
+// later requests to the same URL. Off by default. (Cast: config.json booleans survive the env swap.)
+const CLOUDFLARE_EARLY_HINTS_ENABLE = (process.env.CLOUDFLARE_EARLY_HINTS_ENABLE as any) === true
+
+// EARLY_HINTS_LINKS: static app-supplied preconnect/preload entries, a JSON array of
+// { url, rel: "preconnect"|"preload", as?, type?, crossorigin?, fetchPriority? }. URLs that change per
+// release or request belong in the getEarlyHintLinks hook instead.
+const readEarlyHintsLinks = () => {
+    const raw: any = process.env.EARLY_HINTS_LINKS
+    if (Array.isArray(raw)) return raw
+    try {
+        const parsed = JSON.parse(raw || "[]")
+        return Array.isArray(parsed) ? parsed : []
+    } catch {
+        return []
+    }
+}
+const staticHintLinks = generateCustomLinkHeader(readEarlyHintsLinks())
+
+const readNumber = (value: any, fallback: number) => {
+    if (value === undefined || value === null || value === "") return fallback
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+}
+
+// EARLY_HINTS_MAX_DEFERRED_LINKS: how many split() chunks learned from earlier renders of the route are
+// hinted at fetchpriority=low. Keeps the header (which a CDN may drop whole when oversized) small.
+// Default 10; 0 disables; negative means no cap.
+const EARLY_HINTS_MAX_DEFERRED_LINKS = readNumber(process.env.EARLY_HINTS_MAX_DEFERRED_LINKS, 10)
+const capDeferredHints = (urls: string[]) =>
+    EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
+
+// EARLY_HINTS_MAX_LINK_BYTES: byte budget for the hint list sent as the 200's `Link` header. A route's
+// static-import closure can run to dozens of chunks, and proxies/CDNs reject or drop oversized response
+// headers. Entries are kept in priority order (route scripts, static links, app links, static deps,
+// learned deferred) until the budget is spent; deps left out still get <link rel="modulepreload"> in
+// the HTML. Default 4096; negative means no budget.
+const EARLY_HINTS_MAX_LINK_BYTES = readNumber(process.env.EARLY_HINTS_MAX_LINK_BYTES, 4096)
+const fitLinkBudget = (links: string[]) => {
+    if (EARLY_HINTS_MAX_LINK_BYTES < 0) return links
+    const kept: string[] = []
+    let bytes = 0
+    for (const link of links) {
+        const size = link.length + (kept.length ? 2 : 0)
+        if (bytes + size > EARLY_HINTS_MAX_LINK_BYTES) continue
+        kept.push(link)
+        bytes += size
+    }
+    return kept
+}
 
 const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -241,6 +300,50 @@ const _collectAssets = (req: any, allMatches: any) => {
 }
 
 const collectAssets = withSyncObservability(SSR_SERVICE, _collectAssets, "collectAssets")
+
+// ── Early Hints ────────────────────────────────────────────────────────
+// Critical JS depends only on the matched route and the build manifests, so it is computed once per
+// leaf route and reused.
+const criticalHintCache = new Map<any, { js: string[]; rootLinks: string[]; depLinks: string[] }>()
+const getCriticalHintLinks = (allMatches: any) => {
+    const key = allMatches[allMatches.length - 1]?.route ?? null
+    let hint = criticalHintCache.get(key)
+    if (!hint) {
+        const extractor = new ChunkExtractor({
+            manifest: getManifest() || {},
+            assetManifest: getAssetManifest() || {},
+            registerGlobal: false,
+        })
+        extractor.preloadRouteCss(allMatches)
+        const { js, scripts } = extractor.getCriticalAssets()
+        const roots = new Set(scripts)
+        hint = {
+            js,
+            rootLinks: generateLinkHeader(scripts, "high"),
+            depLinks: generateLinkHeader(
+                js.filter((url: string) => !roots.has(url)),
+                "high"
+            ),
+        }
+        criticalHintCache.set(key, hint)
+    }
+    return hint
+}
+
+const getEarlyHintLinks = (req: any, res: any, allMatches: any) => {
+    const critical = getCriticalHintLinks(allMatches)
+    const deferredJs = getDeferredPreloadScriptUrls(getDeferredRouteKey(req, allMatches), critical.js)
+    const appLinks = safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
+    return fitLinkBudget([
+        ...new Set([
+            ...critical.rootLinks,
+            ...staticHintLinks,
+            ...generateCustomLinkHeader(Array.isArray(appLinks) ? appLinks : []),
+            ...critical.depLinks,
+            ...generateLinkHeader(capDeferredHints(deferredJs), "low"),
+        ]),
+    ])
+}
 
 // ── JSX tree ───────────────────────────────────────────────────────────
 // Three type-only escape hatches in the tree below. They are declared here as
@@ -300,7 +403,9 @@ const _renderMarkUp = async (
     }
 
     // Critical assets → <head>
-    const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
+    const criticalAssets = chunkExtractor
+        ? chunkExtractor.getCriticalAssets()
+        : { js: [], scripts: [], css: [] }
 
     // Inline critical CSS from disk (small thanks to natural code-splitting)
     const buildDir = path.join(process.env.src_path!, process.env.BUILD_OUTPUT_PATH || "build")
@@ -312,7 +417,7 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.js)
+    const jsScripts = generateScriptElements(criticalAssets.scripts)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
@@ -375,6 +480,7 @@ const _renderMarkUp = async (
     try {
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
+        if (res.locals?.earlyHintLinks) res.append("link", res.locals.earlyHintLinks.join(", "))
 
         return new Promise<void>((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
@@ -391,7 +497,7 @@ const _renderMarkUp = async (
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()
-                        : { js: [], css: [] }
+                        : { js: [], scripts: [], css: [] }
 
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
@@ -413,7 +519,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.js))
+                        this.push(generateScriptStrings(deferredAssets.scripts))
                     }
 
                     cb()
@@ -498,6 +604,11 @@ async function _handler(req: any, res: any) {
         safeCall(onRouteMatch, { req, res, matches: allMatches, store })
 
         if (res.headersSent) return
+
+        if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
+            const earlyHintLinks = getEarlyHintLinks(req, res, allMatches)
+            if (earlyHintLinks.length && res.locals) res.locals.earlyHintLinks = earlyHintLinks
+        }
 
         try {
             await tracedAppServerSideFunction({ store, req, res })

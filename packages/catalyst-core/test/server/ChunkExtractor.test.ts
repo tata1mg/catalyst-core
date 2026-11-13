@@ -22,8 +22,8 @@ afterEach(() => {
 describe("ChunkExtractor", () => {
     it("constructs with empty manifests and yields empty buckets", () => {
         const ce = new ChunkExtractor()
-        expect(ce.getCriticalAssets()).toEqual({ js: [], css: [] })
-        expect(ce.getDeferredAssets()).toEqual({ js: [], css: [] })
+        expect(ce.getCriticalAssets()).toEqual({ js: [], scripts: [], css: [] })
+        expect(ce.getDeferredAssets()).toEqual({ js: [], scripts: [], css: [] })
         expect(ce.getRenderedComponentKeys()).toEqual([])
     })
 
@@ -73,16 +73,14 @@ describe("ChunkExtractor", () => {
         // raw "widgets/Modal.a1b2c3.js" isn't a key; "widgets/Modal" +
         // "." prefix-matches it.
         ce.addComponent("widgets/Modal")
-        expect(ce.getDeferredAssets().js).toEqual([
-            "https://cdn.example.com/static/assets/modal-a1b2c3.js",
-        ])
+        expect(ce.getDeferredAssets().js).toEqual(["https://cdn.example.com/static/assets/modal-a1b2c3.js"])
     })
 
     it("addComponent is a no-op (but still tracks the key) when no manifest entry matches at all", () => {
         const ce = new ChunkExtractor({ manifest: {} })
         ce.addComponent("widgets/Unknown")
         expect(ce.getRenderedComponentKeys()).toEqual(["widgets/Unknown"])
-        expect(ce.getDeferredAssets()).toEqual({ js: [], css: [] })
+        expect(ce.getDeferredAssets()).toEqual({ js: [], scripts: [], css: [] })
     })
 
     it("does not double-count a JS URL already tracked as critical", () => {
@@ -93,5 +91,41 @@ describe("ChunkExtractor", () => {
         ce.addComponent("widgets/Shared")
         expect(ce.getDeferredAssets().js).toEqual([])
         expect(ce.getCriticalAssets().js).toEqual(["https://cdn.example.com/static/assets/shared.js"])
+    })
+
+    it("adds static imports as preload-only JS: hinted in `js`, no <script> of their own in `scripts`", () => {
+        const ce = new ChunkExtractor({
+            manifest: {
+                "pages/Home": { file: "assets/home.js", imports: ["_vendor.js"] },
+                "_vendor.js": { file: "assets/vendor.js", imports: ["_util.js"] },
+                "_util.js": { file: "assets/util.js" },
+            },
+        })
+        ce.preloadRouteCss([{ route: { component: { __cacheKey: "pages/Home" } } }])
+        const base = "https://cdn.example.com/static/assets/"
+        expect(ce.getCriticalAssets().js).toEqual([`${base}home.js`, `${base}vendor.js`, `${base}util.js`])
+        expect(ce.getCriticalAssets().scripts).toEqual([`${base}home.js`])
+    })
+
+    it("gives a chunk first seen as a static import its own script once it is requested directly", () => {
+        const ce = new ChunkExtractor({
+            manifest: {
+                "pages/Home": { file: "assets/home.js", imports: ["widgets/Shared"] },
+                "widgets/Shared": { file: "assets/shared.js", css: ["assets/shared.css"] },
+            },
+        })
+        ce.preloadRouteCss([{ route: { component: { __cacheKey: "pages/Home" } } }])
+        ce.addComponent("widgets/Shared")
+        // The JS stays where it was hinted (critical) and now gets a <script>; its CSS, not
+        // covered by the importer, goes to the bucket that requested it.
+        expect(ce.getCriticalAssets().scripts).toContain("https://cdn.example.com/static/assets/shared.js")
+        expect(ce.getDeferredAssets()).toEqual({ js: [], scripts: [], css: ["assets/shared.css"] })
+    })
+
+    it("leaves global.__CHUNK_EXTRACTOR__ alone when registerGlobal is false", () => {
+        const rendering = new ChunkExtractor()
+        new ChunkExtractor({ registerGlobal: false })
+        expect((global as any).__CHUNK_EXTRACTOR__).toBe(rendering)
+        delete (global as any).__CHUNK_EXTRACTOR__
     })
 })

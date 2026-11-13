@@ -103,6 +103,45 @@ export const generateModulePreloadLinkElements = (jsUrls: any = [], keyPrefix = 
     )
 
 /**
+ * `Link` header values (one per URL) preloading JS, sent on the 200 for a CDN's Early Hints (e.g.
+ * Cloudflare) to learn and replay as a 103. `as=script` + `crossorigin` matches the CORS mode of the
+ * `<script type="module">` and `modulepreload` tags, so the hinted response is reused instead of
+ * downloaded twice. Chrome only honours `preload`/`preconnect` in a 103, hence not `modulepreload`.
+ */
+export const generateLinkHeader = (jsUrls: string[] = [], fetchPriority?: "high" | "low") =>
+    [...new Set(jsUrls)].map((url) => {
+        const parts = [`<${url}>`, "rel=preload", "as=script", "crossorigin"]
+        if (fetchPriority) parts.push(`fetchpriority=${fetchPriority}`)
+        return parts.join("; ")
+    })
+
+export type EarlyHintLink = {
+    url: string
+    rel: "preconnect" | "preload"
+    as?: string
+    type?: string
+    crossorigin?: boolean
+    fetchPriority?: "high" | "low"
+}
+
+/**
+ * `Link` header values for app-supplied preconnect/preload entries: third-party origins, fonts,
+ * a static LCP image. Never hardcoded here: the app declares them via EARLY_HINTS_LINKS or the
+ * getEarlyHintLinks hook (see handler.tsx), and this only formats them.
+ */
+export const generateCustomLinkHeader = (links: EarlyHintLink[] = []) =>
+    links
+        .filter((link) => link?.url && (link.rel === "preload" || link.rel === "preconnect"))
+        .map((link) => {
+            const parts = [`<${link.url}>`, `rel=${link.rel}`]
+            if (link.as) parts.push(`as=${link.as}`)
+            if (link.type) parts.push(`type="${link.type}"`)
+            if (link.crossorigin) parts.push("crossorigin")
+            if (link.fetchPriority) parts.push(`fetchpriority=${link.fetchPriority}`)
+            return parts.join("; ")
+        })
+
+/**
  * Read CSS files from disk and return concatenated CSS string for inlining.
  * @param {string[]} cssPaths - Relative CSS paths (from manifest).
  * @param {string} basePath  - Build output directory on disk.
