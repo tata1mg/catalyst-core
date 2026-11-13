@@ -9,10 +9,25 @@ const {
 const { formatBuildError, resolveOutputMode } = require("./buildErrorFormat.js")
 const { buildFailure } = require("../cli/diagnostic.js")
 const { loadAppConfig } = require("../cli/appConfig.js")
-const { ensureDevServer, migrateLanAddresses } = require("./setupServer.js")
-const { parseNativeArgs } = require("./utils.js")
+const {
+    askReleaseConfig,
+    ensureDevServer,
+    migrateLanAddresses,
+    writeConfigKeys,
+} = require("./setupServer.js")
+const { isInteractive, parseNativeArgs } = require("./utils.js")
 const { ensureXcodeReady, prepareIosDebugTarget } = require("./iosToolchain.js")
-const { isReleaseBuildType } = require("./buildIos/signing.js")
+const {
+    createProfileScanner,
+    isReleaseBuildType,
+    planSigningForConfig,
+    readIosCredentials,
+    resolveExportMethod,
+    settleInstalledProfile,
+    settleXcodeTeam,
+} = require("./buildIos/signing.js")
+const { resolveNativeConfig } = require("./nativeConfig.js")
+const { resolveCredentials } = require("./credentials.js")
 const { iosRequiresMacError } = require("./iosPlatform.js")
 const TerminalProgress = require("./terminalProgress.js").default
 
@@ -40,6 +55,81 @@ function reportVerbose(error) {
     }
 }
 
+/**
+ * askReleaseConfig for this build: true when it saved an answer. Its errors
+ * are left for createIosBuild, which resolves the config again and reports
+ * them the usual way; only a failure to read or write the file is worth a line here.
+ */
+async function askAndSave(options) {
+    try {
+        return (await askReleaseConfig("ios", options)).changes.length > 0
+    } catch (error) {
+        if (!/^NATIVE-\d{3}$/.test(error?.code)) {
+            options.log(`Could not read or update config/config.json: ${error.message}`, "warning")
+        }
+        return false
+    }
+}
+
+/**
+ * A release that will sign with the Apple account in Xcode needs
+ * ios.developmentTeam. When it is unset, use the one team Xcode has that can
+ * sign this export (or ask which, in a terminal). A release that auto-picked
+ * an installed App Store profile pins it as ios.provisioningProfile. In a
+ * terminal the team or profile is saved to config/config.json; without one
+ * it is used for this build only. Plans with planSigningForConfig, the same
+ * function createIosBuild signs with. Returns the appConfig to build with.
+ *
+ * Config and credential errors are left for createIosBuild, which reports
+ * them the usual way.
+ */
+async function ensureSigningTeam({ appConfig, release, url, cwd, log, scanProfiles }) {
+    let plan
+    let exportMethod
+    let found = null
+    try {
+        const resolved = resolveNativeConfig("ios", { release, url, config: appConfig, cwd })
+        resolved.cleanup()
+        exportMethod = resolveExportMethod(resolved.WEBVIEW_CONFIG.ios || {})
+        found = resolveCredentials("ios", { cwd })
+        plan = planSigningForConfig({
+            WEBVIEW_CONFIG: resolved.WEBVIEW_CONFIG,
+            credentials: readIosCredentials(found.dir),
+            release,
+            exportMethod,
+            scanProfiles,
+        })
+    } catch (error) {
+        return appConfig
+    } finally {
+        found?.cleanup()
+    }
+    const file = path.join(cwd, "config", "config.json")
+    const profile = settleInstalledProfile({
+        plan,
+        log,
+        save: (name) => writeConfigKeys(file, { "WEBVIEW_CONFIG.ios.provisioningProfile": name }, { log }),
+    })
+    if (profile?.saved) return loadAppConfig()
+    const team = await settleXcodeTeam({
+        plan,
+        release,
+        exportMethod,
+        log,
+        save: (teamId) => writeConfigKeys(file, { "WEBVIEW_CONFIG.ios.developmentTeam": teamId }, { log }),
+    })
+    if (!team) return appConfig
+    if (team.saved) return loadAppConfig()
+    const WEBVIEW_CONFIG = appConfig.WEBVIEW_CONFIG || {}
+    return {
+        ...appConfig,
+        WEBVIEW_CONFIG: {
+            ...WEBVIEW_CONFIG,
+            ios: { ...(WEBVIEW_CONFIG.ios || {}), developmentTeam: team.teamId },
+        },
+    }
+}
+
 async function main() {
     // --release / --url / --device / --yes / --accept-licenses. Xcode is
     // checked, the simulator or iPhone chosen and the config resolved (start
@@ -57,17 +147,36 @@ async function main() {
         // localhost back once (never for a release or in CI), then read the
         // config again.
         const migration = migrateLanAddresses({ cwd, release: flags.release, platform: "ios" })
-        const appConfig = migration.changes.length ? loadAppConfig() : { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
+        let appConfig = migration.changes.length ? loadAppConfig() : { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH }
         for (const change of migration.changes) {
-            log(`config.json ${change.path}: ${change.from} -> ${change.to}`, "info")
+            log(`config.json ${change.path}: ${change.from} -> ${change.to}`, "note")
         }
         const release = flags.release || isReleaseBuildType(appConfig.WEBVIEW_CONFIG?.ios?.buildType)
+        // A store build in a terminal asks once for a missing app id or
+        // website and saves the answers, then reads the config again.
+        if (release && isInteractive()) {
+            const answered = await askAndSave({ release, url: flags.url, cwd, log })
+            if (answered) appConfig = loadAppConfig()
+        }
         let target
+        // One scan of the installed profiles for the team step and the build.
+        const scanProfiles = createProfileScanner()
         if (process.platform === "darwin") {
             progress.start("toolchain")
             const developerDir = await ensureXcodeReady({ flags, log })
             progress.log(`Using ${developerDir}`, "info")
             progress.complete("toolchain")
+            // Before createIosBuild, which is synchronous: picking a team can ask.
+            if (release) {
+                appConfig = await ensureSigningTeam({
+                    appConfig,
+                    release,
+                    url: flags.url,
+                    cwd,
+                    log,
+                    scanProfiles,
+                })
+            }
             // A release archives for any iOS device: no simulator, no phone.
             if (!release) {
                 progress.start("target")
@@ -84,7 +193,7 @@ async function main() {
                 progress.complete("target")
             }
         }
-        build = createIosBuild(appConfig, { ...flags, devHost, target, progress, appRoot: cwd })
+        build = createIosBuild(appConfig, { ...flags, devHost, target, progress, appRoot: cwd, scanProfiles })
     } catch (error) {
         if (progress.currentStep) progress.fail(progress.currentStep.id)
         process.stderr.write(

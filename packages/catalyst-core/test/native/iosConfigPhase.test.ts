@@ -48,6 +48,13 @@ function recordingProgress() {
 
 const CONSTANTS_PATH = ["CoreLogic", "Sources", "CatalystCoreLogic", "Constants", "ConfigConstants.swift"]
 
+/** The splash HTML embedded in the Swift, decoded from base64. */
+function embeddedSplashHtml(swift: string) {
+    const match = swift.match(/public static let splashScreenHtml: String\? = "([A-Za-z0-9+/=]+)"/)
+    if (!match) throw new Error("no embedded splash HTML")
+    return Buffer.from(match[1], "base64").toString("utf8")
+}
+
 /** Run generateConfigConstants and return the Swift it wrote, plus the logs. */
 async function constants(
     WEBVIEW_CONFIG: Record<string, any>,
@@ -177,7 +184,7 @@ describe("generateConfigConstants: access control", () => {
 describe("generateConfigConstants: splash screen", () => {
     it("uses the configured values and embeds public/splashscreen.html as base64", async () => {
         const publicPath = tempDir()
-        const html = "<html><body>Loading</body></html>"
+        const html = "<!doctype html><html><head><title>Splash</title></head><body>Loading</body></html>"
         fs.writeFileSync(path.join(publicPath, "splashscreen.html"), html)
         const { swift, logs } = await constants(
             {
@@ -199,8 +206,10 @@ describe("generateConfigConstants: splash screen", () => {
         expect(swift).toContain("    public static let splashScreenImageWidth: CGFloat = 200")
         expect(swift).toContain("    public static let splashScreenImageHeight: CGFloat = 100")
         expect(swift).toContain("    public static let splashScreenCornerRadius: CGFloat = 8")
-        expect(swift).toContain(
-            `    public static let splashScreenHtml: String? = "${Buffer.from(html).toString("base64")}"`
+        // The page gets the same colour the native layer paints, ahead of its own scripts.
+        expect(embeddedSplashHtml(swift)).toBe(
+            '<!doctype html><html><head><script>window.__CATALYST_SPLASH__={"backgroundColor":"#112233"}</script>' +
+                "<title>Splash</title></head><body>Loading</body></html>"
         )
         expect(swift).toContain("    public static let splashScreenMinDuration: TimeInterval = 0.25")
         expect(logs.filter((l) => l.type === "warning")).toEqual([])
@@ -231,7 +240,11 @@ describe("generateConfigConstants: splash screen", () => {
         )
         expect(warnings).toContain("Ignoring invalid splashScreen.minDuration: -5")
         expect(swift).toContain("    public static let splashScreenMinDuration: TimeInterval = 0")
-        expect(swift).toMatch(/public static let splashScreenHtml: String\? = "YWFh/)
+        // No <head>, <html> or doctype to anchor on, so the script leads the file.
+        expect(embeddedSplashHtml(swift)).toBe(
+            '<script>window.__CATALYST_SPLASH__={"backgroundColor":"#ffffff"}</script>' +
+                "a".repeat(1024 * 1024 + 1)
+        )
     })
 
     it("is disabled with the defaults when not configured", async () => {

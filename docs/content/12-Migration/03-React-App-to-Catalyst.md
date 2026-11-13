@@ -130,7 +130,7 @@ This keeps the migration incremental. Do not try to solve routing, SSR, and nati
 
 - Keeping the old React dev command and assuming it is equivalent to `catalyst start`
 - Adding only web scripts and forgetting the native scripts entirely
-- Putting a LAN IP in `WEBVIEW_CONFIG.LOCAL_IP`; debug builds handle the address themselves
+- Putting this computer's LAN IP in `WEBVIEW_CONFIG.LOCAL_IP`; debug builds handle the dev server address themselves
 - Trying `build:android` or `build:ios` script names instead of `android` and `ios`
 - Treating `catalyst serve` as the dev server; it is for serving the production build
 

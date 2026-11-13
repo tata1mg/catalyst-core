@@ -19,7 +19,7 @@ The hooks are listed in the order Catalyst calls them.
 | `onAppServerSideSuccess` | After `App.serverSideFunction` resolves | `{ req, res, store }` |
 | `onAppServerSideError` | After `App.serverSideFunction` throws | `{ req, res, store, error }` |
 | `onFetcherSuccess` | After the matched route's `serverFetcher` resolves | `{ req, res, store }` |
-| `onFetcherError` | After the matched route's `serverFetcher` fails | `{ req, res, store, error }` |
+| `onFetcherError` | When loading the route's data or preparing the page (metadata, assets) fails | `{ req, res, store, error }` |
 | `onRenderError` | When React fails to render the page on the server | `{ req, res, store, error }` |
 | `onRequestError` | When anything else in the request throws | `{ req, res, error }` |
 
@@ -28,8 +28,19 @@ export const preServerInit = async () => {
     // Set up the logger, telemetry or connections before the server starts.
 }
 
+// One cookie's value from the request, or "" when it is missing.
+const readCookie = (req, name) => {
+    for (const part of (req.headers.cookie || "").split(";")) {
+        const [key, ...value] = part.trim().split("=")
+        if (key === name) return value.join("=")
+    }
+    return ""
+}
+
 export const onRouteMatch = ({ req, res }) => {
-    if (req.originalUrl.startsWith("/account") && !req.headers.cookie?.includes("session=")) {
+    // This only checks that a session cookie is there. A real app validates the
+    // session on the server, and never logs its value.
+    if (req.originalUrl.startsWith("/account") && !readCookie(req, "session")) {
         res.redirect("/login")
     }
 }
@@ -53,7 +64,7 @@ If a request hook sends a response, for example with `res.redirect()` or `res.st
 
 `onServerError` is also read from `server/index.js`, but it is not called at the moment. Catalyst calls it only when Express passes an error to the `listen` callback, and Express 4 never does. When the port is taken, Catalyst prints its own error and exits.
 
-When `serverFetcher` fails, the page still renders. The status code comes from the error's `status_code` and defaults to 404. When `App.serverSideFunction` throws, the page also still renders, using the error's `status_code` if it has one.
+`onFetcherError` runs when loading the route's data or preparing the page (its metadata and assets) fails during SSR. The page still renders, with the error's `status_code` when the fetcher returned one, and 404 otherwise. When `App.serverSideFunction` throws, the page also still renders, using the error's `status_code` if it has one.
 
 When a hook itself throws, Catalyst logs it and carries on. A failing `preServerInit` is reported as `PROCESS-001`, and a failing request hook as `PROCESS-002`.
 

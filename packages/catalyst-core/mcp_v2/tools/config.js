@@ -1,5 +1,6 @@
 "use strict"
 const fs = require("fs")
+const os = require("os")
 const path = require("path")
 
 let _projectInfo
@@ -15,6 +16,47 @@ function projectPath(root, rel) {
     }
     return `${root}${path.sep}${normalized}`
 }
+
+/** This machine's own addresses and hostname, as nativeConfig.js localMachineHosts() sees them. */
+function _machineAddresses() {
+    const hosts = new Set()
+    try {
+        for (const entries of Object.values(os.networkInterfaces())) {
+            for (const entry of entries || []) hosts.add(String(entry.address).toLowerCase())
+        }
+        hosts.add(os.hostname().toLowerCase())
+    } catch {
+        // Nothing to compare against.
+    }
+    return hosts
+}
+
+// 10/8, 172.16/12, 192.168/16 and link-local 169.254/16, as in
+// planLanAddressMigration (src/native/setupServer.js).
+const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/
+const PRIVATE_LAN_IPV4 = /^(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|169\.254)\./
+
+/**
+ * True when WEBVIEW_CONFIG.LOCAL_IP is a private IPv4 address that
+ * NODE_SERVER_HOSTNAME also holds: an older setup wrote this machine's LAN
+ * address (maybe from another network) into both. The first debug build on
+ * catalyst-core 1.2.0 puts localhost back, once per checkout, unless
+ * allowPrivateHost is true.
+ */
+function isStaleLanAddress(config) {
+    const wv = config?.WEBVIEW_CONFIG || {}
+    if (wv.allowPrivateHost === true) return false
+    const localIp = typeof wv.LOCAL_IP === "string" ? wv.LOCAL_IP.trim() : ""
+    return (
+        IPV4.test(localIp) &&
+        PRIVATE_LAN_IPV4.test(localIp) &&
+        typeof config.NODE_SERVER_HOSTNAME === "string" &&
+        config.NODE_SERVER_HOSTNAME.trim() === localIp
+    )
+}
+
+const STALE_LAN_ADDRESS_MESSAGE = (ip) =>
+    `WEBVIEW_CONFIG.LOCAL_IP and NODE_SERVER_HOSTNAME are both "${ip}", a LAN address an older setup saved. If this machine's address has changed, the dev server cannot start on it and the app cannot reach it. The first debug build on catalyst-core 1.2.0 (npm run android or npm run ios) puts localhost back in both and prints the change, but only once per checkout (recorded in .catalyst/local.json). If this checkout already ran a 1.2.0 debug build (for example a canary), set WEBVIEW_CONFIG.LOCAL_IP and NODE_SERVER_HOSTNAME to "localhost" by hand (or to this machine's current IP for a phone on the same Wi-Fi).`
 
 function handle_check_config({ project_path, platform = "both" } = {}) {
     const root = project_path || _projectInfo.dir
@@ -82,19 +124,33 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         passed.push({ field: "NODE_SERVER_PORT", value: config.NODE_SERVER_PORT })
     }
 
-    if (!config.API_URL) {
-        issues.push({
+    // The keys `catalyst start`, `build` and `serve` refuse to start without
+    // (validateConfigFile in src/server/utils/validator.ts). NODE_SERVER_PORT
+    // is checked above.
+    for (const key of [
+        "NODE_SERVER_HOSTNAME",
+        "BUILD_OUTPUT_PATH",
+        "PUBLIC_STATIC_ASSET_PATH",
+        "PUBLIC_STATIC_ASSET_URL",
+        "CLIENT_ENV_VARIABLES",
+    ]) {
+        if (config[key] === undefined) {
+            issues.push({
+                field: key,
+                severity: "error",
+                message: `${key} is required: catalyst start, build and serve exit before starting without it.`,
+            })
+        }
+    }
+
+    // API_URL is the app's own key: the template ships it empty and lists it
+    // in CLIENT_ENV_VARIABLES, and nothing in catalyst-core requires it.
+    if (config.API_URL !== undefined && config.API_URL !== null && typeof config.API_URL !== "string") {
+        warnings.push({
             field: "API_URL",
-            severity: "error",
-            message: "API_URL is required. Set to your backend API base URL.",
+            message: `API_URL is usually a string (your backend's base URL), got ${typeof config.API_URL}.`,
         })
-    } else if (typeof config.API_URL !== "string") {
-        issues.push({
-            field: "API_URL",
-            severity: "error",
-            message: `API_URL must be a string, got ${typeof config.API_URL}.`,
-        })
-    } else {
+    } else if (config.API_URL) {
         passed.push({ field: "API_URL", value: config.API_URL })
     }
 
@@ -111,24 +167,26 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     const wc = config.WEBVIEW_CONFIG
 
-    // ── App identity and production URL (catalyst-core 1.3.0+) ─────────────────
-    // appId and appName apply to both platforms and win over the per-platform
-    // keys. url is the origin a release build loads; debug builds ignore it.
+    // ── App identity and production URL (catalyst-core 1.2.0+) ─────────────────
+    // appName applies to both platforms and wins over the per-platform appName.
+    // appId applies to both platforms, but a platform key wins over it
+    // (android.packageName; ios.bundleIdentifier, then ios.appBundleId). url is
+    // the origin a release build loads; debug builds ignore it.
     const PLACEHOLDER_APP_IDS = [
         "io.yourname.androidproject",
         "com.catalyst.framework.app",
         "com.debug.webview",
     ]
-    const legacyAppId = wc.android?.packageName || wc.ios?.appBundleId || wc.ios?.bundleIdentifier
+    const isPlaceholderId = (id) =>
+        String(id).toLowerCase().startsWith("com.example.") ||
+        PLACEHOLDER_APP_IDS.includes(String(id).toLowerCase())
+    const legacyAppId = wc.android?.packageName || wc.ios?.bundleIdentifier || wc.ios?.appBundleId
     const appId = typeof wc.appId === "string" && wc.appId.trim() ? wc.appId.trim() : null
     if (appId) {
-        if (
-            appId.toLowerCase().startsWith("com.example.") ||
-            PLACEHOLDER_APP_IDS.includes(appId.toLowerCase())
-        ) {
+        if (isPlaceholderId(appId)) {
             warnings.push({
                 field: "WEBVIEW_CONFIG.appId",
-                message: `appId "${appId}" is a placeholder. Debug builds work, but a release build refuses it (NATIVE-003). Set your own reverse-DNS id, e.g. "com.yourcompany.app"; it cannot change after the first store upload.`,
+                message: `appId "${appId}" is a placeholder. Debug builds work; a release build in a terminal asks for your own id once and saves it, and without a terminal refuses it (NATIVE-003). Set your own reverse-DNS id, e.g. "com.yourcompany.app"; it cannot change after the first store upload.`,
             })
         } else {
             passed.push({ field: "WEBVIEW_CONFIG.appId", value: appId })
@@ -137,7 +195,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         warnings.push({
             field: "WEBVIEW_CONFIG.appId",
             message:
-                'WEBVIEW_CONFIG.appId not set. It is the Android application id and the iOS bundle id (e.g. "com.yourcompany.app"); a release build refuses to ship without one (NATIVE-003).',
+                'WEBVIEW_CONFIG.appId not set. It is the Android application id and the iOS bundle id (e.g. "com.yourcompany.app"); a release build in a terminal asks for it once and saves it, and without a terminal refuses to ship without one (NATIVE-003).',
         })
     }
     if (typeof wc.appName === "string" && wc.appName.trim()) {
@@ -150,19 +208,32 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         } catch {
             parsed = null
         }
-        if (
-            !parsed ||
-            !["http:", "https:"].includes(parsed.protocol) ||
-            (parsed.pathname && parsed.pathname !== "/")
-        ) {
+        // The same rules as parseAppUrl in src/native/nativeConfig.js.
+        let urlProblem = null
+        if (!String(wc.url).trim()) {
+            urlProblem = "is empty"
+        } else if (!parsed) {
+            urlProblem = "is not a URL (expected e.g. https://shop.acme.com)"
+        } else if (!["http:", "https:"].includes(parsed.protocol)) {
+            urlProblem = "must start with https:// or http://"
+        } else if (parsed.username || parsed.password) {
+            urlProblem = "must not contain a user name or password"
+        } else if ((parsed.pathname && parsed.pathname !== "/") || parsed.search || parsed.hash) {
+            urlProblem = "must be an origin only, without a path, query or fragment"
+        } else if (!parsed.hostname) {
+            urlProblem = "has no host"
+        } else if (parsed.protocol === "https:" && parsed.port && parsed.port !== "443") {
+            urlProblem = "uses HTTPS on a port other than 443"
+        }
+        if (urlProblem) {
             issues.push({
                 field: "WEBVIEW_CONFIG.url",
                 severity: "error",
-                message: `WEBVIEW_CONFIG.url "${wc.url}" must be an http(s) origin without a path, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
+                message: `WEBVIEW_CONFIG.url "${wc.url}" ${urlProblem}. Use an http(s) origin, e.g. "https://shop.acme.com". A release build fails with NATIVE-004.`,
             })
         } else if (
-            /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)|\.local$/i.test(
-                parsed.hostname
+            /^(localhost|::1|0\.0\.0\.0)$|^(127|10|192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\.|\.local(host)?$/i.test(
+                parsed.hostname.replace(/^\[|\]$/g, "")
             ) &&
             wc.allowPrivateHost !== true
         ) {
@@ -182,32 +253,41 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     }
 
     // ── WEBVIEW_CONFIG.LOCAL_IP ───────────────────────────────────────────────
-    // Debug builds reach the dev server on their own (adb reverse on Android,
-    // localhost on the simulator, <mac>.local on an iPhone), so LOCAL_IP stays
-    // localhost. A LAN address saved by an older setup is put back to
-    // localhost by the first 1.3.0 build.
-    if (
-        wc.LOCAL_IP &&
-        !["localhost", "127.0.0.1"].includes(wc.LOCAL_IP) &&
-        /^\d{1,3}(\.\d{1,3}){3}$/.test(wc.LOCAL_IP)
-    ) {
-        warnings.push({
-            field: "WEBVIEW_CONFIG.LOCAL_IP",
-            message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}". Keep it "localhost": debug builds work out the dev server address themselves, and the first build on catalyst-core 1.3.0 resets a private address to localhost. Put the production address in WEBVIEW_CONFIG.url.`,
-        })
+    // With LOCAL_IP localhost, debug builds reach the dev server on their own
+    // (adb reverse on Android, localhost on the simulator, <mac>.local on an
+    // iPhone). A real host (public, or a private VPN/LAN staging server) is
+    // loaded by debug builds instead. This machine's own address, saved by an
+    // older setup, is put back to localhost by the first debug build (once
+    // per checkout).
+    const localIp = String(wc.LOCAL_IP || "")
+        .trim()
+        .toLowerCase()
+    if (localIp && !["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(localIp)) {
+        if (isStaleLanAddress(config)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.LOCAL_IP",
+                message: STALE_LAN_ADDRESS_MESSAGE(wc.LOCAL_IP),
+            })
+        } else if (_machineAddresses().has(localIp)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.LOCAL_IP",
+                message: `WEBVIEW_CONFIG.LOCAL_IP is "${wc.LOCAL_IP}", this machine's own address, so debug builds use the dev server. The first 1.2.0 debug build puts it back to "localhost", once per checkout; if this checkout already ran one (for example a canary), set it to "localhost" by hand. Put the production address in WEBVIEW_CONFIG.url.`,
+            })
+        } else {
+            passed.push({
+                field: "WEBVIEW_CONFIG.LOCAL_IP",
+                value: wc.LOCAL_IP,
+                note: 'debug builds load this host instead of the dev server; set it to "localhost" to develop against the dev server',
+            })
+        }
     } else {
         passed.push({ field: "WEBVIEW_CONFIG.LOCAL_IP", value: wc.LOCAL_IP || "localhost (default)" })
     }
 
-    // ── WEBVIEW_CONFIG.appInfo ────────────────────────────────────────────────
-    if (!wc.appInfo) {
-        issues.push({
-            field: "WEBVIEW_CONFIG.appInfo",
-            severity: "error",
-            message:
-                'WEBVIEW_CONFIG.appInfo is required. Missing appInfo breaks iOS build at compile time. Set to a build identifier string e.g. "android-5Feb2026-v2.1.0". Place at top level of WEBVIEW_CONFIG (not inside android/ios blocks).',
-        })
-    } else {
+    // ── WEBVIEW_CONFIG.appInfo (optional) ─────────────────────────────────────
+    // A free-form string useDeviceInfo() reports. The iOS build writes "" when
+    // it is missing (buildIos/config.js), so nothing breaks without it.
+    if (wc.appInfo) {
         passed.push({ field: "WEBVIEW_CONFIG.appInfo", value: wc.appInfo })
     }
 
@@ -240,51 +320,56 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         }
     }
 
-    // ── accessControl ──────────────────────────────────────────────────────────
+    // ── accessControl (optional) ───────────────────────────────────────────────
+    // Both shells default to accessControlEnabled = false, and the template
+    // ships without the block, so its absence is a suggestion, not an error.
+    // An empty allowlist only matters once it is enabled. iOS also accepts a
+    // comma-separated string.
+    const allowedUrlList = (value) =>
+        Array.isArray(value)
+            ? value
+            : typeof value === "string"
+              ? value
+                    .split(",")
+                    .map((u) => u.trim())
+                    .filter(Boolean)
+              : []
     if (!wc.accessControl) {
-        issues.push({
+        warnings.push({
             field: "WEBVIEW_CONFIG.accessControl",
-            severity: "error",
             message:
-                "accessControl block missing. Without it, WebView navigation is unconstrained — deep links can take users outside the app.",
+                'Optional: no accessControl block, so the WebView may load any URL. To keep navigation inside your domains, add { "enabled": true, "allowedUrls": [...] }. Debug builds add the dev server to allowedUrls themselves.',
         })
     } else {
+        const allowedUrls = allowedUrlList(wc.accessControl.allowedUrls)
         if (!wc.accessControl.enabled) {
             warnings.push({
                 field: "WEBVIEW_CONFIG.accessControl.enabled",
-                message:
-                    "accessControl.enabled is not true. URL allowlist is ignored — all navigation is permitted.",
+                message: "accessControl.enabled is not true, so allowedUrls is ignored and any URL may load.",
             })
         } else {
             passed.push({ field: "WEBVIEW_CONFIG.accessControl.enabled", value: true })
         }
-        if (!Array.isArray(wc.accessControl.allowedUrls) || wc.accessControl.allowedUrls.length === 0) {
+        if (allowedUrls.length === 0 && wc.accessControl.enabled) {
             issues.push({
                 field: "WEBVIEW_CONFIG.accessControl.allowedUrls",
                 severity: "error",
                 message:
                     "allowedUrls is empty. When accessControl is enabled and allowedUrls is empty, ALL URLs are blocked — including your own API calls. App will hang on every network request.",
             })
-        } else {
-            const hasLocalhost = wc.accessControl.allowedUrls.some((u) => u.includes("localhost"))
+        } else if (allowedUrls.length) {
+            const hasLocalhost = allowedUrls.some((u) => String(u).includes("localhost"))
             if (!hasLocalhost) {
                 warnings.push({
                     field: "WEBVIEW_CONFIG.accessControl.allowedUrls",
                     message:
                         'No localhost entry in allowedUrls. If your app uses the localhost server transport (file downloads, progress tracking), add "http://localhost:*" to allowedUrls.',
                 })
-            } else {
-                passed.push({
-                    field: "WEBVIEW_CONFIG.accessControl.allowedUrls",
-                    value: `${wc.accessControl.allowedUrls.length} entries (localhost included)`,
-                })
             }
-            if (!hasLocalhost) {
-                passed.push({
-                    field: "WEBVIEW_CONFIG.accessControl.allowedUrls",
-                    value: `${wc.accessControl.allowedUrls.length} entries`,
-                })
-            }
+            passed.push({
+                field: "WEBVIEW_CONFIG.accessControl.allowedUrls",
+                value: `${allowedUrls.length} entries${hasLocalhost ? " (localhost included)" : ""}`,
+            })
         }
     }
 
@@ -305,7 +390,13 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             passed.push({ field: "WEBVIEW_CONFIG.android.emulatorName", value: a.emulatorName })
         if (!wc.appName && a.appName)
             passed.push({ field: "WEBVIEW_CONFIG.android.appName", value: a.appName })
-        if (!wc.appId && a.packageName) {
+        // packageName wins over appId for Android.
+        if (a.packageName && isPlaceholderId(a.packageName)) {
+            warnings.push({
+                field: "WEBVIEW_CONFIG.android.packageName",
+                message: `android.packageName "${a.packageName}" is a placeholder and wins over WEBVIEW_CONFIG.appId. Remove it to use appId, or set your own id; a release build refuses it (NATIVE-003).`,
+            })
+        } else if (a.packageName) {
             passed.push({ field: "WEBVIEW_CONFIG.android.packageName", value: a.packageName })
         }
         if (String(a.buildType || "").toLowerCase() === "release") {
@@ -347,15 +438,32 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     // in credentials/ios/ (CI: CATALYST_IOS_CREDENTIALS), never in config.json.
     if (platform === "ios" || platform === "both") {
         const ios = wc.ios || {}
-        if (!wc.appId && ios.appBundleId) {
-            if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(ios.appBundleId)) {
+        // bundleIdentifier, then appBundleId, wins over appId for iOS.
+        const iosKey = ios.bundleIdentifier ? "bundleIdentifier" : ios.appBundleId ? "appBundleId" : null
+        if (iosKey) {
+            const iosId = String(ios[iosKey])
+            if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(iosId)) {
                 warnings.push({
-                    field: "WEBVIEW_CONFIG.ios.appBundleId",
-                    message: `appBundleId "${ios.appBundleId}" may not be valid; expected reverse-DNS format like "com.company.app". Prefer WEBVIEW_CONFIG.appId.`,
+                    field: `WEBVIEW_CONFIG.ios.${iosKey}`,
+                    message: `${iosKey} "${iosId}" may not be valid; expected reverse-DNS format like "com.company.app". It wins over WEBVIEW_CONFIG.appId.`,
+                })
+            } else if (isPlaceholderId(iosId)) {
+                warnings.push({
+                    field: `WEBVIEW_CONFIG.ios.${iosKey}`,
+                    message: `ios.${iosKey} "${iosId}" is a placeholder and wins over WEBVIEW_CONFIG.appId. Remove it to use appId, or set your own id; a release build refuses it (NATIVE-003).`,
                 })
             } else {
-                passed.push({ field: "WEBVIEW_CONFIG.ios.appBundleId", value: ios.appBundleId })
+                passed.push({ field: `WEBVIEW_CONFIG.ios.${iosKey}`, value: iosId })
             }
+        } else if (appId && appId.includes("_")) {
+            // Valid on Android, but an iOS bundle id allows only letters,
+            // digits, "-" and ".": every iOS build fails with NATIVE-010.
+            const finding = {
+                field: "WEBVIEW_CONFIG.appId",
+                message: `appId "${appId}" has an underscore, which an iOS bundle id cannot contain, so iOS builds fail with NATIVE-010. Set WEBVIEW_CONFIG.ios.bundleIdentifier to an id without one (e.g. "${appId.replace(/_/g, "")}"); it wins over appId on iOS.`,
+            }
+            if (platform === "ios") issues.push({ ...finding, severity: "error" })
+            else warnings.push(finding)
         }
         if (ios.simulatorName)
             passed.push({ field: "WEBVIEW_CONFIG.ios.simulatorName", value: ios.simulatorName })
@@ -526,4 +634,4 @@ function _buildResult({ root, configPath, platform, issues, warnings, passed }) 
     }
 }
 
-module.exports = { init, handle_check_config }
+module.exports = { init, handle_check_config, isStaleLanAddress, STALE_LAN_ADDRESS_MESSAGE }

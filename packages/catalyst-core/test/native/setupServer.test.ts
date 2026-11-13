@@ -8,6 +8,7 @@ import path from "path"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    askReleaseConfig,
     devServerPorts,
     ensureDevServer,
     getDeviceReachableHost,
@@ -19,6 +20,7 @@ import {
     readHmrPort,
     readLocalHostName,
     startDevServerProcess,
+    writeConfigKeys,
 } from "../../src/native/setupServer.js"
 import { readLocalState, writeLocalState } from "../../src/native/localState.js"
 
@@ -54,9 +56,15 @@ describe("getDeviceReachableHost", () => {
         expect(
             getDeviceReachableHost({ localHostName: () => "Janes-MacBook-Pro\n", interfaces: {} as any })
         ).toEqual({
-            host: "Janes-MacBook-Pro.local",
+            host: "janes-macbook-pro.local",
             source: "bonjour",
         })
+    })
+
+    it("lowercases the Bonjour name, since WebKit sends the Host header lowercased", () => {
+        expect(
+            getDeviceReachableHost({ localHostName: () => "G206F1WHVF", interfaces: {} as any })?.host
+        ).toBe("g206f1whvf.local")
     })
 
     it("falls back to the LAN IP, then null", () => {
@@ -403,27 +411,78 @@ describe("LAN address migration", () => {
         },
     }
 
-    it("puts localhost back for this machine's addresses and the saved LOCAL_IP only", () => {
+    it("puts localhost back for this machine's current addresses only", () => {
         const { config, changes } = planLanAddressMigration(saved, { localHosts: HERE })
         expect(config).toMatchObject({
             NODE_SERVER_HOSTNAME: "localhost",
             PUBLIC_STATIC_ASSET_URL: "http://localhost:3005",
             API_URL: "https://api.acme.com",
             CDN: "http://8.8.8.8/x",
-            OLD_API: "http://localhost:8080/api",
+            // A private address that is not this machine (a VPN or LAN staging server) is the app's own.
+            OLD_API: "http://10.0.0.4:8080/api",
             WEBVIEW_CONFIG: {
-                LOCAL_IP: "localhost",
+                LOCAL_IP: "10.0.0.4",
                 accessControl: { allowedUrls: ["http://localhost:3005/*", "https://acme.com/*"] },
             },
         })
         expect(changes.map((change) => change.path)).toEqual([
             "NODE_SERVER_HOSTNAME",
             "PUBLIC_STATIC_ASSET_URL",
-            "OLD_API",
-            "WEBVIEW_CONFIG.LOCAL_IP",
             "WEBVIEW_CONFIG.accessControl.allowedUrls[0]",
         ])
         expect(saved.NODE_SERVER_HOSTNAME).toBe("192.168.1.20")
+        // A LOCAL_IP that is this machine's address goes back to localhost.
+        const mine = { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.1.20" } }
+        const migrated: any = planLanAddressMigration(mine, { localHosts: HERE }).config
+        expect(migrated.WEBVIEW_CONFIG.LOCAL_IP).toBe("localhost")
+    })
+
+    it("puts localhost back for a private LOCAL_IP that NODE_SERVER_HOSTNAME also holds", () => {
+        // Written on another network: not an address this machine has now.
+        for (const ip of ["10.0.0.4", "172.20.1.9", "192.168.0.7", "169.254.3.4"]) {
+            const leftover = {
+                NODE_SERVER_HOSTNAME: ip,
+                PUBLIC_STATIC_ASSET_URL: `http://${ip}:3005`,
+                API_URL: "https://api.acme.com",
+                WEBVIEW_CONFIG: { LOCAL_IP: ip, port: "3005" },
+            }
+            const { config, changes } = planLanAddressMigration(leftover, { localHosts: HERE })
+            expect(config).toMatchObject({
+                NODE_SERVER_HOSTNAME: "localhost",
+                PUBLIC_STATIC_ASSET_URL: "http://localhost:3005",
+                API_URL: "https://api.acme.com",
+                WEBVIEW_CONFIG: { LOCAL_IP: "localhost" },
+            })
+            expect(changes.map((change) => change.path)).toEqual([
+                "NODE_SERVER_HOSTNAME",
+                "PUBLIC_STATIC_ASSET_URL",
+                "WEBVIEW_CONFIG.LOCAL_IP",
+            ])
+            // Even when this machine reports no address at all.
+            expect(planLanAddressMigration(leftover, { localHosts: new Set() }).changes).toHaveLength(3)
+        }
+    })
+
+    it("leaves a public, VPN or staging LOCAL_IP alone, and a private one NODE_SERVER_HOSTNAME does not hold", () => {
+        const cases = [
+            // A public address or a hostname is a real server.
+            { NODE_SERVER_HOSTNAME: "8.8.8.8", WEBVIEW_CONFIG: { LOCAL_IP: "8.8.8.8" } },
+            { NODE_SERVER_HOSTNAME: "staging.acme.vpn", WEBVIEW_CONFIG: { LOCAL_IP: "staging.acme.vpn" } },
+            // Outside 172.16/12, and the CGNAT range some VPNs use.
+            { NODE_SERVER_HOSTNAME: "172.32.0.1", WEBVIEW_CONFIG: { LOCAL_IP: "172.32.0.1" } },
+            { NODE_SERVER_HOSTNAME: "100.64.0.1", WEBVIEW_CONFIG: { LOCAL_IP: "100.64.0.1" } },
+            // A LAN staging server the dev server does not bind.
+            { NODE_SERVER_HOSTNAME: "localhost", WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4" } },
+            { NODE_SERVER_HOSTNAME: "10.0.0.5", WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4" } },
+            { NODE_SERVER_HOSTNAME: "10.0.0.4", WEBVIEW_CONFIG: { LOCAL_IP: 10 } },
+            {
+                NODE_SERVER_HOSTNAME: "10.0.0.4",
+                WEBVIEW_CONFIG: { LOCAL_IP: "10.0.0.4", allowPrivateHost: true },
+            },
+        ]
+        for (const config of cases) {
+            expect(planLanAddressMigration(config, { localHosts: HERE }).changes).toEqual([])
+        }
     })
 
     it("leaves a Docker bind address, a container IP and loopback alone", () => {
@@ -446,8 +505,11 @@ describe("LAN address migration", () => {
     it("leaves WEBVIEW_CONFIG.url alone, and everything when allowPrivateHost is set", () => {
         const withUrl = { WEBVIEW_CONFIG: { url: "http://10.0.0.4:3005", LOCAL_IP: "10.0.0.4" } }
         expect(
-            planLanAddressMigration(withUrl, { localHosts: new Set() }).changes.map((c: any) => c.path)
+            planLanAddressMigration(withUrl, { localHosts: new Set(["10.0.0.4"]) }).changes.map(
+                (c: any) => c.path
+            )
         ).toEqual(["WEBVIEW_CONFIG.LOCAL_IP"])
+        expect(planLanAddressMigration(withUrl, { localHosts: new Set() }).changes).toEqual([])
         const internal = { ...saved, WEBVIEW_CONFIG: { ...saved.WEBVIEW_CONFIG, allowPrivateHost: true } }
         expect(planLanAddressMigration(internal, { localHosts: HERE }).changes).toEqual([])
     })
@@ -463,19 +525,25 @@ describe("LAN address migration", () => {
     it("rewrites config.json once, keeping its indentation, and says what changed", () => {
         const { cwd, file } = appWith(saved)
         const logs: string[] = []
+        const types: Array<string | undefined> = []
         const first = migrateLanAddresses({
             cwd,
             env: {},
             localHosts: HERE,
-            log: (message: string) => logs.push(message),
+            log: (message: string, type?: string) => {
+                logs.push(message)
+                types.push(type)
+            },
         })
         expect(first.ran).toBe(true)
-        expect(first.changes).toHaveLength(5)
+        expect(first.changes).toHaveLength(3)
         const text = fs.readFileSync(file, "utf8")
         expect(text).toMatch(/^\{\n {4}"NODE_SERVER_HOSTNAME": "localhost"/)
         expect(text.endsWith("}\n")).toBe(true)
         expect(JSON.parse(text).DB_HOST).toBe("172.18.0.5")
         expect(logs.join("\n")).toContain("NODE_SERVER_HOSTNAME: 192.168.1.20 -> localhost")
+        // Printed by default, not only with --verbose.
+        expect(types).toEqual(["note", "note", "note", "note"])
         expect(readLocalState({ cwd }).migrations.lanAddresses).toBeTruthy()
 
         // A private address added later is the user's own: left alone.
@@ -525,5 +593,248 @@ describe("LAN address migration", () => {
         fs.writeFileSync(file, text)
         expect(migrateLanAddresses({ cwd, env: {} }).changes).toEqual([])
         expect(fs.readFileSync(file, "utf8")).toBe(text)
+    })
+})
+
+describe("writeConfigKeys", () => {
+    function file(text: string) {
+        const dir = tempDir()
+        const target = path.join(dir, "config.json")
+        fs.writeFileSync(target, text)
+        return target
+    }
+
+    it("sets nested keys, creating objects as needed, and keeps the indent and trailing newline", () => {
+        const target = file('{\n\t"WEBVIEW_CONFIG": {\n\t\t"appId": "com.example.app"\n\t}\n}\n')
+        const logs: Array<[string, string?]> = []
+        const changes = writeConfigKeys(
+            target,
+            {
+                "WEBVIEW_CONFIG.url": "https://shop.acme.com",
+                "WEBVIEW_CONFIG.ios.developmentTeam": "ABCDE12345",
+            },
+            { log: (message: string, type?: string) => logs.push([message, type]) }
+        )
+        expect(changes).toEqual([
+            { path: "WEBVIEW_CONFIG.url", from: undefined, to: "https://shop.acme.com" },
+            { path: "WEBVIEW_CONFIG.ios.developmentTeam", from: undefined, to: "ABCDE12345" },
+        ])
+        const text = fs.readFileSync(target, "utf8")
+        expect(text).toBe(
+            '{\n\t"WEBVIEW_CONFIG": {\n\t\t"appId": "com.example.app",\n\t\t"url": "https://shop.acme.com",\n' +
+                '\t\t"ios": {\n\t\t\t"developmentTeam": "ABCDE12345"\n\t\t}\n\t}\n}\n'
+        )
+        expect(logs.map(([message]) => message)).toEqual([
+            `Saved WEBVIEW_CONFIG.url = https://shop.acme.com to ${target}`,
+            `Saved WEBVIEW_CONFIG.ios.developmentTeam = ABCDE12345 to ${target}`,
+        ])
+        expect(logs.every(([, type]) => type === "note")).toBe(true)
+    })
+
+    it("re-reads the file right before writing, so a key saved in the meantime is kept", () => {
+        const target = file(JSON.stringify({ WEBVIEW_CONFIG: {} }, null, 2))
+        // Another build (android and ios in parallel) saved its answer after this one started.
+        fs.writeFileSync(target, JSON.stringify({ WEBVIEW_CONFIG: { appId: "com.acme.shop" } }, null, 2))
+        writeConfigKeys(target, { "WEBVIEW_CONFIG.url": "https://shop.acme.com" })
+        const text = fs.readFileSync(target, "utf8")
+        expect(JSON.parse(text)).toEqual({
+            WEBVIEW_CONFIG: { appId: "com.acme.shop", url: "https://shop.acme.com" },
+        })
+        expect(text.startsWith('{\n  "WEBVIEW_CONFIG"')).toBe(true)
+        expect(text.endsWith("}")).toBe(true)
+    })
+
+    it("writes array items by index and leaves the file alone when nothing changes", () => {
+        const text = JSON.stringify({ list: ["a", "b"], name: "x" }, null, 4)
+        const target = file(text)
+        expect(writeConfigKeys(target, { name: "x", "list[1]": "b" })).toEqual([])
+        expect(fs.readFileSync(target, "utf8")).toBe(text)
+        expect(writeConfigKeys(target, { "list[1]": "c" })).toEqual([{ path: "list[1]", from: "b", to: "c" }])
+        expect(JSON.parse(fs.readFileSync(target, "utf8")).list).toEqual(["a", "c"])
+    })
+
+    it("refuses a prototype key and a file that is not a JSON object", () => {
+        const target = file("{}")
+        expect(() => writeConfigKeys(target, { "__proto__.polluted": true })).toThrow(/Not a config key/)
+        expect(({} as any).polluted).toBeUndefined()
+        expect(() => writeConfigKeys(file("[]"), { a: 1 })).toThrow(/JSON object/)
+    })
+})
+
+describe("askReleaseConfig", () => {
+    // The template's config: a placeholder appId and LOCAL_IP localhost, no url.
+    const template = {
+        NODE_SERVER_PORT: 3005,
+        WEBVIEW_CONFIG: {
+            appId: "com.example.app",
+            LOCAL_IP: "localhost",
+            port: "3005",
+            android: { buildType: "debug" },
+            ios: { buildType: "debug" },
+        },
+    }
+
+    function app(config: object) {
+        const cwd = tempDir()
+        const configPath = path.join(cwd, "config", "config.json")
+        fs.mkdirSync(path.dirname(configPath))
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 4) + "\n")
+        return { cwd, configPath, read: () => JSON.parse(fs.readFileSync(configPath, "utf8")) }
+    }
+
+    /** A prompt that answers from a list and records each question. */
+    function answering(...answers: string[]) {
+        const questions: string[] = []
+        const prompt = async (question: string) => {
+            questions.push(question)
+            if (!answers.length) throw new Error(`unexpected question: ${question}`)
+            return answers.shift()
+        }
+        return { prompt, questions }
+    }
+
+    const run = (platform: "android" | "ios", cwd: string, options: Record<string, any> = {}) => {
+        const logs: Array<[string, string?]> = []
+        const promise = askReleaseConfig(platform, {
+            release: true,
+            cwd,
+            env: {},
+            localHosts: new Set(["192.168.1.20", "jane-mac"]),
+            isTTY: true,
+            log: (message: string, type?: string) => logs.push([message, type]),
+            ...options,
+        })
+        return { promise, logs }
+    }
+
+    it("asks for the website and the app id once, re-asking on bad answers, and saves them", async () => {
+        const { cwd, read } = app(template)
+        const { prompt, questions } = answering(
+            "http://shop.acme.com", // plain HTTP
+            "https://192.168.1.20", // a LAN address
+            "https://jane-mac", // this machine
+            "shop.acme.com", // https:// is assumed
+            "com.example.app", // placeholder
+            "com.acme.my-shop", // a valid iOS id, but not an Android package
+            "com.acme.shop"
+        )
+        const { promise, logs } = run("ios", cwd, { prompt })
+        const { changes } = await promise
+        expect(changes).toEqual([
+            { path: "WEBVIEW_CONFIG.url", from: undefined, to: "https://shop.acme.com" },
+            { path: "WEBVIEW_CONFIG.appId", from: "com.example.app", to: "com.acme.shop" },
+        ])
+        expect(questions).toHaveLength(7)
+        expect(read().WEBVIEW_CONFIG).toMatchObject({ url: "https://shop.acme.com", appId: "com.acme.shop" })
+        const warnings = logs.filter(([, type]) => type === "warning").map(([message]) => message)
+        expect(warnings.join("\n")).toContain("plain HTTP")
+        expect(warnings.join("\n")).toContain("192.168.1.20 is a private LAN address")
+        expect(warnings.join("\n")).toContain("jane-mac is this machine's own address")
+        expect(warnings.join("\n")).toContain("placeholder")
+        expect(warnings.join("\n")).toContain('part "my-shop"')
+        // The next run (android after ios in `catalyst buildApp`) has nothing to ask.
+        const again = run("android", cwd, { prompt: answering().prompt })
+        expect((await again.promise).changes).toEqual([])
+    })
+
+    it("saves the app id to the platform key when that is the one that wins", async () => {
+        const { cwd, read } = app({
+            WEBVIEW_CONFIG: {
+                url: "https://shop.acme.com",
+                appId: "com.acme.shop",
+                android: { packageName: "io.yourname.androidproject" },
+                ios: { appBundleId: "com.example.ios" },
+            },
+        })
+        await run("android", cwd, { prompt: answering("com.acme.droid").prompt }).promise
+        await run("ios", cwd, { prompt: answering("com.acme.iphone").prompt }).promise
+        expect(read().WEBVIEW_CONFIG).toMatchObject({
+            appId: "com.acme.shop",
+            android: { packageName: "com.acme.droid" },
+            ios: { appBundleId: "com.acme.iphone" },
+        })
+    })
+
+    it("accepts a private website only with allowPrivateHost, and then asks nothing", async () => {
+        const internal = { WEBVIEW_CONFIG: { ...template.WEBVIEW_CONFIG, appId: "com.acme.shop" } }
+        const refused = app(internal)
+        const { prompt } = answering("https://10.0.38.192", "https://shop.acme.com")
+        const { promise, logs } = run("android", refused.cwd, { prompt })
+        await promise
+        expect(logs.map(([message]) => message).join("\n")).toContain("allowPrivateHost")
+        expect(refused.read().WEBVIEW_CONFIG.url).toBe("https://shop.acme.com")
+
+        const allowed = app({ WEBVIEW_CONFIG: { ...internal.WEBVIEW_CONFIG, allowPrivateHost: true } })
+        const before = fs.readFileSync(allowed.configPath, "utf8")
+        expect((await run("android", allowed.cwd, { prompt: answering().prompt }).promise).changes).toEqual(
+            []
+        )
+        expect(fs.readFileSync(allowed.configPath, "utf8")).toBe(before)
+    })
+
+    it("does not ask for the website when --url was passed", async () => {
+        const { cwd, configPath } = app(template)
+        const before = fs.readFileSync(configPath, "utf8")
+        const { prompt, questions } = answering()
+        const error = await run("android", cwd, { prompt, url: "https://localhost" }).promise.catch((e) => e)
+        expect(error.code).toBe("NATIVE-001")
+        expect(questions).toEqual([])
+        expect(fs.readFileSync(configPath, "utf8")).toBe(before)
+    })
+
+    it("without a terminal throws the resolver's own error and writes nothing", async () => {
+        const { cwd, configPath } = app(template)
+        const before = fs.readFileSync(configPath, "utf8")
+        const { prompt, questions } = answering()
+        const error = await run("ios", cwd, { prompt, isTTY: false }).promise.catch((e) => e)
+        expect(error.code).toBe("NATIVE-001")
+        expect(error.message).toBe(
+            "Release build points at a local or private host: http://localhost:3005/ (localhost is this machine)"
+        )
+        // CI is never a terminal, whatever the streams say.
+        const ci = await askReleaseConfig("android", {
+            release: true,
+            cwd,
+            env: { CI: "true" },
+            prompt,
+        }).catch((e) => e)
+        expect(ci.code).toBe("NATIVE-001")
+        expect(questions).toEqual([])
+        expect(fs.readFileSync(configPath, "utf8")).toBe(before)
+    })
+
+    it("gives up with the original error after repeated bad answers", async () => {
+        const { cwd, configPath } = app({ WEBVIEW_CONFIG: { url: "https://shop.acme.com" } })
+        const before = fs.readFileSync(configPath, "utf8")
+        const { prompt, questions } = answering("", "x", "com.example.a", "1.2", "a..b")
+        const error = await run("android", cwd, { prompt }).promise.catch((e) => e)
+        expect(error.code).toBe("NATIVE-003")
+        expect(questions).toHaveLength(5)
+        expect(fs.readFileSync(configPath, "utf8")).toBe(before)
+    })
+
+    it("asks nothing for a debug build, and treats buildType release as a release", async () => {
+        const { cwd } = app(template)
+        const debug = await run("android", cwd, { release: false, prompt: answering().prompt }).promise
+        expect(debug.changes).toEqual([])
+
+        const deprecated = app({
+            WEBVIEW_CONFIG: {
+                ...template.WEBVIEW_CONFIG,
+                url: "https://shop.acme.com",
+                ios: { buildType: "release" },
+            },
+        })
+        const { prompt } = answering("com.acme.shop")
+        await run("ios", deprecated.cwd, { release: false, prompt }).promise
+        expect(deprecated.read().WEBVIEW_CONFIG.appId).toBe("com.acme.shop")
+    })
+
+    it("rethrows an error no answer fixes, without asking", async () => {
+        const { cwd } = app({ WEBVIEW_CONFIG: { url: "https://shop.acme.com", appId: "com.acme.my-shop" } })
+        const { prompt, questions } = answering()
+        const error = await run("android", cwd, { prompt }).promise.catch((e) => e)
+        expect(error.code).toBe("NATIVE-010")
+        expect(questions).toEqual([])
     })
 })

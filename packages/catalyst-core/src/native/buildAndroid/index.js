@@ -22,8 +22,18 @@ const createAssetsPhase = require("./assets.js")
 const createBuildPhase = require("./build.js")
 const { resolveAndroidSigning, exportUploadCertificate, legacyKeystorePath } = require("./signing.js")
 const { parseAdbDevices, chooseAndroidTarget, reachDevServer } = require("./devices.js")
-const { releaseOutputDir, releaseArtifactPaths } = require("./output.js")
-const { DEFAULT_VERSION_NAME, assertReleaseFolderFree } = require("../releaseOutput.js")
+const {
+    RELEASE_APK_NOTE,
+    artifactName,
+    debugApkNotes,
+    releaseOutputDir,
+    releaseArtifactPaths,
+} = require("./output.js")
+const {
+    DEFAULT_VERSION_NAME,
+    assertReleaseFolderFree,
+    ensureBuildOutputIgnore,
+} = require("../releaseOutput.js")
 const { applyJavaHome, ensureAndroidSdk, ensureJava, resolveSdkPath } = require("../androidToolchain.js")
 const { getLastTarget, saveLastTarget } = require("../localState.js")
 const { ensureDevServer, migrateLanAddresses, devServerPorts, readHmrPort } = require("../setupServer.js")
@@ -32,6 +42,10 @@ const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.jso
 const pwd = path.join(catalystCorePath, "dist/native")
 
 const ANDROID_PACKAGE = "io.yourname.androidproject"
+
+// The summary rows are "<key padded to 11> <value>"; a note under a value
+// starts in the value column.
+const SUMMARY_NOTE_INDENT = " ".repeat(11)
 
 const steps = {
     server: "Start dev server",
@@ -152,6 +166,7 @@ function createAndroidBuild(
         let resolved = null
         let signing = null
         let artifactPath = null
+        let apkPath = null
         let certificatePath = null
 
         try {
@@ -175,7 +190,10 @@ function createAndroidBuild(
             // Before any tooling runs: a second release in the same minute
             // would overwrite the first one's bundle.
             if (release)
-                assertReleaseFolderFree(releaseOutputDir({ appRoot, androidConfig, version }), [".aab"])
+                assertReleaseFolderFree(releaseOutputDir({ appRoot, androidConfig, version }), [
+                    ".aab",
+                    ".apk",
+                ])
             progress.complete("config")
 
             // One-command dev: a debug build starts the dev server when
@@ -288,33 +306,43 @@ function createAndroidBuild(
             if (release) {
                 progress.start("aab")
                 const outputDir = releaseOutputDir({ appRoot, androidConfig, version })
-                const names = releaseArtifactPaths(
-                    outputDir,
-                    androidConfig.newProjectName || androidConfig.appName || "app"
-                )
+                const names = releaseArtifactPaths(outputDir, artifactName(androidConfig))
+                ensureBuildOutputIgnore(outputDir, appRoot)
                 const aab = await buildSignedAAB(androidConfig, {
                     ...gradleOptions,
                     signing,
                     buildOptimisation,
                     finalAabPath: names.aab,
+                    finalApkPath: names.apk,
                 })
                 artifactPath = aab?.finalAabPath || names.aab
+                apkPath = aab?.finalApkPath || names.apk
                 // The upload certificate beside the bundle (#508): Play asks
                 // for it when an upload key is registered or reset.
                 certificatePath = exportUploadCertificate(signing, names.certificate)
                 progress.complete("aab")
             } else {
                 progress.start("build")
-                await buildApp(androidConfig, buildOptimisation, targetDevice.id, gradleOptions)
-                // Debug builds load http://localhost:<port>; on the device that
-                // is the device itself. Forward every port the app uses to this
-                // machine, after the install and before the launch, every run.
-                const packageName = `${applicationId}.debug`
-                const ports = devServerPorts(resolved.config, {
-                    hmrPort: await readHmrPort({ cwd: appRoot }),
+                const debug = await buildApp(androidConfig, buildOptimisation, targetDevice.id, {
+                    ...gradleOptions,
+                    appRoot,
+                    name: artifactName(androidConfig),
+                    usesDevServer: resolved.usesDevServer,
                 })
-                reachDevServer(adbRunner(ADB_PATH), targetDevice.id, packageName, ports)
-                progress.log(`Forwarded ports ${ports.join(", ")} to this machine (adb reverse)`, "info")
+                apkPath = debug?.apkPath || null
+                const packageName = `${applicationId}.debug`
+                // A dev server build loads http://localhost:<port>; on the
+                // device that is the device itself. Forward every port the app
+                // uses to this machine, after the install and before the
+                // launch, every run. A build that loads a real host from
+                // LOCAL_IP reaches it directly and needs none of this.
+                if (resolved.usesDevServer) {
+                    const ports = devServerPorts(resolved.config, {
+                        hmrPort: await readHmrPort({ cwd: appRoot }),
+                    })
+                    reachDevServer(adbRunner(ADB_PATH), targetDevice.id, packageName, ports)
+                    progress.log(`Forwarded ports ${ports.join(", ")} to this machine (adb reverse)`, "info")
+                }
                 launchApp(ADB_PATH, targetDevice.id, packageName)
                 progress.complete("build")
             }
@@ -327,7 +355,13 @@ function createAndroidBuild(
                     : `${androidConfig.emulatorName} emulator`
             const summaryItems = release ? [] : [{ text: `device     ${deviceName}`, color: "gray" }]
             if (artifactPath) {
-                summaryItems.push({ text: `artifact   ${displayPath(artifactPath, appRoot)}`, color: "gray" })
+                summaryItems.push({ text: `aab        ${displayPath(artifactPath, appRoot)}`, color: "gray" })
+            }
+            if (apkPath) {
+                summaryItems.push({ text: `apk        ${displayPath(apkPath, appRoot)}`, color: "gray" })
+                const notes = release ? [RELEASE_APK_NOTE] : debugApkNotes(resolved.usesDevServer)
+                for (const note of notes)
+                    summaryItems.push({ text: `${SUMMARY_NOTE_INDENT}${note}`, color: "gray" })
             }
             if (certificatePath) {
                 summaryItems.push({
@@ -346,9 +380,14 @@ function createAndroidBuild(
 
             progress.printTreeContent("Build", summaryItems)
             if (release) {
-                progress.summary("Built the signed AAB", "Upload it to Google Play")
+                progress.summary("Built the signed AAB and APK", "Upload the AAB to Google Play")
             } else {
-                progress.summary(`Running on ${deviceName}`, "Edit your app; the dev server reloads it")
+                progress.summary(
+                    `Running on ${deviceName}`,
+                    resolved.usesDevServer
+                        ? "Edit your app; the dev server reloads it"
+                        : `The app loads ${resolved.startUrl || wvConfig.LOCAL_IP}`
+                )
             }
         } catch (error) {
             // Mark the step, then show what actually broke. The old handler

@@ -118,6 +118,9 @@ function buildApp(args, env) {
         }
         child.stdout.on("data", tee(process.stdout))
         child.stderr.on("data", tee(process.stderr))
+        // A spawn failure (npx not on PATH) is a failed build, so the finally
+        // below still restores the config and removes the temp dirs.
+        child.on("error", (error) => resolve({ status: null, output: `${output}${error}` }))
         child.on("close", (status) => resolve({ status, output }))
     })
 }

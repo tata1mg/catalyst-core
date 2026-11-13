@@ -2,7 +2,7 @@ import { execFileSync } from "child_process"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
     PLAY_UPLOAD_KEY_RESET_URL,
@@ -29,6 +29,7 @@ function tempDir() {
 }
 
 afterEach(() => {
+    vi.restoreAllMocks()
     for (const dir of temps.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
 })
 
@@ -205,10 +206,11 @@ describe("resolveAndroidSigning", () => {
 
     it("fails a secret without a password or without the key (ANDROID-006) and removes the temp folder", async () => {
         const { exec } = fakeKeytool()
+        // A private temp root, so another run's leftovers in the shared one cannot change the count.
+        const root = tempDir()
+        const tmpdir = vi.spyOn(os, "tmpdir").mockReturnValue(root)
         const count = () =>
-            fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith("catalyst-android-credentials-"))
-                .length
-        const before = count()
+            fs.readdirSync(root).filter((name) => name.startsWith("catalyst-android-credentials-")).length
         const noPassword = await rejection(
             resolveAndroidSigning({
                 appRoot: tempDir(),
@@ -231,7 +233,8 @@ describe("resolveAndroidSigning", () => {
         )
         expect(noKey.code).toBe("ANDROID-006")
         expect(noKey.message).toContain("CATALYST_ANDROID_CREDENTIALS has no upload.jks")
-        expect(count()).toBe(before)
+        expect(tmpdir).toHaveBeenCalled()
+        expect(count()).toBe(0)
     })
 
     it("uses the app's credentials/android key and its keystore.properties", async () => {
@@ -578,6 +581,7 @@ describe("release output", () => {
         expect(dir).toBe(path.join("/app", "build-output", "android", "1.2.0-1440"))
         expect(releaseArtifactPaths(dir, "shop")).toEqual({
             aab: path.join(dir, "shop.aab"),
+            apk: path.join(dir, "shop.apk"),
             certificate: path.join(dir, "upload_certificate.pem"),
         })
     })

@@ -4,9 +4,18 @@ import http from "http"
 import net from "net"
 import os from "os"
 import path from "path"
-import { nativeError } from "./utils.js"
+import { isInteractive, nativeError, promptUser } from "./utils.js"
 import platform from "../cli/platform.js"
-import { isPrivateIPv4, localMachineHosts } from "./nativeConfig.js"
+import {
+    appIdProblem,
+    appIdSource,
+    describePrivateHost,
+    isPlaceholderAppId,
+    localMachineHosts,
+    parseAppUrl,
+    privateHostReason,
+    resolveNativeConfig,
+} from "./nativeConfig.js"
 import { ensureLocalStateDir, readLocalState, writeLocalState } from "./localState.js"
 
 // The dev server for debug native builds. The CLI never rewrites
@@ -50,8 +59,8 @@ function getLocalIPAddress(interfaces = os.networkInterfaces()) {
 
 /**
  * The host a physical device on the same network reaches this Mac on:
- * `<LocalHostName>.local` (Bonjour, survives DHCP changes), else the LAN IP.
- * Null when neither is available.
+ * `<localhostname>.local` (Bonjour, survives DHCP changes, lowercased), else
+ * the LAN IP. Null when neither is available.
  *
  * @param {object} [options]
  * @param {() => string} [options.localHostName] - returns `scutil --get LocalHostName`
@@ -65,7 +74,9 @@ function getDeviceReachableHost({ localHostName = readLocalHostName, interfaces 
     } catch (error) {
         // Not macOS, or scutil failed: fall back to the LAN IP.
     }
-    if (/^[A-Za-z0-9-]+$/.test(name)) return { host: `${name}.local`, source: "bonjour" }
+    // Lowercase: WebKit sends the Host header lowercased, and Vite's
+    // server.allowedHosts compares it exactly.
+    if (/^[A-Za-z0-9-]+$/.test(name)) return { host: `${name.toLowerCase()}.local`, source: "bonjour" }
     const ip = getLocalIPAddress(interfaces)
     return ip ? { host: ip, source: "lan" } : null
 }
@@ -337,13 +348,15 @@ async function ensureDevServer({
 // One-time migration: older setups wrote this machine's LAN address into
 // config.json (every "localhost", and any http://<ip>), which makes Express
 // bind only that address and breaks adb reverse. Put localhost back, but only
-// for this machine's own addresses: a container IP, 0.0.0.0 or a loopback
-// address is the app's own setting.
+// for this machine's own addresses (or the one it had on another network):
+// a container IP, 0.0.0.0 or a loopback address is the app's own setting.
 // ---------------------------------------------------------------------------
 
 const MIGRATION_KEY = "lanAddresses"
 
 const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/
+// 10/8, 172.16/12, 192.168/16 and link-local 169.254/16.
+const PRIVATE_LAN_IPV4 = /^(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168|169\.254)\./
 
 const isCI = (env) => {
     const value = env.CI
@@ -352,11 +365,14 @@ const isCI = (env) => {
 
 /**
  * The changes the migration would make, without writing anything. Only a
- * value equal to one of this machine's current IPv4 addresses, or to the
- * private address in WEBVIEW_CONFIG.LOCAL_IP (what an earlier setup wrote
- * there, even after DHCP moved the machine), or an http:// URL on one of
- * those hosts, goes back to localhost. WEBVIEW_CONFIG.url is never touched,
- * and nothing is when WEBVIEW_CONFIG.allowPrivateHost is true.
+ * value equal to one of this machine's current IPv4 addresses, or an
+ * http:// URL on one of them, goes back to localhost. So does a private
+ * LOCAL_IP that NODE_SERVER_HOSTNAME also holds: an earlier setup wrote this
+ * machine's address on another network into both, and the dev server can't
+ * bind it here. Any other address, private ones included (a LOCAL_IP
+ * pointing at a VPN or LAN staging server), is the app's own setting.
+ * WEBVIEW_CONFIG.url is never touched, and nothing is when
+ * WEBVIEW_CONFIG.allowPrivateHost is true.
  *
  * @param {object} config - the parsed config.json (not modified)
  * @param {object} [options]
@@ -370,8 +386,15 @@ function planLanAddressMigration(config, { localHosts = localMachineHosts() } = 
     if (wv?.allowPrivateHost === true) return { config, changes }
     // This machine's IPv4 addresses, without loopback and 0.0.0.0/8.
     const saved = new Set([...localHosts].filter((host) => IPV4.test(host) && !/^(?:127|0)\./.test(host)))
-    const localIp = typeof wv?.LOCAL_IP === "string" ? wv.LOCAL_IP.trim() : ""
-    if (isPrivateIPv4(localIp)) saved.add(localIp)
+    // The LAN address this machine had when LOCAL_IP was written.
+    const leftover = typeof wv?.LOCAL_IP === "string" ? wv.LOCAL_IP.trim() : ""
+    if (
+        IPV4.test(leftover) &&
+        PRIVATE_LAN_IPV4.test(leftover) &&
+        String(config.NODE_SERVER_HOSTNAME ?? "").trim() === leftover
+    ) {
+        saved.add(leftover)
+    }
     if (!saved.size) return { config, changes }
 
     const restore = (value) => {
@@ -438,15 +461,16 @@ function migrateLanAddresses({
         const parsed = JSON.parse(text)
         const buildType = platform ? parsed?.WEBVIEW_CONFIG?.[platform]?.buildType : undefined
         if (String(buildType || "").toLowerCase() === "release") return skipped
-        const { config, changes } = planLanAddressMigration(parsed, localHosts ? { localHosts } : undefined)
+        const planned = planLanAddressMigration(parsed, localHosts ? { localHosts } : undefined).changes
+        const changes = planned.length
+            ? writeConfigKeys(file, Object.fromEntries(planned.map((change) => [change.path, change.to])))
+            : []
         if (changes.length) {
-            const indent = /^[ \t]+(?=")/m.exec(text)?.[0] || "    "
-            fs.writeFileSync(file, JSON.stringify(config, null, indent) + (text.endsWith("\n") ? "\n" : ""))
             log(
                 `Put localhost back in config/config.json where an earlier setup saved this machine's LAN address:`,
-                "info"
+                "note"
             )
-            for (const change of changes) log(`  ${change.path}: ${change.from} -> ${change.to}`, "info")
+            for (const change of changes) log(`  ${change.path}: ${change.from} -> ${change.to}`, "note")
         }
         const state = readLocalState({ cwd })
         writeLocalState(
@@ -457,6 +481,221 @@ function migrateLanAddresses({
     } catch (error) {
         log(`Could not check config/config.json for saved LAN addresses: ${error.message}`, "warning")
         return skipped
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Writing config.json. The CLI writes only what a person answered (or the
+// migration above), and says what it saved.
+// ---------------------------------------------------------------------------
+
+const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"])
+
+/** "WEBVIEW_CONFIG.accessControl.allowedUrls[0]" -> ["WEBVIEW_CONFIG", "accessControl", "allowedUrls", 0] */
+function parseKeyPath(keyPath) {
+    const parts = [...String(keyPath).matchAll(/([^.[\]]+)|\[(\d+)\]/g)].map((match) =>
+        match[2] !== undefined ? Number(match[2]) : match[1]
+    )
+    if (!parts.length || parts.some((part) => UNSAFE_KEYS.has(String(part)))) {
+        throw new Error(`Not a config key: "${keyPath}"`)
+    }
+    return parts
+}
+
+/** A path to show: relative to the current directory when it is inside it. */
+function displayPath(file) {
+    const relative = path.relative(process.cwd(), file)
+    return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : file
+}
+
+/**
+ * Set keys in a JSON config file and say what changed. The file is read
+ * right before it is written, so an answer another build saved in the
+ * meantime (android and ios run in parallel) is kept. Nested keys are
+ * created as needed; the file's indentation and trailing newline are kept.
+ * Nothing is written when every value is already set.
+ *
+ * @param {string} file - e.g. <app>/config/config.json
+ * @param {Record<string, unknown>} entries - key path -> value, e.g. { "WEBVIEW_CONFIG.url": "https://shop.acme.com" }
+ * @param {object} [options]
+ * @param {(message: string, type?: string) => void} [options.log] - one line per change
+ * @returns {{ path: string, from: unknown, to: unknown }[]}
+ */
+function writeConfigKeys(file, entries, { log = () => {} } = {}) {
+    const text = fs.readFileSync(file, "utf8")
+    const config = JSON.parse(text)
+    if (config === null || typeof config !== "object" || Array.isArray(config)) {
+        throw new Error(`${displayPath(file)} does not hold a JSON object`)
+    }
+    const changes = []
+    for (const [keyPath, value] of Object.entries(entries)) {
+        const parts = parseKeyPath(keyPath)
+        let node = config
+        for (let index = 0; index < parts.length - 1; index++) {
+            const child = node[parts[index]]
+            if (child === null || typeof child !== "object") {
+                node[parts[index]] = typeof parts[index + 1] === "number" ? [] : {}
+            }
+            node = node[parts[index]]
+        }
+        const last = parts[parts.length - 1]
+        const from = node[last]
+        if (JSON.stringify(from) === JSON.stringify(value)) continue
+        node[last] = value
+        changes.push({ path: keyPath, from, to: value })
+    }
+    if (!changes.length) return changes
+    const indent = /^[ \t]+(?=")/m.exec(text)?.[0] || "    "
+    fs.writeFileSync(file, JSON.stringify(config, null, indent) + (text.endsWith("\n") ? "\n" : ""))
+    const shown = displayPath(file)
+    for (const change of changes) {
+        const value = typeof change.to === "string" ? change.to : JSON.stringify(change.to)
+        log(`Saved ${change.path} = ${value} to ${shown}`, "note")
+    }
+    return changes
+}
+
+// ---------------------------------------------------------------------------
+// Ask once, save: a store build in a terminal asks for the app id and the
+// website it is missing, saves the answers to config.json and carries on.
+// Without a terminal (CI, agents) nothing is asked or written.
+// ---------------------------------------------------------------------------
+
+const MAX_ANSWER_TRIES = 5
+
+/** Prompt until `check` accepts the answer, saying why it did not; `error` after MAX_ANSWER_TRIES. */
+async function askUntilValid(question, check, { prompt, log, error }) {
+    for (let attempt = 0; attempt < MAX_ANSWER_TRIES; attempt++) {
+        const answer = String((await prompt(question)) ?? "").trim()
+        const result = check(answer)
+        if (result.value) return result.value
+        log(result.problem, "warning")
+    }
+    throw error
+}
+
+/** Why a typed app id can't ship on both stores, or null: Android's and Apple's rules, and no placeholder. */
+function typedAppIdProblem(answer) {
+    if (!answer) return "Type an app id, e.g. com.acme.shop"
+    const problem = appIdProblem("android", answer) || appIdProblem("ios", answer)
+    if (problem) return `"${answer}" ${problem}`
+    if (isPlaceholderAppId(answer))
+        return `"${answer}" is a placeholder. Use your own domain reversed, e.g. com.acme.shop`
+    return null
+}
+
+/** The https origin a typed website address means, or why it can't be a store app's start URL. */
+function checkTypedSite(answer, { allowPrivateHost, localHosts }) {
+    if (!answer) return { problem: "Type your website's address, e.g. https://shop.acme.com" }
+    const text = /^[a-z][a-z0-9+.-]*:\/\//i.test(answer) ? answer : `https://${answer}`
+    let origin
+    try {
+        origin = parseAppUrl(text, { source: "The address" })
+    } catch (error) {
+        return { problem: error.message }
+    }
+    if (origin.scheme !== "https") {
+        return { problem: `${origin.origin} uses plain HTTP. A store app needs an https:// address` }
+    }
+    const reason = privateHostReason(origin.host, { localHosts })
+    if (reason && !allowPrivateHost) {
+        return {
+            problem:
+                `${describePrivateHost(origin.host, reason)}, which users' phones can't reach. Use your public site, ` +
+                "or set WEBVIEW_CONFIG.allowPrivateHost to true for an internal app on a private network",
+        }
+    }
+    return { value: origin.origin }
+}
+
+/**
+ * Before a store build: resolve the config once and, in a terminal, ask for
+ * what it is missing. NATIVE-003 (placeholder or missing app id) asks for the
+ * app id, valid on both Android and iOS, and saves it to the key that won
+ * (the platform key when one is set, else WEBVIEW_CONFIG.appId). NATIVE-001
+ * (local or private start URL) asks for the https website, unless `--url`
+ * was passed, and saves it to WEBVIEW_CONFIG.url; a private host is accepted
+ * only with WEBVIEW_CONFIG.allowPrivateHost. Then it resolves again, until
+ * the config passes or fails for another reason.
+ *
+ * Returns at once for a debug build. Without a terminal, or for an error no
+ * answer fixes, it throws the resolver's own error and writes nothing, so the
+ * build reports exactly what it always did.
+ *
+ * @param {"android"|"ios"} platform
+ * @param {object} [options]
+ * @param {boolean} [options.release] - `--release` (the deprecated buildType "release" counts too)
+ * @param {string} [options.url] - `--url`
+ * @param {string} [options.cwd] - the app root
+ * @param {string} [options.configPath] - defaults to <cwd>/config/config.json
+ * @param {Record<string, string | undefined>} [options.env]
+ * @param {Set<string>} [options.localHosts] - this machine's addresses; detected when omitted
+ * @param {boolean} [options.isTTY] - defaults to isInteractive()
+ * @param {typeof promptUser} [options.prompt]
+ * @param {(message: string, type?: string) => void} [options.log]
+ * @returns {Promise<{ changes: { path: string, from: unknown, to: unknown }[] }>}
+ */
+async function askReleaseConfig(
+    platform,
+    {
+        release = false,
+        url,
+        cwd = process.cwd(),
+        configPath,
+        env = process.env,
+        localHosts,
+        isTTY,
+        prompt = promptUser,
+        log = () => {},
+    } = {}
+) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root; the file name is fixed.
+    const file = configPath || path.join(cwd, "config", "config.json")
+    const changes = []
+    const asked = new Set()
+    for (;;) {
+        const config = JSON.parse(fs.readFileSync(file, "utf8"))
+        const wv =
+            config?.WEBVIEW_CONFIG && typeof config.WEBVIEW_CONFIG === "object" ? config.WEBVIEW_CONFIG : {}
+        const buildType = String(wv[platform]?.buildType || "").toLowerCase()
+        if (!release && buildType !== "release") return { changes }
+        let error
+        try {
+            resolveNativeConfig(platform, { release: true, url, config, cwd, env, localHosts }).cleanup()
+            return { changes }
+        } catch (caught) {
+            error = caught
+        }
+        if (!(isTTY ?? isInteractive({ env }))) throw error
+
+        let entries
+        if (error?.code === "NATIVE-001" && (url === undefined || url === null) && !asked.has("url")) {
+            asked.add("url")
+            log(error.message, "warning")
+            const allowPrivateHost = wv.allowPrivateHost === true
+            const site = await askUntilValid(
+                "Your website's https address, e.g. https://shop.acme.com",
+                (answer) => checkTypedSite(answer, { allowPrivateHost, localHosts }),
+                { prompt, log, error }
+            )
+            entries = { "WEBVIEW_CONFIG.url": site }
+        } else if (error?.code === "NATIVE-003" && !asked.has("appId")) {
+            asked.add("appId")
+            log(error.message, "warning")
+            const key = `WEBVIEW_CONFIG.${appIdSource(platform, wv)?.key || "appId"}`
+            const appId = await askUntilValid(
+                "Your app id, e.g. com.acme.shop (it cannot change after the first store upload)",
+                (answer) => {
+                    const problem = typedAppIdProblem(answer)
+                    return problem ? { problem } : { value: answer }
+                },
+                { prompt, log, error }
+            )
+            entries = { [key]: appId }
+        } else {
+            throw error
+        }
+        changes.push(...writeConfigKeys(file, entries, { log }))
     }
 }
 
@@ -473,4 +712,6 @@ export {
     ensureDevServer,
     planLanAddressMigration,
     migrateLanAddresses,
+    writeConfigKeys,
+    askReleaseConfig,
 }

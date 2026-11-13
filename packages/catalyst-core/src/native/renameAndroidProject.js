@@ -6,6 +6,7 @@ var _path = _interopRequireDefault(require("path"))
 var _utils = require("./utils.js")
 var _theme = require("../cli/theme.js")
 var _projectFiles = require("./projectFiles.js")
+var _output = require("./buildAndroid/output.js")
 
 function _interopRequireDefault(e) {
     return e && e.__esModule ? e : { default: e }
@@ -99,7 +100,7 @@ const STEP_DETAILS = {
     createTempDeployment: "copying the project to a build folder",
     updateFileContents: "applying the app id and name",
     createSignedAAB: "running Gradle",
-    finalizeAAB: "saving the AAB",
+    finalizeAAB: "saving the AAB and APK",
 }
 
 /**
@@ -138,10 +139,11 @@ function gradleTask(line) {
 }
 
 /**
- * Generate the release webview config and build the signed bundle inside the
- * temp copy. Two Gradle runs: the manifest's allowBackup placeholder is read
- * from webview_config.properties while Gradle configures the project, so the
- * file must exist before bundleRelease is configured.
+ * Generate the release webview config and build the signed bundle and the
+ * signed universal APK inside the temp copy. Two Gradle runs: the manifest's
+ * allowBackup placeholder is read from webview_config.properties while Gradle
+ * configures the project, so the file must exist before bundleRelease is
+ * configured. bundleRelease and assembleRelease share the second run.
  *
  * Signing and version values arrive in `gradle.env` as ORG_GRADLE_PROJECT_*
  * variables; nothing secret is put on the command line.
@@ -178,9 +180,9 @@ async function createSignedAAB(projectPaths, androidConfig) {
         ...common,
     ])
 
-    progress.log("Building signed AAB (clean bundleRelease)...", "info")
-    await run(["clean", "bundleRelease", ...common])
-    progress.log("Bundle build completed", "success")
+    progress.log(`Building signed AAB and APK (${_output.RELEASE_GRADLE_TASKS.join(" ")})...`, "info")
+    await run([..._output.RELEASE_GRADLE_TASKS, ...common])
+    progress.log("Bundle and APK build completed", "success")
 
     const aabPath = _path.default.join(
         newProjectPath,
@@ -195,11 +197,13 @@ async function createSignedAAB(projectPaths, androidConfig) {
         throw new Error(`Signed AAB file was not generated at ${aabPath}`)
     }
 
+    const apkPath = (0, _output.builtReleaseApk)(newProjectPath)
+
     const stats = _fs.default.statSync(aabPath)
     const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2)
     progress.log(`Signed AAB created (${fileSizeMB} MB)`, "success")
 
-    return { aabPath, outputAabPath: aabPath, fileSize: fileSizeMB }
+    return { aabPath, outputAabPath: aabPath, apkPath, fileSize: fileSizeMB }
 }
 
 async function initializeConfig(configPath) {
@@ -629,6 +633,11 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
         _fs.default.copyFileSync(aabResult.outputAabPath, finalAabPath)
         progress.log(`AAB saved to: ${finalAabPath}`, "success")
 
+        // The APK lives in the temp copy too: save it before the cleanup.
+        const finalApkPath = androidConfig.finalApkPath || (0, _output.apkBeside)(finalAabPath)
+        _fs.default.copyFileSync(aabResult.apkPath, finalApkPath)
+        progress.log(`APK saved to: ${finalApkPath}`, "success")
+
         // Clean up temporary deployment directory
         await cleanupTempDeployment(tempDeploymentPath)
 
@@ -636,6 +645,7 @@ async function finalizeAABAndCleanup(projectPaths, androidConfig, aabResult, tem
             ...aabResult,
             finalAabPath,
             finalAabName,
+            finalApkPath,
             outputDir,
         }
     } catch (error) {
@@ -992,6 +1002,12 @@ async function runAABBuild(configPathOrConfig) {
                       },
                       {
                           text: `AAB size: ${aabResult.fileSize} MB`,
+                          indent: 1,
+                          prefix: "├─ ",
+                          color: "green",
+                      },
+                      {
+                          text: `APK file: ${aabResult.finalApkPath} (for test installs)`,
                           indent: 1,
                           prefix: "└─ ",
                           color: "green",

@@ -158,6 +158,35 @@ const safeCallNamed = async (hookName, fn, ...args) => {
     }
 }
 
+// The hooks Catalyst reads by name from the app's server/index.js. Keep in
+// step with the readers: scripts/preServerInit.js (preServerInit),
+// server/expressServer.ts (onServerError) and server/renderer/handler.tsx.
+const SERVER_HOOK_NAMES = [
+    "preServerInit",
+    "onServerError",
+    "onRouteMatch",
+    "onFetcherSuccess",
+    "onFetcherError",
+    "onAppServerSideSuccess",
+    "onAppServerSideError",
+    "onRenderError",
+    "onRequestError",
+]
+
+/**
+ * Hooks the app put on `export default { ... }` instead of exporting by name.
+ * Every reader takes the named export, so these are silently never called.
+ * Returns the hook names present on a plain-object default export that have
+ * no named export of their own; [] when there is nothing to warn about.
+ */
+const ignoredDefaultHooks = (mod: any): string[] => {
+    const def = mod?.default
+    if (!def || typeof def !== "object") return []
+    const proto = Object.getPrototypeOf(def)
+    if (proto !== Object.prototype && proto !== null) return []
+    return SERVER_HOOK_NAMES.filter((name) => name in def && !(name in mod))
+}
+
 export {
     handleError,
     validateConfigFile,
@@ -171,4 +200,5 @@ export {
     validateMiddleware,
     safeCall,
     safeCallNamed,
+    ignoredDefaultHooks,
 }

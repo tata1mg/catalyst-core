@@ -69,15 +69,15 @@ production-style run.
 
 | Command | Purpose |
 |---------|---------|
-| `npm run android` (`catalyst buildApp:android`) | Install what is missing, start the dev server if needed, then build and run the Android debug app |
+| `npm run android` (`catalyst buildApp:android`) | Install what is missing, start the dev server if needed, then build and run the Android debug app. Also saves it as an APK in `build-output/android/debug/` |
 | `npm run ios` (`catalyst buildApp:ios`) | The same for iOS, on a simulator or connected iPhone |
-| `npm run android:release` (`catalyst buildApp:android --release`) | Build the signed Android App Bundle for Google Play |
+| `npm run android:release` (`catalyst buildApp:android --release`) | Build the signed Android App Bundle for Google Play and a signed APK for test phones |
 | `npm run ios:release` (`catalyst buildApp:ios --release`) | Build the signed iOS IPA for App Store Connect |
 | `catalyst credentials:export <android\|ios>` | Print `credentials/<platform>/` as one value, for the CI secret and as a backup |
 | `catalyst setupEmulator:android` | Install the Android toolchain and an emulator, then start it. Changes nothing in the app |
 | `catalyst setupEmulator:ios` | Finish Xcode setup and install a simulator runtime and a simulator. Changes nothing in the app |
 
-Apps created before 1.3.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands.
+Apps created before 1.2.0 have `buildApp:android` and `buildApp:ios` scripts instead; they run the same commands. For a release there, run `npm run buildApp:android -- --release` or `npm run buildApp:ios -- --release`.
 
 | Option | Effect |
 |--------|--------|
@@ -89,7 +89,7 @@ Apps created before 1.3.0 have `buildApp:android` and `buildApp:ios` scripts ins
 
 Through npm scripts, pass options after `--`, for example `npm run android -- --device`. The options can go before or after the command.
 
-Nothing is asked when stdin and stdout are not both terminals or when `CI` is set. A step that needs an answer then fails at once with [NATIVE-005](/errors/NATIVE/NATIVE-005), naming the option that answers it. `--yes` never accepts a licence and never creates a signing key; creating the Android upload key always needs a person at a terminal.
+In a terminal, a release asks once for a missing or placeholder app id and a missing `https://` website, and saves them to `config/config.json`. Nothing is asked or saved when stdin and stdout are not both terminals or when `CI` is set. A missing app id or website then fails with [NATIVE-003](/errors/NATIVE/NATIVE-003) or [NATIVE-001](/errors/NATIVE/NATIVE-001) as before, and any other step that needs an answer fails at once with [NATIVE-005](/errors/NATIVE/NATIVE-005), naming the option that answers it. `--yes` never accepts a licence and never creates a signing key; creating the Android upload key always needs a person at a terminal.
 
 | Environment variable | Use |
 |----------------------|-----|

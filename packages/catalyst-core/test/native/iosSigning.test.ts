@@ -1,4 +1,5 @@
 import { execFileSync } from "child_process"
+import crypto from "crypto"
 import fs from "fs"
 import { createRequire } from "module"
 import os from "os"
@@ -7,7 +8,9 @@ import { fileURLToPath } from "url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+    DEBUG_BUILD_SETTINGS,
     buildExportOptions,
+    findInstalledProfileIdentity,
     isReleaseBuildType,
     isSigningFailure,
     parseIdentity,
@@ -375,6 +378,96 @@ describe("readProvisioningProfile", () => {
     })
 })
 
+describe("findInstalledProfileIdentity", () => {
+    const der = (text: string) => Buffer.from(text).toString("base64")
+    const sha1 = (text: string) => crypto.createHash("sha1").update(Buffer.from(text)).digest("hex").toUpperCase()
+
+    // A fake home with installed profiles, and a fake `security`/`plutil` that
+    // answer from the fields of whichever profile was decoded last.
+    function installed(profiles: Record<string, Record<string, string>>, identities: string) {
+        const homeDir = tempDir()
+        const dir = path.join(homeDir, "Library", "Developer", "Xcode", "UserData", "Provisioning Profiles")
+        fs.mkdirSync(dir, { recursive: true })
+        for (const file of Object.keys(profiles)) fs.writeFileSync(path.join(dir, file), "")
+        let current: Record<string, string> = {}
+        const run = (command: string, args: string[]) => {
+            if (command === "security" && args[0] === "find-identity") return identities
+            if (command === "security" && args[0] === "cms") {
+                current = profiles[path.basename(args[3])]
+                return ""
+            }
+            if (command === "plutil" && args[1] in current) return `${current[args[1]]}\n`
+            throw new Error("No value at that key path")
+        }
+        return { homeDir, run, workDir: tempDir() }
+    }
+
+    const keychain = [
+        `  1) ${sha1("apple-dist")} "Apple Distribution: Acme (TEAM123)"`,
+        `  2) ${sha1("iphone-dist")} "iPhone Distribution: Acme (TEAM123)"`,
+        "     2 valid identities found",
+    ].join("\n")
+    const profile = (fields: Record<string, string>) => ({
+        UUID: "1111-2222",
+        Name: "Shop Distribution",
+        "TeamIdentifier.0": "TEAM123",
+        "Entitlements.application-identifier": "TEAM123.com.acme.shop",
+        ExpirationDate: "2099-01-01T00:00:00Z",
+        DeveloperCertificates: "1",
+        "DeveloperCertificates.0": der("iphone-dist"),
+        ...fields,
+    })
+
+    it("picks the keychain identity the profile lists, not the first distribution certificate", () => {
+        const setup = installed({ "a.mobileprovision": profile({}) }, keychain)
+        expect(
+            findInstalledProfileIdentity({ profile: "Shop Distribution", bundleId: "com.acme.shop", ...setup })
+        ).toMatchObject({
+            sha1: sha1("iphone-dist"),
+            name: "iPhone Distribution: Acme (TEAM123)",
+            teamId: "TEAM123",
+            uuid: "1111-2222",
+        })
+    })
+
+    it("matches by UUID too, and skips expired profiles and other bundle ids", () => {
+        const setup = installed(
+            {
+                "expired.mobileprovision": profile({
+                    UUID: "0000-0000",
+                    ExpirationDate: "2000-01-01T00:00:00Z",
+                    "DeveloperCertificates.0": der("apple-dist"),
+                }),
+                "other.mobileprovision": profile({
+                    UUID: "3333-4444",
+                    "Entitlements.application-identifier": "TEAM123.com.acme.other",
+                    "DeveloperCertificates.0": der("apple-dist"),
+                }),
+                "good.mobileprovision": profile({ UUID: "5555-6666" }),
+            },
+            keychain
+        )
+        const found = (name: string) =>
+            findInstalledProfileIdentity({ profile: name, bundleId: "com.acme.shop", ...setup })
+        expect(found("Shop Distribution")?.uuid).toBe("5555-6666")
+        expect(found("5555-6666")?.sha1).toBe(sha1("iphone-dist"))
+        expect(found("0000-0000")).toBeNull()
+        expect(found("3333-4444")).toBeNull()
+    })
+
+    it("returns null when the certificate is not in the keychain or nothing is installed", () => {
+        const missingCert = installed(
+            { "a.mobileprovision": profile({ "DeveloperCertificates.0": der("someone-else") }) },
+            keychain
+        )
+        expect(findInstalledProfileIdentity({ profile: "Shop Distribution", ...missingCert })).toBeNull()
+
+        const empty = { homeDir: tempDir(), run: () => keychain, workDir: tempDir() }
+        expect(findInstalledProfileIdentity({ profile: "Shop Distribution", ...empty })).toBeNull()
+        expect(findInstalledProfileIdentity({ profile: "", ...empty })).toBeNull()
+    })
+})
+
 describe("setupP12Signing", () => {
     const P12_PASSWORD = "p12-s3cret-value"
     const SHA = "B".repeat(40)
@@ -689,6 +782,20 @@ describe("signing failures", () => {
         expect(error.hint).toMatch(/CATALYST_IOS_CREDENTIALS/)
         expect(error.hint).toMatch(/catalyst credentials:export ios/)
         expect(error.hint).not.toMatch(/CATALYST_ASC_|CATALYST_IOS_P12/)
+    })
+})
+
+describe("debug xcodebuild settings", () => {
+    it("turn off Xcode's debug dylib, so a debug build signs only the app", () => {
+        expect(DEBUG_BUILD_SETTINGS).toEqual(["ENABLE_DEBUG_DYLIB=NO"])
+    })
+
+    it("go into the simulator command and the iPhone arguments, not the release archive", () => {
+        const build = fs.readFileSync(path.join(here, "../../src/native/buildIos/build.js"), "utf8")
+        expect(build).toContain('${DEBUG_BUILD_SETTINGS.join(" ")} \\')
+        expect(build).toMatch(/"ONLY_ACTIVE_ARCH=YES",\s+\.\.\.DEBUG_BUILD_SETTINGS,/)
+        const index = fs.readFileSync(path.join(here, "../../src/native/buildIos/index.js"), "utf8")
+        expect(index).not.toContain("DEBUG_BUILD_SETTINGS")
     })
 })
 

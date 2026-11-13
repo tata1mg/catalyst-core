@@ -14,9 +14,15 @@ const {
     isReleaseBuildType,
     resolveExportMethod,
     readIosCredentials,
-    planIosSigning,
+    planSigningForConfig,
+    productBundleId,
     xcodeAuthArgs,
     setupP12Signing,
+    createProfileScanner,
+    pickInstalledProfile,
+    XCODE_TEAM_HINT,
+    deviceSigningHint,
+    missingProfileError,
     buildExportOptions,
     writeExportOptionsPlist,
     isSigningFailure,
@@ -24,7 +30,11 @@ const {
 } = require("./signing.js")
 const { generateLocalhostP12 } = require("./localhostCert.js")
 const { artifactBaseName, releaseOutputDir } = require("./output.js")
-const { DEFAULT_VERSION_NAME, assertReleaseFolderFree } = require("../releaseOutput.js")
+const {
+    DEFAULT_VERSION_NAME,
+    assertReleaseFolderFree,
+    ensureBuildOutputIgnore,
+} = require("../releaseOutput.js")
 
 const createConfigPhase = require("./config.js")
 const createPluginsPhase = require("./plugins.js")
@@ -70,6 +80,7 @@ const IOS_BUILD_STEPS = {
  * @param {{ target: "simulator", name?: string, udid?: string } | { target: "device", name: string, udid: string }} [options.target] - debug: from buildAppIos.js; without it, the configured simulator
  * @param {string} [options.appRoot] - the app root, for credentials/ and build-output/
  * @param {Record<string, string | undefined>} [options.env]
+ * @param {() => ReturnType<typeof import("./signing.js").scanInstalledProfiles>} [options.scanProfiles] - the installed profiles, scanned once per run (buildAppIos.js shares its scan)
  */
 function createIosBuild(
     config,
@@ -81,6 +92,7 @@ function createIosBuild(
         target,
         appRoot = process.cwd(),
         env = process.env,
+        scanProfiles = createProfileScanner(),
     } = {}
 ) {
     const { BUILD_OUTPUT_PATH } = config
@@ -134,11 +146,15 @@ function createIosBuild(
         return credentials
     }
     if (release) loadCredentials()
-    const signingPlan = planIosSigning({
-        iosConfig: WEBVIEW_CONFIG.ios || {},
+    // What Shared.xcconfig sets as PRODUCT_BUNDLE_IDENTIFIER (generateXCConfig),
+    // needed to pick an installed profile.
+    const PRODUCT_BUNDLE_ID = productBundleId(WEBVIEW_CONFIG.ios || {})
+    const signingPlan = planSigningForConfig({
+        WEBVIEW_CONFIG,
         credentials,
         release,
         exportMethod,
+        scanProfiles,
     })
     // Automatic signing uses the API key when there is one: cloud signing
     // for a release, development signing for an iPhone.
@@ -146,10 +162,15 @@ function createIosBuild(
     const apiKey = release ? resolveApiKey() : null
     if (release && signingPlan.style === "automatic" && !signingPlan.teamId) {
         credentials?.cleanup()
-        throw nativeError(
-            "IOS-010",
-            "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam"
-        )
+        const detail = "a signed release with automatic signing needs WEBVIEW_CONFIG.ios.developmentTeam"
+        const missing = missingProfileError(signingPlan.missingProfileFor, detail)
+        throw missing
+            ? nativeError("IOS-010", missing.detail, { hint: missing.hint })
+            : nativeError(
+                  "IOS-010",
+                  detail,
+                  signingPlan.source === "Xcode account" ? { hint: XCODE_TEAM_HINT } : {}
+              )
     }
 
     const iosConfig = WEBVIEW_CONFIG.ios
@@ -164,9 +185,6 @@ function createIosBuild(
     const PROJECT_DIR = `${pwd}/iosnativeWebView`
     const SCHEME_NAME = iosConfig.scheme || "iosnativeWebView"
     const APP_BUNDLE_ID = iosConfig.appBundleId || "com.debug.webview"
-    // What Shared.xcconfig sets as PRODUCT_BUNDLE_IDENTIFIER (generateXCConfig).
-    const PRODUCT_BUNDLE_ID =
-        iosConfig.bundleIdentifier || iosConfig.appBundleId || "com.catalyst.framework.app"
     const PROJECT_NAME = path.basename(PROJECT_DIR)
     const IPHONE_MODEL =
         (target?.target === "simulator" && target.name) || iosConfig.simulatorName || "Catalyst iPhone"
@@ -428,11 +446,13 @@ function createIosBuild(
                     progress.complete("build")
                 } catch (error) {
                     // The diagnostic in the catch below shows what xcodebuild
-                    // said. A signing failure gets IOS-010, which names both
-                    // ways to set signing up. Not checked up front: an Apple
-                    // account signed in to Xcode signs fine without either.
+                    // said. A signing failure gets IOS-010 with the
+                    // development hint (ios.developmentTeam, or what to check
+                    // in ios.provisioningProfile), not the App Store one.
                     const failure = isSigningFailure(error.output)
-                        ? signingSetupError("Xcode could not sign the device build", error)
+                        ? signingSetupError("Xcode could not sign the device build", error, {
+                              hint: deviceSigningHint(signingPlan),
+                          })
                         : error
                     failure.stage = failure.stage || "Building for the device"
                     throw failure
@@ -510,12 +530,32 @@ function createIosBuild(
                 signing.provisioningProfile = p12Signing.profile.name
                 signing.identity = p12Signing.identity.sha1
                 signing.teamId = p12Signing.profile.teamId || signing.teamId
-            } else if (signing.style === "manual" && exportMethod !== "debugging") {
-                signing.identity = "iPhone Distribution"
+            } else if (signing.source === "ios.provisioningProfile" && exportMethod !== "debugging") {
+                const { identity: installed, reason } = pickInstalledProfile(scanProfiles(), {
+                    profile: signing.provisioningProfile,
+                    bundleId: PRODUCT_BUNDLE_ID,
+                })
+                if (installed) {
+                    signing.identity = installed.sha1
+                    signing.signingCertificate = installed.sha1
+                    signing.teamId = signing.teamId || installed.teamId
+                    progress.log(`Signing with "${installed.name}", the certificate in that profile`, "info")
+                } else {
+                    signing.identity = "iPhone Distribution"
+                    progress.log(
+                        `Could not match ios.provisioningProfile "${signing.provisioningProfile}" to a certificate: ${reason}. Signing with the generic "iPhone Distribution" identity, which Xcode resolves to the first distribution certificate it finds.`,
+                        "warning"
+                    )
+                }
             }
             const from = credentials?.source === "env" ? "CATALYST_IOS_CREDENTIALS" : "credentials/ios"
             if (signingPlan.p12) {
                 progress.log(`Local signing with the .p12 and profile from ${from}`, "info")
+            } else if (signing.source === "installed profile") {
+                progress.log(
+                    `Signing with the installed profile "${signing.profileName}" (team ${signing.teamId}) and "${signing.certificateName}"`,
+                    "info"
+                )
             } else if (signing.style === "manual") {
                 progress.log(`Manual signing with profile "${signing.provisioningProfile}"`, "info")
             } else {
@@ -535,6 +575,7 @@ function createIosBuild(
             process.chdir(PROJECT_DIR)
 
             const outDir = releaseOutputDir(appRoot, version)
+            ensureBuildOutputIgnore(outDir, appRoot)
             fs.mkdirSync(outDir, { recursive: true })
             const name = artifactBaseName(iosConfig.appName)
             const archivePath = path.join(workDir, `${name}.xcarchive`)
@@ -558,7 +599,9 @@ function createIosBuild(
                 ])
             } catch (error) {
                 const failure = isSigningFailure(error.output)
-                    ? signingSetupError("Xcode could not sign the release archive", error)
+                    ? signingSetupError("Xcode could not sign the release archive", error, {
+                          missingProfileFor: signing.missingProfileFor,
+                      })
                     : error
                 failure.stage = "Archiving the release build"
                 throw failure
@@ -574,7 +617,7 @@ function createIosBuild(
                     signingStyle: signing.style,
                     bundleId: PRODUCT_BUNDLE_ID,
                     profileName: signing.provisioningProfile,
-                    signingCertificate: signing.p12 ? signing.identity : undefined,
+                    signingCertificate: signing.p12 ? signing.identity : signing.signingCertificate,
                 }),
                 path.join(workDir, "ExportOptions.plist")
             )
@@ -591,7 +634,9 @@ function createIosBuild(
                 ])
             } catch (error) {
                 const failure = isSigningFailure(error.output)
-                    ? signingSetupError("Xcode could not sign the IPA for export", error)
+                    ? signingSetupError("Xcode could not sign the IPA for export", error, {
+                          missingProfileFor: signing.missingProfileFor,
+                      })
                     : error
                 failure.stage = "Exporting the IPA"
                 throw failure
