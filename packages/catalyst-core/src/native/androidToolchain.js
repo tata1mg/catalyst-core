@@ -84,6 +84,18 @@ function resolveJavaHome({
         add(path.join(home, "android-studio", "jbr"), "Android Studio")
         const java = run("sh", ["-c", 'readlink -f "$(command -v java)"'])
         if (java && java.trim()) add(path.dirname(path.dirname(java.trim())), "PATH")
+    } else if (platform === "win32") {
+        // Android Studio's JBR, which nothing puts on PATH, then any java on PATH.
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+        if (env.ProgramFiles)
+            add(path.join(env.ProgramFiles, "Android", "Android Studio", "jbr"), "Android Studio")
+        if (env.LOCALAPPDATA) {
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+            add(path.join(env.LOCALAPPDATA, "Programs", "Android Studio", "jbr"), "Android Studio")
+        }
+        const java = run("where", ["java"])
+        const first = java && java.split(/\r?\n/)[0].trim()
+        if (first) add(path.dirname(path.dirname(first)), "PATH")
     }
 
     const exe = platform === "win32" ? "java.exe" : "java"
@@ -164,7 +176,9 @@ async function ensureJava({
     if (platform !== "darwin") {
         throw nativeError(
             "ANDROID-007",
-            "install a JDK 17 or 21 (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
+            platform === "win32"
+                ? "install a JDK 17 or 21 (e.g. winget install Microsoft.OpenJDK.17), or Android Studio, then open a new terminal"
+                : "install a JDK 17 or 21 (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
         )
     }
     if (!hasCommand("brew")) {
@@ -258,9 +272,11 @@ function missingAndroidPackages(sdkPath, packages, exists = fs.existsSync) {
 function defaultSdkPath(env = process.env, platform = process.platform) {
     if (env.ANDROID_HOME) return env.ANDROID_HOME
     if (env.ANDROID_SDK_ROOT) return env.ANDROID_SDK_ROOT
-    return platform === "darwin"
-        ? path.join(os.homedir(), "Library", "Android", "sdk")
-        : path.join(os.homedir(), "Android", "Sdk")
+    if (platform === "darwin") return path.join(os.homedir(), "Library", "Android", "sdk")
+    // Where Android Studio puts it, so the two share one SDK.
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - LOCALAPPDATA names this user's own folder, never remote input.
+    if (platform === "win32" && env.LOCALAPPDATA) return path.join(env.LOCALAPPDATA, "Android", "Sdk")
+    return path.join(os.homedir(), "Android", "Sdk")
 }
 
 /**
@@ -317,9 +333,23 @@ async function curlDownload(url, dest) {
     await runInteractiveCommand("curl", ["-fsSL", "--retry", "2", "-o", dest, url])
 }
 
-function unzipArchive(zip, dest) {
+function unzipArchive(
+    zip,
+    dest,
+    { platform = process.platform, env = process.env, exec = execFileSync, exists = fs.existsSync } = {}
+) {
+    if (platform === "win32") {
+        // No unzip on Windows. Its own tar (bsdtar, in System32 since Windows 10)
+        // reads zip; Git's GNU tar, often first on PATH, does not.
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - SystemRoot names the Windows folder, never remote input.
+        const systemTar = path.join(env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
+        const tar = exists(systemTar) ? systemTar : "tar"
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - tar with an argv array on a checksum-verified archive.
+        exec(tar, ["-xf", zip, "-C", dest], { stdio: ["ignore", "ignore", "pipe"] })
+        return
+    }
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - unzip with an argv array on a checksum-verified archive.
-    execFileSync("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
+    exec("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
 }
 
 /**
@@ -522,8 +552,7 @@ async function ensureAndroidSdk({
         if (emulatorName && avds.includes(emulatorName)) avdName = emulatorName
         else {
             if (emulatorName) log(`The configured emulator "${emulatorName}" does not exist`, "warning")
-            avdName =
-                [preferredAvd, AVD_NAME].find((name) => name && avds.includes(name)) || avds[0] || null
+            avdName = [preferredAvd, AVD_NAME].find((name) => name && avds.includes(name)) || avds[0] || null
         }
         createAvd = !avdName
         if (createAvd) avdName = AVD_NAME
@@ -621,6 +650,7 @@ export {
     requiredAndroidPackages,
     missingAndroidPackages,
     defaultSdkPath,
+    unzipArchive,
     resolveSdkPath,
     cmdlineTool,
     licensesAccepted,

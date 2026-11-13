@@ -6,6 +6,10 @@ slug: faqs
 
 # FAQs
 
+## Does Catalyst work on Windows?
+
+Yes, natively, in PowerShell, Command Prompt or Git Bash, so WSL is not needed. Every command works except the iOS ones, which need macOS and Xcode. For Android, see the Windows notes in the [Android Emulator Setup](/content/Guides%20and%20Tutorials/android-emulator-setup) guide.
+
 ## Where should `config/config.json` live?
 
 Keep the file at `config/config.json` inside the project root. Catalyst reads runtime and build settings from this path.

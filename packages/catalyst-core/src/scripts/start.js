@@ -2,7 +2,7 @@ import path from "path"
 import { spawn } from "child_process"
 import { arrayToObject, loaderImportArg, resolveOutputMode } from "./scriptUtils.js"
 import { runStaticPreflightOrExit } from "./preflight.js"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { dirname } from "path"
 import { readFileSync } from "fs"
 import { createRequire } from "module"
@@ -13,9 +13,11 @@ const __dirname = dirname(__filename)
 const requireCjs = createRequire(import.meta.url)
 const { superviseServer, ensurePortFree } = requireCjs("../cli/devOutput.js")
 const { loadAppConfig } = requireCjs("../cli/appConfig.js")
+const { appRoot } = requireCjs("../cli/platform.js")
 
 const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
-const preInitPath = path.resolve(__dirname, "preServerInit.js")
+// A URL: --import takes a module specifier, and C:\ reads as a scheme.
+const preInitUrl = pathToFileURL(path.resolve(__dirname, "preServerInit.js")).href
 
 /**
  * @description - starts the dev server
@@ -35,12 +37,13 @@ async function start() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
+    const appDir = appRoot()
 
     // Read package.json
-    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const packageJson = JSON.parse(readFileSync(path.join(appDir, "package.json"), "utf-8"))
     const { name } = packageJson
 
-    const appConfig = loadAppConfig(process.env.PWD || process.cwd())
+    const appConfig = loadAppConfig(appDir)
     await ensurePortFree({
         port: argumentsObject.NODE_SERVER_PORT || appConfig.NODE_SERVER_PORT,
         host: argumentsObject.NODE_SERVER_HOSTNAME || appConfig.NODE_SERVER_HOSTNAME,
@@ -48,8 +51,8 @@ async function start() {
     })
 
     const child = spawn(
-        "node",
-        ["--import", preInitPath, "--import", loaderImportArg(loaderPath), "./dist/server/expressServer.js"],
+        process.execPath,
+        ["--import", preInitUrl, "--import", loaderImportArg(loaderPath), "./dist/server/expressServer.js"],
         {
             cwd: dirname,
             stdio: ["inherit", "pipe", "pipe"],
@@ -66,7 +69,7 @@ async function start() {
                 CATALYST_WRAPPED: "1",
                 // When the command was run, so "Ready in" counts the whole wait.
                 CATALYST_STARTED_AT: String(Math.round(performance.timeOrigin)),
-                src_path: process.env.PWD,
+                src_path: appDir,
                 NODE_ENV: "development",
                 APPLICATION: name || "catalyst_app",
                 CATALYST_OUTPUT_MODE: outputMode,

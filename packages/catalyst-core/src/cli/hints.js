@@ -1,5 +1,7 @@
 "use strict"
 
+const { freePortCommand, isWindows } = require("./platform.js")
+
 /**
  * Hints for failures we actually understand.
  *
@@ -23,7 +25,7 @@ const HINTS = [
             const port = match[2]
             const where = port ? `port ${port}` : "that port"
             return port
-                ? `Something is already on ${where}. Free it with \`lsof -ti :${port} | xargs kill\`, or set NODE_SERVER_PORT in config/config.json.`
+                ? `Something is already on ${where}. Free it with \`${freePortCommand(port)}\`, or set NODE_SERVER_PORT in config/config.json.`
                 : `Something is already on ${where}. Stop it, or set NODE_SERVER_PORT in config/config.json.`
         },
     },
@@ -35,7 +37,7 @@ const HINTS = [
     {
         test: /SDK location not found|ANDROID_HOME/i,
         hint: () =>
-            "Set the Android SDK path in config/config.json under WEBVIEW_CONFIG.android.sdkPath, or export ANDROID_HOME.",
+            `Set the Android SDK path in config/config.json under WEBVIEW_CONFIG.android.sdkPath, or ${isWindows() ? "set the ANDROID_HOME environment variable" : "export ANDROID_HOME"}.`,
     },
     {
         test: /No booted simulator found/i,

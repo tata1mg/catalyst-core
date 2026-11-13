@@ -4,7 +4,14 @@ const path = require("path")
 const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
 const { execFileSync } = require("child_process")
-const { runCommand, runFile, runInteractiveCommand, isInteractive, select } = require("../utils.js")
+const {
+    androidTools,
+    runCommand,
+    runFile,
+    runInteractiveCommand,
+    isInteractive,
+    select,
+} = require("../utils.js")
 const { buildFailure } = require("../../cli/diagnostic.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
@@ -73,8 +80,8 @@ function createAndroidBuild(
     const flags = { yes, acceptLicenses }
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
-    const configPath = `${process.cwd()}/config/config.json`
-    const publicPath = `${process.cwd()}/public`
+    const configPath = path.join(process.cwd(), "config", "config.json")
+    const publicPath = path.join(process.cwd(), "public")
 
     const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "android" })
 
@@ -205,7 +212,8 @@ function createAndroidBuild(
             applyJavaHome(java)
             progress.log(`Java ${java.version} from ${java.source}`, "info")
             androidConfig.sdkPath = resolveSdkPath(androidConfig)
-            const adbPath = path.join(androidConfig.sdkPath, "platform-tools", "adb")
+            // With .exe on Windows, where listDevices checks the file exists.
+            const adbPath = androidTools(androidConfig.sdkPath).adb
 
             // Where a debug build runs: the emulator unless --device, or a
             // person here picks a connected phone.

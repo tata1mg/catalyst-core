@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type themeModule from "../../src/cli/theme.js"
+import { stubPlatform } from "../onPlatform"
 
 // Loaded with require, the way serve.js and the native commands load them:
 // v8 coverage then sees one copy of each CommonJS file rather than an
@@ -25,6 +26,8 @@ const {
     wireServerOutput,
     superviseServer,
     ensurePortFree,
+    listeningPidFromNetstat,
+    imageNameFromTasklist,
     createLineReader,
     BANNER_START,
     BANNER_END,
@@ -40,6 +43,8 @@ const {
         options: { scope: string; label: string; passthrough?: boolean }
     ) => State
     ensurePortFree: (options: { port: unknown; host?: string; scope: string }) => Promise<void>
+    listeningPidFromNetstat: (output: string, port: number) => string | null
+    imageNameFromTasklist: (output: string) => string | null
     createLineReader: (onLine: (line: string) => void) => { push: (chunk: string) => void; flush: () => void }
     BANNER_START: string
     BANNER_END: string
@@ -469,11 +474,46 @@ describe("superviseServer (catalyst start)", () => {
     })
 })
 
+describe("listeningPidFromNetstat", () => {
+    const netstat = [
+        "",
+        "Active Connections",
+        "",
+        "  Proto  Local Address          Foreign Address        State           PID",
+        "  TCP    127.0.0.1:3005         127.0.0.1:51000        ESTABLISHED     111",
+        "  TCP    0.0.0.0:4000           0.0.0.0:0              LISTENING       222",
+        "  TCP    [::1]:3005             [::]:0                 ABHÖREN         333",
+        "  UDP    0.0.0.0:3005           *:*                                    444",
+        "",
+    ].join("\r\n")
+
+    it("finds the listener, in IPv6 and in any language, and not a client of it", () => {
+        expect(listeningPidFromNetstat(netstat, 3005)).toBe("333")
+        expect(listeningPidFromNetstat(netstat, 4000)).toBe("222")
+    })
+
+    it("does not match a port by its suffix, and reports nothing when nothing listens", () => {
+        expect(listeningPidFromNetstat(netstat, 305)).toBe(null)
+        expect(listeningPidFromNetstat(netstat, 80)).toBe(null)
+        expect(listeningPidFromNetstat("", 80)).toBe(null)
+    })
+})
+
+describe("imageNameFromTasklist", () => {
+    it("reads the first CSV field, and nothing from a no-match message", () => {
+        expect(imageNameFromTasklist('"node.exe","4242","Console","1","80,000 K"\r\n')).toBe("node.exe")
+        expect(imageNameFromTasklist("INFO: No tasks are running which match the specified criteria.")).toBe(
+            null
+        )
+    })
+})
+
 describe("ensurePortFree", () => {
     const net: typeof import("node:net") = load("node:net")
     const childProcess: typeof import("node:child_process") = load("node:child_process")
     let stderr: string
     let exit: ReturnType<typeof vi.spyOn>
+    let restorePlatform: () => void
 
     // A server whose listen() reports the given outcome, with no socket opened.
     const fakeServer = (outcome: { error?: { code: string } }) => {
@@ -490,6 +530,7 @@ describe("ensurePortFree", () => {
 
     beforeEach(() => {
         stderr = ""
+        restorePlatform = stubPlatform("linux")
         exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never)
         vi.spyOn(process.stderr, "write").mockImplementation(((chunk: string) => {
             stderr += plain(String(chunk))
@@ -497,7 +538,28 @@ describe("ensurePortFree", () => {
         }) as never)
     })
     afterEach(() => {
+        restorePlatform()
         vi.restoreAllMocks()
+    })
+
+    it("names the owner of a port on Windows, from netstat and tasklist", () => {
+        const restore = stubPlatform("win32")
+        fakeServer({ error: { code: "EADDRINUSE" } })
+        const run = vi
+            .spyOn(childProcess, "execFileSync")
+            .mockImplementation(((command: string) =>
+                command === "netstat"
+                    ? "  TCP    [::1]:3005    [::]:0    LISTENING    4242\r\n"
+                    : '"node.exe","4242","Console","1","80,000 K"\r\n') as never)
+        void ensurePortFree({ port: 3005, scope: "dev server" })
+        restore()
+        expect(run).toHaveBeenCalledWith(
+            "tasklist",
+            expect.arrayContaining(["PID eq 4242"]),
+            expect.anything()
+        )
+        expect(stderr).toMatch(/Port 3005 is already in use by node\.exe \(pid 4242\)/)
+        expect(stderr).toMatch(/taskkill \/PID 4242 \/F/)
     })
 
     it("skips the probe for a missing or invalid port", async () => {

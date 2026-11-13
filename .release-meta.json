@@ -1,7 +1,7 @@
 {
-  "branch": "release/1.2.0",
-  "packages": {
-    "catalyst-core": "1.2.0",
-    "create-catalyst-app": "1.2.0"
-  }
+    "branch": "release/1.2.0",
+    "packages": {
+        "catalyst-core": "1.2.0",
+        "create-catalyst-app": "1.2.0"
+    }
 }

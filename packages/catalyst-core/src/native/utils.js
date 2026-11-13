@@ -5,9 +5,11 @@ import os from "os"
 import path from "path"
 import theme from "../cli/theme.js"
 import spinnerModule from "../cli/spinner.js"
+import platform from "../cli/platform.js"
 
 const { GUTTER, t } = theme
 const { withSpinnersPaused } = spinnerModule
+const { batchInvocation, isWindows } = platform
 
 // Retain only the tail of a child's output: it is used for diagnostics, and a
 // long gradle build would otherwise hold every byte it ever printed in memory.
@@ -124,7 +126,7 @@ function assertToolPath(file) {
 function commandExists(command) {
     try {
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Utility checks known local tool names during native setup.
-        execSync(`which ${command}`, { stdio: "ignore" })
+        execSync(`${isWindows() ? "where" : "which"} ${command}`, { stdio: "ignore" })
         return true
     } catch (error) {
         return false
@@ -142,7 +144,11 @@ function isTimeout(error) {
  * later call hangs too. Name the tool and the reset that clears it.
  */
 function toolTimeoutError(command, timeout) {
-    const tool = path.basename(String(command).trim().split(/\s+/)[0].replace(/^"|"$/g, ""))
+    // The first word, which may be a quoted path with spaces in it, named the way
+    // the hints below name it: adb.exe is still adb.
+    const [, quoted, bare] = /^\s*(?:"([^"]+)"|(\S+))/.exec(String(command)) || []
+    // path.win32 splits on both separators, wherever this runs.
+    const tool = path.win32.basename(quoted ?? bare ?? "").replace(/\.(exe|bat|cmd)$/i, "")
     const seconds = Math.round(timeout / 1000)
     const error = new Error(`${tool} did not respond within ${seconds}s`)
     error.code = "ETOOLTIMEOUT"
@@ -220,12 +226,22 @@ function detectAndroidSdk(env = process.env) {
     return candidates.find((dir) => fs.existsSync(path.join(dir, "platform-tools", adb))) || null
 }
 
+/** Where an SDK keeps the tools the native commands run. */
+function androidTools(sdkPath) {
+    const exe = isWindows() ? ".exe" : ""
+    return {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        adb: path.join(sdkPath, "platform-tools", `adb${exe}`),
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
+        emulator: path.join(sdkPath, "emulator", `emulator${exe}`),
+    }
+}
+
 /** AVD names known to the SDK's emulator, or [] when it cannot be asked. */
 function listAvds(sdkPath) {
     if (!sdkPath) return []
     try {
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is a local SDK directory from config or auto-detection, never remote input.
-        const emulator = path.join(expandHome(sdkPath), "emulator", "emulator")
+        const emulator = androidTools(expandHome(sdkPath)).emulator
         assertToolPath(emulator)
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - argv array, no shell.
         const out = execFileSync(emulator, ["-list-avds"], {
@@ -251,8 +267,9 @@ function expandHome(dir) {
 }
 
 /** The hint for a missing or wrong SDK path, naming the one field to set. */
-const ANDROID_SDK_HINT =
-    'Run catalyst setupEmulator:android to install it, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "~/Library/Android/sdk").'
+const ANDROID_SDK_HINT = `Run catalyst setupEmulator:android to install it, or set WEBVIEW_CONFIG.android.sdkPath in config/config.json (e.g. "${
+    isWindows() ? "C:/Users/you/AppData/Local/Android/Sdk" : "~/Library/Android/sdk"
+}").`
 
 /**
  * Write the SDK location gradle reads. `setupEmulator:android` used to be the
@@ -276,6 +293,16 @@ function ensureLocalProperties(projectDir, sdkPath) {
 }
 
 /**
+ * The spawn() call for a command. Node refuses to spawn a .bat or .cmd file
+ * directly on Windows (EINVAL), and sdkmanager, avdmanager and gradlew are all
+ * batch files there, so those go through cmd.exe via batchInvocation.
+ */
+function spawnInvocation(command, args) {
+    if (isWindows() && /\.(bat|cmd)$/i.test(String(command))) return batchInvocation(command, args)
+    return { command, args, options: {} }
+}
+
+/**
  * Run a command, keeping its output rather than printing it.
  *
  * @param {string} command
@@ -284,6 +311,7 @@ function ensureLocalProperties(projectDir, sdkPath) {
  * @param {object} [options]
  * @param {NodeJS.ProcessEnv} [options.env] - the child's environment (defaults to this process's)
  * @param {string} [options.cwd] - the child's working directory
+ * @param {boolean} [options.windowsVerbatimArguments] - for a batch file run through cmd.exe (see batchInvocation)
  * @param {(line: string) => void} [options.onLine] - called per output line.
  *   Without it the output is captured silently. Gradle and xcodebuild emit
  *   hundreds of lines that nobody reads on success and that are redundant on
@@ -291,17 +319,25 @@ function ensureLocalProperties(projectDir, sdkPath) {
  *   way. Callers that want progress pass a handler that summarises, rather
  *   than letting the raw stream scroll.
  */
-async function runInteractiveCommand(command, args, promptResponses = {}, { onLine, env, cwd } = {}) {
+async function runInteractiveCommand(
+    command,
+    args,
+    promptResponses = {},
+    { onLine, env, cwd, windowsVerbatimArguments } = {}
+) {
     return new Promise((resolve, reject) => {
         // Named `child`, not `process`: the previous name shadowed the global
         // `process` for the whole function body.
         // `env` is how secrets reach a child (ORG_GRADLE_PROJECT_*): never argv,
         // where ps and the failure echo would show them.
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Native build commands are fixed internal commands passed with argv arrays.
-        const child = spawn(command, args, {
+        const invocation = spawnInvocation(command, args)
+        const child = spawn(invocation.command, invocation.args, {
             stdio: ["pipe", "pipe", "pipe"],
             ...(env ? { env } : {}),
             ...(cwd ? { cwd } : {}),
+            ...(windowsVerbatimArguments ? { windowsVerbatimArguments } : {}),
+            ...invocation.options,
         })
 
         let promptBuffer = ""
@@ -388,6 +424,30 @@ function handlePrompts(child, buffer, promptResponses) {
     return buffer
 }
 
+// No lasting daemon on Windows, which cannot rename or delete what a process has
+// open. One sitting idle for its usual three hours holds the Android project under
+// node_modules, so `npm install` fails with EBUSY and the signed build cannot remove
+// its temp copy. Every build here starts with a clean, so a warm daemon saves little.
+const GRADLE_WINDOWS_ARGS = ["--no-daemon"]
+
+/**
+ * Run the Gradle wrapper in a project, keeping its output as runInteractiveCommand
+ * does. Arguments are passed as a list, so a path with spaces stays one argument.
+ */
+function runGradle(projectDir, args, { onLine, env } = {}) {
+    const invocation = isWindows()
+        ? // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectDir is the Android project inside this package.
+          batchInvocation(path.join(projectDir, "gradlew.bat"), [...GRADLE_WINDOWS_ARGS, ...args])
+        : { command: "./gradlew", args, options: {} }
+    return runInteractiveCommand(
+        invocation.command,
+        invocation.args,
+        { "BUILD SUCCESSFUL": "" },
+        // env carries the signing and version values (ORG_GRADLE_PROJECT_*), never argv.
+        { onLine, env, cwd: projectDir, ...invocation.options }
+    )
+}
+
 /**
  * Run a command on the user's own terminal: inherited stdio, so they see its
  * progress and can answer it (a sudo password, a licence). The spinner is
@@ -404,10 +464,12 @@ async function runInheritedCommand(command, args, { env, cwd } = {}) {
         () =>
             new Promise((resolve, reject) => {
                 // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Fixed setup commands with argv arrays, run after the user agreed.
-                const child = spawn(command, args, {
+                const invocation = spawnInvocation(command, args)
+                const child = spawn(invocation.command, invocation.args, {
                     stdio: "inherit",
                     ...(env ? { env } : {}),
                     ...(cwd ? { cwd } : {}),
+                    ...invocation.options,
                 })
                 child.on("error", (error) =>
                     reject(
@@ -740,8 +802,10 @@ export {
     commandExists,
     promptUser,
     detectAndroidSdk,
+    androidTools,
     listAvds,
     ensureLocalProperties,
+    runGradle,
     ANDROID_SDK_HINT,
     runInteractiveCommand,
     runInheritedCommand,

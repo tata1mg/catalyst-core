@@ -77,12 +77,17 @@ async function chooseAndroidTarget({
         if (env.ANDROID_SERIAL) {
             const named = phones.find((device) => device.serial === env.ANDROID_SERIAL)
             if (!named) {
-                throw nativeError("ANDROID-011", `ANDROID_SERIAL=${env.ANDROID_SERIAL} is not a connected phone`)
+                throw nativeError(
+                    "ANDROID-011",
+                    `ANDROID_SERIAL=${env.ANDROID_SERIAL} is not a connected phone`
+                )
             }
             return asDevice(named)
         }
         if (!phones.length) {
-            const unauthorized = devices.filter((device) => !device.emulator && device.state === "unauthorized")
+            const unauthorized = devices.filter(
+                (device) => !device.emulator && device.state === "unauthorized"
+            )
             throw nativeError(
                 "ANDROID-011",
                 unauthorized.length

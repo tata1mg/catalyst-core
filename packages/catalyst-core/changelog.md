@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Windows support
+
+Catalyst now runs natively on Windows, in PowerShell, Command Prompt and Git Bash, without WSL. `create-catalyst-app`, `catalyst start`, `build`, `serve`, `plugins`, `setupEmulator:android` and `buildApp:android`, including signed release bundles, all work there.
+
+iOS still needs macOS and Xcode. On Windows and Linux, `catalyst buildApp` and `catalyst setupEmulator` skip iOS and run Android, and the `:ios` commands exit with the new error [IOS-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-007.md).
+
+### Fixes
+
+- `buildApp:android` no longer depends on `rsync`, `find`, `mv` or `sh`, and an SDK or app path with spaces no longer breaks it, on any platform.
+- `new-route` exits non-zero when it fails. It used to exit 0 with nothing created.
+- `create-catalyst-app` removes its `temp-*` folder when it fails.
+
 ## [1.2.0] - 2026-11-13
 
 This release builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Universal apps should read the breaking changes below and the 1.1.x to 1.2.0 section of the Version Upgrades guide. After upgrading, run `npm audit fix`: the `body-parser` floor is raised to `^1.20.9`.

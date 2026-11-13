@@ -2,7 +2,7 @@ import crypto from "crypto"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import {
     AVD_NAME,
@@ -12,6 +12,7 @@ import {
     cmdlineTool,
     cmdlineToolsArchive,
     defaultSdkPath,
+    unzipArchive,
     ensureAndroidSdk,
     ensureJava,
     halfInstalledPaths,
@@ -150,6 +151,32 @@ describe("Java resolution", () => {
             exists: (file) => file === `${jbr}/bin/java`,
         })
         expect(java).toMatchObject({ home: jbr, version: 21, source: "Android Studio" })
+    })
+
+    it("finds Android Studio's JBR on Windows, then a java on PATH", () => {
+        const jbr = path.join("C:/Program Files", "Android", "Android Studio", "jbr")
+        const javaOf = (home: string) => path.join(home, "bin", "java.exe")
+        const onPath = "C:/jdk17"
+        const pick = (installed: string[]) =>
+            resolveJavaHome({
+                env: { ProgramFiles: "C:/Program Files", LOCALAPPDATA: "C:/Users/me/AppData/Local" },
+                platform: "win32",
+                run: (command, args) => {
+                    if (command === "where") return `${javaOf(onPath)}\r\nC:/other/bin/java.exe\r\n`
+                    if (args[0] === "-version" && installed.map(javaOf).includes(command))
+                        return 'openjdk version "17.0.12"'
+                    return null
+                },
+                exists: (file) => installed.map(javaOf).includes(file),
+            })
+        expect(pick([jbr, onPath])).toMatchObject({ home: jbr, source: "Android Studio" })
+        expect(pick([onPath])).toMatchObject({ home: onPath, source: "PATH" })
+    })
+
+    it("names a Windows install for a missing JDK there", async () => {
+        const error = await rejection(ensureJava({ platform: "win32", isTTY: true, resolve: () => null }))
+        expect(error.code).toBe("ANDROID-007")
+        expect(error.message).toMatch(/winget install Microsoft\.OpenJDK\.17/)
     })
 
     it("returns null with no JDK 17+", () => {
@@ -373,6 +400,10 @@ describe("SDK locations", () => {
         expect(defaultSdkPath({ ANDROID_SDK_ROOT: "/b" }, "linux")).toBe("/b")
         expect(defaultSdkPath({}, "darwin")).toBe(path.join(os.homedir(), "Library", "Android", "sdk"))
         expect(defaultSdkPath({}, "linux")).toBe(path.join(os.homedir(), "Android", "Sdk"))
+        // Where Android Studio puts it on Windows, so both use one SDK.
+        expect(defaultSdkPath({ LOCALAPPDATA: "C:/Users/me/AppData/Local" }, "win32")).toBe(
+            path.join("C:/Users/me/AppData/Local", "Android", "Sdk")
+        )
     })
 
     it("finds sdkmanager in cmdline-tools/latest, else the newest versioned folder, else nothing", () => {
@@ -762,5 +793,33 @@ describe("sdkmanager recovery (#301)", () => {
         )
         expect(runs).toBe(1)
         expect(network.message).toBe("exit 1")
+    })
+})
+
+describe("unzipArchive", () => {
+    const calls: unknown[][] = []
+    const exec = ((...args: unknown[]) => {
+        calls.push(args)
+        return ""
+    }) as any
+    beforeEach(() => {
+        calls.length = 0
+    })
+
+    it("uses unzip off Windows", () => {
+        unzipArchive("/t/tools.zip", "/t/out", { platform: "darwin", exec })
+        expect(calls[0].slice(0, 2)).toEqual(["unzip", ["-q", "-o", "/t/tools.zip", "-d", "/t/out"]])
+    })
+
+    // No unzip there. Windows' own tar reads zip; Git's GNU tar, often first on PATH, does not.
+    it("uses System32's tar on Windows, and tar from PATH without it", () => {
+        const env = { SystemRoot: "C:/Windows" }
+        const systemTar = path.join("C:/Windows", "System32", "tar.exe")
+        unzipArchive("C:/t/tools.zip", "C:/t/out", { platform: "win32", env, exec, exists: () => true })
+        unzipArchive("C:/t/tools.zip", "C:/t/out", { platform: "win32", env, exec, exists: () => false })
+        expect(calls.map((call) => call.slice(0, 2))).toEqual([
+            [systemTar, ["-xf", "C:/t/tools.zip", "-C", "C:/t/out"]],
+            ["tar", ["-xf", "C:/t/tools.zip", "-C", "C:/t/out"]],
+        ])
     })
 })

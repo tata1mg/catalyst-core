@@ -303,9 +303,13 @@ module.exports = function createBuildPhase(ctx) {
         progress.status("waiting for launch")
         for (let i = 0; i < 10; i++) {
             try {
-                const launchResult = execFileSync("xcrun", ["simctl", "launch", simctlDevice(), APP_BUNDLE_ID], {
-                    stdio: ["ignore", "pipe", "ignore"],
-                }).toString()
+                const launchResult = execFileSync(
+                    "xcrun",
+                    ["simctl", "launch", simctlDevice(), APP_BUNDLE_ID],
+                    {
+                        stdio: ["ignore", "pipe", "ignore"],
+                    }
+                ).toString()
                 if (launchResult.includes("already launched")) {
                     break
                 }
@@ -514,10 +518,7 @@ module.exports = function createBuildPhase(ctx) {
                 return
             }
             if (!isBooted) {
-                progress.log(
-                    `Attempting to boot simulator: ${simulatorName} (${foundSimulatorId})`,
-                    "info"
-                )
+                progress.log(`Attempting to boot simulator: ${simulatorName} (${foundSimulatorId})`, "info")
                 if (foundSimulator.state === "Shutdown") {
                     progress.log(`Simulator is shutdown, attempting to boot...`, "info")
                     try {

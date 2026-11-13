@@ -28,6 +28,7 @@ const {
 } = require("./buildIos/signing.js")
 const { resolveNativeConfig } = require("./nativeConfig.js")
 const { resolveCredentials } = require("./credentials.js")
+const { iosRequiresMacError } = require("./iosPlatform.js")
 const TerminalProgress = require("./terminalProgress.js").default
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
@@ -199,6 +200,17 @@ async function main() {
             buildFailure({ error, stage: "Resolving the iOS build", code: reportCode(error) })
         )
         reportVerbose(error)
+        process.exit(1)
+    }
+
+    // The config is checked on any machine, so its errors still show off macOS.
+    // Generating the project and running Xcode cannot happen there: stop before
+    // anything is written, rather than at a missing plutil several steps in.
+    if (process.platform !== "darwin") {
+        build.cleanup()
+        process.stderr.write(
+            buildFailure({ error: iosRequiresMacError(), stage: "iOS build", code: "IOS-007" })
+        )
         process.exit(1)
     }
 

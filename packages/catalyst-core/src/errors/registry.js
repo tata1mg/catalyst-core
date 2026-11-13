@@ -35,6 +35,7 @@ export const ERROR_CODES = {
     IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
     IOS_APP_ICON_INVALID: "IOS-005",
     IOS_APP_ICON_HAS_ALPHA: "IOS-006",
+    IOS_REQUIRES_MACOS: "IOS-007",
     IOS_SIGNING_NOT_SET_UP: "IOS-010",
     IOS_ASC_API_KEY_INVALID: "IOS-011",
     IOS_MANUAL_SIGNING_INVALID: "IOS-012",
@@ -325,6 +326,14 @@ export const ERROR_DEFINITIONS = {
             "App Store Connect rejects app icons with an alpha channel (ITMS-90717). public/icon.png has an alpha channel or a transparency chunk, which fails an iOS release build. Debug builds only warn.",
         suggestedAction:
             "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
+    },
+    [ERROR_CODES.IOS_REQUIRES_MACOS]: {
+        category: "IOS",
+        defaultMessage: "iOS builds need macOS and Xcode",
+        defaultDetails:
+            "buildApp:ios and setupEmulator:ios drive Xcode and the iOS Simulator, which only run on macOS. Everything else, including the Android commands, works on this machine.",
+        suggestedAction:
+            "Build the iOS app on a Mac or a macOS CI runner. Plain catalyst buildApp and catalyst setupEmulator skip iOS on other systems and carry on with Android.",
     },
     [ERROR_CODES.IOS_SIGNING_NOT_SET_UP]: {
         category: "IOS",

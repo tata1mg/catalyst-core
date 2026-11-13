@@ -76,6 +76,24 @@ All of these are optional:
 | `emulatorName` | Emulator (AVD) to use. If it does not exist, Catalyst warns and uses another one, or creates `catalyst-api36` |
 | `sdkPath` | Android SDK location, when it is not in one of the places above |
 
+### Windows
+
+The SDK is usually at `C:\\Users\\yourname\\AppData\\Local\\Android\\Sdk`. In `config.json`, double the backslashes or use forward slashes:
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "android": {
+      "sdkPath": "C:/Users/yourname/AppData/Local/Android/Sdk"
+    }
+  }
+}
+```
+
+The emulator needs the Windows Hypervisor Platform. If it does not start, run `emulator -accel-check` from the SDK's `emulator` folder. It reports what is missing.
+
+Gradle writes long paths under `node_modules`. If a build fails with a path that is too long, move the app closer to the root of the drive, for example `C:\\dev\\my-app`, or [enable long paths in Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
+
 ---
 
 ## Run the app

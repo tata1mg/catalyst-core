@@ -105,6 +105,8 @@ async function main() {
             } catch (e) {
                 discardChanges(funcArgs)
                 console.log(pc.red(`\n${e}`))
+                // Nothing was created: a script or CI step must not read this as success.
+                process.exitCode = 1
             }
         }
     }

@@ -14,9 +14,10 @@ const KEY = "K3y-Secret-27"
 function failSigningCommand() {
     // Fails like a wrong keystore password would, echoing a password back
     // without its flag on both streams.
+    const script = `console.log('using ${STORE}');console.error('bad key ${KEY}');process.exit(1)`
     const command = [
-        `echo "using ${STORE}"; echo "bad key ${KEY}" >&2; exit 1;`,
-        `: ./gradlew bundleRelease`,
+        // Node rather than echo and exit, which no two shells spell the same way.
+        `"${process.execPath}" -e "${script}" -- ./gradlew bundleRelease`,
         `-Pandroid.injected.signing.store.password="${STORE}"`,
         `-Pandroid.injected.signing.key.password="${KEY}"`,
         `-storepass "${STORE}" -keypass ${KEY}`,

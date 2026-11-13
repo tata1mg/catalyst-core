@@ -2,7 +2,8 @@
 
 const { spawn, execFileSync } = require("child_process")
 const { buildAndroidAAB } = require("../renameAndroidProject.js")
-const { ensureLocalProperties } = require("../utils.js")
+const path = require("path")
+const { ensureLocalProperties, runGradle } = require("../utils.js")
 const { signingGradleEnv } = require("./signing.js")
 const { launchArgs } = require("./devices.js")
 const { DEFAULT_VERSION_NAME } = require("../releaseOutput.js")
@@ -90,6 +91,8 @@ function createBuildPhase(ctx) {
             const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
                 detached: true,
                 stdio: "ignore",
+                // Otherwise detached opens an empty console window next to the emulator.
+                windowsHide: true,
             })
             child.once("error", (error) => {
                 progress.log("Error starting emulator: " + error.message, "error")
@@ -108,12 +111,17 @@ function createBuildPhase(ctx) {
     }
 
     // Best-effort cleanup for an emulator process this build spawned but that
-    // never became ready — kills the whole detached process group (negative pid)
-    // so we don't leave a CPU/RAM-heavy orphaned emulator running after a failed
-    // build. Never throws: a failure here shouldn't mask the original timeout error.
+    // never became ready — kills the whole detached process group (negative pid,
+    // or taskkill's tree on Windows, which has no process groups to signal) so we
+    // don't leave a CPU/RAM-heavy orphaned emulator running after a failed build.
+    // Never throws: a failure here shouldn't mask the original timeout error.
     function killOrphanedEmulator(pid, emulatorName) {
         try {
-            process.kill(-pid, "SIGTERM")
+            if (process.platform === "win32") {
+                execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" })
+            } else {
+                process.kill(-pid, "SIGTERM")
+            }
             progress.log(`Stopped orphaned emulator process (pid ${pid}) after boot failure`, "info")
         } catch (error) {
             progress.log(
@@ -282,29 +290,49 @@ function createBuildPhase(ctx) {
             // Gradle needs the SDK location in local.properties. Only
             // setupEmulator:android wrote it, so building without a prior
             // setup died in gradle despite a configured sdkPath.
-            if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
-
-            // --quiet was the Android silence: it suppresses gradle's task and
-            // error output entirely. --console=rich emits ANSI redraws, which
-            // are meaningless on a pipe; plain gives one line per task.
-            // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - pwd and configPath are internal resolved paths, not user input.
-            const buildCommand = `cd ${pwd}/androidProject && ./gradlew generateWebViewConfig -PconfigPath=${configPath} -PcatalystBuildType=debug -PbuildOptimisation=${buildOptimisation} && ./gradlew clean installDebug -PconfigPath=${configPath} -PcatalystBuildType=debug --console=plain`
+            const projectDir = path.join(pwd, "androidProject")
+            if (androidConfig.sdkPath) ensureLocalProperties(projectDir, androidConfig.sdkPath)
 
             // Gradle emits hundreds of lines that nobody reads on success and
             // that the error path re-derives from error.output anyway. Show the
             // current task on the spinner's own row instead of scrolling them.
-            await ctx.runInteractiveCommand(
-                "sh",
-                ["-c", buildCommand],
-                { "BUILD SUCCESSFUL": "" },
-                {
-                    onLine: (line) => progress.status(gradleTask(line)),
-                    env: {
-                        ...process.env,
-                        ...versionGradleEnv({ applicationId, version }),
-                        ...(serial ? { ANDROID_SERIAL: serial } : {}),
-                    },
-                }
+            const gradleOptions = {
+                onLine: (line) => progress.status(gradleTask(line)),
+                env: {
+                    ...process.env,
+                    ...versionGradleEnv({ applicationId, version }),
+                    ...(serial ? { ANDROID_SERIAL: serial } : {}),
+                },
+            }
+            // runGradle passes an argument list, through gradlew.bat on Windows,
+            // where there is no sh to run "./gradlew ... && ./gradlew ...".
+            await runGradle(
+                projectDir,
+                [
+                    "generateWebViewConfig",
+                    `-PconfigPath=${configPath}`,
+                    "-PcatalystBuildType=debug",
+                    `-PbuildOptimisation=${buildOptimisation}`,
+                ],
+                gradleOptions
+            )
+            // --quiet was the Android silence: it suppresses gradle's task and
+            // error output entirely. --console=rich emits ANSI redraws, which
+            // are meaningless on a pipe; plain gives one line per task.
+            await runGradle(
+                projectDir,
+                [
+                    "clean",
+                    "installDebug",
+                    `-PconfigPath=${configPath}`,
+                    "-PcatalystBuildType=debug",
+                    "--console=plain",
+                ],
+                gradleOptions
+
+                // Gradle emits hundreds of lines that nobody reads on success and
+                // that the error path re-derives from error.output anyway. Show the
+                // current task on the spinner's own row instead of scrolling them.
             )
         } catch (error) {
             const apkPath = keepApk()
@@ -414,7 +442,8 @@ function createBuildPhase(ctx) {
         try {
             if (!signing) throw new Error("No upload key resolved for the release build")
             // Same as buildApp: gradle needs local.properties on a fresh machine.
-            if (androidConfig.sdkPath) ensureLocalProperties(`${pwd}/androidProject`, androidConfig.sdkPath)
+            const projectDir = path.join(pwd, "androidProject")
+            if (androidConfig.sdkPath) ensureLocalProperties(projectDir, androidConfig.sdkPath)
 
             const aabConfig = await createAABConfig(androidConfig)
             if (finalAabPath) aabConfig.finalAabPath = finalAabPath

@@ -112,7 +112,14 @@ function checkNativeAlignment(archive, { apk } = {}) {
         } else if (isApk && entry.method === 0 && entry.dataOffset % PAGE_16K !== 0) {
             problem = `stored uncompressed at zip offset ${entry.dataOffset}, not on a 16 KB boundary`
         }
-        libs.push({ name: entry.name, bits, minAlign, required, ok: !problem, ...(problem ? { problem } : {}) })
+        libs.push({
+            name: entry.name,
+            bits,
+            minAlign,
+            required,
+            ok: !problem,
+            ...(problem ? { problem } : {}),
+        })
     }
     const failures = libs.filter((lib) => lib.required && !lib.ok).map((lib) => `${lib.name}: ${lib.problem}`)
     return { libs, failures }

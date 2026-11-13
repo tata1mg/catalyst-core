@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { spawn } from "child_process"
-import { runFile, parseNativeArgs, ensureLocalProperties, ANDROID_SDK_HINT } from "./utils.js"
+import { runFile, parseNativeArgs, ensureLocalProperties, androidTools, ANDROID_SDK_HINT } from "./utils.js"
 import { applyJavaHome, ensureAndroidSdk, ensureJava, resolveSdkPath } from "./androidToolchain.js"
 import { getLastTarget } from "./localState.js"
 import TerminalProgress from "./terminalProgress.js"
@@ -56,12 +56,11 @@ function readAndroidConfig() {
 
 function validateAndroidTools(androidConfig) {
     const ANDROID_SDK = androidConfig.sdkPath
-    const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
-    const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
-
     if (!ANDROID_SDK) {
         throw Object.assign(new Error("Android SDK not found"), { hint: ANDROID_SDK_HINT })
     }
+    // With .exe on Windows, so the existsSync checks below find them there.
+    const { emulator: EMULATOR_PATH, adb: ADB_PATH } = androidTools(ANDROID_SDK)
 
     if (!fs.existsSync(ANDROID_SDK)) {
         throw new Error(`Android SDK path does not exist: ${ANDROID_SDK}`)
@@ -116,6 +115,8 @@ async function startEmulator(EMULATOR_PATH, androidConfig) {
     const child = spawn(EMULATOR_PATH, ["-avd", androidConfig.emulatorName, "-read-only"], {
         detached: true,
         stdio: "ignore",
+        // Otherwise detached opens an empty console window next to the emulator.
+        windowsHide: true,
     })
     child.on("error", (error) => {
         progress.log(`Error starting emulator: ${error}`, "error")

@@ -5,6 +5,7 @@ import net from "net"
 import os from "os"
 import path from "path"
 import { isInteractive, nativeError, promptUser } from "./utils.js"
+import platform from "../cli/platform.js"
 import {
     appIdProblem,
     appIdSource,
@@ -202,6 +203,8 @@ function startDevServerProcess({ cwd, port, overrides = {}, spawnProcess = spawn
         cwd,
         detached: true,
         stdio: ["ignore", out, out],
+        // Otherwise detached opens an empty console window on Windows.
+        windowsHide: true,
         // `catalyst start` reads the app from PWD, not cwd.
         env: { ...process.env, PWD: cwd },
     })
@@ -290,7 +293,7 @@ async function ensureDevServer({
                 "NATIVE-006",
                 `the dev server on port ${port} was started for ${ours.host}, and this build needs ${url}`,
                 {
-                    hint: `Stop that dev server (kill ${ours.pid}) and run the build again, so Catalyst starts one for ${hostKey}.`,
+                    hint: `Stop that dev server (${platform.stopProcessCommand(ours.pid)}) and run the build again, so Catalyst starts one for ${hostKey}.`,
                 }
             )
         }

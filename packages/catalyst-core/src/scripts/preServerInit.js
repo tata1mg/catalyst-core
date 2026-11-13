@@ -1,5 +1,6 @@
 import path from "path"
 import { createRequire } from "module"
+import { pathToFileURL } from "url"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
 import {
     validatePreInitServer,
@@ -62,7 +63,7 @@ if (!isValid) {
 
 let preServerInit
 try {
-    const hooks = await import(path.join(appRoot, "server/index.js"))
+    const hooks = await import(pathToFileURL(path.join(appRoot, "server/index.js")).href)
     preServerInit = hooks.preServerInit
     // Hooks are read by name, so ones inside `export default { ... }` never
     // run. One line: the dev output wrapper shows it under Notices.

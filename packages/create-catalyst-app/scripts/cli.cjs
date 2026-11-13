@@ -40,7 +40,6 @@ const cancelWithError = (err, message = err.message) => {
     if (outputMode !== "default") printError(err)
 }
 const packageRoot = path.join(__dirname, "..")
-const executable = (command) => (process.platform === "win32" ? `${command}.cmd` : command)
 
 let projectName = null
 const program = new Commander.Command()
@@ -71,7 +70,7 @@ const program = new Commander.Command()
 
             if (process.argv.includes("new-route")) {
                 const createRoutePath = path.join(__dirname, "../codemod/new-route/index.js")
-                execSync(`node ${createRoutePath}`, { stdio: "inherit" })
+                execFileSync(process.execPath, [createRoutePath], { stdio: "inherit" })
                 return
             }
 
@@ -223,7 +222,8 @@ const program = new Commander.Command()
                                 gray("Add to your MCP client (Claude, Cursor, Windsurf):"),
                                 `"catalyst-mcp": {`,
                                 `  "command": "node",`,
-                                `  "args": ["${mcpEntry}"]`,
+                                // Stringified: a Windows path's backslashes must be escaped to paste as JSON.
+                                `  "args": [${JSON.stringify(mcpEntry)}]`,
                                 `}`,
                             ].join("\n"),
                             "MCP server"
@@ -235,6 +235,8 @@ const program = new Commander.Command()
                     // The step that failed already printed its own output.
                     const catalystError = error instanceof CCAError ? error : wrapForeignError(error)
                     cancelWithError(catalystError, `Could not create ${projectName}: ${error.message}`)
+                    // process.exit skips the finally below, leaving a temp-* folder behind.
+                    deleteDirectory(tempDir)
                     process.exit(1)
                 } finally {
                     deleteDirectory(tempDir)
@@ -246,21 +248,9 @@ const program = new Commander.Command()
 
                 try {
                     if (process.env.CREATE_CATALYST_APP_PACK_SOURCE === "local") {
-                        execFileSync(
-                            executable("npm"),
-                            ["pack", `--pack-destination=${tempDir}`, "--silent"],
-                            {
-                                cwd: packageRoot,
-                            }
-                        )
+                        runNpm(["pack", `--pack-destination=${tempDir}`, "--silent"], { cwd: packageRoot })
                     } else {
-                        execFileSync(
-                            executable("npm"),
-                            ["pack", `${packageName}@${packageVersion}`, "--silent"],
-                            {
-                                cwd: tempDir,
-                            }
-                        )
+                        runNpm(["pack", `${packageName}@${packageVersion}`, "--silent"], { cwd: tempDir })
                     }
 
                     return tarballFilePath
@@ -403,6 +393,17 @@ function mcpWarnings(transcript) {
         warnings.push(next && !/^[⚠✓]/.test(next) ? `${match[1]}. ${next}` : match[1])
     }
     return warnings
+}
+
+/**
+ * Run npm directly, or through a shell on Windows: npm is a .cmd there, which Node
+ * refuses to spawn (EINVAL). A Windows path cannot contain a double quote, so
+ * quoting each argument is enough.
+ */
+function runNpm(args, options) {
+    if (process.platform !== "win32") return execFileSync("npm", args, options)
+    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - arguments come from this package's own package.json and a folder this process created.
+    return execSync(["npm", ...args.map((arg) => `"${arg}"`)].join(" "), options)
 }
 
 /**

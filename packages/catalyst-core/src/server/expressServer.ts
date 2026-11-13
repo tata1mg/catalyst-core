@@ -89,7 +89,12 @@ function lanAddress() {
     }
     return null
 }
-const { addMiddlewares } = await import(path.join(process.env.src_path!, "server/server.js"))
+
+// import() takes a URL. An absolute path only works by accident on POSIX: on
+// Windows C:\ reads as a scheme and throws ERR_UNSUPPORTED_ESM_URL_SCHEME.
+const importFile = (file: string) => import(pathToFileURL(file).href)
+
+const { addMiddlewares } = await importFile(path.join(process.env.src_path!, "server/server.js"))
 
 // Mount AI route if catalyst-ai is installed
 function mountAIRouter(app: any) {
@@ -154,7 +159,7 @@ const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-
 // ─── Load app-defined server lifecycle hooks ──────────────────────────────────
 let onServerError: any
 try {
-    const hooks = await import(path.join(process.env.src_path!, "server/index.js"))
+    const hooks = await importFile(path.join(process.env.src_path!, "server/index.js"))
     onServerError = hooks.onServerError
 } catch {
     // No hooks file — onServerError remains undefined
@@ -212,7 +217,7 @@ process.on("message", function (msg: any) {
     }
 })
 
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -335,7 +340,7 @@ async function createServer() {
             "server.js"
         )
         if (fs.existsSync(serverPath)) {
-            productionRender = await import(serverPath)
+            productionRender = await importFile(serverPath)
         } else {
             const rendererPath = path.join(
                 process.env.src_path!,
@@ -343,7 +348,7 @@ async function createServer() {
                 "server",
                 "index.js"
             )
-            productionRender = await import(rendererPath)
+            productionRender = await importFile(rendererPath)
         }
     }
 
