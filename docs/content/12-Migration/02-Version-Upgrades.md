@@ -6,6 +6,106 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading From 1.1.x To 1.2.0
+
+`1.2.0` builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Set `catalyst-core` to `1.2.0`, reinstall, then run `npm audit fix` so your lockfile picks up the patched `body-parser`, whose minimum is now `^1.20.9`:
+
+```bash
+npm install catalyst-core@1.2.0
+npm audit fix
+```
+
+Universal apps need the follow-ups below. A web-only app can stop here.
+
+### New Scripts
+
+Apps created from 1.2.0 run and release the native app with one script each. Add the same lines to an older app's `package.json`:
+
+```json title="package.json"
+{
+  "scripts": {
+    "android": "catalyst buildApp:android",
+    "ios": "catalyst buildApp:ios",
+    "android:release": "catalyst buildApp:android --release",
+    "ios:release": "catalyst buildApp:ios --release"
+  }
+}
+```
+
+- `npm run android` and `npm run ios` check the toolchain and install what is missing after asking, start the dev server when nothing answers on `NODE_SERVER_PORT`, then build, install and open the app. On Android each run also saves the app as an APK in `build-output/android/debug/`; see [Share a test build](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#share-a-test-build).
+- `npm run android:release` writes a signed App Bundle, a signed APK and `upload_certificate.pem` to `build-output/android/<version>-<build>/`.
+- `npm run ios:release` writes a signed IPA and a zip of its dSYMs to `build-output/ios/<version>-<build>/`.
+
+The old scripts keep working. `buildApp:android` and `buildApp:ios` run the same commands as `android` and `ios`, so an app without the new scripts builds a release with `npm run buildApp:android -- --release` or `npm run buildApp:ios -- --release`. `setupEmulator:android` and `setupEmulator:ios` still work but are optional, because each build installs what it needs. They only install the toolchain and an emulator or simulator, and change nothing in the app.
+
+### App Id, Name And Website
+
+A native app needs three keys at the top of `WEBVIEW_CONFIG`:
+
+```json title="config/config.json"
+{
+  "WEBVIEW_CONFIG": {
+    "appId": "com.acme.shop",
+    "appName": "Acme Shop",
+    "url": "https://shop.acme.com"
+  }
+}
+```
+
+`appId` is the Android application id and the iOS bundle id. `android.packageName` and `ios.bundleIdentifier` (then `ios.appBundleId`) win over it, so an app already in a store can keep the ids it shipped with. `appName` is the name under the icon and wins over `android.appName` and `ios.appName`. `url` is the deployed site a release build opens. Debug builds ignore it and load the dev server. An app without `url` keeps working: a release then uses `LOCAL_IP`, `port` and `useHttps` as before.
+
+A release run in a terminal asks once for an app id or website that is missing or still a placeholder, and saves the answer to `config/config.json`. See [Universal App Deployment](/content/Deployment/universal-app-deployment#configure-the-app).
+
+### Config Rewrite
+
+Before 1.2.0, the emulator setup wrote this machine's LAN address into `config/config.json`. The first debug build on 1.2.0 puts `localhost` back where that address was saved and prints each change. It changes:
+
+- any value equal to one of this machine's current IP addresses, such as `LOCAL_IP`, `NODE_SERVER_HOSTNAME` or `PUBLIC_STATIC_ASSET_URL`, and any `http://` URL on one of those addresses;
+- a private `LOCAL_IP` that `NODE_SERVER_HOSTNAME` also holds. That is usually the address this machine had on another network, so every value on it goes back to `localhost` too.
+
+Other addresses, such as a staging server on your network, are left as they are, and so is `url`. The rewrite runs once per checkout and records that in `.catalyst/local.json`. It never runs for a release build or when `CI` is set, and it leaves the file alone when `allowPrivateHost` is `true`. Review the change and commit it. If this checkout already ran a 1.2.0 debug build, for example a canary, the rewrite will not run again, so set `LOCAL_IP` and `NODE_SERVER_HOSTNAME` to `localhost` by hand.
+
+To fix a stale address by hand, set `LOCAL_IP` and `NODE_SERVER_HOSTNAME` to `localhost`. Debug builds work out how the emulator, simulator or phone reaches the dev server. If you start the dev server yourself for a phone on the same Wi-Fi, use this machine's current IP instead. See [How the app reaches the dev server](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
+
+### Breaking Changes
+
+An iOS bundle id with an underscore fails. Android allows `_` in an application id and iOS does not, so an `appId` such as `com.acme.my_shop` stops every iOS build with [NATIVE-010](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-010.md). Set `ios.bundleIdentifier` to an id without the underscore, such as `com.acme.myshop`. It wins over `appId` on iOS.
+
+A release build checks the app id and the website. A placeholder app id, meaning any `com.example.` id or one of the template ids `io.yourname.androidproject` and `com.catalyst.framework.app`, fails with [NATIVE-003](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-003.md). A website on `localhost`, a private or link-local address, a `.local` name or this machine's own address fails with [NATIVE-001](https://github.com/tata1mg/catalyst-core/blob/main/errors/NATIVE/NATIVE-001.md), because users' devices cannot reach it. An internal app on a private network can set `allowPrivateHost` to `true`. Run in a terminal, the build asks for the value instead of failing. In CI or from an agent it fails.
+
+Debug builds no longer install on a connected phone by themselves. With a phone connected, a run in a terminal asks where to run the app and remembers the answer for this machine in `.catalyst/local.json`. Without a terminal the app always runs on the emulator or simulator. Pass `--device` to go straight to the phone:
+
+```bash
+npm run android -- --device
+npm run ios -- --device
+```
+
+`config/config.json` is rewritten once, as described under Config Rewrite.
+
+### Signing Files
+
+Signing files live in `credentials/android/` and `credentials/ios/`, never in `config/config.json`. Add `credentials/` to your `.gitignore`; the first Android release adds it when it is missing.
+
+The first Android release run in a terminal creates the upload key in `credentials/android/` after asking. Google Play only accepts updates signed with that key, so back it up right away:
+
+```bash
+npx catalyst credentials:export android
+```
+
+The command prints the folder as one value. Keep it in a password manager; the same value is the `CATALYST_ANDROID_CREDENTIALS` secret for CI. Passwords in `android.keystoreConfig` or `android.keystore` are no longer used. Catalyst 1.1.0 and earlier shipped a shared keystore in the Android template and generated a new key on every release build, so if you uploaded a build signed with either, request an upload key reset in Play Console and put the new key in `credentials/android/`. The app now targets Android API 36, and its native libraries are aligned for 16 KB memory pages.
+
+On a Mac signed in to Xcode with your team's Apple account, `npm run ios:release` needs no signing files. CI uses an App Store Connect API key or a `.p12` and provisioning profile in `credentials/ios/`, exported as `CATALYST_IOS_CREDENTIALS`. [Set up signing](/content/Deployment/ios-production-release#2-set-up-signing) lists the order the build tries them in.
+
+The version comes from `version` in `package.json`. The build number is `CATALYST_BUILD_NUMBER` when set, and otherwise the number of minutes since 2024-01-01 00:00 UTC. An app that set `WEBVIEW_CONFIG.ios.version` keeps that version with a deprecation warning. See [Version and Build Number](/content/Deployment/universal-app-deployment#version-and-build-number).
+
+### Other Changes
+
+New apps get a new starter page, an animated HTML splash screen that is on by default (`splashScreen.minDuration` is `7000`), and a restyled offline page. Their `server/index.js` exports an empty stub for `preServerInit` and each per-request hook, in the order Catalyst calls them. Existing apps keep their own files.
+
+Catalyst reads each hook in `server/index.js` by its named export. A hook placed inside `export default { ... }` is never called, and startup now prints a warning naming it. Export each hook by name instead.
+
+`MetaTag` now waits for a `split()` route's chunk to load before it replaces the head tags, so the server's tags are no longer removed before the route's `setMetaData` is available. `npm run start` prints a hint when `NODE_SERVER_HOSTNAME` is not an address of this machine.
+
 ## Upgrading From 1.0.x To 1.0.2
 
 `1.0.2` has no breaking API changes. Set `catalyst-core` to `1.0.2` in `package.json` and reinstall. Two changes can need a follow-up:

@@ -2,6 +2,8 @@
 
 const fs = require("fs")
 const path = require("path")
+const { checkAppIcon } = require("../appIcon.js")
+const splashConfig = require("../splashConfig.js")
 
 function createAssetsPhase(ctx) {
     const { configPath, publicPath, pwd, progress } = ctx
@@ -143,11 +145,34 @@ function createAssetsPhase(ctx) {
         await copyPublicHtml("offline.html", "offline")
     }
 
+    // The page paints the native splash colour once it takes over, so it gets the
+    // colour the native side resolves (SplashActivity and themes.xml default to white).
     async function copySplashHtml() {
-        await copyPublicHtml("splashscreen.html", "splash", true)
+        let backgroundColor = "#ffffff"
+        try {
+            const { WEBVIEW_CONFIG = {} } = JSON.parse(fs.readFileSync(configPath, "utf8"))
+            backgroundColor = WEBVIEW_CONFIG.splashScreen?.backgroundColor || backgroundColor
+        } catch {
+            // An unreadable config fails the config phase; the copy itself still goes ahead.
+        }
+        try {
+            splashConfig.copySplashHtml(
+                `${process.cwd()}/public/splashscreen.html`,
+                `${pwd}/androidProject/app/src/main/assets/splash/splashscreen.html`,
+                backgroundColor
+            )
+        } catch (error) {
+            progress.log(`Warning: Error copying splashscreen.html: ${error.message}`, "warning")
+        }
     }
 
-    async function copyIconAssets() {
+    /**
+     * Launcher icons, first match wins: per-density files in
+     * public/android/appIcons, then the single public/icon.png, then the
+     * Catalyst placeholder. The single icon is checked (square, >= 1024px)
+     * and goes where the placeholder does, mipmap-xxxhdpi.
+     */
+    async function copyIconAssets(androidConfig = {}) {
         try {
             const destPath = `${pwd}/androidProject/app/src/main/res`
             const manifestPath = `${pwd}/androidProject/app/src/main/AndroidManifest.xml`
@@ -207,13 +232,24 @@ function createAssetsPhase(ctx) {
                 }
             }
 
-            if (!hasCustomIcons && fallbackExists) {
+            const singleIconPath = path.join(publicPath, "icon.png") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - publicPath is process.cwd()/public; "icon.png" is a fixed literal.
+            let usedSingleIcon = false
+            if (!hasCustomIcons && fs.existsSync(singleIconPath)) {
+                checkAppIcon(singleIconPath, {
+                    platform: "android",
+                    release: androidConfig.buildType === "release",
+                    log: (message, type) => progress.log(message, type),
+                })
+                usedSingleIcon = true
+            }
+
+            if (!hasCustomIcons && (usedSingleIcon || fallbackExists)) {
                 const targetDir = path.join(destPath, "mipmap-xxxhdpi") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - destPath is derived from pwd (internal); "mipmap-xxxhdpi" is a fixed literal.
                 fs.mkdirSync(targetDir, { recursive: true })
                 cleanDensityDir(targetDir)
                 const destination = path.join(targetDir, "icon.png") // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - targetDir is derived from pwd (internal); "icon.png" is a fixed literal.
-                fs.copyFileSync(fallbackIconPath, destination)
-                usedFallback = true
+                fs.copyFileSync(usedSingleIcon ? singleIconPath : fallbackIconPath, destination)
+                usedFallback = !usedSingleIcon
             }
 
             const setManifestIcons = (iconValue, roundIconValue) => {
@@ -230,7 +266,7 @@ function createAssetsPhase(ctx) {
                 if (updated !== current) fs.writeFileSync(manifestPath, updated)
             }
 
-            if (!hasCustomIcons && !usedFallback) {
+            if (!hasCustomIcons && !usedFallback && !usedSingleIcon) {
                 progress.log("No custom Android icons found; using default template icons.", "info")
                 setManifestIcons("@mipmap/ic_launcher", "@mipmap/ic_launcher_round")
                 return
@@ -240,8 +276,12 @@ function createAssetsPhase(ctx) {
 
             if (hasCustomIcons) {
                 progress.log("Applied Android launcher icons from public/android/appIcons.", "success")
+            } else if (usedSingleIcon) {
+                progress.log("Applied the Android launcher icon from public/icon.png.", "success")
             }
         } catch (error) {
+            // An unusable public/icon.png is the user's to fix, not a warning to scroll past.
+            if (/^ANDROID-\d{3}$/.test(error?.code)) throw error
             progress.log(`Warning: Error copying app icon assets: ${error.message}`, "warning")
         }
     }

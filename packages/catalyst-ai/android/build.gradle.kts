@@ -44,4 +44,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.json:json:20231013")
+
+    testImplementation("junit:junit:4.13.2")
+    // Use the real JSON implementation instead of android.jar's stub methods.
+    testImplementation("org.json:json:20231013")
 }

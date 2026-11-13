@@ -376,24 +376,30 @@ async function createServer() {
         }
     })
 
-    app.listen({ port, host }, (error: any) => {
+    // Express 4 never hands a bind failure to the listen callback: the
+    // http.Server emits it. Unhandled, an address this machine does not have
+    // (EADDRNOTAVAIL) left a raw uncaught exception and a server that never
+    // listened. Report it, then exit. Only until the server listens: a later
+    // error goes to the uncaughtException handler as before.
+    const onListenError = (error: any) => {
+        const known = hintFor(error.message)
+        process.stderr.write(
+            diagnostic({
+                message: `Could not start the server: ${error.message}`,
+                scope: process.env.NODE_ENV === "development" ? "dev server" : "server",
+                hint: known?.hint,
+                docs: known?.docs,
+            })
+        )
+        safeCall(onServerError)
+        process.exit(1)
+    }
+
+    const server = app.listen({ port, host }, () => {
+        server.removeListener("error", onListenError)
         const { NODE_SERVER_HOSTNAME, NODE_SERVER_PORT } = process.env
 
         const isDev = process.env.NODE_ENV === "development"
-
-        if (error) {
-            const known = hintFor(error.message)
-            process.stderr.write(
-                diagnostic({
-                    message: `Could not start the server: ${error.message}`,
-                    scope: isDev ? "dev server" : "server",
-                    hint: known?.hint,
-                    docs: known?.docs,
-                })
-            )
-            safeCall(onServerError)
-            return
-        }
 
         // Reached from the listen callback, so this means a port was bound --
         // it says nothing about whether anything compiled. Claiming a
@@ -430,6 +436,7 @@ async function createServer() {
         )
         if (wrapped) process.stdout.write(`${BANNER_END}\n`)
     })
+    server.once("error", onListenError)
 }
 
 createServer().catch((err: any) => {

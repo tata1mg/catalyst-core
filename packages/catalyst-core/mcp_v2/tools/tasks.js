@@ -600,6 +600,12 @@ const VALID_COMMANDS = new Set([
     "npm run start",
     "npm run build",
     "npm run serve",
+    // catalyst-core 1.2.0+ apps: run and release in one command each.
+    "npm run android",
+    "npm run ios",
+    "npm run android:release",
+    "npm run ios:release",
+    // Apps created before 1.2.0 (release: npm run buildApp:<platform> -- --release).
     "npm run buildApp:android",
     "npm run buildApp:ios",
     "npm run setupEmulator:android",
@@ -955,4 +961,5 @@ module.exports = {
     handle_update_task_step,
     handle_get_active_task,
     handle_close_task_plan,
+    validateStepCommands,
 }

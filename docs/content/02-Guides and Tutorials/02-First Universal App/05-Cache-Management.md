@@ -12,7 +12,6 @@ Configure caching through the `config.json` file:
 {
   "WEBVIEW_CONFIG": {
     "android": {
-      "buildType": "debug",
       "cachePattern": "*.css,*.js"
     }
   }
@@ -20,8 +19,9 @@ Configure caching through the `config.json` file:
 ```
 
 Configuration options:
-- `buildType`: Set to "debug" to bypass caching. This is crucial for development with Hot Module Replacement (HMR), ensuring that WebView receives real-time updates without cache interference
 - `cachePattern`: Comma-separated list of file patterns to cache (e.g., "*.css,*.js")
+
+The command decides the build type, not the config: `npm run android` makes a debug build for development with Hot Module Replacement (HMR), and `npm run android:release` makes the release build. `buildType` in `WEBVIEW_CONFIG.android` is deprecated.
 
 ### iOS Configuration
 Configure caching through `WEBVIEW_CONFIG.ios.cachePattern`:
@@ -30,23 +30,23 @@ Configure caching through `WEBVIEW_CONFIG.ios.cachePattern`:
 {
   "WEBVIEW_CONFIG": {
     "ios": {
-      "buildType": "Debug",
-      "cachePattern": "*.css,*.js"
+      "cachePattern": ["*.css", "*.js"]
     }
   }
 }
 ```
 
 Configuration options:
-- `buildType`: Use `Debug` for development. Use `Release` for distribution builds.
-- `cachePattern`: Comma-separated list of file patterns to cache (e.g., "*.css,*.js")
+- `cachePattern`: An array of file patterns to cache (e.g., `["*.css", "*.js"]`). A single string is read as one pattern, not split on commas.
+
+`npm run ios` makes a debug build for development, and `npm run ios:release` makes the release build. `buildType` in `WEBVIEW_CONFIG.ios` is deprecated.
 
 ## Cache Pattern Format
 
 Both platforms support wildcard patterns for cache matching:
 - `*.css`: Matches all CSS files
 - `*.js`: Matches all JavaScript files
-- Multiple patterns can be specified as a comma-separated string
+- Multiple patterns go in one comma-separated string on Android, and in an array on iOS
 - File extensions are case-insensitive
 
 ## Internal Implementation
@@ -131,31 +131,25 @@ This stale-while-revalidate pattern provides:
    - Use specific patterns to prevent over-caching
 
 2. Development Workflow:
-   - Use debug buildType for development to bypass cache
-   - Test cache patterns thoroughly in production builds
+   - Develop with debug builds (`npm run android`, `npm run ios`)
+   - Test cache patterns thoroughly in release builds (`npm run android:release`, `npm run ios:release`)
 
 3. Memory Management:
    - Monitor cache size in low-memory conditions
    - Implement cache cleanup when app goes to background
 
 ### Production vs Development
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "android": {
-      "buildType": "debug",  // Development: enables HMR
-      "cachePattern": "*.css,*.js"
-    }
-  }
-}
+
+Keep one `cachePattern` for both and pick the build with the command:
+
+```bash
+# Development: debug build against the dev server, with HMR
+npm run android
+npm run ios
+
+# Production: signed release build
+npm run android:release
+npm run ios:release
 ```
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "android": {
-      "buildType": "release",  // Production: enables caching
-      "cachePattern": "*.css,*.js"
-    }
-  }
-}
-```
+
+In apps created before Catalyst 1.2.0, run `npm run buildApp:android` and `npm run buildApp:ios`, and add `-- --release` for the release build, for example `npm run buildApp:android -- --release`. Setting `buildType` to `release` still builds a release, with a deprecation warning.

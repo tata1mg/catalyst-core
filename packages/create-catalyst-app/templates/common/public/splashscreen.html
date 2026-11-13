@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Catalyst</title>
+<style>
+  /* Must equal the native splash colour so the native layer and this page are one surface. The native build
+     injects WEBVIEW_CONFIG.splashScreen.backgroundColor as window.__CATALYST_SPLASH__ and the script sets --ink
+     from it; this value is the fallback for a page opened on its own. */
+  :root {
+    --ink: #0b0a14;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+    --sine: cubic-bezier(0.37, 0, 0.63, 1);
+    --t0: 520ms; /* flat hold, set per platform in start() */
+  }
+  /* Transparent until placed: the identical native image shows through, so the reveal is invisible */
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  .ready, .ready body { background: var(--ink); }
+  #stage { position: fixed; inset: 0; perspective: 760px; visibility: hidden; }
+  .ready #stage { visibility: visible; }
+  #stage * { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  html:not(.go) #stage *, html:not(.go) #stage *::before { animation-play-state: paused !important; }
+  .p3 { transform-style: preserve-3d; }
+  canvas { display: block; backface-visibility: visible; }
+
+  /*
+    Score at 120 BPM (one beat = 500ms), times after the flat hold:
+    0.0  tilt + extrude          1.0  rays break into a two-stage turbine
+    2.5  rush back               3.0  SLAM: shockwave, flash, sparks
+    3.0  hero turn + scale up    4.0  title flips in, 4.5 tagline
+    4.7  calm float until the native 300ms fade
+  */
+  #lift  { animation: lift 4000ms linear var(--t0) both; }
+  #cam   { animation: cam 4000ms linear var(--t0) both; }
+  #yaw   { animation: yaw 5200ms var(--sine) calc(var(--t0) + 4700ms) infinite alternate both; }
+  #pitch { animation: pitch 3900ms var(--sine) calc(var(--t0) + 4700ms) infinite alternate both; }
+  .depth { animation: extrude 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--t0) both; }
+  .lit   { animation: fadein 600ms var(--ease-io) calc(var(--t0) + 60ms) both; }
+  #shine { opacity: 0; animation: shine 800ms linear calc(var(--t0) + 3650ms) both; }
+  #shine i { animation: sweep 800ms cubic-bezier(0.45, 0, 0.3, 1) calc(var(--t0) + 3650ms) both; }
+  #glow  { animation: glow 5000ms linear var(--t0) both; }
+  #glow canvas { animation: breathe 2600ms var(--sine) calc(var(--t0) + 5000ms) infinite alternate both; }
+  #dust  { animation: dust 7000ms linear var(--t0) both; }
+  #wave1 { animation: wave 780ms cubic-bezier(0.12, 0.8, 0.3, 1) calc(var(--t0) + 3000ms) both; }
+  #wave2 { animation: wave 900ms cubic-bezier(0.12, 0.8, 0.3, 1) calc(var(--t0) + 3090ms) both; }
+  #flash { animation: flash 520ms cubic-bezier(0.2, 0.8, 0.3, 1) calc(var(--t0) + 2985ms) both; }
+  #tag   { animation: rise 640ms var(--ease-out) calc(var(--t0) + 4500ms) both; }
+
+  @keyframes lift {
+    0%, 75% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
+    77%  { transform: translate3d(0, 0, 0) scale3d(1.1, 1.1, 1.1); animation-timing-function: var(--ease-io); }
+    81%  { transform: translate3d(0, -4px, 0) scale3d(1.03, 1.03, 1.03); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+    100% { transform: translate3d(0, -62px, 0) scale3d(1.7, 1.7, 1.7); }
+  }
+  @keyframes cam {
+    0%     { transform: translateZ(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); animation-timing-function: cubic-bezier(0.55, 0, 0.25, 1); }
+    18.75% { transform: translateZ(-36px) rotateX(26deg) rotateY(-48deg) rotateZ(-4deg); animation-timing-function: var(--ease-io); }
+    25%    { transform: translateZ(-30px) rotateX(23deg) rotateY(-42deg) rotateZ(-3deg); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+    40%    { transform: translateZ(-24px) rotateX(10deg) rotateY(-12deg) rotateZ(0deg); animation-timing-function: linear; }
+    62.5%  { transform: translateZ(-12px) rotateX(6deg) rotateY(-6deg) rotateZ(0deg); animation-timing-function: cubic-bezier(0.6, 0, 0.95, 0.55); }
+    75%    { transform: translateZ(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); animation-timing-function: cubic-bezier(0.55, 0, 0.12, 1); }
+    100%   { transform: translateZ(0) rotateX(0deg) rotateY(360deg) rotateZ(0deg); }
+  }
+  @keyframes yaw   { from { transform: rotateY(0deg); } to { transform: rotateY(22deg); } }
+  @keyframes pitch { from { transform: rotateX(0deg) translate3d(0, 0, 0); } to { transform: rotateX(-6deg) translate3d(0, -4px, 0); } }
+  @keyframes extrude { from { transform: scale3d(1, 1, 0.001); } to { transform: scale3d(1, 1, 1); } }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes shine { 0% { opacity: 0; } 25%, 70% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes sweep { from { transform: translate3d(-150px, 0, 0); } to { transform: translate3d(190px, 0, 0); } }
+  @keyframes breathe { from { transform: scale(1); } to { transform: scale(1.08); } }
+  @keyframes glow {
+    0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(1); }
+    18%  { opacity: 0.7; transform: translate3d(0, 0, 0) scale(1); }
+    50%  { opacity: 0.45; transform: translate3d(0, 0, 0) scale(1.15); }
+    59.7%{ opacity: 0.5; transform: translate3d(0, 0, 0) scale(1); animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
+    61%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.25); }
+    68%  { opacity: 0.7; transform: translate3d(0, -10px, 0) scale(1.2); }
+    80%  { opacity: 0.85; transform: translate3d(0, -62px, 0) scale(1.75); }
+    85%  { opacity: 1; transform: translate3d(0, -62px, 0) scale(1.8); }
+    90%  { opacity: 0.8; transform: translate3d(0, -62px, 0) scale(1.75); }
+    95%  { opacity: 0.95; transform: translate3d(0, -62px, 0) scale(1.8); }
+    100% { opacity: 0.85; transform: translate3d(0, -62px, 0) scale(1.75); }
+  }
+  @keyframes dust {
+    0%   { opacity: 0; transform: scale(1); }
+    14%  { opacity: 0; }
+    24%  { opacity: 0.9; }
+    60%  { opacity: 0.75; }
+    100% { opacity: 0.5; transform: scale(1.22); }
+  }
+  @keyframes wave {
+    0%   { opacity: 0; transform: scale(0.12); }
+    6%   { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.7); }
+  }
+  @keyframes flash {
+    0%   { opacity: 0; transform: scale(0.3); }
+    10%  { opacity: 1; transform: scale(0.9); }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+  @keyframes rise { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes flip {
+    from { opacity: 0; transform: translate3d(0, 14px, -30px) rotateX(-100deg); }
+    40%  { opacity: 1; }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) rotateX(0deg); }
+  }
+
+  .ghost, .shade { opacity: 0; }
+  /* Promote late-starting layers up front so their first frame is not a raster stall mid-sequence */
+  #word span, #tag, .spark, #wave1, #wave2, #flash, #shine, #shine i, #dust, #glow { will-change: transform, opacity; }
+  #word {
+    width: 100%; text-align: center; perspective: 420px;
+    font: 650 36px/1 -apple-system, BlinkMacSystemFont, "SF Pro Display", Roboto, "Segoe UI", system-ui, sans-serif;
+    letter-spacing: -0.005em; color: #efeeff; -webkit-font-smoothing: antialiased;
+  }
+  #word span {
+    position: relative; display: inline-block; transform-origin: 50% 85%; backface-visibility: hidden;
+    animation: flip 680ms cubic-bezier(0.2, 0.9, 0.25, 1.12) both;
+  }
+  #tag {
+    width: 100%; text-align: center;
+    font: 450 15px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", system-ui, sans-serif;
+    letter-spacing: 0.02em; color: rgba(206, 204, 255, 0.74); -webkit-font-smoothing: antialiased;
+  }
+  #shine { overflow: hidden; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+  #shine i {
+    width: 90px; height: 100%; top: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.10) 30%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0.10) 70%, rgba(255, 255, 255, 0) 100%);
+  }
+  .spark {
+    height: 2px; border-radius: 1px; transform-origin: 0 50%; opacity: 0;
+    background: linear-gradient(90deg, rgba(150, 148, 255, 0), #f4f3ff);
+  }
+
+  /* Still mode renders frame 0 only (used to generate the native PNGs) */
+  .still, .still body { background: transparent !important; }
+  .still #stage *, .still #word span { animation: none !important; }
+  .still .depth { transform: scale3d(1, 1, 0.001); }
+  .still .lit, .still #glow, .still #word, .still #tag, .still #shine, .still #fx, .still #dust { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #stage *, #word span { animation: none !important; }
+    .depth { transform: scale3d(1, 1, 0.001); }
+    .lit, #shine, #fx, #dust { opacity: 0; }
+    #glow { animation: fadein 900ms ease calc(var(--t0) + 100ms) both !important; }
+    #word, #tag { animation: fadein 700ms ease calc(var(--t0) + 400ms) both !important; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="dust"></canvas>
+  <div id="glow"></div>
+  <div id="lift" class="p3"><div id="cam" class="p3"><div id="yaw" class="p3"><div id="pitch" class="p3"></div></div></div></div>
+  <div id="fx"></div>
+  <div id="word" aria-label="Catalyst"></div>
+  <div id="tag">One codebase. Web, iOS and Android.</div>
+</div>
+<script>
+/* Catalyst mark, 14 rays traced from logo-light.svg (158x180 units). Each ray: convex outline (x,y * 20) and its SVG linear gradient. */
+const RAYS=[{"g":[0,89.75,85.3,89.75,0,1,0],"p":[0,1794,3,1754,14,1716,30,1680,52,1647,80,1618,112,1594,147,1576,185,1564,225,1559,265,1560,304,1564,344,1568,384,1572,423,1576,463,1580,503,1584,543,1587,582,1591,622,1595,662,1599,701,1603,741,1607,781,1611,820,1615,860,1619,900,1622,939,1626,979,1630,1019,1634,1058,1638,1098,1642,1138,1646,1177,1650,1217,1653,1257,1657,1296,1661,1336,1665,1376,1669,1415,1673,1455,1677,1495,1681,1534,1685,1574,1688,1614,1693,1650,1708,1680,1735,1699,1769,1706,1808,1699,1848,1680,1882,1651,1909,1614,1924,1574,1928,1535,1931,1495,1934,1455,1937,1415,1941,1376,1944,1336,1947,1296,1950,1256,1953,1217,1956,1177,1959,1137,1962,1097,1965,1058,1968,1018,1971,978,1974,938,1978,899,1981,859,1984,819,1987,779,1990,740,1993,700,1996,660,1999,620,2002,581,2005,541,2008,501,2011,461,2015,422,2018,382,2021,342,2024,302,2027,263,2030,223,2031,183,2025,146,2013,110,1995,78,1971,51,1942,29,1909,13,1872,3,1834]},{"g":[22,48,96,74,0,0.904,0],"p":[441,1029,444,993,453,957,467,923,486,892,510,864,538,840,569,821,603,807,638,798,675,794,711,797,747,805,781,818,814,834,848,849,881,864,914,880,947,895,981,911,1014,926,1047,942,1080,957,1114,973,1147,988,1180,1004,1213,1019,1247,1035,1280,1050,1313,1066,1346,1081,1380,1097,1413,1112,1446,1127,1479,1143,1513,1158,1546,1174,1579,1189,1613,1205,1646,1220,1679,1236,1712,1251,1746,1267,1779,1282,1812,1298,1845,1313,1878,1331,1904,1356,1920,1389,1927,1425,1922,1461,1906,1494,1880,1520,1848,1538,1812,1545,1776,1540,1741,1532,1705,1523,1669,1514,1634,1506,1598,1497,1562,1488,1527,1480,1491,1471,1455,1462,1420,1454,1384,1445,1348,1437,1313,1428,1277,1419,1241,1411,1206,1402,1170,1393,1135,1385,1099,1376,1063,1367,1028,1359,992,1350,956,1341,921,1333,885,1324,849,1315,814,1307,778,1298,742,1289,707,1281,671,1272,636,1263,600,1254,567,1239,536,1219,508,1195,485,1167,466,1136,452,1102,444,1066]},{"g":[55,11,105,55.5,0,0.913,0],"p":[883,265,886,228,894,193,908,159,927,128,951,100,979,76,1010,56,1044,42,1079,33,1116,30,1152,32,1188,40,1222,54,1254,72,1282,96,1308,122,1333,148,1359,175,1384,201,1409,228,1435,254,1460,280,1485,307,1511,333,1536,360,1562,386,1587,413,1612,439,1638,466,1663,492,1689,519,1714,545,1739,571,1765,598,1790,624,1816,651,1841,677,1866,704,1892,730,1917,757,1942,783,1968,810,1993,836,2019,862,2044,889,2069,915,2095,942,2120,969,2139,1000,2147,1035,2144,1072,2130,1106,2106,1134,2075,1153,2040,1162,2004,1160,1970,1146,1939,1126,1909,1105,1879,1084,1849,1063,1819,1042,1789,1021,1759,1000,1729,979,1699,958,1669,937,1638,916,1608,895,1578,874,1548,853,1518,832,1488,811,1458,790,1428,769,1398,749,1368,728,1338,707,1308,686,1277,665,1247,644,1217,623,1187,602,1157,581,1127,560,1097,539,1067,518,1037,497,1007,476,977,455,949,431,926,402,907,371,893,337,885,301]},{"g":[98,3.5,127.5,60,0,1,0],"p":[1776,236,1778,205,1784,175,1794,146,1807,118,1824,92,1845,69,1868,49,1894,32,1921,18,1951,8,1981,2,2012,0,2043,2,2073,8,2102,18,2130,32,2155,49,2179,69,2199,92,2216,118,2230,146,2242,174,2254,202,2266,231,2278,259,2290,288,2302,316,2314,345,2326,373,2338,402,2351,430,2363,458,2375,487,2387,515,2399,544,2411,572,2423,601,2435,629,2447,658,2459,686,2471,715,2483,743,2495,771,2507,800,2519,828,2531,857,2543,885,2555,914,2567,942,2579,971,2590,1000,2594,1030,2590,1061,2578,1089,2559,1113,2534,1132,2506,1144,2475,1147,2444,1143,2416,1131,2392,1112,2372,1089,2353,1064,2334,1040,2315,1015,2296,991,2278,966,2259,942,2240,918,2221,893,2202,869,2183,844,2164,820,2145,795,2126,771,2107,746,2089,722,2070,698,2051,673,2032,649,2013,624,1994,600,1975,575,1956,551,1937,526,1919,502,1900,478,1881,453,1862,429,1843,404,1824,380,1807,354,1793,326,1784,297,1778,267]},{"g":[145.38,0.74,145.38,57.74,0,1,0],"p":[2671,252,2673,224,2678,196,2686,169,2697,143,2712,119,2729,97,2748,76,2770,59,2794,44,2820,32,2846,23,2874,17,2902,15,2930,16,2958,20,2985,28,3011,39,3035,52,3058,69,3079,88,3097,110,3112,133,3125,158,3134,185,3141,212,3144,240,3143,268,3140,296,3136,324,3133,352,3129,380,3125,408,3122,436,3118,464,3114,492,3111,520,3107,548,3103,576,3100,603,3096,631,3092,659,3089,687,3085,715,3081,743,3078,771,3074,799,3070,827,3067,855,3063,883,3059,910,3056,938,3052,966,3048,994,3045,1022,3041,1050,3034,1077,3022,1102,3003,1124,2981,1140,2954,1151,2927,1155,2899,1152,2872,1143,2848,1128,2829,1108,2815,1083,2807,1057,2802,1029,2797,1001,2793,973,2788,946,2783,918,2778,890,2773,862,2769,835,2764,807,2759,779,2754,751,2749,724,2745,696,2740,668,2735,640,2730,613,2725,585,2721,557,2716,529,2711,502,2706,474,2701,446,2697,418,2692,391,2687,363,2682,335,2678,307,2673,280]},{"g":[145.31,123.06,145.31,178.63,0.082,1,1],"p":[2670,3337,2672,3309,2676,3282,2681,3255,2686,3228,2691,3200,2695,3173,2700,3146,2705,3119,2710,3092,2715,3065,2720,3038,2725,3011,2730,2983,2735,2956,2739,2929,2744,2902,2749,2875,2754,2848,2759,2821,2764,2794,2769,2766,2774,2739,2779,2712,2784,2685,2788,2658,2793,2631,2798,2604,2803,2577,2808,2549,2818,2524,2834,2501,2855,2483,2879,2470,2905,2462,2933,2462,2960,2467,2985,2479,3006,2496,3023,2517,3035,2542,3041,2569,3044,2596,3048,2624,3052,2651,3055,2678,3059,2706,3063,2733,3067,2760,3070,2788,3074,2815,3078,2842,3081,2870,3085,2897,3089,2924,3093,2952,3096,2979,3100,3006,3104,3033,3107,3061,3111,3088,3115,3115,3118,3143,3122,3170,3126,3197,3129,3225,3133,3252,3137,3279,3141,3307,3142,3334,3141,3362,3137,3389,3129,3415,3118,3441,3105,3465,3088,3487,3070,3507,3049,3525,3026,3540,3001,3553,2975,3562,2949,3569,2921,3572,2894,3572,2866,3569,2839,3563,2814,3554,2789,3541,2766,3526,2745,3509,2726,3489,2709,3467,2695,3443,2684,3418,2676,3391,2672,3364]},{"g":[93.5,179,130,121,0,1,0],"p":[1773,3350,1775,3319,1780,3289,1790,3261,1803,3233,1820,3208,1839,3184,1858,3160,1877,3137,1896,3113,1915,3089,1934,3066,1953,3042,1972,3019,1991,2995,2010,2971,2030,2948,2049,2924,2068,2900,2087,2877,2106,2853,2125,2829,2144,2806,2163,2782,2182,2759,2201,2735,2221,2711,2240,2688,2259,2664,2278,2640,2297,2617,2316,2593,2335,2569,2354,2546,2373,2522,2393,2499,2418,2482,2446,2471,2476,2468,2506,2472,2534,2484,2558,2503,2576,2527,2588,2555,2592,2585,2589,2615,2578,2643,2566,2671,2553,2699,2541,2727,2529,2755,2517,2782,2504,2810,2492,2838,2480,2866,2468,2894,2455,2922,2443,2949,2431,2977,2419,3005,2406,3033,2394,3061,2382,3088,2370,3116,2357,3144,2345,3172,2333,3200,2321,3227,2308,3255,2296,3283,2284,3311,2272,3339,2259,3367,2247,3394,2235,3422,2223,3450,2208,3476,2190,3501,2169,3523,2145,3542,2120,3558,2092,3571,2063,3579,2033,3584,2003,3586,1972,3583,1943,3576,1914,3566,1887,3552,1862,3535,1840,3514,1820,3491,1803,3466,1790,3438,1780,3410,1775,3380]},{"g":[51.5,179,107,126.5,0,1,0],"p":[887,3341,890,3305,898,3269,912,3236,931,3204,954,3176,981,3152,1011,3132,1041,3111,1071,3091,1101,3070,1131,3050,1162,3029,1192,3009,1222,2989,1252,2968,1282,2948,1312,2927,1342,2907,1372,2886,1402,2866,1432,2845,1462,2825,1493,2805,1523,2784,1553,2764,1583,2743,1613,2723,1643,2702,1673,2682,1703,2662,1733,2641,1763,2621,1793,2600,1824,2580,1854,2559,1884,2539,1914,2519,1944,2498,1974,2478,2008,2466,2045,2464,2079,2474,2110,2493,2133,2521,2147,2555,2149,2591,2141,2626,2122,2657,2097,2684,2072,2710,2046,2736,2021,2762,1995,2788,1970,2814,1944,2840,1919,2866,1894,2892,1868,2918,1843,2944,1817,2970,1792,2996,1766,3022,1741,3048,1716,3074,1690,3100,1665,3126,1639,3152,1614,3178,1588,3204,1563,3230,1538,3256,1512,3282,1487,3308,1461,3334,1436,3360,1410,3386,1385,3412,1359,3438,1334,3464,1309,3490,1283,3515,1254,3538,1222,3555,1188,3568,1153,3575,1116,3577,1080,3573,1045,3564,1012,3549,981,3529,954,3505,931,3477,912,3446,898,3413,890,3377]},{"g":[22,134,96,108,0,1,0],"p":[438,2580,440,2543,448,2508,462,2474,481,2442,504,2414,532,2390,562,2370,596,2356,631,2346,667,2338,703,2330,738,2322,774,2314,810,2305,845,2297,881,2289,917,2281,952,2273,988,2265,1024,2257,1059,2249,1095,2241,1131,2233,1167,2224,1202,2216,1238,2208,1274,2200,1309,2192,1345,2184,1381,2176,1416,2168,1452,2160,1488,2151,1523,2143,1559,2135,1595,2127,1631,2119,1666,2111,1702,2103,1738,2095,1773,2087,1810,2082,1845,2089,1878,2106,1903,2132,1919,2165,1925,2201,1919,2237,1903,2269,1877,2295,1845,2313,1812,2328,1778,2343,1745,2358,1712,2373,1678,2388,1645,2403,1611,2418,1578,2433,1545,2447,1511,2462,1478,2477,1444,2492,1411,2507,1378,2522,1344,2537,1311,2552,1277,2567,1244,2582,1211,2597,1177,2612,1144,2627,1110,2642,1077,2657,1044,2672,1010,2687,977,2702,943,2717,910,2732,877,2747,843,2762,810,2777,776,2792,742,2805,706,2813,670,2815,633,2811,598,2802,564,2788,533,2769,506,2745,482,2717,463,2686,449,2652,441,2616]},{"g":[116.5,42.5,136.5,75.5,0,1,0],"p":[2207,1030,2208,1009,2211,987,2216,966,2223,946,2232,926,2242,907,2254,889,2268,872,2283,857,2300,843,2318,831,2336,820,2356,811,2377,804,2398,799,2419,796,2441,795,2462,795,2484,798,2505,803,2525,809,2545,818,2564,828,2582,840,2599,854,2615,869,2629,885,2641,903,2652,921,2662,941,2669,961,2675,982,2682,1002,2688,1023,2695,1044,2701,1064,2708,1085,2714,1106,2721,1126,2727,1147,2734,1168,2740,1188,2747,1209,2753,1229,2760,1250,2766,1271,2773,1291,2779,1312,2786,1333,2792,1353,2799,1374,2805,1395,2809,1416,2809,1438,2805,1459,2797,1479,2786,1497,2771,1513,2754,1526,2735,1536,2714,1542,2693,1545,2671,1543,2650,1537,2631,1528,2613,1515,2597,1501,2582,1486,2566,1471,2550,1456,2534,1441,2519,1426,2503,1412,2487,1397,2471,1382,2456,1367,2440,1352,2424,1337,2408,1323,2393,1308,2377,1293,2361,1278,2345,1263,2330,1248,2314,1234,2298,1219,2282,1204,2267,1188,2254,1172,2241,1154,2231,1135,2222,1115,2216,1094,2211,1073,2208,1052]},{"g":[71,48.5,117.5,74.5,0,1,0],"p":[1333,1028,1334,1000,1339,972,1348,945,1359,920,1374,895,1391,873,1411,853,1433,835,1457,820,1483,808,1509,800,1537,794,1565,792,1594,793,1621,798,1649,806,1675,817,1699,831,1722,848,1744,866,1766,883,1788,901,1810,919,1832,936,1854,954,1876,972,1898,989,1921,1007,1943,1025,1965,1042,1987,1060,2009,1078,2031,1095,2053,1113,2075,1131,2097,1148,2119,1166,2141,1184,2163,1201,2186,1219,2208,1237,2230,1254,2252,1272,2274,1290,2296,1307,2318,1325,2339,1343,2356,1366,2367,1392,2372,1420,2370,1448,2361,1475,2347,1499,2326,1519,2302,1533,2275,1541,2247,1543,2219,1538,2193,1528,2167,1518,2140,1508,2114,1497,2088,1487,2061,1476,2035,1466,2009,1456,1982,1445,1956,1435,1930,1425,1903,1414,1877,1404,1851,1394,1825,1383,1798,1373,1772,1362,1746,1352,1719,1342,1693,1331,1667,1321,1640,1311,1614,1300,1588,1290,1561,1279,1535,1269,1509,1259,1483,1248,1457,1236,1433,1222,1411,1204,1391,1184,1374,1161,1359,1137,1348,1111,1339,1084,1334,1057]},{"g":[45,90,106.5,90,0,1,0],"p":[891,1792,893,1761,900,1731,909,1702,923,1675,940,1649,960,1626,983,1606,1008,1589,1036,1575,1065,1565,1095,1559,1125,1557,1156,1558,1186,1563,1216,1567,1247,1572,1277,1576,1307,1580,1338,1585,1368,1589,1398,1594,1428,1598,1459,1603,1489,1607,1519,1612,1550,1616,1580,1621,1610,1625,1641,1630,1671,1634,1701,1639,1731,1643,1762,1648,1792,1652,1822,1657,1853,1661,1883,1666,1913,1670,1944,1675,1974,1679,2004,1684,2034,1688,2065,1693,2093,1705,2117,1724,2136,1748,2147,1776,2152,1806,2148,1837,2137,1865,2118,1890,2094,1909,2066,1921,2036,1926,2006,1930,1975,1933,1945,1937,1915,1940,1884,1944,1854,1947,1823,1951,1793,1954,1762,1958,1732,1961,1701,1965,1671,1968,1641,1972,1610,1975,1580,1979,1549,1982,1519,1986,1488,1989,1458,1993,1428,1996,1397,2000,1367,2003,1336,2007,1306,2010,1275,2014,1245,2017,1215,2021,1184,2024,1154,2028,1123,2029,1093,2026,1063,2020,1034,2010,1007,1996,981,1978,959,1958,939,1935,922,1909,909,1881,899,1852,893,1822]},{"g":[68.5,135,118,106.5,0,1,0],"p":[1335,2566,1337,2538,1342,2511,1350,2484,1361,2458,1375,2434,1392,2412,1412,2392,1433,2374,1457,2359,1482,2347,1508,2337,1535,2328,1561,2318,1587,2309,1614,2299,1640,2290,1667,2280,1693,2271,1719,2261,1746,2252,1772,2242,1798,2233,1825,2223,1851,2214,1877,2204,1904,2195,1930,2185,1956,2176,1983,2166,2009,2157,2035,2147,2062,2138,2088,2128,2114,2119,2141,2109,2167,2100,2194,2091,2220,2081,2247,2076,2275,2078,2302,2085,2326,2100,2346,2119,2362,2142,2371,2169,2373,2197,2369,2224,2359,2250,2343,2273,2322,2292,2300,2308,2278,2325,2255,2342,2233,2359,2211,2376,2188,2393,2166,2410,2144,2427,2122,2444,2099,2461,2077,2478,2055,2495,2032,2512,2010,2529,1988,2546,1966,2563,1943,2580,1921,2597,1899,2614,1876,2631,1854,2648,1832,2664,1809,2681,1787,2698,1765,2715,1743,2732,1720,2749,1697,2765,1673,2779,1647,2790,1620,2797,1592,2801,1564,2802,1537,2799,1509,2794,1483,2785,1457,2773,1434,2758,1412,2740,1392,2720,1375,2698,1361,2674,1350,2648,1342,2622,1337,2594]},{"g":[116.5,137.5,138.5,105.5,0,1,0],"p":[2216,2557,2217,2536,2219,2515,2224,2494,2231,2474,2239,2455,2249,2436,2261,2419,2274,2402,2288,2387,2304,2373,2320,2359,2336,2345,2352,2331,2368,2317,2384,2304,2400,2290,2416,2276,2432,2262,2448,2248,2463,2234,2479,2221,2495,2207,2511,2193,2527,2179,2543,2165,2559,2151,2575,2138,2591,2124,2607,2110,2623,2096,2641,2085,2660,2077,2681,2072,2702,2072,2723,2075,2743,2082,2761,2092,2778,2105,2792,2121,2802,2139,2810,2159,2813,2180,2813,2201,2809,2222,2803,2242,2796,2262,2790,2282,2783,2302,2777,2322,2770,2342,2764,2362,2757,2382,2751,2402,2744,2423,2738,2443,2731,2463,2725,2483,2718,2503,2711,2523,2705,2543,2698,2563,2692,2583,2685,2603,2679,2623,2672,2643,2663,2663,2653,2681,2641,2699,2628,2715,2613,2730,2597,2744,2580,2756,2562,2767,2542,2776,2523,2783,2502,2788,2481,2792,2460,2793,2439,2793,2418,2791,2398,2787,2377,2782,2358,2774,2339,2765,2321,2754,2304,2741,2288,2727,2273,2712,2260,2695,2249,2678,2239,2659,2230,2640,2224,2620,2219,2599,2216,2578]}];
+(function () {
+  var still = /still/.test(location.hash);
+  if (still) document.documentElement.className = 'still';
+  var cfg = window.__CATALYST_SPLASH__;
+  if (cfg && cfg.backgroundColor) document.documentElement.style.setProperty('--ink', cfg.backgroundColor);
+
+  var DPR = window.devicePixelRatio || 1;
+  /* The composition is tuned for a 144px mark: keep WEBVIEW_CONFIG.splashScreen.imageHeight (and imageWidth)
+     at 144 so the native image and frame 0 of this page line up */
+  var S = 0.8;                 /* css px per logo unit: 180 units -> 144px, the native imageHeight */
+  var K = S * DPR;             /* device px per unit */
+  var CX = 79, CY = 90;        /* logo centre in units */
+  var FX = 150, FY = 90;       /* the point every ray converges on */
+  var HD = 10;                 /* half extrusion depth, units */
+  var SLICES = 26;
+  var HERO = 1.7;              /* the mark ends at this scale, so 3D layers are drawn this sharp */
+  var WALL_RES = 1.3;
+  /* The silhouette, the 26 wall slices and the shade hold most of the canvas memory (~34 MB of ~51 MB on a
+     3x phone), so cap them at 2.6 backing px per css px: unchanged up to 2x, 0.87x device px on 3x screens.
+     They share one resolution because the slices and shade copy the silhouette 1:1.
+     If memory is still tight, SLICES is the next lever. */
+  var wallRes = Math.min(WALL_RES, 2.6 / DPR);
+  var PURPLE = '#7171ff';
+  var Q = function (v) { return v.toFixed(2); };
+
+  var lift = document.getElementById('lift');
+  var pitch = document.getElementById('pitch');
+
+  function rayPts(r) { var p = r.p, out = []; for (var i = 0; i < p.length; i += 2) out.push([p[i] / 20, p[i + 1] / 20]); return out; }
+  function trace(ctx, pts, dx, dy) {
+    ctx.beginPath();
+    for (var i = 0; i < pts.length; i++) {
+      var x = (pts[i][0] - CX) * K + dx, y = (pts[i][1] - CY) * K + dy;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  }
+  function brand(ctx, r, dx, dy, dim) {
+    var g = r.g;
+    var lg = ctx.createLinearGradient((g[0] - CX) * K + dx, (g[1] - CY) * K + dy, (g[2] - CX) * K + dx, (g[3] - CY) * K + dy);
+    var p = dim ? rgb(mix([113, 113, 255], [0, 0, 0], dim)) : PURPLE, w = dim ? rgb(mix([255, 255, 255], [20, 18, 60], dim)) : '#ffffff';
+    var a = g[6] ? w : p, b = g[6] ? p : w;
+    lg.addColorStop(g[4], a); lg.addColorStop(g[5], b);
+    return lg;
+  }
+  function mix(a, b, t) { return [0, 1, 2].map(function (i) { return Math.round(a[i] + (b[i] - a[i]) * t); }); }
+  function rgb(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a == null ? 1 : a) + ')'; }
+
+  var css = '';
+  var maskPolys = '';
+  var meta = [];
+  RAYS.forEach(function (r, i) {
+    var pts = rayPts(r);
+    var mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9, sx = 0, sy = 0;
+    pts.forEach(function (q) { mnx = Math.min(mnx, q[0]); mny = Math.min(mny, q[1]); mxx = Math.max(mxx, q[0]); mxy = Math.max(mxy, q[1]); sx += q[0]; sy += q[1]; });
+    var cx = sx / pts.length, cy = sy / pts.length;
+    /* canvas box in device px, on integer pixels relative to the snapped origin */
+    var pad = 2;
+    var x0 = Math.floor((mnx - CX) * K) - pad, y0 = Math.floor((mny - CY) * K) - pad;
+    var w = Math.ceil((mxx - CX) * K) + pad - x0, h = Math.ceil((mxy - CY) * K) + pad - y0;
+    var dx = -x0, dy = -y0;
+
+    /* A layer drawn at `res` times device resolution; drawing code always works in 1x device px */
+    function layer(z, res) {
+      var c = document.createElement('canvas');
+      c.width = Math.round(w * res); c.height = Math.round(h * res);
+      c.style.width = w / DPR + 'px'; c.style.height = h / DPR + 'px';
+      c.style.transform = 'translate3d(' + x0 / DPR + 'px,' + y0 / DPR + 'px,' + (z * S).toFixed(3) + 'px)';
+      var ctx = c.getContext('2d'); ctx.setTransform(res, 0, 0, res, 0, 0);
+      return { c: c, ctx: ctx, res: res };
+    }
+
+    var ray = document.createElement('div'); ray.className = 'p3 ray r' + i;
+    var depth = document.createElement('div'); depth.className = 'p3 depth';
+    /* Fixed micro offset in SVG paint order, outside the extrusion scale, so the flat frame sorts like the SVG */
+    var base = document.createElement('div'); base.className = 'p3';
+    base.style.transform = 'translate3d(0,0,' + (i * 0.02).toFixed(2) + 'px)';
+    base.appendChild(depth); ray.appendChild(base);
+
+    /* Silhouette eroded by 1.6 device px so the side walls never fringe the front face's anti-aliased edge */
+    var sil = layer(0, wallRes), sc = sil.ctx;
+    trace(sc, pts, dx, dy); sc.fillStyle = '#fff'; sc.fill();
+    sc.globalCompositeOperation = 'destination-out'; sc.lineWidth = 3.2; sc.stroke();
+
+    /* Walls: dark violet lit from the upper left, brightening toward the front edge like a bevel.
+       The back slice carries a dimmed brand gradient so the hero turn shows a real back face. */
+    var deep = [24, 22, 66], mid = [66, 62, 170], edge = [160, 158, 255];
+    for (var k = 0; k < SLICES; k++) {
+      var f = k / (SLICES - 1);
+      var z = -HD + 2 * HD * f * (SLICES - 1) / SLICES;
+      var L = layer(z, wallRes), ctx = L.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(sil.c, 0, 0); ctx.setTransform(wallRes, 0, 0, wallRes, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      if (k === 0) {
+        ctx.fillStyle = brand(ctx, r, dx, dy, 0.55);
+      } else {
+        var bse = f < 0.8 ? mix(deep, mid, Math.pow(f / 0.8, 1.6)) : mix(mid, edge, Math.pow((f - 0.8) / 0.2, 2));
+        var lg = ctx.createLinearGradient((40 - CX) * K + dx, (10 - CY) * K + dy, (150 - CX) * K + dx, (175 - CY) * K + dy);
+        lg.addColorStop(0, rgb(mix(bse, [255, 255, 255], 0.16)));
+        lg.addColorStop(1, rgb(mix(bse, [0, 0, 0], 0.35)));
+        ctx.fillStyle = lg;
+      }
+      ctx.fillRect(0, 0, w, h);
+      depth.appendChild(L.c);
+    }
+
+    /* Front face at native resolution: the exact flat mark the native PNG shows */
+    var fr = layer(HD, 1);
+    trace(fr.ctx, pts, dx, dy); fr.ctx.fillStyle = brand(fr.ctx, r, dx, dy); fr.ctx.fill();
+    depth.appendChild(fr.c);
+
+    /* Lit front at hero resolution: soft bevel, highlight upper-left, shade lower-right */
+    function litFace(z) {
+      var lt = layer(z, HERO), lc = lt.ctx, R = HERO;
+      trace(lc, pts, dx, dy); lc.fillStyle = brand(lc, r, dx, dy); lc.fill();
+      lc.save(); trace(lc, pts, dx, dy); lc.clip();
+      function inner(color, ox2, oy2, blur) {
+        lc.save();
+        /* shadows ignore the canvas transform, so scale them by hand */
+        lc.shadowColor = color; lc.shadowBlur = blur * R; lc.shadowOffsetX = ox2 * R; lc.shadowOffsetY = oy2 * R;
+        lc.beginPath(); lc.rect(-w, -h, 3 * w, 3 * h);
+        for (var j = pts.length - 1; j >= 0; j--) { var x = (pts[j][0] - CX) * K + dx, y = (pts[j][1] - CY) * K + dy; j === pts.length - 1 ? lc.moveTo(x, y) : lc.lineTo(x, y); }
+        lc.closePath(); lc.fillStyle = '#000'; lc.fill('evenodd');
+        lc.restore();
+      }
+      inner('rgba(255,255,255,0.9)', 1.1 * K, 1.3 * K, 1.6 * K);
+      inner('rgba(28,22,96,0.55)', -1.4 * K, -1.6 * K, 3.2 * K);
+      lc.globalCompositeOperation = 'source-atop';
+      var sh = lc.createLinearGradient((20 - CX) * K + dx, (0 - CY) * K + dy, (150 - CX) * K + dx, (180 - CY) * K + dy);
+      sh.addColorStop(0, 'rgba(255,255,255,0.10)'); sh.addColorStop(0.55, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(20,16,70,0.22)');
+      lc.fillStyle = sh; lc.fillRect(0, 0, w, h);
+      lc.restore();
+      return lt.c;
+    }
+    var lit = litFace(HD + 0.15); lit.className = 'lit';
+    depth.appendChild(lit);
+
+    /* Depth shade: darkens the ray while it is on the far side of the turbine */
+    var sd = layer(HD + 0.3, wallRes);
+    sd.ctx.setTransform(1, 0, 0, 1, 0, 0); sd.ctx.drawImage(sil.c, 0, 0);
+    sd.ctx.globalCompositeOperation = 'source-in'; sd.ctx.fillStyle = '#05040c'; sd.ctx.fillRect(0, 0, sd.c.width, sd.c.height);
+    sd.c.className = 'shade s' + i;
+    depth.appendChild(sd.c);
+    pitch.appendChild(ray);
+
+    /* Two lagging echoes of the lit face: cheap motion trails while the turbine spins */
+    for (var g = 1; g <= 2; g++) {
+      var gw = document.createElement('div'); gw.className = 'p3 trail t' + i + '-' + g;
+      var gc = layer(HD, 1);
+      gc.ctx.setTransform(1, 0, 0, 1, 0, 0); gc.ctx.drawImage(lit, 0, 0, w, h);
+      gc.c.className = 'ghost g' + g;
+      gw.appendChild(gc.c);
+      pitch.insertBefore(gw, pitch.firstChild);
+    }
+
+    var a = Math.atan2(cy - FY, cx - FX) * 180 / Math.PI;
+    if (a < 0) a += 360;
+    meta.push({ i: i, cx: cx, cy: cy, a: a, inner: i >= 9 });
+    maskPolys += '<polygon points="' + pts.map(function (q) { return Q(q[0]) + ',' + Q(q[1]); }).join(' ') + '"/>';
+  });
+
+  /*
+    Turbine: outer 9 rays and inner 5 rays become two counter-rotating rings, completing the fan into a full circle.
+    Chain (rightmost first): centroid to origin, align ray to +x, push out to radius, place at slot angle, tilt ring.
+    All functions are zero at 0% and 100%, so the slam lands exactly on the flat logo pose.
+  */
+  var TILT = 38;
+  function ring(list, R, Z, dir, spin) {
+    list.sort(function (p, q) { return p.a - q.a; });
+    var n = list.length;
+    list.forEach(function (m, k) {
+      var phi = 180 + (k - (n - 1) / 2) * 360 / n;
+      var b1 = phi + dir * 30, b2 = phi + dir * (30 + spin);
+      var bEnd = dir > 0 ? 360 * Math.ceil((b2 + 30) / 360) : 360 * Math.floor((b2 - 30) / 360);
+      var zz = Z + (k % 2 ? 10 : -10);
+      var Dx = -(m.cx - CX) * S, Dy = -(m.cy - CY) * S;
+      function T(A, B, r, z, C, dx, dy) {
+        return 'transform:rotateX(' + Q(A) + 'deg) rotateZ(' + Q(B) + 'deg) translate3d(' + Q(r) + 'px,0,' + Q(z) + 'px) rotateZ(' + Q(C) + 'deg) translate3d(' + Q(dx) + 'px,' + Q(dy) + 'px,0)';
+      }
+      var name = 'o' + m.i;
+      css += '@keyframes ' + name + '{' +
+        '0%{' + T(0, 0, 0, 0, 0, 0, 0) + ';animation-timing-function:cubic-bezier(.2,.75,.25,1)}' +
+        '30%{' + T(TILT, b1, R, zz, -m.a, Dx, Dy) + ';animation-timing-function:linear}' +
+        '75%{' + T(TILT, b2, R + 6, zz, -m.a, Dx, Dy) + ';animation-timing-function:cubic-bezier(.62,0,.96,.5)}' +
+        '100%{' + T(0, bEnd, 0, 0, 0, 0, 0) + '}}';
+      css += '.r' + m.i + '{animation:' + name + ' 2000ms linear calc(var(--t0) + 1000ms) both}';
+      css += '.t' + m.i + '-1{animation:' + name + ' 2000ms linear calc(var(--t0) + 1045ms) both}';
+      css += '.t' + m.i + '-2{animation:' + name + ' 2000ms linear calc(var(--t0) + 1090ms) both}';
+      /* far side of the tilted ring is darker: sample depth along the linear spin */
+      var sk = '0%{opacity:0}';
+      for (var s = 30; s <= 75; s += 5) {
+        var B = (b1 + (b2 - b1) * (s - 30) / 45) * Math.PI / 180;
+        var zv = R * Math.sin(B) * Math.sin(TILT * Math.PI / 180) + zz * Math.cos(TILT * Math.PI / 180);
+        var o = Math.max(0, Math.min(1, -zv / 100)) * 0.6;
+        sk += s + '%{opacity:' + Q(o) + '}';
+      }
+      sk += '92%{opacity:0}100%{opacity:0}';
+      css += '@keyframes sh' + m.i + '{' + sk + '}.s' + m.i + '{animation:sh' + m.i + ' 2000ms linear calc(var(--t0) + 1000ms) both}';
+    });
+  }
+  ring(meta.filter(function (m) { return !m.inner; }), 150, -24, 1, 210);
+  ring(meta.filter(function (m) { return m.inner; }), 80, 44, -1, 260);
+  css += '@keyframes gh1{0%{opacity:0}12%{opacity:.34}70%{opacity:.34}86%,100%{opacity:0}}' +
+         '@keyframes gh2{0%{opacity:0}12%{opacity:.17}70%{opacity:.17}86%,100%{opacity:0}}' +
+         '.g1{animation:gh1 2000ms linear calc(var(--t0) + 1000ms) both}.g2{animation:gh2 2000ms linear calc(var(--t0) + 1000ms) both}';
+
+  /* Specular sweep, masked to the whole mark, riding just above the converged front faces */
+  var shine = document.createElement('div'); shine.id = 'shine';
+  var mask = 'url("data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 158 180">' + maskPolys + '</svg>') + '")';
+  shine.style.webkitMaskImage = mask; shine.style.maskImage = mask;
+  shine.style.width = 158 * S + 'px'; shine.style.height = 180 * S + 'px';
+  shine.style.transform = 'translate3d(' + (-CX * S) + 'px,' + (-CY * S) + 'px,' + ((HD + 0.4) * S) + 'px)';
+  shine.appendChild(document.createElement('i'));
+  pitch.appendChild(shine);
+
+  /* Radial sprite helper: dithered so soft falloffs never band on the dark ink */
+  function sprite(size, cssSize, fn) {
+    var c = document.createElement('canvas'); c.width = c.height = size;
+    var x2 = c.getContext('2d'), img = x2.createImageData(size, size), px = img.data;
+    for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
+      var u = (x + 0.5) / size * 2 - 1, v = (y + 0.5) / size * 2 - 1, col = fn(Math.sqrt(u * u + v * v));
+      var o = (y * size + x) * 4;
+      px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2];
+      px[o + 3] = Math.max(0, Math.min(255, col[3] * 255 + (Math.random() - 0.5) * 1.6));
+    }
+    x2.putImageData(img, 0, 0);
+    c.style.width = c.style.height = cssSize + 'px';
+    c.style.left = c.style.top = -cssSize / 2 + 'px';
+    c.style.transformOrigin = '50% 50%';
+    return c;
+  }
+
+  var glow = document.getElementById('glow');
+  glow.style.transformOrigin = '0 0';
+  glow.appendChild(sprite(160, 380, function (d) { return [122, 118, 255, Math.max(0, 0.19 * Math.exp(-d * d * 4.2) - 0.19 * Math.exp(-4.2))]; }));
+
+  /* Impact effects, centred on the convergence point */
+  var fx = document.getElementById('fx');
+  var wave = function (id, thick, a) {
+    var c = sprite(320, 320, function (d) { var t = (d - 0.86) / thick; return [196, 194, 255, a * Math.exp(-t * t)]; });
+    c.id = id; return c;
+  };
+  fx.appendChild(wave('wave1', 0.05, 0.85));
+  fx.appendChild(wave('wave2', 0.025, 0.5));
+  var flash = sprite(160, 170, function (d) { return d < 1 ? [250, 249, 255, Math.pow(1 - d, 3.2)] : [0, 0, 0, 0]; });
+  flash.id = 'flash'; fx.appendChild(flash);
+  var N = 34, golden = 137.508;
+  for (var j = 0; j < N; j++) {
+    var sp = document.createElement('div'); sp.className = 'spark k' + j;
+    var len = 10 + (j * 7 % 13), th = (j * golden + 9) % 360, dist = 80 + (j * 53 % 120), dur = 520 + (j * 37 % 260), del = 2995 + (j * 11 % 45);
+    sp.style.width = len + 'px'; sp.style.top = '-1px';
+    css += '@keyframes kf' + j + '{0%{opacity:0;transform:rotate(' + Q(th) + 'deg) translate3d(6px,0,0) scaleX(.4)}2%{opacity:1}65%{opacity:.85}100%{opacity:0;transform:rotate(' + Q(th) + 'deg) translate3d(' + dist + 'px,0,0) scaleX(.15)}}' +
+           '.k' + j + '{animation:kf' + j + ' ' + dur + 'ms cubic-bezier(.08,.8,.2,1) calc(var(--t0) + ' + del + 'ms) both}';
+    fx.appendChild(sp);
+  }
+
+  /* Faint dust field for scale; slowly drifts toward the viewer */
+  var dust = document.getElementById('dust');
+  function drawDust(vw, vh) {
+    dust.width = Math.round(vw * DPR); dust.height = Math.round(vh * DPR);
+    dust.style.width = vw + 'px'; dust.style.height = vh + 'px';
+    dust.style.transformOrigin = '50% 46%';
+    var d = dust.getContext('2d'), seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    for (var n = 0; n < 170; n++) {
+      var x = rnd() * vw * DPR, y = rnd() * vh * DPR, r = (0.4 + rnd() * rnd() * 1.4) * DPR, al = 0.12 + rnd() * 0.45;
+      d.beginPath(); d.arc(x, y, r, 0, Math.PI * 2);
+      d.fillStyle = 'rgba(' + (190 + rnd() * 50 | 0) + ',' + (188 + rnd() * 40 | 0) + ',255,' + al.toFixed(2) + ')'; d.fill();
+    }
+  }
+
+  var word = document.getElementById('word');
+  'Catalyst'.split('').forEach(function (ch, k) {
+    var s = document.createElement('span'); s.textContent = ch; s.setAttribute('aria-hidden', 'true');
+    s.style.animationDelay = 'calc(var(--t0) + ' + (4000 + k * 60) + 'ms)';
+    word.appendChild(s);
+  });
+  var tag = document.getElementById('tag');
+
+  css += '@media (prefers-reduced-motion: reduce){.ray,.trail,.shade,.ghost,.spark{animation:none!important}}.still .ray,.still .trail,.still .spark{animation:none!important}';
+  var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+
+  /* iOS (SwiftUI) centres the native image inside the safe area; Android centres it in the whole window.
+     WKWebView reports the insets a few hundred ms after load, so wait for them before revealing. */
+  var IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  var probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+  document.body.appendChild(probe);
+  function insets() { var cs = getComputedStyle(probe); return [parseFloat(cs.paddingTop) || 0, parseFloat(cs.paddingBottom) || 0]; }
+  function start() {
+    var vw = window.innerWidth, vh = window.innerHeight, ins = IOS ? insets() : [0, 0];
+    /* Snap the origin to the device-pixel grid so frame 0 is as sharp as the native bitmap */
+    var ox = Math.round(vw / 2 * DPR) / DPR, oy = Math.round((vh + ins[0] - ins[1]) / 2 * DPR) / DPR;
+    lift.style.left = ox + 'px'; lift.style.top = oy + 'px';
+    glow.style.left = ox + 4 + 'px'; glow.style.top = oy - 10 + 'px';
+    fx.style.left = ox + (FX - CX) * S + 'px'; fx.style.top = oy + (FY - CY) * S + 'px';
+    word.style.top = oy + 96 + 'px';
+    tag.style.top = oy + 146 + 'px';
+    if (!still) drawDust(vw, vh);
+    var html = document.documentElement;
+    /* iOS reveals exactly when we do. Android keeps the WebView at alpha 0 until onPageFinished plus a
+       visual-state round trip (~300ms on a cold start while the app page loads), so hold the flat frame longer */
+    html.style.setProperty('--t0', IOS ? '160ms' : '520ms');
+    html.classList.add('ready');
+    requestAnimationFrame(function () { requestAnimationFrame(function () { html.classList.add('go'); }); });
+  }
+  if (still) { start(); return; }
+  if (!IOS) { if (document.readyState === 'complete') start(); else window.addEventListener('load', start); return; }
+  var since = Date.now();
+  (function wait() { if (insets()[0] > 0 || Date.now() - since > 900) start(); else setTimeout(wait, 16); })();
+})();
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ import {
     handleError,
     safeCall,
     safeCallNamed,
+    ignoredDefaultHooks,
 } from "../../src/server/utils/validator.js"
 import { ERROR_CODES } from "../../src/errors/registry.js"
 import { createError } from "../../src/errors/index.js"
@@ -232,5 +233,41 @@ describe("handleError output mode", () => {
         const logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
         handleError(createError(ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING))
         expect(logSpy.mock.calls.flat().join("\n")).toContain(`[${ERROR_CODES.PREFLIGHT_GET_ROUTES_MISSING}]`)
+    })
+})
+
+describe("ignoredDefaultHooks", () => {
+    const hook = () => {}
+
+    it("names the hooks on a plain-object default export that have no named export", () => {
+        const mod = { default: { onRouteMatch: hook, onFetcherError: hook, preServerInit: hook } }
+        expect(ignoredDefaultHooks(mod)).toEqual(["preServerInit", "onRouteMatch", "onFetcherError"])
+    })
+
+    it("skips hooks that are also exported by name", () => {
+        const mod = { default: { onRouteMatch: hook, onServerError: hook }, onRouteMatch: hook }
+        expect(ignoredDefaultHooks(mod)).toEqual(["onServerError"])
+    })
+
+    it("ignores keys that are not Catalyst hooks", () => {
+        expect(ignoredDefaultHooks({ default: { helper: hook, config: {} } })).toEqual([])
+    })
+
+    it("returns [] for a function default export", () => {
+        const fn = Object.assign(() => {}, { onRouteMatch: hook })
+        expect(ignoredDefaultHooks({ default: fn })).toEqual([])
+    })
+
+    it("returns [] when there is no default export or no module", () => {
+        expect(ignoredDefaultHooks({ onRouteMatch: hook })).toEqual([])
+        expect(ignoredDefaultHooks(undefined)).toEqual([])
+    })
+
+    it("returns [] for a default export that is not a plain object", () => {
+        class Hooks {
+            onRouteMatch() {}
+        }
+        expect(ignoredDefaultHooks({ default: new Hooks() })).toEqual([])
+        expect(ignoredDefaultHooks({ default: ["onRouteMatch"] })).toEqual([])
     })
 })
