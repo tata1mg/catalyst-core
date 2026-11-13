@@ -28,6 +28,11 @@ const HINTS = [
         },
     },
     {
+        test: /listen EADDRNOTAVAIL\b(?:.*?address not available\s+(\S+):\d+)?/i,
+        hint: (match) =>
+            `NODE_SERVER_HOSTNAME ${match[1] ? `${match[1]} ` : ""}is not an address of this machine; set it to localhost (or this machine's address) in config/config.json.`,
+    },
+    {
         test: /SDK location not found|ANDROID_HOME/i,
         hint: () =>
             "Set the Android SDK path in config/config.json under WEBVIEW_CONFIG.android.sdkPath, or export ANDROID_HOME.",
