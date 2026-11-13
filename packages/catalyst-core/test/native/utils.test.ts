@@ -437,6 +437,32 @@ describe("the Gradle wrapper", () => {
         child.emit("close", 1)
         await expect(done).rejects.toMatchObject({ code: 1, output: "* What went wrong:\n" })
     })
+
+    // sdkmanager and avdmanager are batch files on Windows, which Node will not spawn itself.
+    it("sends any batch file through cmd.exe on Windows, and nothing else", async () => {
+        const sdkmanager = path.join("C:/sdk", "cmdline-tools", "latest", "bin", "sdkmanager.bat")
+        for (const run of [
+            () => runInteractiveCommand(sdkmanager, ["--list"]),
+            () => runInheritedCommand(sdkmanager, ["--licenses"]),
+        ]) {
+            const child = fakeChild()
+            mockedSpawn.mockImplementationOnce(() => child as any)
+            const done = onPlatform("win32", run)
+            child.emit("close", 0)
+            await done
+            const [command, args, options] = mockedSpawn.mock.calls.at(-1)!
+            expect(command).toBe("cmd.exe")
+            expect(args[3]).toContain("sdkmanager.bat")
+            expect(options).toMatchObject({ windowsVerbatimArguments: true })
+        }
+
+        const child = fakeChild()
+        mockedSpawn.mockImplementationOnce(() => child as any)
+        const done = onPlatform("win32", () => runInteractiveCommand("C:/sdk/platform-tools/adb.exe", ["devices"]))
+        child.emit("close", 0)
+        await done
+        expect(mockedSpawn.mock.calls.at(-1)!.slice(0, 2)).toEqual(["C:/sdk/platform-tools/adb.exe", ["devices"]])
+    })
 })
 
 describe("ensureLocalProperties", () => {

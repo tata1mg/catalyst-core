@@ -333,19 +333,23 @@ async function curlDownload(url, dest) {
     await runInteractiveCommand("curl", ["-fsSL", "--retry", "2", "-o", dest, url])
 }
 
-function unzipArchive(zip, dest, { platform = process.platform, env = process.env } = {}) {
+function unzipArchive(
+    zip,
+    dest,
+    { platform = process.platform, env = process.env, exec = execFileSync, exists = fs.existsSync } = {}
+) {
     if (platform === "win32") {
         // No unzip on Windows. Its own tar (bsdtar, in System32 since Windows 10)
         // reads zip; Git's GNU tar, often first on PATH, does not.
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - SystemRoot names the Windows folder, never remote input.
         const systemTar = path.join(env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
-        const tar = fs.existsSync(systemTar) ? systemTar : "tar"
+        const tar = exists(systemTar) ? systemTar : "tar"
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - tar with an argv array on a checksum-verified archive.
-        execFileSync(tar, ["-xf", zip, "-C", dest], { stdio: ["ignore", "ignore", "pipe"] })
+        exec(tar, ["-xf", zip, "-C", dest], { stdio: ["ignore", "ignore", "pipe"] })
         return
     }
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - unzip with an argv array on a checksum-verified archive.
-    execFileSync("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
+    exec("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
 }
 
 /**
@@ -646,6 +650,7 @@ export {
     requiredAndroidPackages,
     missingAndroidPackages,
     defaultSdkPath,
+    unzipArchive,
     resolveSdkPath,
     cmdlineTool,
     licensesAccepted,

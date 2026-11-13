@@ -16,7 +16,6 @@ function validatePath(path) {
     }
     if (!pathPattern.test(path)) {
         if (!/^[\/a-zA-Z0-9-_]+/.test(path)) {
-            s
             return "Only letters, digits, hyphens, and underscores are allowed after the initial slash."
         }
         if (/\/[^:][a-zA-Z0-9-_]+/.test(path)) {

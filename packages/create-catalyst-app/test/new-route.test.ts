@@ -6,11 +6,21 @@ import { pathToFileURL } from "node:url"
 
 // describe/it/expect come from vitest's `globals: true` config (see vitest.config.mjs).
 const {
+    checkIfRoutePathExist,
     createDirectory,
     createNewRoute,
     createReducerEntryInStore,
+    discardChanges,
+    toCamelCase,
+    validateComponentName,
+    validatePath,
 } = require("../codemod/new-route/utils.js")
-const { createReduxActionFile, createRTKReducerFile } = require("../codemod/new-route/template.js")
+const {
+    createNewComponent,
+    createReduxActionFile,
+    createReduxReducerFile,
+    createRTKReducerFile,
+} = require("../codemod/new-route/template.js")
 
 const templates = path.resolve(__dirname, "..", "templates")
 const originalCwd = process.cwd()
@@ -98,5 +108,72 @@ describe("new-route", () => {
         expect(createDirectory({ componentName: "Probe", containersDir })).toBeUndefined()
         expect(process.exitCode).toBe(1)
         vi.restoreAllMocks()
+    })
+})
+
+describe("new-route answers", () => {
+    it("accepts a path, a parameter and a query", () => {
+        expect(validatePath("/probe")).toBe(true)
+        expect(validatePath("/probe/:id")).toBe(true)
+        expect(validatePath("/probe?tab=1")).toBe(true)
+    })
+
+    it("says what is wrong with a path", () => {
+        expect(validatePath("probe")).toMatch(/must start with a forward slash/)
+        expect(validatePath("/probe/id")).toMatch(/Parameters must start/)
+        expect(validatePath("/a?x!")).toMatch(/incorrectly formatted/)
+    })
+
+    it("wants a component name in PascalCase", () => {
+        expect(validateComponentName("Probe")).toBe(true)
+        expect(validateComponentName("probe")).toMatch(/uppercase/)
+    })
+
+    it("camel-cases a name for the reducer", () => {
+        expect(toCamelCase("probe-page")).toBe("probePage")
+        expect(toCamelCase("Probe Page")).toBe("probePage")
+    })
+
+    it("refuses a route or component the routes file already has", () => {
+        expect(() => checkIfRoutePathExist({ routePath: "/fresh", componentName: "Fresh" })).not.toThrow()
+        createNewRoute({
+            componentName: "Probe",
+            routePath: "/probe",
+            routeTransformerPath: transformer("createRoute.js"),
+        })
+        expect(() => checkIfRoutePathExist({ routePath: "/probe", componentName: "Other" })).toThrow(
+            /\/probe path already exist/
+        )
+        expect(() => checkIfRoutePathExist({ routePath: "/other", componentName: "Probe" })).toThrow(
+            /Probe component path already exist/
+        )
+    })
+})
+
+describe("new-route files", () => {
+    const containersDir = "src/js/containers"
+    const folder = () => path.join(app, containersDir, "Probe")
+
+    beforeEach(() => {
+        vi.spyOn(console, "log").mockImplementation(() => {})
+    })
+    afterEach(() => vi.restoreAllMocks())
+
+    it("creates the component folder, and removes it again on failure", () => {
+        expect(createDirectory({ componentName: "Probe", containersDir })).toBe(true)
+        expect(fs.existsSync(folder())).toBe(true)
+        discardChanges({ componentName: "Probe", containersDir })
+        expect(fs.existsSync(folder())).toBe(false)
+        // Nothing there: still fine.
+        discardChanges({ componentName: "Probe", containersDir })
+    })
+
+    it("writes the component and a redux reducer for it", () => {
+        fs.mkdirSync(folder(), { recursive: true })
+        createNewComponent({ componentName: "Probe", containersDir })
+        createReduxReducerFile({ componentName: "Probe", containersDir, reducerName: "probe" })
+        expect(read(`${containersDir}/Probe/Probe.js`)).toContain("const Probe = () =>")
+        expect(read(`${containersDir}/Probe/Probe.js`)).toContain("export default Probe")
+        expect(read(`${containersDir}/Probe/reducer.js`)).toMatch(/probe/)
     })
 })
