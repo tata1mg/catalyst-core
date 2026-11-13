@@ -328,3 +328,80 @@ describe("SSR handler — deferred assets discovered during render", () => {
         expect(html).not.toContain("widget.def456.js")
     })
 })
+
+describe("SSR handler — CSP nonce (CSP_NONCE_ENABLE)", () => {
+    let realEnv: NodeJS.ProcessEnv
+
+    beforeEach(() => {
+        realEnv = process.env
+    })
+
+    afterEach(() => {
+        process.env = realEnv
+    })
+
+    async function renderWithNonce(url: string, presetNonce?: string) {
+        // config.json booleans reach process.env as real booleans because
+        // loadEnvironmentVariables reassigns process.env with a plain object
+        // (assigning through the real process.env would coerce to "true").
+        // The handler reads the flag at import time.
+        process.env = { ...process.env, CSP_NONCE_ENABLE: true as any }
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes(url)
+        res.locals = presetNonce ? { cspNonce: presetNonce } : {}
+
+        await handler(req, res)
+        await res.waitForEnd()
+        return { html: res.getHtml() as string, res }
+    }
+
+    it("stamps one per-request nonce on every script and modulepreload in the document, but not on <style>", async () => {
+        const { html, res } = await renderWithNonce("/")
+
+        const nonce = res.locals.cspNonce
+        expect(nonce).toMatch(/^[A-Za-z0-9+/]+=*$/)
+
+        const scripts = html.match(/<script\b[^>]*>/g) || []
+        expect(scripts.length).toBeGreaterThan(0)
+        for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`)
+
+        const preloads = html.match(/<link rel="modulepreload"[^>]*>/g) || []
+        expect(preloads.length).toBeGreaterThan(0)
+        for (const tag of preloads) expect(tag).toContain(`nonce="${nonce}"`)
+
+        expect(html).toContain("<style>.home{color:red}</style>")
+        expect(html).not.toMatch(/<style[^>]*nonce=/)
+    })
+
+    it("reuses res.locals.cspNonce set by app middleware, including on the scripts flushed after the document", async () => {
+        const { html, res } = await renderWithNonce("/widget", "app-nonce-123")
+
+        expect(res.locals.cspNonce).toBe("app-nonce-123")
+        const htmlEnd = html.indexOf("</html>")
+        const tail = html.slice(htmlEnd)
+        expect(tail).toContain('<script nonce="app-nonce-123">window.__CATALYST_IS_BOT__=false;</script>')
+        expect(tail).toContain('<script nonce="app-nonce-123">window.__SSR_RENDERED_COMPONENTS__=')
+        expect(tail).toContain(
+            '<script type="module" nonce="app-nonce-123" src="http://localhost/assets/widget.def456.js"></script>',
+        )
+        expect(tail).toContain("<style>.widget{color:blue}</style>")
+    })
+
+    it("renders no nonce attributes when the flag is off", async () => {
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/widget")
+        res.locals = {}
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.getHtml()).not.toContain("nonce=")
+        expect(res.locals.cspNonce).toBeUndefined()
+    })
+})

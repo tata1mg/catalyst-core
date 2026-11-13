@@ -1,4 +1,4 @@
-import { defineConfig, transformWithEsbuild } from "vite"
+import { defineConfig, transformWithEsbuild, defaultServerConditions } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
@@ -192,18 +192,31 @@ const alias = () => {
     }, {})
 }
 
+/**
+ * Route offline snapshots (catalyst-sw.js + offline manifest) are on unless
+ * config.json sets OFFLINE_SNAPSHOTS_ENABLE to false, e.g. for apps that ship
+ * their own service worker at the same scope.
+ */
+export const isOfflineSnapshotsEnabled = (value) => value !== false && value !== "false"
+
 export const getClientEnvVariables = () => {
     const clientEnvVars = process.env.CLIENT_ENV_VARIABLES
+    // Always defined so the service worker registration can read it in the browser.
+    const offlineSnapshotsDefinition = {
+        "process.env.OFFLINE_SNAPSHOTS_ENABLE": JSON.stringify(
+            isOfflineSnapshotsEnabled(process.env.OFFLINE_SNAPSHOTS_ENABLE)
+        ),
+    }
 
     if (!clientEnvVars) {
-        return {}
+        return offlineSnapshotsDefinition
     }
 
     // Parse CLIENT_ENV_VARIABLES if it's a JSON string
     const allowedVars = typeof clientEnvVars === "string" ? JSON.parse(clientEnvVars) : clientEnvVars
 
     // Create define object with only allowed environment variables
-    const envVarDefinitions = {}
+    const envVarDefinitions = { ...offlineSnapshotsDefinition }
 
     allowedVars.forEach((varName) => {
         if (process.env[varName] !== undefined) {
@@ -334,6 +347,7 @@ const candidateBrowserDeps = [
     "react-detect-offline",
     "react-async-script",
     "normalize.css",
+    "sanitize-html",
 ]
 
 // Node-only / instrumentation dependencies that must never be bundled into the
@@ -387,6 +401,22 @@ export const sharedViteConfig = {
     ssr: {
         // Keep selected React-side packages bundled for SSR (transformed by Vite, NOT pre-bundled)
         // noExternal: ["@tata1mg/slowboi-react"],
+        resolve: {
+            // react-router/react-router-dom v7 ship dual CJS/ESM builds selected via the
+            // "module-sync" exports condition. Node 20.19+/22 understands this condition
+            // and resolves to the real ESM build even via require() — but Vite's SSR
+            // resolver does not know "module-sync" and falls back to the CJS build,
+            // including for packages Vite treats as external and hands off to Node's own
+            // loader (e.g. a consumer dependency that itself imports react-router-dom).
+            // When Vite and Node disagree on which build to load, the app ends up with
+            // two separate react-router module instances — each with its own React
+            // Context — so hooks like useLocation() throw "may be used only in the
+            // context of a <Router>" even though a Router is mounted, because the
+            // Provider populated one Context instance and the consumer read the other.
+            // Adding "module-sync" here makes Vite's resolution agree with Node's.
+            conditions: ["module-sync", ...defaultServerConditions],
+            externalConditions: ["module-sync", ...defaultServerConditions],
+        },
         // Ensure Node-only instrumentation and low-level Node deps stay external so
         // the bundler never tries to resolve the optional (opt-in) OTEL packages.
         external: nodeOnlyExternalDeps,
