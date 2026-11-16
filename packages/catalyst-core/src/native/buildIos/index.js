@@ -248,9 +248,9 @@ function createIosBuild(
 
             // With `args`, the program runs directly with that argv (no shell
             // quoting to get wrong); without, `command` is a shell string.
-            // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Internal build command strings, same source as runCommand.
             const child = Array.isArray(args)
-                ? spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] })
+                ? // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - Internal build command strings, same source as runCommand.
+                  spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] })
                 : spawn(shellCommand, shellArgs(command), { stdio: ["ignore", "pipe", "pipe"] })
 
             let output = ""

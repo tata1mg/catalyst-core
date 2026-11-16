@@ -205,6 +205,7 @@ function createAndroidBuild(
             applyJavaHome(java)
             progress.log(`Java ${java.version} from ${java.source}`, "info")
             androidConfig.sdkPath = resolveSdkPath(androidConfig)
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
             const adbPath = path.join(androidConfig.sdkPath, "platform-tools", "adb")
 
             // Where a debug build runs: the emulator unless --device, or a

@@ -222,6 +222,7 @@ function resolveCredentials(
     if (isDirectory(dir)) return { dir, source: "folder", envName, cleanup: () => {} }
     const value = env[envName]
     if (value && String(value).trim()) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - os.tmpdir() with a fixed prefix; platform is android or ios.
         const temp = fs.mkdtempSync(path.join(os.tmpdir(), `catalyst-${platform}-credentials-`))
         fs.chmodSync(temp, 0o700)
         try {
