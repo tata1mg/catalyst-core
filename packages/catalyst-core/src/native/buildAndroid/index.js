@@ -200,7 +200,8 @@ function createAndroidBuild(
             // nothing answers on its port, and waits until it does.
             if (resolved.usesDevServer) {
                 progress.start("server")
-                await ensureDevServer({ cwd: appRoot, log })
+                // adb reverse reaches the host on 127.0.0.1, so that has to answer.
+                await ensureDevServer({ cwd: appRoot, log, ipv4: true })
                 progress.complete("server")
             }
 

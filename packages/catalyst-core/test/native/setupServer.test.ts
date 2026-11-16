@@ -218,6 +218,42 @@ describe("ensureDevServer", () => {
         expect(startedWith.overrides).toEqual({})
     })
 
+    // adb reverse dials 127.0.0.1, and on Windows "localhost" can bind ::1 alone.
+    it("starts on and waits for 127.0.0.1 when the target needs IPv4 (Android)", async () => {
+        const probed: string[] = []
+        let startedWith: any
+        let calls = 0
+        await ensureDevServer({
+            config,
+            ipv4: true,
+            intervalMs: 1,
+            probe: async ({ host }: any) => {
+                probed.push(host)
+                return host === "127.0.0.1" && ++calls > 2
+            },
+            start: ((options: any) => {
+                startedWith = options
+                return { child: null, logFile: "/tmp/x.log" }
+            }) as any,
+        })
+        expect(startedWith.overrides).toEqual({ NODE_SERVER_HOSTNAME: "127.0.0.1" })
+        expect(probed[0]).toBe("127.0.0.1")
+    })
+
+    it("refuses a running dev server that answers on localhost but not 127.0.0.1", async () => {
+        const error = await ensureDevServer({
+            config,
+            ipv4: true,
+            probe: async ({ host }: any) => host === "localhost",
+            start: (() => {
+                throw new Error("must not start over a running server")
+            }) as any,
+        }).catch((caught) => caught)
+        expect(error.code).toBe("NATIVE-006")
+        expect(error.message).toContain("not on 127.0.0.1")
+        expect(error.hint).toContain('NODE_SERVER_HOSTNAME to "127.0.0.1"')
+    })
+
     it("binds all interfaces and serves assets on a device host", async () => {
         let startedWith: any
         let probes = 0

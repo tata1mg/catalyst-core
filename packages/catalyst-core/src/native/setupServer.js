@@ -263,6 +263,7 @@ function startedDevServer({ cwd, port, isAlive }) {
  * @param {typeof isServerAnswering} [options.probe] - for tests
  * @param {typeof startDevServerProcess} [options.start] - for tests
  * @param {(pid: number) => boolean} [options.isAlive] - for tests
+ * @param {boolean} [options.ipv4] - the target reaches loopback on 127.0.0.1 only (Android, through adb reverse)
  * @returns {Promise<{ started: boolean, url: string, port: number, logFile?: string }>}
  */
 async function ensureDevServer({
@@ -276,6 +277,7 @@ async function ensureDevServer({
     probe = isServerAnswering,
     start = startDevServerProcess,
     isAlive = isProcessAlive,
+    ipv4 = false,
 } = {}) {
     const appConfig =
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root; the file name is fixed.
@@ -284,7 +286,10 @@ async function ensureDevServer({
     const loopback = isLoopback(host)
     const hostPart = String(host).includes(":") ? `[${host}]` : host
     const url = `http://${hostPart}:${port}`
-    const answers = () => probe({ host: loopback ? "localhost" : host, port })
+    // ipv4: the target reaches loopback on 127.0.0.1 only (adb reverse dials the
+    // host there), so that is the address that has to answer.
+    const loopbackProbeHost = ipv4 ? "127.0.0.1" : "localhost"
+    const answers = () => probe({ host: loopback ? loopbackProbeHost : host, port })
     const hostKey = loopback ? "localhost" : String(host).toLowerCase()
 
     if (await answers()) {
@@ -301,6 +306,17 @@ async function ensureDevServer({
         log(`Dev server already running at ${url}`, "info")
         return { started: false, url, port }
     }
+    // Windows resolves localhost to ::1 first, so a dev server started there with
+    // NODE_SERVER_HOSTNAME "localhost" listens on IPv6 only, out of adb's reach.
+    if (loopback && ipv4 && (await probe({ host: "localhost", port }))) {
+        throw nativeError(
+            "NATIVE-006",
+            `the dev server on port ${port} answers on localhost but not on 127.0.0.1, which the emulator and USB phones reach it through`,
+            {
+                hint: 'Stop that dev server and run the build again, so Catalyst starts one on 127.0.0.1, or set NODE_SERVER_HOSTNAME to "127.0.0.1" in config/config.json.',
+            }
+        )
+    }
     if (!loopback && (await probe({ host: "localhost", port }))) {
         throw nativeError(
             "NATIVE-006",
@@ -312,7 +328,13 @@ async function ensureDevServer({
     }
 
     const startOverrides = {
-        ...(loopback ? {} : { NODE_SERVER_HOSTNAME: "0.0.0.0", PUBLIC_STATIC_ASSET_URL: url }),
+        ...(loopback
+            ? // "localhost" can bind ::1 alone (Windows resolves it to ::1 first), and
+              // adb reverse then gets an empty response on 127.0.0.1.
+              ipv4
+                ? { NODE_SERVER_HOSTNAME: "127.0.0.1" }
+                : {}
+            : { NODE_SERVER_HOSTNAME: "0.0.0.0", PUBLIC_STATIC_ASSET_URL: url }),
         // Vite 6 answers 403 to a Host header that is not localhost or an IP
         // (server.allowedHosts), so a `<mac>.local` name has to be allowed.
         ...(loopback || net.isIP(host) ? {} : { CATALYST_DEV_ALLOWED_HOSTS: host }),
