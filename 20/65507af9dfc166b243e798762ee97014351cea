@@ -1,0 +1,36 @@
+packages/catalyst-core/test/native/setupServer.test.ts
+  57a04843a0aff46d 221-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "2065507af9dfc166b243e798762ee97014351cea",
+  "prompts": {
+    "57a04843a0aff46d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a8954204-36f1-453c-ad2a-740a7adafc69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 36,
+      "total_deletions": 0,
+      "accepted_lines": 36,
+      "overriden_lines": 0
+    },
+    "d3647a0818cd96a4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8594851-1431-4186-a8c1-874a28f6b0de",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
