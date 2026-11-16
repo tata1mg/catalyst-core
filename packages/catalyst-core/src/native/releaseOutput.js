@@ -46,6 +46,7 @@ function assertReleaseFolderFree(dir, extensions) {
         return
     }
     const existing = entries.find((name) => extensions.some((ext) => name.toLowerCase().endsWith(ext)))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - existing comes from readdirSync of dir.
     if (existing) throw nativeError("NATIVE-011", path.join(dir, existing))
 }
 
@@ -60,10 +61,13 @@ function assertReleaseFolderFree(dir, extensions) {
  * @returns {string | null} the .gitignore path, or null when `target` is outside build-output/
  */
 function ensureBuildOutputIgnore(target, appRoot = process.cwd()) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the app being built.
     const root = path.resolve(appRoot, BUILD_OUTPUT_DIR)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - appRoot is the app being built; the result is checked to stay inside build-output/.
     const relative = path.relative(root, path.resolve(appRoot, target))
     if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null
     fs.mkdirSync(root, { recursive: true })
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is <app>/build-output.
     const file = path.join(root, ".gitignore")
     try {
         // "wx": create it only when it is not there, in one step.

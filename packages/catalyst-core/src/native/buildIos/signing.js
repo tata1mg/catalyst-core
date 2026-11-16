@@ -122,6 +122,7 @@ function parseProperties(text) {
 function readIosCredentials(dir, { env = process.env, mask = maskSecret } = {}) {
     let names = []
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the credentials folder; name comes from readdirSync.
         names = fs.readdirSync(dir).filter((name) => fs.statSync(path.join(dir, name)).isFile())
     } catch (error) {
         return { dir, apiKey: null, p12: null }
@@ -135,10 +136,12 @@ function readIosCredentials(dir, { env = process.env, mask = maskSecret } = {}) 
                 `credentials/ios/ holds ${found.length} ${ext} files (${found.join(", ")}); keep one`
             )
         }
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - found[0] comes from readdirSync of dir.
         return found[0] ? path.join(dir, found[0]) : null
     }
     const props = names.includes(SIGNING_PROPERTIES)
-        ? parseProperties(fs.readFileSync(path.join(dir, SIGNING_PROPERTIES), "utf8"))
+        ? // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the credentials folder.
+          parseProperties(fs.readFileSync(path.join(dir, SIGNING_PROPERTIES), "utf8"))
         : {}
     if (props.p12Password) mask(props.p12Password, { env })
 
@@ -366,7 +369,9 @@ function profileMatchesBundleId(applicationIdentifier, bundleId) {
 /** Xcode 16+ keeps profiles under UserData; older Xcode (and Xcode 26 still) also reads MobileDevice. */
 function profileDirectories(homeDir = os.homedir()) {
     return [
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - homeDir is the developer's home folder.
         path.join(homeDir, "Library", "Developer", "Xcode", "UserData", "Provisioning Profiles"),
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - homeDir is the developer's home folder.
         path.join(homeDir, "Library", "MobileDevice", "Provisioning Profiles"),
     ]
 }
@@ -397,6 +402,7 @@ function scrubbedFailure(error, secrets, prefix) {
  * @param {Function} [options.run]
  */
 function readProvisioningProfile(file, { workDir, run = defaultRun }) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - workDir is a mkdtemp folder.
     const decoded = path.join(workDir, "profile.plist")
     try {
         run("security", ["cms", "-D", "-i", file, "-o", decoded])
@@ -452,7 +458,9 @@ function scanInstalledProfiles({
     if (!identities.length) return { identities, profiles: [] }
 
     // mkdtemp makes the folder 0700.
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - tmpRoot is the OS temp folder.
     const scratch = workDir || fs.mkdtempSync(path.join(tmpRoot, "catalyst-ios-profiles-"))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - scratch is a mkdtemp folder.
     const decoded = path.join(scratch, "installed-profile.plist")
     const extract = (keyPath) => {
         try {
@@ -479,6 +487,7 @@ function scanInstalledProfiles({
             }
             for (const file of files) {
                 try {
+                    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is a provisioning-profile folder; file comes from readdirSync.
                     run("security", ["cms", "-D", "-i", path.join(dir, file), "-o", decoded])
                 } catch (error) {
                     continue
@@ -953,8 +962,10 @@ function setupP12Signing({
         }
     }
 
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - tmpRoot is the OS temp folder.
     const workDir = fs.mkdtempSync(path.join(tmpRoot, "catalyst-ios-signing-"))
     fs.chmodSync(workDir, 0o700)
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - workDir is a mkdtemp folder.
     const keychainPath = path.join(workDir, "catalyst-signing.keychain-db")
     const state = { originalList: null, keychainCreated: false, installed: [], createdDirs: [] }
 
@@ -1099,6 +1110,7 @@ function setupP12Signing({
                 fs.mkdirSync(dir, { recursive: true })
                 state.createdDirs.push(...created)
             }
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - profile.uuid is checked against [0-9A-Fa-f-] when the profile is read.
             const target = path.join(dir, `${profile.uuid}.mobileprovision`)
             // A profile already there is the developer's own: use it, never remove it.
             if (fs.existsSync(target)) continue

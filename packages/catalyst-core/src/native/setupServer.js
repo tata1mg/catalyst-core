@@ -191,6 +191,7 @@ function catalystBin() {
  * @returns {{ child: import("child_process").ChildProcess, logFile: string }}
  */
 function startDevServerProcess({ cwd, port, overrides = {}, spawnProcess = spawn }) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root; port is the dev server port.
     const logFile = path.join(ensureLocalStateDir(cwd), `dev-server-${port || "default"}.log`)
     const out = fs.openSync(logFile, "a", 0o600)
     const args = [
@@ -536,6 +537,7 @@ function writeConfigKeys(file, entries, { log = () => {} } = {}) {
             if (child === null || typeof child !== "object") {
                 node[parts[index]] = typeof parts[index + 1] === "number" ? [] : {}
             }
+            // nosemgrep: javascript.lang.security.audit.prototype-pollution.prototype-pollution-loop.prototype-pollution-loop - parseKeyPath rejects __proto__, prototype and constructor.
             node = node[parts[index]]
         }
         const last = parts[parts.length - 1]

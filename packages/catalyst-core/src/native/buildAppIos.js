@@ -104,6 +104,7 @@ async function ensureSigningTeam({ appConfig, release, url, cwd, log, scanProfil
     } finally {
         found?.cleanup()
     }
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root.
     const file = path.join(cwd, "config", "config.json")
     const profile = settleInstalledProfile({
         plan,
