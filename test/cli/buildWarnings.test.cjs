@@ -56,6 +56,23 @@ test("reports each distinct warning once", () => {
     assert.equal(bundleWarnings(output, "client").length, 2)
 })
 
+test("keeps Rolldown warnings and skips its plugin timing report", () => {
+    // Shapes from a real Vite 8.3.8 client build (code frames trimmed).
+    const output = [
+        "[EVAL] Use of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.",
+        "       ╭─[ ../lottie-web/build/player/lottie.js:14422:33 ]",
+        "[INEFFECTIVE_DYNAMIC_IMPORT] src/a.js is dynamically imported by src/b.js but also statically imported by src/c.js, dynamic import will not move module into another chunk.",
+        "✓ built in 12.63s",
+        "[PLUGIN_TIMINGS] JavaScript callbacks ran for 14.1s. The build took 12.6s.",
+        "  - plugin route-manifest-plugin closeBundle (12%, 1.5s, 1 call)",
+    ].join("\n")
+
+    assert.deepEqual(bundleWarnings(output, "client"), [
+        "client [EVAL] Use of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.",
+        "client [INEFFECTIVE_DYNAMIC_IMPORT] src/a.js is dynamically imported by src/b.js but also statically imported by src/c.js, dynamic import will not move module into another chunk.",
+    ])
+})
+
 test("returns nothing for empty or missing output", () => {
     assert.deepEqual(bundleWarnings("", "client"), [])
     assert.deepEqual(bundleWarnings(undefined, "client"), [])

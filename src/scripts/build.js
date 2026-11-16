@@ -173,8 +173,8 @@ function reportBundleFailures(failures, cwd) {
                 // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cause.file is a build-tool diagnostic path, only used to display a location.
                 file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, "")) : undefined,
                 line: cause.line,
-                // esbuild reports columns 0-based; the frame's caret is 1-based.
-                column: cause.column != null ? cause.column + 1 : undefined,
+                // Rolldown code frames report 1-based columns, as the caret expects.
+                column: cause.column,
                 hint: hintFor(cause.message)?.hint,
                 docs,
                 cwd,

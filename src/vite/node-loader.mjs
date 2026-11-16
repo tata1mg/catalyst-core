@@ -2,7 +2,7 @@ import { fileURLToPath, pathToFileURL } from "url"
 import { dirname, resolve as resolvePath, join, extname } from "path"
 import { readFileSync, existsSync, statSync } from "fs"
 import { createRequire } from "module"
-import { transformSync } from "esbuild"
+import { parseSync, transformWithOxc } from "vite"
 import { getModuleAliases } from "./moduleAliases.js"
 
 // Cache for loaded aliases
@@ -295,22 +295,45 @@ const REQUIRE_CALL_PATTERN = /\brequire\s*\(/
  * a Markdown page documenting a CJS config compiles into a string literal in
  * the bundled ESM output. Do not reintroduce source-regex detection.
  *
- * esbuild parses properly and lowers CJS itself, so a file it wraps in its
- * __commonJS helper had no ESM syntax of its own — that is the CJS signal.
+ * The CJS signal: the file has no ESM syntax of its own, and its code (not
+ * its comments or strings) reads `module` or `exports` as a free identifier.
+ * Same rule esbuild applied when it wrapped a file in its __commonJS helper.
  */
 function isCjsSource(source, filePath) {
     try {
-        const { code } = transformSync(source, {
-            loader: "jsx",
-            format: "esm",
-            sourcefile: filePath,
-            target: "node20",
-        })
-        return /\bvar __commonJS =/.test(code)
+        const { program, module, errors } = parseSync(filePath, source, { lang: "jsx" })
+        if (errors.length || module.hasModuleSyntax) return false
+        return readsCjsGlobal(program, null, null)
     } catch {
         return false
     }
 }
+
+const CJS_GLOBALS = new Set(["module", "exports"])
+
+// `foo.module` and `{ exports: 1 }` name a property, not the CJS global.
+function readsCjsGlobal(node, parent, key) {
+    if (!node || typeof node !== "object") return false
+    if (Array.isArray(node)) return node.some((child) => readsCjsGlobal(child, parent, key))
+    if (node.type === "Identifier" && CJS_GLOBALS.has(node.name)) {
+        const isPropertyName =
+            parent &&
+            !parent.computed &&
+            ((parent.type === "MemberExpression" && key === "property") ||
+                (parent.type === "Property" && key === "key"))
+        if (!isPropertyName) return true
+    }
+    for (const childKey in node) {
+        if (childKey === "type") continue
+        const child = node[childKey]
+        if (child && typeof child === "object" && readsCjsGlobal(child, node, childKey)) return true
+    }
+    return false
+}
+
+// Same output esbuild's "jsx" loader gave: classic React.createElement calls.
+const toNodeEsm = (code, filePath) =>
+    transformWithOxc(code, filePath, { lang: "jsx", jsx: { runtime: "classic" }, target: "node20" })
 
 // Shim __dirname and __filename for ESM app files (these globals only exist in CJS)
 const createDirnameShim = (source) => {
@@ -407,17 +430,12 @@ export async function load(url, context, defaultLoad) {
                 `export default module.exports;`,
             ].join("\n")
 
-            // Run through esbuild in case the CJS file also has JSX
+            // Run through Oxc in case the CJS file also has JSX
             try {
-                const result = transformSync(shimmed, {
-                    loader: "jsx",
-                    format: "esm",
-                    sourcefile: filePath,
-                    target: "node20",
-                })
+                const result = await toNodeEsm(shimmed, filePath)
                 return { format: "module", source: result.code, shortCircuit: true }
             } catch {
-                // If esbuild fails, return the shimmed source as-is
+                // If the transform fails, return the shimmed source as-is
                 return { format: "module", source: shimmed, shortCircuit: true }
             }
         }
@@ -426,35 +444,25 @@ export async function load(url, context, defaultLoad) {
         {
             const transformed = `${createRequireShim(source)}\n${createDirnameShim(source)}\n${source}`
             try {
-                const result = transformSync(transformed, {
-                    loader: "jsx",
-                    format: "esm",
-                    sourcefile: filePath,
-                    target: "node20",
-                })
+                const result = await toNodeEsm(transformed, filePath)
                 return {
                     format: "module",
                     source: result.code,
                     shortCircuit: true,
                 }
             } catch {
-                // If esbuild fails, return with just the shim
+                // If the transform fails, return with just the shim
                 return { format: "module", source: transformed, shortCircuit: true }
             }
         }
     }
 
-    // .jsx files in node_modules still need esbuild transformation
+    // .jsx files in node_modules still need a JSX transform
     // since Node.js cannot natively handle the .jsx extension
     if (ext === ".jsx") {
         const source = readFileSync(filePath, "utf8")
         try {
-            const result = transformSync(source, {
-                loader: "jsx",
-                format: "esm",
-                sourcefile: filePath,
-                target: "node20",
-            })
+            const result = await toNodeEsm(source, filePath)
             return { format: "module", source: result.code, shortCircuit: true }
         } catch {
             return { format: "module", source, shortCircuit: true }

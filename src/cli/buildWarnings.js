@@ -9,6 +9,10 @@ const { ANSI } = require("./theme.js")
  * still here is a real signal (circular dependency, oversized chunk) that was
  * previously captured and discarded.
  */
+// Rolldown (Vite 8) prints warnings as "[CODE] message". PLUGIN_TIMINGS is a
+// report on how long plugins took, not a warning about the bundle.
+const ROLLDOWN_WARNING = /^\[([A-Z][A-Z0-9_]*)\]\s/
+
 function bundleWarnings(output, label) {
     if (!output) return []
     const seen = new Set()
@@ -16,7 +20,9 @@ function bundleWarnings(output, label) {
     for (const raw of String(output).split("\n")) {
         const line = raw.replace(ANSI, "").trim()
         if (!line) continue
-        if (!/^(warning|\(!\))/i.test(line) && !/^\[plugin/.test(line)) continue
+        const rolldownCode = ROLLDOWN_WARNING.exec(line)?.[1]
+        if (rolldownCode === "PLUGIN_TIMINGS") continue
+        if (!rolldownCode && !/^(warning|\(!\))/i.test(line) && !/^\[plugin/.test(line)) continue
         const message = line.replace(/^\(!\)\s*/, "").replace(/^warning:?\s*/i, "")
         if (!message || seen.has(message)) continue
         seen.add(message)
