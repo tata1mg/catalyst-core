@@ -49,6 +49,7 @@ function deriveAppName(projectName) {
  * @returns {boolean} whether the file was written
  */
 function applyAppIdentity(projectDir, projectName) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - projectDir is the app being created.
     const file = path.join(projectDir, "config", "config.json")
     let text
     let config

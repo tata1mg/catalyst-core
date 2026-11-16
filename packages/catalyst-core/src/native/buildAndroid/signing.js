@@ -31,10 +31,12 @@ const BACKUP_REMINDER =
 
 /** The key files in a credentials folder; keystore.properties may name another storeFile in the same folder. */
 function keyPaths(dir) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the app's credentials folder.
     const propertiesFile = path.join(dir, "keystore.properties")
     const named = path.basename(
         String(readKeystoreProperties(propertiesFile).storeFile || DEFAULT_STORE_FILE)
     )
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - named is reduced to a basename above.
     return { dir, storeFile: path.join(dir, named), propertiesFile }
 }
 
@@ -55,6 +57,7 @@ function legacyKeystorePath(androidConfig = {}, { cwd = process.cwd() } = {}) {
         androidConfig.appName ||
         androidConfig.packageName?.split(".").pop() ||
         "catalystapp"
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root.
     const outputPath = androidConfig.outputPath || path.join(cwd, "build-output")
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - outputPath and the name come from the app's own config.
     return path.resolve(cwd, outputPath, `${name}-keystore.jks`)
@@ -119,8 +122,8 @@ function generatePassword() {
 
 function keytoolPath(env = process.env) {
     if (env.JAVA_HOME) {
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - JAVA_HOME is the local JDK location.
         const candidate = path.join(
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - JAVA_HOME is the local JDK location.
             env.JAVA_HOME,
             "bin",
             process.platform === "win32" ? "keytool.exe" : "keytool"

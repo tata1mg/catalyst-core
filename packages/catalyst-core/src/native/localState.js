@@ -42,6 +42,7 @@ function ensureLocalStateDir(cwd = process.cwd()) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
     try {
         // "wx": create it only when it is not there, in one step.
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the app's local state folder.
         fs.writeFileSync(path.join(dir, ".gitignore"), "*\n", { flag: "wx" })
     } catch (error) {
         if (error.code !== "EEXIST") throw error
@@ -77,6 +78,7 @@ function readLocalState({ cwd = process.cwd() } = {}) {
  */
 function writeLocalState(patch, { cwd = process.cwd() } = {}) {
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cwd is the app root.
         const file = path.join(ensureLocalStateDir(cwd), FILE_NAME)
         const next = { ...readLocalState({ cwd }), ...patch }
         fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n")

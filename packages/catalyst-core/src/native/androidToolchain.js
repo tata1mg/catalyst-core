@@ -121,6 +121,7 @@ function resolveJavaHome({
 function applyJavaHome(java, env = process.env) {
     if (!java?.home) return env
     env.JAVA_HOME = java.home
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - java.home is the detected local JDK.
     const bin = path.join(java.home, "bin")
     const parts = String(env.PATH || "").split(path.delimiter)
     if (parts[0] !== bin)
@@ -247,6 +248,7 @@ function requiredAndroidPackages({ arch = os.arch(), withSystemImage = false, wi
 
 /** sdkmanager installs `a;b;c` at <sdk>/a/b/c, with a package.xml beside it. */
 function isPackageInstalled(sdkPath, id, exists = fs.existsSync) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK; id is a fixed sdkmanager package id.
     return exists(path.join(sdkPath, ...id.split(";"), "package.xml"))
 }
 
@@ -280,10 +282,13 @@ const toolExt = (platform) => (platform === "win32" ? ".bat" : "")
 /** sdkmanager/avdmanager from cmdline-tools/latest, else any versioned cmdline-tools dir. */
 function cmdlineTool(sdkPath, tool, { platform = process.platform, exists = fs.existsSync } = {}) {
     const name = `${tool}${toolExt(platform)}`
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK; name is a fixed tool name.
     const latest = path.join(sdkPath, "cmdline-tools", "latest", "bin", name)
     if (exists(latest)) return latest
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
         for (const dir of fs.readdirSync(path.join(sdkPath, "cmdline-tools")).sort().reverse()) {
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir comes from readdirSync of the SDK's cmdline-tools folder.
             const candidate = path.join(sdkPath, "cmdline-tools", dir, "bin", name)
             if (exists(candidate)) return candidate
         }
@@ -295,6 +300,7 @@ function cmdlineTool(sdkPath, tool, { platform = process.platform, exists = fs.e
 
 /** The SDK licence sdkmanager writes once it has been accepted. */
 function licensesAccepted(sdkPath, exists = fs.existsSync) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
     return exists(path.join(sdkPath, "licenses", "android-sdk-license"))
 }
 
@@ -331,10 +337,12 @@ async function installCmdlineTools(
     { archive = cmdlineToolsArchive(), download = curlDownload, unzip = unzipArchive, log = () => {} } = {}
 ) {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "catalyst-cmdline-tools-"))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
     const toolsRoot = path.join(sdkPath, "cmdline-tools")
     // Unpacked beside its destination so the final move is a rename, not a copy across devices.
     let staging = null
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - tmp is a mkdtemp folder; archive.file is the pinned, checksum-verified archive name.
         const zip = path.join(tmp, archive.file)
         log(`Downloading ${archive.file}`)
         try {
@@ -351,6 +359,7 @@ async function installCmdlineTools(
             )
         }
         fs.mkdirSync(toolsRoot, { recursive: true })
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - toolsRoot is inside the local Android SDK.
         staging = fs.mkdtempSync(path.join(toolsRoot, ".catalyst-"))
         try {
             unzip(zip, staging)
@@ -360,9 +369,11 @@ async function installCmdlineTools(
                 `could not unpack ${archive.file}: ${error.stderr || error.message}`
             )
         }
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - staging is a mkdtemp folder inside the SDK.
         const unpacked = path.join(staging, "cmdline-tools")
         if (!fs.existsSync(unpacked))
             throw nativeError("ANDROID-009", `${archive.file} has no cmdline-tools folder`)
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - toolsRoot is inside the local Android SDK.
         const latest = path.join(toolsRoot, "latest")
         fs.rmSync(latest, { recursive: true, force: true })
         fs.renameSync(unpacked, latest)
@@ -388,6 +399,7 @@ function isInside(parent, child) {
  * @returns {string[]} the entries removed
  */
 function cleanSdkTemp(sdkPath, { log = () => {} } = {}) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
     const temp = path.join(sdkPath, ".temp")
     let entries = []
     try {
@@ -395,6 +407,7 @@ function cleanSdkTemp(sdkPath, { log = () => {} } = {}) {
     } catch {
         return []
     }
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - entry comes from readdirSync of <sdk>/.temp.
     for (const entry of entries) fs.rmSync(path.join(temp, entry), { recursive: true, force: true })
     if (entries.length) log(`Removed ${entries.length} stale partial download(s) from ${temp}`, "note")
     return entries
@@ -407,10 +420,14 @@ function cleanSdkTemp(sdkPath, { log = () => {} } = {}) {
  * Nothing outside the SDK, and never a folder another package lives in.
  */
 function halfInstalledPaths(sdkPath, ids, output = "", exists = fs.existsSync) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK; ids are fixed sdkmanager package ids.
     const targets = ids.map((id) => path.join(sdkPath, ...id.split(";")))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is one of the SDK package folders built above.
     const found = new Set(targets.filter((dir) => exists(dir) && !exists(path.join(dir, "package.xml"))))
     for (const match of String(output).matchAll(/FileAlreadyExistsException:\s*(.+)/g)) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - named is kept only when it is a known package folder or under <sdk>/.temp.
         const named = path.resolve(match[1].trim())
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
         if (targets.includes(named) || isInside(path.join(sdkPath, ".temp"), named)) found.add(named)
     }
     return [...found].filter((dir) => isInside(sdkPath, dir))
@@ -457,6 +474,7 @@ async function installSdkPackages(sdkPath, ids, install, { log = () => {} } = {}
 function knownAvds(sdkPath, { env = process.env } = {}) {
     const names = new Set(listAvds(sdkPath))
     const avdHome =
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - ANDROID_AVD_HOME and ANDROID_USER_HOME are the developer's own environment.
         env.ANDROID_AVD_HOME || path.join(env.ANDROID_USER_HOME || path.join(os.homedir(), ".android"), "avd")
     try {
         for (const file of fs.readdirSync(avdHome)) if (file.endsWith(".ini")) names.add(file.slice(0, -4))
@@ -522,8 +540,7 @@ async function ensureAndroidSdk({
         if (emulatorName && avds.includes(emulatorName)) avdName = emulatorName
         else {
             if (emulatorName) log(`The configured emulator "${emulatorName}" does not exist`, "warning")
-            avdName =
-                [preferredAvd, AVD_NAME].find((name) => name && avds.includes(name)) || avds[0] || null
+            avdName = [preferredAvd, AVD_NAME].find((name) => name && avds.includes(name)) || avds[0] || null
         }
         createAvd = !avdName
         if (createAvd) avdName = AVD_NAME

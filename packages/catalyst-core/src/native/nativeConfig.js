@@ -487,6 +487,7 @@ function resolveNativeConfig(
         const id = configuredAppId(name, base)
         if (!id) continue
         if (name === "android") WEBVIEW_CONFIG.android.packageName = id
+        // nosemgrep: javascript.lang.security.insecure-object-assign.insecure-object-assign - fixed keys on WEBVIEW_CONFIG.ios; id is a validated bundle id string.
         else Object.assign(WEBVIEW_CONFIG.ios, { appBundleId: id, bundleIdentifier: id })
     }
     const appName = (typeof base.appName === "string" && base.appName.trim()) || block.appName || undefined
@@ -581,7 +582,9 @@ function resolveNativeConfig(
     const version = resolveAppVersion({ cwd, env, now, legacy: legacyVersion })
 
     const resolved = { ...raw, WEBVIEW_CONFIG }
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - os.tmpdir() with a fixed prefix; platform is android or ios.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), `catalyst-${platform}-config-`))
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is the mkdtemp folder above.
     const resolvedPath = path.join(dir, "config.json")
     fs.writeFileSync(resolvedPath, JSON.stringify(resolved, null, 2), { mode: 0o600 })
 
