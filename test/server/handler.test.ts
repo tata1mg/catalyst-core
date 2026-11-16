@@ -160,6 +160,23 @@ describe("SSR handler", () => {
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("reports a component render error once and answers 500 instead of hanging", async () => {
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/render-error")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        // One report: the render failure used to be logged again by the
+        // fetcher, serverSideFunction and request catch sites, each of which
+        // re-rendered the same throwing tree.
+        const logged = (console.error as any).mock.calls.flat().join("\n")
+        expect(logged.match(/\[RUNTIME-WEB-\d+\]/g)).toEqual(["[RUNTIME-WEB-001]"])
+        // And the request is finished rather than left open.
+        expect(res.statusCode).toBe(500)
+        expect(res.isEnded()).toBe(true)
+    })
+
     it("fails the request with 500 (no render) when configureStore is not a function", async () => {
         // handler.jsx imports createStore as a module-scope default binding,
         // so swap the fixture module before the fresh import. A non-function

@@ -26,6 +26,8 @@ class ConfigMappingTest {
 
         while (keys.hasNext()) {
             val key = keys.next()
+            // The release override block is merged by the CLI, never shipped as-is.
+            if (prefix.isEmpty() && key == "release") continue
             val value = jsonObj.opt(key)
             val fullKey = if (prefix.isEmpty()) key else "$prefix.$key"
 
@@ -230,6 +232,29 @@ class ConfigMappingTest {
         assertTrue("Double should be converted to string",
             properties.getProperty("doubleValue").startsWith("3.14"))
         assertEquals("3005", properties.getProperty("port"))
+    }
+
+    @Test
+    fun `test top-level release override block is not flattened`() {
+        val json = JSONObject().apply {
+            put("LOCAL_IP", "192.168.1.100")
+            put("release", JSONObject().apply {
+                put("LOCAL_IP", "www.example.com")
+                put("allowPrivateHost", false)
+            })
+            put("android", JSONObject().apply {
+                put("release", "kept")
+            })
+        }
+
+        val properties = Properties()
+        extractProperties(json, properties)
+
+        assertEquals("192.168.1.100", properties.getProperty("LOCAL_IP"))
+        assertNull(properties.getProperty("release.LOCAL_IP"))
+        assertNull(properties.getProperty("release.allowPrivateHost"))
+        // Only the top-level key is reserved
+        assertEquals("kept", properties.getProperty("android.release"))
     }
 
     // ============================================================

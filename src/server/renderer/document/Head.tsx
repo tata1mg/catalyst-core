@@ -1,5 +1,4 @@
 import React from "react"
-import PropTypes from "prop-types"
 import FastRefresh from "../../../vite/FastRefresh.jsx"
 
 /**
@@ -47,16 +46,4 @@ export function Head(props) {
             {children}
         </head>
     )
-}
-
-Head.propTypes = {
-    isBot: PropTypes.bool,
-    inlineCss: PropTypes.string,
-    deferredRouteInlineCss: PropTypes.string,
-    jsScripts: PropTypes.array,
-    criticalPreloadLinks: PropTypes.array,
-    deferredPreloadLinks: PropTypes.array,
-    metaTags: PropTypes.array,
-    publicAssetPath: PropTypes.string,
-    children: PropTypes.node,
 }

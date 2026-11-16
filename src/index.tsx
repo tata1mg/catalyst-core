@@ -2,6 +2,7 @@ export {
     RouterDataProvider,
     useCurrentRouteData,
     useRouterData,
+    useRouterState,
 } from "./web-router/components/RouterDataProvider.jsx"
 export { MetaTag } from "./web-router/components/MetaTag.jsx"
 export { split, hydrationReady } from "./web-router/components/Split.jsx"

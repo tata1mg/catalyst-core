@@ -90,7 +90,9 @@ object CatalystConstants {
 
     // MARK: - File Provider
     object FileProvider {
-        const val AUTHORITY: String = "io.yourname.androidproject.fileprovider"
+        // Follows the application id (manifest: ${applicationId}.fileprovider), so two
+        // Catalyst apps, or an app's debug and release builds, can be installed together.
+        const val AUTHORITY: String = BuildConfig.APPLICATION_ID + ".fileprovider"
     }
 
     // MARK: - Logging Configuration

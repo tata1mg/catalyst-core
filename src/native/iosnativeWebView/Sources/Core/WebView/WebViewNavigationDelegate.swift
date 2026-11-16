@@ -339,6 +339,9 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
                 viewModel.canGoBack = webView.canGoBack
                 viewModel.setLoading(false, fromCache: false)
             }
+            if !viewModel.hasFinishedInitialLoad {
+                viewModel.hasFinishedInitialLoad = true
+            }
         }
     }
 

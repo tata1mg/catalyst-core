@@ -47,14 +47,88 @@ import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js
 // this process never sees the parent's CLI flags, so process.argv here would
 // never contain --debug/--verbose — only CATALYST_OUTPUT_MODE is real input.
 const outputMode = resolveOutputMode([], process.env)
-// Debug mode's boxed output already embeds the full stack trace (see
-// errors/index.js#formatDebug), so only default/verbose need the original
-// error printed separately to avoid losing the stack.
-const logSSRError = (stage, error) => {
+const STAGE_LABEL: Record<string, string> = {
+    RENDER: "render",
+    FETCHER: "serverFetcher",
+    SERVER_SIDE_FUNCTION: "serverSideFunction",
+    REQUEST_HANDLING: "request",
+}
+
+// One failure is reported once. A render error used to surface at every catch
+// site it bubbled through -- render, fetcher, serverSideFunction, request --
+// each re-rendering the same broken tree, so one throw printed four coded
+// reports and four stacks per request.
+const reported = new WeakSet<object>()
+
+// Marks an error that came out of rendering. The fetcher and
+// serverSideFunction fallbacks re-render the page; re-rendering after the
+// render itself failed only throws the same error again.
+const RENDER_FAILED = Symbol.for("catalyst.renderFailed")
+
+const asError = (error: any) => (error && typeof error === "object" ? error : new Error(String(error)))
+const markRenderFailure = (error: any) => {
+    const err = asError(error)
+    err[RENDER_FAILED] = true
+    // Already reported by the render path; a thrown string arrives here as a
+    // fresh Error the outer catch would otherwise report a second time.
+    reported.add(err)
+    return err
+}
+const isRenderFailure = (error: any) => Boolean(error && typeof error === "object" && error[RENDER_FAILED])
+
+const logSSRError = (stage: string, error: any, req?: any) => {
+    if (error && typeof error === "object") {
+        if (reported.has(error)) return
+        reported.add(error)
+    }
     const wrapped = wrapSSRError(stage, error)
+
+    // This module is bundled into the app's build, so it cannot reach
+    // catalyst-core's terminal renderer by path. The server that loads it
+    // provides one (see expressServer.ts); a custom server without it gets the
+    // registry's plain formatting.
+    const report = (globalThis as any).__catalystReportRuntimeError
+    if (typeof report === "function") {
+        const where = req ? `${req.method} ${req.originalUrl}` : null
+        report({
+            error,
+            code: wrapped.code,
+            docs: wrapped.docUrl,
+            scope: [where, STAGE_LABEL[stage]].filter(Boolean).join(" · "),
+        })
+        return
+    }
+    // Debug mode's boxed output already embeds the full stack trace (see
+    // errors/index.js#formatDebug), so only default/verbose need the original
+    // error printed separately to avoid losing the stack.
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
     console.error(formatError(wrapped, outputMode, debugEnv))
     if (outputMode !== "debug") console.error(error)
+}
+
+/**
+ * Finish a request whose handling failed. Without this a render error left the
+ * response open: the browser spun until it timed out and the terminal was the
+ * only place the failure showed.
+ */
+const sendFailure = (res: any, error: any) => {
+    // Plain Node response calls, and never a throw: failing while reporting a
+    // failure would turn one error into an unhandled rejection.
+    try {
+        if (res.headersSent) {
+            if (!res.writableEnded) res.end()
+            return
+        }
+        const detail =
+            process.env.NODE_ENV !== "production" && error
+                ? `\n\n${error?.message || String(error)}\n\nThe full error is in the terminal running catalyst start.`
+                : ""
+        res.statusCode = 500
+        res.setHeader?.("content-type", "text/plain; charset=utf-8")
+        res.end(`Internal Server Error${detail}`)
+    } catch {
+        // The connection is already gone; nothing left to tell it.
+    }
 }
 
 const DEFAULT_SAFE_AREA_INSETS = { top: 0, right: 0, bottom: 0, left: 0 }
@@ -345,6 +419,10 @@ const _renderMarkUp = async (
                     cb()
                 },
             })
+            // destroy(error) below emits "error" on this stream. Unhandled, that
+            // became an uncaughtException per render on top of the report
+            // already printed; the failure is handled through reject().
+            tail.on("error", () => {})
             tail.pipe(res)
 
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
@@ -359,19 +437,19 @@ const _renderMarkUp = async (
                 },
 
                 onError(error: any) {
-                    logSSRError("RENDER", error)
+                    logSSRError("RENDER", error, req)
                     safeCall(onRenderError, { req, res, store, error })
                     cleanupSafeArea()
                     tail.destroy(error)
-                    reject(error)
+                    reject(markRenderFailure(error))
                 },
             })
         })
     } catch (error: any) {
         cleanupSafeArea()
-        logSSRError("RENDER", error)
+        logSSRError("RENDER", error, req)
         safeCall(onRenderError, { req, res, store, error })
-        return Promise.reject(error)
+        return Promise.reject(markRenderFailure(error))
     }
 }
 
@@ -474,7 +552,8 @@ async function _handler(req: any, res: any) {
                     )
                 }
             } catch (error: any) {
-                logSSRError("FETCHER", error)
+                if (isRenderFailure(error)) throw error
+                logSSRError("FETCHER", error, req)
                 safeCall(onFetcherError, { req, res, store, error })
 
                 if (res.headersSent) return
@@ -493,7 +572,8 @@ async function _handler(req: any, res: any) {
                 )
             }
         } catch (error: any) {
-            logSSRError("SERVER_SIDE_FUNCTION", error)
+            if (isRenderFailure(error)) throw error
+            logSSRError("SERVER_SIDE_FUNCTION", error, req)
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
@@ -512,8 +592,9 @@ async function _handler(req: any, res: any) {
             )
         }
     } catch (error: any) {
-        logSSRError("REQUEST_HANDLING", error)
+        logSSRError("REQUEST_HANDLING", error, req)
         safeCall(onRequestError, { req, res, error })
+        sendFailure(res, error)
     }
 }
 

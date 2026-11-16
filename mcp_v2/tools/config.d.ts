@@ -1,0 +1,21 @@
+// Hand-written type declaration for config.js (plain CJS, see issue #420);
+// used only by test/config.test.ts. Keep in sync by hand.
+
+export interface ConfigFinding {
+    field: string
+    severity?: string
+    message?: string
+    note?: string
+}
+
+export interface CheckConfigResult {
+    issues: ConfigFinding[]
+    warnings: ConfigFinding[]
+    passed: ConfigFinding[]
+    summary: { errors: number; warnings: number; passed: number; valid: boolean; verdict?: string }
+}
+
+export function init(projectInfo: { dir: string }): void
+export function handle_check_config(args?: { project_path?: string; platform?: string }): CheckConfigResult
+export function isStaleLanAddress(config: Record<string, unknown>): boolean
+export function STALE_LAN_ADDRESS_MESSAGE(ip: unknown): string

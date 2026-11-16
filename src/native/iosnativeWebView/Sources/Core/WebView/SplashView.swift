@@ -30,13 +30,29 @@ public struct SplashView: View {
                         }
                     }
                 )
+                .overlay(
+                    // HTML splash from public/splashscreen.html, drawn above the native image
+                    Group {
+                        if splashViewModel.isHTMLMode {
+                            SplashHTMLView()
+                                .ignoresSafeArea(.all)
+                        }
+                    }
+                )
                 .onReceive(webViewModel.$loadingProgress) { progress in
+                    // HTML splash dismisses on the initial load only, not on progress
+                    guard !splashViewModel.isHTMLMode else { return }
                     splashViewModel.updateProgress(progress)
                 }
                 .onReceive(webViewModel.$isLoading) { isLoading in
                     // If WebView stops loading and no duration is set, dismiss splash
-                    if !isLoading && ConfigConstants.splashScreenDuration == nil {
+                    if !isLoading && ConfigConstants.splashScreenDuration == nil && !splashViewModel.isHTMLMode {
                         splashViewModel.forceDismiss()
+                    }
+                }
+                .onReceive(webViewModel.$hasFinishedInitialLoad) { finished in
+                    if finished {
+                        splashViewModel.initialLoadFinished()
                     }
                 }
         }

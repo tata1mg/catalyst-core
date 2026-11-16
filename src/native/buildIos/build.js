@@ -3,8 +3,9 @@
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
-const { execSync } = require("child_process")
+const { execSync, execFileSync } = require("child_process")
 const { runInteractiveCommand } = require("../utils.js")
+const { DEBUG_BUILD_SETTINGS, xcodeAuthArgs } = require("./signing.js")
 
 module.exports = function createBuildPhase(ctx) {
     const {
@@ -13,12 +14,20 @@ module.exports = function createBuildPhase(ctx) {
         SCHEME_NAME,
         APP_BUNDLE_ID,
         IPHONE_MODEL,
-        url,
         progress,
         runCommand,
+        runCommandStreaming,
     } = ctx
 
     // ─── Simulator helpers ────────────────────────────────────────────────────
+
+    // The simulator buildAppIos.js chose (its udid), else whichever is booted.
+    // The udid goes into shell strings, so only hex digits and hyphens pass.
+    const simulatorUdid = () =>
+        ctx.target?.target === "simulator" && /^[A-Fa-f0-9-]+$/.test(String(ctx.target.udid || ""))
+            ? ctx.target.udid
+            : null
+    const simctlDevice = () => simulatorUdid() || "booted"
 
     async function getBootedSimulatorUUID(modelName) {
         const UUID_RE = /[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i
@@ -29,26 +38,21 @@ module.exports = function createBuildPhase(ctx) {
                 if (line.includes(modelName) && line.includes("Booted")) {
                     const m = line.match(UUID_RE)
                     if (m) {
-                        console.log(`Found booted simulator of model ${modelName}`)
                         return m[0]
                     }
                 }
             }
-            console.log(
-                `No booted simulator of model ${modelName} found, checking for any booted simulator...`
-            )
+            progress.status("looking for any booted simulator")
             for (const line of lines) {
                 if (line.includes("Booted")) {
                     const m = line.match(UUID_RE)
                     if (m) {
-                        console.log("Found another booted simulator, will use it instead")
                         return m[0]
                     }
                 }
             }
             return null
         } catch (error) {
-            console.log("No booted simulators found")
             return null
         }
     }
@@ -63,7 +67,6 @@ module.exports = function createBuildPhase(ctx) {
             }
             return null
         } catch (error) {
-            console.log("Failed to get booted simulator info:", error.message)
             return null
         }
     }
@@ -132,6 +135,7 @@ module.exports = function createBuildPhase(ctx) {
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=NO \
         ONLY_ACTIVE_ARCH=YES \
+        ${DEBUG_BUILD_SETTINGS.join(" ")} \
         BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products" \
         CONFIGURATION_BUILD_DIR="${derivedDataPath}/${projectName}-Build/Build/Products/Debug-iphonesimulator" \
         OS_ACTIVITY_MODE=debug \
@@ -140,9 +144,9 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function buildProject(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
-        const bootedInfo = await getBootedSimulatorInfo()
+        const bootedInfo = simulatorUdid() ? { udid: simulatorUdid() } : await getBootedSimulatorInfo()
         if (!bootedInfo) throw new Error("No booted simulator found")
-        console.log(`Building with destination: platform=iOS Simulator,id=${bootedInfo.udid}`)
+        progress.status(`simulator ${bootedInfo.udid.slice(0, 8)}`)
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
         progress.log(
             isNotificationsEnabled
@@ -150,16 +154,17 @@ module.exports = function createBuildPhase(ctx) {
                 : "Building without notifications (Firebase excluded)",
             "info"
         )
-        return runCommand(
-            makeBuildCommand(scheme, sdk, bundleId, derivedDataPath, projectName, bootedInfo.udid, "build"),
-            { maxBuffer: 1024 * 1024 * 10 }
+        // Streamed: xcodebuild runs for minutes, and buffered output made that
+        // look like a hang with nothing on screen until it finished.
+        return runCommandStreaming(
+            makeBuildCommand(scheme, sdk, bundleId, derivedDataPath, projectName, bootedInfo.udid, "build")
         )
     }
 
     async function buildProjectForTesting(scheme, sdk, destination, bundleId, derivedDataPath, projectName) {
         const bootedInfo = await getBootedSimulatorInfo()
         if (!bootedInfo) throw new Error("No booted simulator found")
-        console.log(`Building for testing with destination: platform=iOS Simulator,id=${bootedInfo.udid}`)
+        progress.status(`simulator ${bootedInfo.udid.slice(0, 8)}`)
         const isNotificationsEnabled = WEBVIEW_CONFIG.notifications?.enabled ?? false
         progress.log(
             isNotificationsEnabled
@@ -167,7 +172,7 @@ module.exports = function createBuildPhase(ctx) {
                 : "Building for testing without notifications",
             "info"
         )
-        return runCommand(
+        return runCommandStreaming(
             makeBuildCommand(
                 scheme,
                 sdk,
@@ -176,8 +181,7 @@ module.exports = function createBuildPhase(ctx) {
                 projectName,
                 bootedInfo.udid,
                 "build-for-testing"
-            ),
-            { maxBuffer: 1024 * 1024 * 10 }
+            )
         )
     }
 
@@ -186,17 +190,21 @@ module.exports = function createBuildPhase(ctx) {
         try {
             const derivedDataPath = path.join(os.homedir(), "Library/Developer/Xcode/DerivedData")
             try {
-                progress.log("Building for specified simulator...", "info")
+                progress.status("building for specified simulator")
                 await buildProject(
                     SCHEME_NAME,
                     "iphonesimulator",
-                    `platform=iOS Simulator,name=${IPHONE_MODEL}`,
+                    // Several runtimes can each have a simulator with this
+                    // name; the udid buildAppIos.js chose is unambiguous.
+                    simulatorUdid()
+                        ? `platform=iOS Simulator,id=${simulatorUdid()}`
+                        : `platform=iOS Simulator,name=${IPHONE_MODEL}`,
                     APP_BUNDLE_ID,
                     derivedDataPath,
                     PROJECT_NAME
                 )
             } catch (buildError) {
-                progress.log("Initial build failed, attempting fallback...", "warning")
+                progress.log("Initial build failed, attempting fallback...", "info")
                 const bootedUUID = await getBootedSimulatorUUID(IPHONE_MODEL)
                 if (bootedUUID) {
                     progress.log(`Found booted simulator, retrying build...`, "info")
@@ -215,25 +223,6 @@ module.exports = function createBuildPhase(ctx) {
             progress.complete("build")
         } catch (error) {
             progress.fail("build", error.message)
-            progress.printTreeContent("Troubleshooting Guide", [
-                "Build failed. Please try the following steps:",
-                {
-                    text: 'Run "npm run setupEmulator:ios" to reconfigure iOS settings',
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                {
-                    text: "Check if Xcode is properly installed and updated",
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "yellow",
-                },
-                { text: "Verify selected simulator exists", indent: 1, prefix: "└─ ", color: "yellow" },
-                "\nVerify Configuration:",
-                { text: `Selected Simulator: ${IPHONE_MODEL}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `Server URL: ${url}`, indent: 1, prefix: "└─ ", color: "gray" },
-            ])
             throw error
         }
     }
@@ -252,7 +241,7 @@ module.exports = function createBuildPhase(ctx) {
                     .toString()
                     .trim()
             } catch (error) {
-                progress.log("Primary app path search failed, trying fallback...", "warning")
+                progress.log("Primary app path search failed, trying fallback...", "info")
             }
             if (!APP_PATH) {
                 try {
@@ -274,59 +263,24 @@ module.exports = function createBuildPhase(ctx) {
         }
     }
 
-    async function moveAppToBuildOutput(APP_PATH) {
-        const { BUILD_OUTPUT_PATH, iosConfig } = ctx
-        try {
-            const buildType = iosConfig.buildType || "debug"
-            const appName = iosConfig.appName || "app"
-            const currentDate = new Date().toLocaleDateString("en-GB").replace(/\//g, "-")
-            const currentTime = new Date()
-                .toLocaleTimeString("en-US", {
-                    hour12: true,
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                })
-                .replace(/:/g, "-")
-            const destinationDir = path.join(
-                process.cwd(),
-                BUILD_OUTPUT_PATH, // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - BUILD_OUTPUT_PATH is trusted application config.
-                "native",
-                "ios",
-                currentDate,
-                buildType // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - buildType is "debug" or "release" from config.
-            )
-            const destinationPath = path.join(destinationDir, `${appName}-${currentTime}.app`) // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-            if (!fs.existsSync(destinationDir)) fs.mkdirSync(destinationDir, { recursive: true })
-            await runCommand(`cp -R "${APP_PATH}" "${destinationPath}"`)
-            return destinationPath
-        } catch (error) {
-            console.error("Error moving app to build output:", error.message)
-            throw error
-        }
-    }
-
     async function uninstallExistingApp() {
-        console.log("Uninstalling the app if it exists...")
-        await runCommand(`xcrun simctl uninstall booted "${APP_BUNDLE_ID}"`)
+        progress.status("uninstalling previous build")
+        await runCommand(`xcrun simctl uninstall ${simctlDevice()} "${APP_BUNDLE_ID}"`)
     }
 
     async function installApp(APP_PATH) {
-        console.log("Installing the app...")
-        try {
-            await runCommand(`xcrun simctl install booted "${APP_PATH}"`)
-        } catch (error) {
-            console.error("Error installing the app:", error)
-            throw error
-        }
+        progress.status("installing")
+        await runCommand(`xcrun simctl install ${simctlDevice()} "${APP_PATH}"`)
     }
 
     async function waitForInstallation() {
-        console.log("Waiting for the app to be fully installed...")
+        progress.status("waiting for install")
         for (let i = 0; i < 30; i++) {
             try {
-                execSync(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`) // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - APP_BUNDLE_ID is generated from trusted native config.
-                console.log("App installed successfully.")
+                // No shell: the bundle id is passed as an argv entry, never interpolated.
+                execFileSync("xcrun", ["simctl", "get_app_container", simctlDevice(), APP_BUNDLE_ID], {
+                    stdio: ["ignore", "pipe", "ignore"],
+                })
                 break
             } catch (error) {
                 if (i === 29) throw new Error("Timeout: App installation took too long.")
@@ -336,36 +290,36 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function handleLaunchError(error) {
-        console.error("Error launching the app:", error)
-        console.log("Checking app container...")
+        progress.status("checking app container")
         try {
-            await runCommand(`xcrun simctl get_app_container booted "${APP_BUNDLE_ID}"`)
+            await runCommand(`xcrun simctl get_app_container ${simctlDevice()} "${APP_BUNDLE_ID}"`)
         } catch {
-            console.log("App container not found")
+            progress.log("App container not found", "warning")
         }
         throw error
     }
 
     async function verifyAppLaunch() {
-        console.log("Waiting for the app to launch...")
+        progress.status("waiting for launch")
         for (let i = 0; i < 10; i++) {
             try {
-                const launchResult = execSync(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`).toString() // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+                const launchResult = execFileSync("xcrun", ["simctl", "launch", simctlDevice(), APP_BUNDLE_ID], {
+                    stdio: ["ignore", "pipe", "ignore"],
+                }).toString()
                 if (launchResult.includes("already launched")) {
-                    console.log("App launched successfully.")
                     break
                 }
             } catch (error) {
-                if (i === 9) console.log("Warning: App launch might have failed or taken too long.")
+                if (i === 9) progress.log("App launch may have failed or timed out", "warning")
             }
             await new Promise((resolve) => setTimeout(resolve, 1000))
         }
     }
 
     async function launchAndVerifyApp() {
-        console.log("Launching the app...")
+        progress.status("launching")
         try {
-            await runCommand(`xcrun simctl launch booted "${APP_BUNDLE_ID}"`)
+            await runCommand(`xcrun simctl launch ${simctlDevice()} "${APP_BUNDLE_ID}"`)
             await verifyAppLaunch()
         } catch (error) {
             await handleLaunchError(error)
@@ -373,7 +327,7 @@ module.exports = function createBuildPhase(ctx) {
     }
 
     async function focusSimulator() {
-        console.log("Focusing on Simulator...")
+        progress.status("focusing simulator")
         const simulatorAppBundleId = resolveSimulatorAppBundleId()
         if (!simulatorAppBundleId) {
             progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
@@ -402,147 +356,6 @@ module.exports = function createBuildPhase(ctx) {
 
     // ─── Physical device ──────────────────────────────────────────────────────
 
-    // `instruments -s devices` is deprecated and its plain-text output is fragile
-    // to parse. `xcrun devicectl list devices --json-output <path>` is the modern,
-    // structured replacement (Xcode 15+) and is already used elsewhere in this
-    // file for install/launch, so use it as the primary detection source too.
-    // Note: devicectl lists simulators as well as physical devices, so filter on
-    // hardwareProperties.reality === "physical".
-    //
-    // Write to a temp file rather than `--json-output -` (stdout): Apple's own
-    // scripting guidance is a file path, and stdout support for `-` isn't
-    // guaranteed across every Xcode version this needs to run on — a temp file
-    // works the same way on every devicectl version. Falls back to
-    // xcodebuild -showdestinations below on any failure (old devicectl, no
-    // physical device, malformed output), so this only needs to work when it can.
-    // Matches the identifier format Apple's own tooling uses (hex digits and
-    // hyphens only, e.g. a UUID or the shorter legacy 40-char UDID). device.udid
-    // is later interpolated unquoted into shell command strings (xcodebuild
-    // -destination, xcrun devicectl --device, see installAndLaunchOnPhysicalDevice
-    // and buildProjectForPhysicalDevice) — the old instruments-based parser
-    // structurally constrained what could reach that string via its own regex;
-    // this is the equivalent guard for the JSON-based devicectl path, so a
-    // malformed or hostile identifier in devicectl's output can't inject shell
-    // syntax rather than just being rejected as "not a device".
-    const VALID_UDID_RE = /^[A-Fa-f0-9-]+$/
-
-    function tryDevicectl() {
-        const tmpPath = path.join(os.tmpdir(), `catalyst-devicectl-${process.pid}-${Date.now()}.json`)
-        try {
-            execSync(`xcrun devicectl list devices --json-output "${tmpPath}"`) // nosemgrep: javascript.lang.security.audit.dangerous-spawn-shell-command.dangerous-spawn-shell-command - tmpPath is built from os.tmpdir()/process.pid/Date.now(), not user input.
-            const raw = fs.readFileSync(tmpPath, "utf8")
-            const parsed = JSON.parse(raw)
-            const devices = parsed?.result?.devices ?? []
-            return devices
-                .filter((d) => d.hardwareProperties?.reality === "physical")
-                // devicectl lists every device it has ever paired with, reachable or
-                // not — a device that's unplugged or out of range still shows up with
-                // reality: "physical". Only tunnelState !== "unavailable" is actually
-                // installable/launchable right now; "disconnected" (paired, USB/Wi-Fi
-                // not currently active but developer-mode discoverable) still works for
-                // wired installs, so only "unavailable" is excluded here.
-                .filter((d) => d.connectionProperties?.tunnelState !== "unavailable")
-                .map((d) => ({
-                    name: d.deviceProperties?.name ?? "Physical Device",
-                    version: d.deviceProperties?.osVersionNumber ?? "Unknown",
-                    udid: d.hardwareProperties?.udid ?? d.identifier,
-                    type: "physical",
-                }))
-                .filter((d) => typeof d.udid === "string" && VALID_UDID_RE.test(d.udid))
-        } catch (error) {
-            progress.log(
-                `devicectl detection failed (${error.message}); falling back to xcodebuild destinations`,
-                "warning"
-            )
-            return []
-        } finally {
-            try {
-                fs.unlinkSync(tmpPath)
-            } catch {
-                // Nothing to clean up if the command failed before writing the file.
-            }
-        }
-    }
-
-    async function detectPhysicalDevices() {
-        progress.start("deviceDetection")
-        const { iosConfig } = ctx
-        try {
-            progress.log("Scanning for connected physical devices...", "info")
-            let physicalDevices = []
-            const configuredUDID = iosConfig.deviceUDID
-            if (configuredUDID) {
-                progress.log(`Using configured device UDID: ${configuredUDID}`, "info")
-                const configuredDevice = tryDevicectl().find((d) => d.udid === configuredUDID)
-                if (configuredDevice) {
-                    progress.log(
-                        `✅ Found configured physical device: ${configuredDevice.name} (${configuredDevice.version})`,
-                        "success"
-                    )
-                    progress.complete("deviceDetection")
-                    return configuredDevice
-                }
-                progress.log(`⚠️  Configured device UDID not found in connected devices`, "warning")
-                progress.log("Falling back to auto-detection...", "info")
-            } else {
-                progress.log("No device UDID configured, using auto-detection", "info")
-            }
-
-            physicalDevices = tryDevicectl()
-            if (physicalDevices.length > 0)
-                progress.log(`Found ${physicalDevices.length} physical device(s) via devicectl`, "success")
-
-            if (physicalDevices.length === 0) {
-                try {
-                    const xcodebuildOutput = execSync(
-                        `xcodebuild -scheme "${SCHEME_NAME}" -showdestinations` // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - SCHEME_NAME is generated from trusted iOS project config.
-                    ).toString()
-                    progress.log("Scanning xcodebuild destinations for physical devices...", "info")
-                    for (const line of xcodebuildOutput.split("\n")) {
-                        const m = line.match(
-                            /\{\s*platform:iOS,\s*arch:(\w+),\s*id:([A-F0-9-]+),\s*name:(.+?)\s*\}/
-                        )
-                        if (m) {
-                            const [, arch, udid, name] = m
-                            progress.log(`Found device candidate: ${name.trim()} - ${udid}`, "info")
-                            if (!udid.includes("placeholder") && udid.length > 20) {
-                                progress.log(`✅ Valid physical device: ${name.trim()}`, "success")
-                                physicalDevices.push({
-                                    name: name.trim(),
-                                    version: "Unknown",
-                                    udid,
-                                    arch,
-                                    type: "physical",
-                                })
-                            } else {
-                                progress.log(`❌ Skipping placeholder: ${name.trim()}`, "warning")
-                            }
-                        }
-                    }
-                } catch (error) {
-                    progress.log("xcodebuild destinations failed", "warning")
-                    progress.log(`Error: ${error.message}`, "error")
-                }
-            }
-
-            if (physicalDevices.length > 0) {
-                progress.log(`Found ${physicalDevices.length} physical device(s):`, "success")
-                physicalDevices.forEach((d) =>
-                    progress.log(`  📱 ${d.name} (${d.version || "Unknown iOS"}) - ${d.udid}`, "info")
-                )
-                progress.complete("deviceDetection")
-                return physicalDevices[0]
-            } else {
-                progress.log("No physical devices detected", "warning")
-                progress.complete("deviceDetection")
-                return null
-            }
-        } catch (error) {
-            progress.fail("deviceDetection", error.message)
-            return null
-        }
-    }
-
     async function buildProjectForPhysicalDevice(scheme, bundleId, derivedDataPath, projectName, device) {
         progress.log(`Building for physical device: ${device.name}`, "info")
         const projectPath = `${process.cwd()}/${projectName}.xcodeproj`
@@ -553,16 +366,28 @@ module.exports = function createBuildPhase(ctx) {
             isNotificationsEnabled ? "Building with notifications enabled" : "Building without notifications",
             "info"
         )
-        const buildCommand = `xcodebuild \
-        -scheme ${scheme} \
-        -sdk iphoneos \
-        -configuration Debug \
-        -destination platform=iOS,id=${device.udid} \
-        PRODUCT_BUNDLE_IDENTIFIER=${bundleId} \
-        ONLY_ACTIVE_ARCH=YES \
-        build`
-        progress.log(`Executing command: ${buildCommand}`, "info")
-        return runCommand(buildCommand, { maxBuffer: 1024 * 1024 * 10 })
+        // Automatic signing may create or fetch the development certificate
+        // and profile and register this device: with the App Store Connect
+        // key when one is configured, else with the Apple account signed in
+        // to Xcode. A manual profile (ios.provisioningProfile) needs neither.
+        const signingArgs = ctx.signingPlan?.style === "manual" ? [] : xcodeAuthArgs(ctx.apiKey)
+        // The streamed output is what tells you how it is going; argv, not a
+        // shell string, so a key path with spaces needs no quoting.
+        return runCommandStreaming("xcodebuild", [
+            "-scheme",
+            scheme,
+            "-sdk",
+            "iphoneos",
+            "-configuration",
+            "Debug",
+            "-destination",
+            `platform=iOS,id=${device.udid}`,
+            `PRODUCT_BUNDLE_IDENTIFIER=${bundleId}`,
+            "ONLY_ACTIVE_ARCH=YES",
+            ...DEBUG_BUILD_SETTINGS,
+            ...signingArgs,
+            "build",
+        ])
     }
 
     async function findPhysicalDeviceAppPath() {
@@ -575,7 +400,7 @@ module.exports = function createBuildPhase(ctx) {
                 .toString()
                 .trim()
         } catch {
-            progress.log("Primary app path search failed for physical device, trying fallback...", "warning")
+            progress.log("Primary app path search failed for physical device, trying fallback...", "info")
         }
         if (!APP_PATH) {
             try {
@@ -616,7 +441,7 @@ module.exports = function createBuildPhase(ctx) {
                     "App installation completed, but launch failed. You can manually launch the app on your device.",
                     "warning"
                 )
-                progress.log(`To launch manually, look for the app with bundle ID: ${APP_BUNDLE_ID}`, "info")
+                progress.log(`To launch manually, look for the app with bundle ID: ${APP_BUNDLE_ID}`, "note")
             }
             progress.complete("launch")
         } catch (error) {
@@ -653,7 +478,7 @@ module.exports = function createBuildPhase(ctx) {
     async function launchIOSSimulator(simulatorName) {
         progress.start("launchSimulator")
         try {
-            progress.log("Launching iOS Simulator...")
+            progress.status("launching simulator")
             const simulatorsJson = JSON.parse(execSync("xcrun simctl list devices -j").toString())
             // Multiple devices can share a name across runtimes (e.g. leftover devices
             // from an old Xcode install after an upgrade) — simctl marks the ones whose
@@ -667,7 +492,10 @@ module.exports = function createBuildPhase(ctx) {
                 isBooted = false
             Object.entries(simulatorsJson.devices).forEach(([, devices]) => {
                 devices.forEach((device) => {
-                    if (device.name !== simulatorName) return
+                    // The chosen udid when there is one: stock simulators share
+                    // names across runtimes.
+                    if (simulatorUdid() ? device.udid !== simulatorUdid() : device.name !== simulatorName)
+                        return
                     const available = isDeviceAvailable(device)
                     const alreadyBooted = device.state === "Booted"
                     const isBetterMatch =
@@ -682,13 +510,13 @@ module.exports = function createBuildPhase(ctx) {
                 })
             })
             if (!foundSimulator) {
-                console.log(`Configured simulator "${simulatorName}" not found.`)
+                progress.log(`Configured simulator "${simulatorName}" not found`, "warning")
                 return
             }
             if (!isBooted) {
                 progress.log(
                     `Attempting to boot simulator: ${simulatorName} (${foundSimulatorId})`,
-                    "warning"
+                    "info"
                 )
                 if (foundSimulator.state === "Shutdown") {
                     progress.log(`Simulator is shutdown, attempting to boot...`, "info")
@@ -721,14 +549,13 @@ module.exports = function createBuildPhase(ctx) {
             }
             const simulatorAppBundleId = resolveSimulatorAppBundleId()
             if (simulatorAppBundleId) {
-                progress.log("Opening simulator UI...")
+                progress.status("opening simulator")
                 await runCommand(`open -b ${simulatorAppBundleId}`)
                 await new Promise((resolve) => setTimeout(resolve, 1000))
                 await runCommand(`osascript -e 'tell application id "${simulatorAppBundleId}" to activate'`)
             } else {
                 progress.log(SIMULATOR_APP_NOT_FOUND_WARNING, "warning")
             }
-            progress.log("iOS Simulator launched successfully.", "success")
             progress.complete("launchSimulator")
         } catch (error) {
             progress.fail("launchSimulator", error.message)
@@ -767,9 +594,7 @@ module.exports = function createBuildPhase(ctx) {
         buildXcodeProject,
         buildProjectForTesting,
         findAppPath,
-        moveAppToBuildOutput,
         installAndLaunchApp,
-        detectPhysicalDevices,
         buildProjectForPhysicalDevice,
         findPhysicalDeviceAppPath,
         installAndLaunchOnPhysicalDevice,

@@ -276,7 +276,7 @@ function copyAndroidPluginSources(plugins, javaRoot, log) {
     log(`Copied ${copiedCount} Android plugin source file(s)`, "info")
 }
 
-function copyPluginAssets(plugins, androidProjectPath, log) {
+function copyPluginAssets(plugins, androidProjectPath) {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - The destination path components are fixed.
     const baseAssetsDir = path.join(androidProjectPath, "app", "src", "main", "assets", "plugins")
     fs.rmSync(baseAssetsDir, { recursive: true, force: true })
@@ -290,8 +290,6 @@ function copyPluginAssets(plugins, androidProjectPath, log) {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - These are fixed asset directories beneath the discovered internal plugin directory.
         copyTree(path.join(plugin.pluginDir, "assets", "android"), path.join(pluginAssetsDir, "android"))
     }
-
-    log("Plugin assets copied to app/src/main/assets/plugins", "info")
 }
 
 function formatKotlinMap(entries, emptyLiteral = "emptyMap()") {
@@ -476,7 +474,7 @@ function composeAndroidPlugins({ corePluginsRoot, androidProjectPath, pluginConf
     const proguardPath = path.join(androidProjectPath, "app", "proguard-rules.pro")
 
     copyAndroidPluginSources(selected, javaRoot, log)
-    copyPluginAssets(selected, androidProjectPath, log)
+    copyPluginAssets(selected, androidProjectPath)
     generatePluginRegistryFiles(selected, javaRoot)
     updateAndroidManifestPermissions(
         manifestPath,

@@ -51,6 +51,8 @@ public enum ConfigConstants {
     public static let splashScreenEnabled = false
     public static let splashScreenDuration: TimeInterval? = nil
     public static let splashScreenBackgroundColor = "#ffffff"
+    public static let splashScreenHtml: String? = nil
+    public static let splashScreenMinDuration: TimeInterval = 0
 
     #if canImport(UIKit)
     public static let splashScreenImageWidth: CGFloat = 400
