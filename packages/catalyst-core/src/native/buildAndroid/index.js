@@ -200,8 +200,10 @@ function createAndroidBuild(
             // nothing answers on its port, and waits until it does.
             if (resolved.usesDevServer) {
                 progress.start("server")
-                // adb reverse reaches the host on 127.0.0.1, so that has to answer.
-                await ensureDevServer({ cwd: appRoot, log, ipv4: true })
+                // On Windows adb reverse reaches the host on 127.0.0.1, so that has
+                // to answer; there localhost can be ::1 alone. macOS and Linux keep
+                // the localhost server, which adb reaches as before.
+                await ensureDevServer({ cwd: appRoot, log, ipv4: process.platform === "win32" })
                 progress.complete("server")
             }
 

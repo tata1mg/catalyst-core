@@ -263,7 +263,7 @@ function startedDevServer({ cwd, port, isAlive }) {
  * @param {typeof isServerAnswering} [options.probe] - for tests
  * @param {typeof startDevServerProcess} [options.start] - for tests
  * @param {(pid: number) => boolean} [options.isAlive] - for tests
- * @param {boolean} [options.ipv4] - the target reaches loopback on 127.0.0.1 only (Android, through adb reverse)
+ * @param {boolean} [options.ipv4] - the target reaches loopback on 127.0.0.1 only (Android on Windows, through adb reverse)
  * @returns {Promise<{ started: boolean, url: string, port: number, logFile?: string }>}
  */
 async function ensureDevServer({
