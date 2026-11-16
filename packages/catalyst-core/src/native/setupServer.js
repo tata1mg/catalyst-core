@@ -320,6 +320,14 @@ async function ensureDevServer({
     }
     const { child, logFile } = start({ cwd, port, overrides: startOverrides })
     log(`Starting the dev server at ${url} (output in ${logFile})`, "info")
+    // It outlives this build. On Windows a running process keeps its files
+    // locked, so npm install fails with EBUSY until it is stopped.
+    if (platform.isWindows() && child?.pid) {
+        log(
+            `It keeps running after the build; stop it with ${platform.stopProcessCommand(child.pid)}`,
+            "note"
+        )
+    }
     if (Number.isInteger(child?.pid)) {
         writeLocalState({ devServer: { host: hostKey, port, pid: child.pid } }, { cwd })
     }

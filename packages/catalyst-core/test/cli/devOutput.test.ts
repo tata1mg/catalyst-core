@@ -559,7 +559,7 @@ describe("ensurePortFree", () => {
             expect.anything()
         )
         expect(stderr).toMatch(/Port 3005 is already in use by node\.exe \(pid 4242\)/)
-        expect(stderr).toMatch(/taskkill \/PID 4242 \/F/)
+        expect(stderr).toMatch(/taskkill \/PID 4242 \/T \/F/)
     })
 
     it("skips the probe for a missing or invalid port", async () => {

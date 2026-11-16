@@ -153,7 +153,7 @@ describe("hintFor", () => {
             "Something is already on port 3005. Free it with `lsof -ti :3005 | xargs kill`, or set NODE_SERVER_PORT in config/config.json."
         )
         expect(onPlatform("win32", () => hintFor(busy).hint)).toBe(
-            "Something is already on port 3005. Free it with `netstat -ano | findstr :3005, then taskkill /PID <pid> /F`, or set NODE_SERVER_PORT in config/config.json."
+            "Something is already on port 3005. Free it with `netstat -ano | findstr :3005, then taskkill /PID <pid> /T /F`, or set NODE_SERVER_PORT in config/config.json."
         )
         expect(hintFor("EADDRINUSE").hint).toBe(
             "Something is already on that port. Stop it, or set NODE_SERVER_PORT in config/config.json."

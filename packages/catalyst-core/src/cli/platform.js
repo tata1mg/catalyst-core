@@ -27,11 +27,13 @@ function appRoot() {
 /**
  * One argument for a cmd.exe command line, using the quoting the Microsoft C
  * runtime parses: backslashes are only special in front of a quote, so those get
- * doubled. Arguments cmd.exe would act on (& | < > ^ ( ) % !) are quoted too.
+ * doubled. Arguments cmd.exe would act on (& | < > ^ ( ) % !) are quoted too,
+ * and so are ; , and =, where a batch file's %1..%9 and %* split an argument:
+ * sdkmanager ids (platforms;android-36) and --sdk_root=<path> contain them.
  */
 function quoteWindowsArg(arg) {
     const text = String(arg)
-    if (text && !/[\s"&|<>^()%!]/.test(text)) return text
+    if (text && !/[\s"&|<>^()%!;,=]/.test(text)) return text
     return `"${text.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, "$1$1")}"`
 }
 
@@ -67,13 +69,13 @@ function batchInvocation(batchFile, args = []) {
 /** Advice for freeing a port, in commands that exist on this machine. */
 function freePortCommand(port) {
     return isWindows()
-        ? `netstat -ano | findstr :${port}, then taskkill /PID <pid> /F`
+        ? `netstat -ano | findstr :${port}, then taskkill /PID <pid> /T /F`
         : `lsof -ti :${port} | xargs kill`
 }
 
 /** The command that stops one process, as a person would type it. */
 function stopProcessCommand(pid) {
-    return isWindows() ? `taskkill /PID ${pid} /F` : `kill ${pid}`
+    return isWindows() ? `taskkill /PID ${pid} /T /F` : `kill ${pid}`
 }
 
 module.exports = { isWindows, appRoot, quoteWindowsArg, batchInvocation, freePortCommand, stopProcessCommand }

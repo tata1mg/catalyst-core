@@ -38,7 +38,14 @@ describe("appRoot", () => {
 describe("quoteWindowsArg", () => {
     it("leaves a plain argument alone", () => {
         expect(quoteWindowsArg("installDebug")).toBe("installDebug")
-        expect(quoteWindowsArg("-PconfigPath=C:\\app\\config.json")).toBe("-PconfigPath=C:\\app\\config.json")
+        expect(quoteWindowsArg("C:\\app\\config.json")).toBe("C:\\app\\config.json")
+    })
+
+    it("quotes ; , and =, where a batch file splits its arguments", () => {
+        // sdkmanager.bat would otherwise read platforms;android-36 as two arguments.
+        expect(quoteWindowsArg("platforms;android-36")).toBe('"platforms;android-36"')
+        expect(quoteWindowsArg("--sdk_root=C:\\sdk")).toBe('"--sdk_root=C:\\sdk"')
+        expect(quoteWindowsArg("a,b")).toBe('"a,b"')
     })
 
     it("quotes spaces and whatever cmd.exe would act on", () => {
@@ -83,9 +90,9 @@ describe("advice that names a command", () => {
     it("names one that exists on this system", () => {
         expect(onPlatform("linux", () => freePortCommand(3005))).toBe("lsof -ti :3005 | xargs kill")
         expect(onPlatform("win32", () => freePortCommand(3005))).toBe(
-            "netstat -ano | findstr :3005, then taskkill /PID <pid> /F"
+            "netstat -ano | findstr :3005, then taskkill /PID <pid> /T /F"
         )
         expect(onPlatform("linux", () => stopProcessCommand(42))).toBe("kill 42")
-        expect(onPlatform("win32", () => stopProcessCommand(42))).toBe("taskkill /PID 42 /F")
+        expect(onPlatform("win32", () => stopProcessCommand(42))).toBe("taskkill /PID 42 /T /F")
     })
 })

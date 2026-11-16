@@ -304,7 +304,7 @@ describe("ensureDevServer", () => {
         const error = await run("localhost", true).catch((e) => e)
         expect(error.code).toBe("NATIVE-006")
         expect(error.message).toContain("started for jane-mac.local")
-        expect(error.hint).toContain(process.platform === "win32" ? "taskkill /PID 4242 /F" : "kill 4242")
+        expect(error.hint).toContain(process.platform === "win32" ? "taskkill /PID 4242 /T /F" : "kill 4242")
 
         // The same target reuses it, and a recorded process that is gone is ignored.
         expect(await run("jane-mac.local", true)).toMatchObject({ started: false })
