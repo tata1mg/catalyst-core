@@ -601,7 +601,10 @@ async function ensureAndroidSdk({
         await installTools(sdkPath, { log })
         sdkmanager = cmdlineTool(sdkPath, "sdkmanager", { platform })
         if (!sdkmanager)
-            throw nativeError("ANDROID-009", `no sdkmanager under ${sdkPath}/cmdline-tools/latest`)
+            throw nativeError(
+                "ANDROID-009",
+                `no sdkmanager under ${path.join(sdkPath, "cmdline-tools", "latest")}`
+            )
     }
 
     const sdkRoot = `--sdk_root=${sdkPath}`
@@ -641,7 +644,10 @@ async function ensureAndroidSdk({
     if (createAvd) {
         const avdmanager = cmdlineTool(sdkPath, "avdmanager", { platform })
         if (!avdmanager)
-            throw nativeError("ANDROID-009", `no avdmanager under ${sdkPath}/cmdline-tools/latest`)
+            throw nativeError(
+                "ANDROID-009",
+                `no avdmanager under ${path.join(sdkPath, "cmdline-tools", "latest")}`
+            )
         log(`Creating the "${avdName}" emulator`)
         await run(
             avdmanager,

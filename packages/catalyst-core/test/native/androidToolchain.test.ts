@@ -68,6 +68,9 @@ function acceptLicences(sdk: string) {
 }
 
 describe("Java resolution", () => {
+    // As resolveJavaHome builds it: path.join, so backslashes on Windows.
+    const bin = (home: string) => path.join(home, "bin", "java")
+
     it("parses modern and 1.x version strings", () => {
         expect(parseJavaMajor('openjdk version "17.0.9" 2023-10-17')).toBe(17)
         expect(parseJavaMajor('java version "1.8.0_392"')).toBe(8)
@@ -79,8 +82,8 @@ describe("Java resolution", () => {
         const skipped: string[] = []
         const run = (command: string) => {
             if (command === "/usr/libexec/java_home") return "/jdks/zulu-17/Contents/Home\n"
-            if (command === "/old/jdk/bin/java") return 'openjdk version "11.0.2"'
-            if (command === "/jdks/zulu-17/Contents/Home/bin/java") return 'openjdk version "17.0.12"'
+            if (command === bin("/old/jdk")) return 'openjdk version "11.0.2"'
+            if (command === bin("/jdks/zulu-17/Contents/Home")) return 'openjdk version "17.0.12"'
             return null
         }
         const java = resolveJavaHome({
@@ -97,9 +100,9 @@ describe("Java resolution", () => {
     it("skips a JDK newer than 23 with a reason, and prefers 21 over 17", () => {
         const skipped: Array<[string, string]> = []
         const versions: Record<string, string> = {
-            "/jdk25/bin/java": 'openjdk version "25" 2025-09-16',
-            "/jdk17/bin/java": 'openjdk version "17.0.12"',
-            "/jdk21/bin/java": 'openjdk version "21.0.4"',
+            [bin("/jdk25")]: 'openjdk version "25" 2025-09-16',
+            [bin("/jdk17")]: 'openjdk version "17.0.12"',
+            [bin("/jdk21")]: 'openjdk version "21.0.4"',
         }
         const run = (command: string, args: string[]) => {
             if (command === "/usr/libexec/java_home") {
@@ -120,8 +123,8 @@ describe("Java resolution", () => {
 
     it("takes 17 over another in-range JDK, and nothing when only 24+ is installed", () => {
         const versions: Record<string, string> = {
-            "/jdk22/bin/java": 'openjdk version "22.0.1"',
-            "/jdk17/bin/java": 'openjdk version "17.0.12"',
+            [bin("/jdk22")]: 'openjdk version "22.0.1"',
+            [bin("/jdk17")]: 'openjdk version "17.0.12"',
         }
         const pick = (javaHome: string, others: string[]) =>
             resolveJavaHome({
@@ -137,7 +140,7 @@ describe("Java resolution", () => {
                 env: { JAVA_HOME: "/jdk24" },
                 platform: "linux",
                 run: () => 'openjdk version "24"',
-                exists: (file) => file === "/jdk24/bin/java",
+                exists: (file) => file === bin("/jdk24"),
             })
         ).toBeNull()
     })
@@ -147,8 +150,8 @@ describe("Java resolution", () => {
         const java = resolveJavaHome({
             env: {},
             platform: "darwin",
-            run: (command) => (command === `${jbr}/bin/java` ? 'openjdk version "21.0.6"' : null),
-            exists: (file) => file === `${jbr}/bin/java`,
+            run: (command) => (command === bin(jbr) ? 'openjdk version "21.0.6"' : null),
+            exists: (file) => file === bin(jbr),
         })
         expect(java).toMatchObject({ home: jbr, version: 21, source: "Android Studio" })
     })
@@ -156,7 +159,8 @@ describe("Java resolution", () => {
     it("finds Android Studio's JBR on Windows, then a java on PATH", () => {
         const jbr = path.join("C:/Program Files", "Android", "Android Studio", "jbr")
         const javaOf = (home: string) => path.join(home, "bin", "java.exe")
-        const onPath = "C:/jdk17"
+        // Normalised, as dirname() of the where output gives it back with this OS separator.
+        const onPath = path.normalize("C:/jdk17")
         const pick = (installed: string[]) =>
             resolveJavaHome({
                 env: { ProgramFiles: "C:/Program Files", LOCALAPPDATA: "C:/Users/me/AppData/Local" },
@@ -465,6 +469,8 @@ describe("ensureAndroidSdk", () => {
                     )
             },
             installTools: async (dir: string) => installTools(dir),
+            // The fakes write POSIX tool names (no .bat), so look them up as Linux would.
+            platform: "linux",
         }
         return { calls, deps }
     }
@@ -656,7 +662,17 @@ describe("ensureAndroidSdk", () => {
 })
 
 describe("ensureAndroidSdk failures after consent", () => {
-    const ci = { flags: { yes: true, acceptLicenses: true }, isTTY: false, arch: "arm64" }
+    // platform: the fakes write POSIX tool names. installTools: a lookup that misses
+    // must never fall through to the real cmdline-tools download.
+    const ci = {
+        flags: { yes: true, acceptLicenses: true },
+        isTTY: false,
+        arch: "arm64",
+        platform: "linux",
+        installTools: async () => {
+            throw new Error("a test reached the real cmdline-tools download")
+        },
+    }
 
     it("fails with ANDROID-009 when the tools install leaves no sdkmanager", async () => {
         const sdk = tempDir()

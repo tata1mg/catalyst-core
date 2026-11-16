@@ -471,7 +471,8 @@ describe("resolveNativeConfig: release", () => {
             // One descriptor for the mode and the content.
             const fd = fs.openSync(resolved.configPath, "r")
             try {
-                expect(fs.fstatSync(fd).mode & 0o777).toBe(0o600)
+                // Windows has no POSIX modes to set or read.
+                if (process.platform !== "win32") expect(fs.fstatSync(fd).mode & 0o777).toBe(0o600)
                 expect(JSON.parse(fs.readFileSync(fd, "utf8")).WEBVIEW_CONFIG.LOCAL_IP).toBe("shop.acme.com")
             } finally {
                 fs.closeSync(fd)

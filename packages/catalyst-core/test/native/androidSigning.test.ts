@@ -593,7 +593,7 @@ describe("release output", () => {
                 androidConfig: { outputPath: "dist/store" },
                 version: { buildNumber: 7 },
             })
-        ).toBe(path.join("/app", "dist", "store", "1.0.0-7"))
+        ).toBe(path.resolve("/app", "dist", "store", "1.0.0-7"))
     })
 
     it("makes the app name and version safe for file names", () => {
@@ -632,19 +632,19 @@ describe("legacyKeystorePath", () => {
         // names the old release used.
         const raw = { appName: "shop", packageName: "com.acme.shop" }
         expect(legacyKeystorePath(raw, { cwd: "/app" })).toBe(
-            path.join("/app", "build-output", "shop-keystore.jks")
+            path.resolve("/app", "build-output", "shop-keystore.jks")
         )
         expect(legacyKeystorePath({ newProjectName: "store", appName: "shop" }, { cwd: "/app" })).toBe(
-            path.join("/app", "build-output", "store-keystore.jks")
+            path.resolve("/app", "build-output", "store-keystore.jks")
         )
         expect(legacyKeystorePath({ packageName: "com.acme.market" }, { cwd: "/app" })).toBe(
-            path.join("/app", "build-output", "market-keystore.jks")
+            path.resolve("/app", "build-output", "market-keystore.jks")
         )
         expect(legacyKeystorePath({ outputPath: "dist" }, { cwd: "/app" })).toBe(
-            path.join("/app", "dist", "catalystapp-keystore.jks")
+            path.resolve("/app", "dist", "catalystapp-keystore.jks")
         )
         expect(legacyKeystorePath(undefined, { cwd: "/app" })).toBe(
-            path.join("/app", "build-output", "catalystapp-keystore.jks")
+            path.resolve("/app", "build-output", "catalystapp-keystore.jks")
         )
     })
 })

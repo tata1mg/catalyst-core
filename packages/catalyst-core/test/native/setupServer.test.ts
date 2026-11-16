@@ -154,7 +154,8 @@ describe("startDevServerProcess", () => {
         expect(returned).toBe(child)
         expect(logFile).toBe(path.join(cwd, ".catalyst", "dev-server-3005.log"))
         expect(logFile.startsWith(os.tmpdir() + path.sep + "catalyst-dev-server")).toBe(false)
-        expect(fs.statSync(logFile).mode & 0o777).toBe(0o600)
+        // Windows has no POSIX modes to set or read.
+        if (process.platform !== "win32") expect(fs.statSync(logFile).mode & 0o777).toBe(0o600)
         expect(fs.readFileSync(path.join(cwd, ".catalyst", ".gitignore"), "utf8")).toBe("*\n")
         expect(spawned.command).toBe(process.execPath)
         expect(path.basename(spawned.args[0])).toBe("catalyst.js")
@@ -303,7 +304,7 @@ describe("ensureDevServer", () => {
         const error = await run("localhost", true).catch((e) => e)
         expect(error.code).toBe("NATIVE-006")
         expect(error.message).toContain("started for jane-mac.local")
-        expect(error.hint).toContain("kill 4242")
+        expect(error.hint).toContain(process.platform === "win32" ? "taskkill /PID 4242 /F" : "kill 4242")
 
         // The same target reuses it, and a recorded process that is gone is ignored.
         expect(await run("jane-mac.local", true)).toMatchObject({ started: false })
