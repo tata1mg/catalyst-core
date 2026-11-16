@@ -83,6 +83,8 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
     const found = []
     const seen = new Set()
     let viteFailed = false
+    // The Rolldown diagnostic still waiting for its code frame.
+    let awaitingFrame = null
 
     for (const raw of String(output).split("\n")) {
         const line = raw.replace(ANSI, "").trimEnd()
@@ -96,27 +98,35 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
             }
             const frame = viteFailed && ROLLDOWN_FRAME.exec(line.trim())
             if (frame) {
-                const last = found[found.length - 1]
-                if (last && last.line === undefined) {
-                    last.file = frame.groups.file
-                    last.line = Number(frame.groups.line)
-                    last.column = Number(frame.groups.column)
+                if (awaitingFrame) {
+                    awaitingFrame.error.file = frame.groups.file
+                    // Only a parse error is positioned in the file on disk. Rolldown
+                    // reports the others (e.g. UNRESOLVED_IMPORT) against the module
+                    // as plugins transformed it, so their line points elsewhere.
+                    if (awaitingFrame.code === "PARSE_ERROR") {
+                        awaitingFrame.error.line = Number(frame.groups.line)
+                        awaitingFrame.error.column = Number(frame.groups.column)
+                    }
+                    awaitingFrame = null
                 }
                 continue
             }
             const diagnostic = viteFailed && ROLLDOWN_DIAGNOSTIC.exec(line.trim())
             if (diagnostic) {
-                const { message } = diagnostic.groups
+                const { code, message } = diagnostic.groups
+                awaitingFrame = null
                 if (!seen.has(message)) {
+                    if (found.length >= MAX_ERRORS) break
                     seen.add(message)
-                    found.push({
+                    const error = {
                         file: undefined,
                         line: undefined,
                         column: undefined,
                         message: message.trim(),
-                    })
+                    }
+                    found.push(error)
+                    awaitingFrame = { code, error }
                 }
-                if (found.length >= MAX_ERRORS) break
                 continue
             }
         }
