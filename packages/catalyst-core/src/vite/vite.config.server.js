@@ -39,12 +39,12 @@ export default defineConfig(async () => {
             emptyOutDir: false,
             outDir: path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build"),
             target: "es2022",
-            minify: "esbuild",
+            minify: "oxc",
             sourcemap: false,
             manifest: false,
             ssrManifest: false,
 
-            rollupOptions: {
+            rolldownOptions: {
                 // Advisory warnings about third-party code the app author
                 // cannot act on: a dependency's misplaced /*#__PURE__*/ comment
                 // and unused re-exports from our own entry. Genuine problems
@@ -76,7 +76,7 @@ export default defineConfig(async () => {
                     },
                     chunkFileNames: "server/assets/[name]-[hash].js",
                     assetFileNames: (assetInfo) => {
-                        const extType = assetInfo.name.split(".").pop()
+                        const extType = (assetInfo.names?.[0] ?? assetInfo.name ?? "").split(".").pop()
                         if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
                             return "server/assets/images/[name]-[hash][extname]"
                         }
@@ -88,15 +88,11 @@ export default defineConfig(async () => {
                         }
                         return "server/assets/[name]-[hash][extname]"
                     },
+                    comments: { legal: false },
                 },
             },
 
             chunkSizeWarningLimit: 2000,
-        },
-
-        // Optimization for production
-        esbuild: {
-            legalComments: "none",
         },
 
         // Production-specific define

@@ -100,11 +100,8 @@ describe("extractBuildErrors (vite)", () => {
         ])
     })
 
-    it("reads resolve and esbuild transform failures", () => {
-        const output = [
-            'Failed to resolve entry for package "lodash".',
-            "src/Home.js:3:14: ERROR: Unexpected token",
-        ].join("\n")
+    it("reads a resolve failure", () => {
+        const output = 'Failed to resolve entry for package "lodash".'
         expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
             {
                 file: undefined,
@@ -112,7 +109,50 @@ describe("extractBuildErrors (vite)", () => {
                 column: undefined,
                 message: 'Failed to resolve entry for package "lodash"',
             },
-            { file: "src/Home.js", line: 3, column: 14, message: "Unexpected token" },
+        ])
+    })
+
+    // Shapes copied from a real Vite 8.3.8 build of a broken app (colour codes,
+    // stack frames and the import-path help trimmed).
+    it("reads Rolldown parse and resolve errors with the location from the code frame", () => {
+        const output = [
+            "error during build:",
+            "Build failed with 1 error:",
+            "",
+            "[plugin vite-plugin-jsx-in-js] /app/src/js/components/SEO/SEO.js",
+            "Error: Transform failed with 1 error:",
+            "",
+            `${ESC}[31m[PARSE_ERROR] ${ESC}[0mUnexpected token`,
+            "    ╭─[ ../../src/js/components/SEO/SEO.js:82:16 ]",
+            "    │",
+            " 82 │ const broken = ;",
+            "────╯",
+            "[UNRESOLVED_IMPORT] Could not resolve './missing' in ../../src/js/App.js",
+            "     ╭─[ ../../src/js/App.js:126:23 ]",
+            "  errors: [Getter/Setter]",
+        ].join("\n")
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            { file: "../../src/js/components/SEO/SEO.js", line: 82, column: 16, message: "Unexpected token" },
+            {
+                file: "../../src/js/App.js",
+                line: 126,
+                column: 23,
+                message: "Could not resolve './missing' in ../../src/js/App.js",
+            },
+        ])
+    })
+
+    it("does not mistake Rolldown warnings printed before the failure for errors", () => {
+        const output = [
+            "[EVAL] Use of direct `eval` function is strongly discouraged.",
+            "       ╭─[ ../lottie-web/build/player/lottie.js:14422:33 ]",
+            "[INEFFECTIVE_DYNAMIC_IMPORT] src/a.js is dynamically imported by src/b.js but also statically imported by src/c.js.",
+            "error during build:",
+            "[PARSE_ERROR] Unexpected token",
+            "    ╭─[ src/App.js:3:14 ]",
+        ].join("\n")
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            { file: "src/App.js", line: 3, column: 14, message: "Unexpected token" },
         ])
     })
 })
