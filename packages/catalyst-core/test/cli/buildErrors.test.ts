@@ -114,7 +114,7 @@ describe("extractBuildErrors (vite)", () => {
 
     // Shapes copied from a real Vite 8.3.8 build of a broken app (colour codes,
     // stack frames and the import-path help trimmed).
-    it("reads Rolldown parse and resolve errors with the location from the code frame", () => {
+    it("reads Rolldown errors, with a line only where it matches the file on disk", () => {
         const output = [
             "error during build:",
             "Build failed with 1 error:",
@@ -133,10 +133,12 @@ describe("extractBuildErrors (vite)", () => {
         ].join("\n")
         expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
             { file: "../../src/js/components/SEO/SEO.js", line: 82, column: 16, message: "Unexpected token" },
+            // Rolldown positions this against the transformed module, not the
+            // file on disk, so only the file is kept.
             {
                 file: "../../src/js/App.js",
-                line: 126,
-                column: 23,
+                line: undefined,
+                column: undefined,
                 message: "Could not resolve './missing' in ../../src/js/App.js",
             },
         ])
