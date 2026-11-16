@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import manifest from '../generated/docsManifest.json'
 import versions from '../generated/versions.json'
 

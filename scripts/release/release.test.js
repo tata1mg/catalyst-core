@@ -1,7 +1,7 @@
 // Run with `node --test scripts/release/` (built-in runner, no dependencies).
 const { test } = require("node:test")
 const assert = require("node:assert/strict")
-const { escapeRegExp, highestPrereleaseNumberIn } = require("./release.js")
+const { escapeRegExp, highestPrereleaseNumberIn, listedPackages, releaseState } = require("./release.js")
 
 test("escapeRegExp makes every regex metacharacter literal", () => {
     const metacharacters = ".*+?^${}()|[]\\"
@@ -55,4 +55,57 @@ test("highestPrereleaseNumberIn does not interpret channel or base as pattern sy
     assert.equal(highestPrereleaseNumberIn(versions, "1.0.0", "beta|alpha"), 0)
     assert.equal(highestPrereleaseNumberIn(versions, "1.0.0", ".*"), 0)
     assert.equal(highestPrereleaseNumberIn(versions, "1.0.0+", "beta"), 0)
+})
+
+const head = "4953f27c1f04456a1585e9728b9ed2be977e9d56"
+const otherSha = "e85e02178e85e02178e85e02178e85e02178e85"
+
+test("releaseState is new when the version is not on npm", () => {
+    assert.equal(releaseState(null, head), "new")
+})
+
+test("releaseState is published-here when npm recorded this commit", () => {
+    assert.equal(releaseState(head, head), "published-here")
+})
+
+test("releaseState is a collision when npm recorded another commit or none", () => {
+    assert.equal(releaseState(otherSha, head), "collision")
+    assert.equal(releaseState("", head), "collision")
+    assert.equal(releaseState(undefined, head), "collision")
+})
+
+const manifests = { "catalyst-core": "1.0.1", "create-catalyst-app": "1.0.1", "catalyst-ai": "0.2.0" }
+
+test("listedPackages returns the listed packages in publish order", () => {
+    const meta = { branch: "feat/x", packages: { "create-catalyst-app": "1.0.1", "catalyst-core": "1.0.1" } }
+    const listed = listedPackages(meta, manifests).map(
+        ({ workspace, version }) => `${workspace.name}@${version}`
+    )
+
+    assert.deepEqual(listed, ["catalyst-core@1.0.1", "create-catalyst-app@1.0.1"])
+})
+
+test("listedPackages rejects an unknown package", () => {
+    const meta = { packages: { "catalyst-core": "1.0.1", "left-pad": "1.0.0" } }
+
+    assert.throws(() => listedPackages(meta, manifests), /unknown package 'left-pad'/)
+})
+
+test("listedPackages rejects a version that differs from package.json", () => {
+    const meta = { packages: { "catalyst-core": "1.0.2" } }
+
+    assert.throws(
+        () => listedPackages(meta, manifests),
+        /catalyst-core@1\.0\.2 but package\.json has 1\.0\.1/
+    )
+})
+
+test("listedPackages rejects prerelease versions and malformed files", () => {
+    assert.throws(
+        () => listedPackages({ packages: { "catalyst-core": "1.0.1-beta.1" } }, manifests),
+        /X\.Y\.Z/
+    )
+    assert.throws(() => listedPackages({ packages: {} }, manifests), /lists no packages/)
+    assert.throws(() => listedPackages({ branch: "x" }, manifests), /packages object/)
+    assert.throws(() => listedPackages(null, manifests), /packages object/)
 })

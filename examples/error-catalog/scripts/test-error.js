@@ -132,7 +132,7 @@ async function executeCliStartup(scen) {
     killTree(null)
     await new Promise((r) => setTimeout(r, 1500))
     return new Promise((resolve) => {
-        const binInfo = getCatalystScript("scripts/start.js", scen.run.args[0])
+        const binInfo = getCatalystScript(`scripts/${scen.run.args[0]}.js`, scen.run.args[0])
         const cmdArgs = [...binInfo.argsPrefix, ...(scen.run.args.slice(1))]
 
         const child = spawn(binInfo.cmd, cmdArgs, {
@@ -238,7 +238,7 @@ async function executeHttp(scen) {
 
         const timer = setTimeout(() => {
             // Server may have crashed before sending an HTTP response (e.g.
-            // RUNTIME-WEB-004 where Document throws → uncaughtException).
+            // a render that throws before the response is answered).
             // In that case there is no fetch, but the error IS logged to
             // the server process stdout/stderr before the crash. Check whether
             // all expected strings are already in the accumulated output.

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import manifest from '../../generated/docsManifest.json'
 import versions from '../../generated/versions.json'
 import { loadErrorsCatalog, groupByCategory } from '../../data/errorsCatalog'
@@ -24,7 +24,9 @@ const MCP_URL = '/content/mcp-integration'
 
 const buildTree = (version) => {
     const root = { label: null, items: [] }
-    for (const page of manifest.filter((page) => page.version === version)) {
+    for (const page of manifest.filter(
+        (page) => page.version === version && page.kind !== 'release'
+    )) {
         let node = root
         for (const category of page.categories) {
             let child = node.items.find(

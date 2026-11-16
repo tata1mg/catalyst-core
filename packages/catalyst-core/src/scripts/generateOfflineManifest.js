@@ -53,6 +53,14 @@ export function collectOfflineRoutes(routes, basePath = "", parentOffline = fals
 }
 
 async function loadAppRoutes(appRoot) {
+    // The shared dev config's `server` block wins over the inline options
+    // below, and its isProduction is captured at module load so NODE_ENV
+    // cannot be flipped here. This flag is the supported opt-out: without it
+    // the manifest step opens an HMR websocket and prints "Port 24678 is
+    // already in use" whenever a dev server happens to be running.
+    const previousNoHmr = process.env.CATALYST_NO_HMR
+    process.env.CATALYST_NO_HMR = "true"
+
     const vite = await createViteServer({
         configFile: path.resolve(__dirname, "../vite/vite.config.js"),
         root: appRoot,
@@ -73,6 +81,8 @@ async function loadAppRoutes(appRoot) {
         return typeof routesModule.getRoutes === "function" ? routesModule.getRoutes() : []
     } finally {
         await vite.close()
+        if (previousNoHmr === undefined) delete process.env.CATALYST_NO_HMR
+        else process.env.CATALYST_NO_HMR = previousNoHmr
     }
 }
 
@@ -106,7 +116,7 @@ export async function generateOfflineManifest() {
     copyIfExists(path.join(appRoot, "public/offline.html"), path.join(buildDir, "offline.html"))
     fs.copyFileSync(path.join(__dirname, "../offline/catalyst-sw.js"), path.join(buildDir, "catalyst-sw.js"))
 
-    console.log(`Catalyst offline manifest generated: ${routes.length} route(s)`)
+    // The CLI reports this step; printing it here too duplicated the line.
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {

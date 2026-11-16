@@ -1,34 +1,418 @@
-body {
-    margin: 0;
+@font-face {
+    font-family: "Inter Catalyst";
+    src: url("./fonts/inter.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
 }
 
-.app {
-    text-align: center;
-    margin: 0;
+@font-face {
+    font-family: "JetBrains Mono Catalyst";
+    src: url("./fonts/jetbrains-mono.woff2") format("woff2");
+    font-weight: 100 800;
+    font-display: swap;
 }
 
-.appLogo {
-    height: 40vmin;
-    pointer-events: none;
+:root {
+    color-scheme: light dark;
+    --paper: #f5f4ff;
+    --ink: #14132a;
+    --muted: #4b4a6b;
+    --accent: #5353dc;
+    --hairline: rgba(20, 19, 42, 0.14);
+    --dot: rgba(83, 83, 220, 0.2);
+    --wedge: rgba(122, 122, 255, 0.11);
+    --ray-outer: #5b5be6;
+    --ray-inner: #e3e3ff;
+    --spark: #ffffff;
+    --spark-glow: rgba(122, 122, 255, 0.55);
+    --sans: "Inter Catalyst", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono Catalyst", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .appLogo {
-        animation: App-logo-spin infinite 20s linear;
+@media (prefers-color-scheme: dark) {
+    :root {
+        --paper: #0b0a14;
+        --ink: #f3f2ff;
+        --muted: #a9a8c9;
+        --accent: #a0a0ff;
+        --hairline: rgba(243, 242, 255, 0.16);
+        --dot: rgba(160, 160, 255, 0.14);
+        --wedge: rgba(122, 122, 255, 0.09);
+        --ray-outer: #7a7aff;
+        --ray-inner: #ffffff;
     }
 }
 
-.appHeader {
-    background-color: #282c34;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+body {
+    margin: 0;
+    background: var(--paper);
 }
 
-.appLink {
-    color: #61dafb;
+.page {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    min-height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+    background-color: var(--paper);
+    background-image: radial-gradient(var(--dot) 1px, transparent 1.5px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+
+    a {
+        color: inherit;
+    }
+
+    a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 4px;
+    }
+
+    code {
+        font-family: var(--mono);
+        font-size: 0.92em;
+    }
+
+    em {
+        color: var(--accent);
+        font-style: normal;
+    }
+}
+
+// The sunburst from the release films, centred on the spark.
+.burst {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 100%;
+    width: 170vmax;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    translate: -50% -50%;
+    background: repeating-conic-gradient(from 3deg, var(--wedge) 0 9deg, transparent 9deg 25.7deg);
+    mask-image: radial-gradient(closest-side, transparent 1%, #000 10%, transparent 60%);
+    -webkit-mask-image: radial-gradient(closest-side, transparent 1%, #000 10%, transparent 60%);
+    opacity: 0;
+    scale: 0.94;
+    transition:
+        opacity 900ms var(--ease-out),
+        scale 1200ms var(--ease-out);
+}
+
+[data-hydrated="true"] .burst {
+    opacity: 1;
+    scale: 1;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px clamp(24px, 5vw, 56px);
+    box-sizing: border-box;
+}
+
+.brand {
+    font-size: 1.0625rem;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+}
+
+.navLinks {
+    display: flex;
+    gap: 8px;
+    font-size: 0.9375rem;
+
+    a {
+        padding: 10px 12px;
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 150ms ease-out;
+    }
+
+    a:last-child {
+        margin-right: -12px;
+    }
+
+    a:hover {
+        color: var(--ink);
+    }
+}
+
+.hero {
+    display: flex;
+    align-items: center;
+    gap: clamp(20px, 3.4vw, 52px);
+    max-width: 1240px;
+    min-height: calc(min(84dvh, 780px) - 88px);
+    margin: 0 auto;
+    padding: 0 clamp(24px, 5vw, 56px) 48px;
+    box-sizing: border-box;
+}
+
+.stage {
+    position: relative;
+    flex: none;
+    width: clamp(120px, 21vw, 300px);
+}
+
+.mark {
+    display: block;
+    width: 100%;
+    overflow: visible;
+}
+
+.rayOuter {
+    stop-color: var(--ray-outer);
+}
+
+.rayInner {
+    stop-color: var(--ray-inner);
+}
+
+.ray {
+    animation: ray-in 720ms var(--ease-out) var(--delay) both;
+}
+
+// The spark sits where the rays meet, and lights up once React has hydrated.
+.spark {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 7%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    translate: -50% -50%;
+    background: var(--spark);
+    box-shadow:
+        0 0 6px 2px var(--spark),
+        0 0 24px 8px var(--spark-glow),
+        0 0 80px 30px var(--spark-glow);
+    opacity: 0;
+    scale: 0.4;
+    transition:
+        opacity 500ms var(--ease-out),
+        scale 700ms var(--ease-out);
+}
+
+[data-hydrated="true"] .spark {
+    opacity: 1;
+    scale: 1;
+}
+
+.intro {
+    min-width: 0;
+    animation: rise-in 640ms var(--ease-out) 240ms both;
+}
+
+.title {
+    margin: 0;
+    font-size: clamp(2.75rem, 7.4vw, 6rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+}
+
+.lede {
+    max-width: 34rem;
+    margin: 24px 0 0;
+    color: var(--muted);
+    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    line-height: 1.5;
+    text-wrap: pretty;
+
+    code {
+        color: var(--ink);
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+}
+
+.status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    margin: 28px 0 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+
+    span::before {
+        content: "\2713\00a0";
+        color: var(--accent);
+    }
+
+    span:last-child::before {
+        content: "\2026\00a0";
+    }
+}
+
+[data-hydrated="true"] .status span:last-child::before {
+    content: "\2713\00a0";
+}
+
+.next,
+.native {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(56px, 8vw, 104px) clamp(24px, 5vw, 56px) 0;
+    box-sizing: border-box;
+}
+
+.native {
+    padding-bottom: clamp(64px, 9vw, 120px);
+}
+
+.heading {
+    margin: 0;
+    font-size: clamp(2rem, 4.4vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+}
+
+.steps {
+    margin: 32px 0 0;
+    padding: 0;
+    border-top: 1px solid var(--hairline);
+    list-style: none;
+}
+
+.step {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr) 19.5rem;
+    align-items: baseline;
+    gap: 6px 32px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--hairline);
+    text-decoration: none;
+
+    strong {
+        font-size: 1.125rem;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+    }
+
+    span {
+        color: var(--muted);
+        text-wrap: pretty;
+    }
+
+    code {
+        color: var(--accent);
+        transition: translate 200ms var(--ease-out);
+    }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .step:hover code {
+        translate: 4px 0;
+    }
+
+    .hooks a:hover {
+        color: var(--accent);
+    }
+}
+
+.hooksLede {
+    max-width: 38rem;
+    margin: 16px 0 0;
+    color: var(--muted);
+    font-size: 1.0625rem;
+    text-wrap: pretty;
+
+    code {
+        color: var(--ink);
+    }
+}
+
+.hooks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px clamp(18px, 2.6vw, 36px);
+    margin: 32px 0 0;
+    font-family: var(--mono);
+    font-size: clamp(1.5rem, 3.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.025em;
+
+    a {
+        text-decoration: none;
+        transition: color 150ms ease-out;
+    }
+
+    i {
+        color: var(--accent);
+        font-style: normal;
+    }
+}
+
+@keyframes ray-in {
+    from {
+        opacity: 0;
+        transform: translate(var(--from-x), var(--from-y));
+    }
+}
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+}
+
+@media (max-width: 960px) {
+    .step {
+        grid-template-columns: minmax(0, 1fr);
+
+        code {
+            margin-top: 6px;
+            overflow-wrap: anywhere;
+        }
+    }
+}
+
+@media (max-width: 760px) {
+    .hero {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 36px;
+        min-height: 0;
+        padding-top: 20px;
+    }
+
+    .stage {
+        width: clamp(120px, 30vw, 170px);
+    }
+
+    .hooks {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ray,
+    .intro {
+        animation: none;
+    }
+
+    .burst,
+    .spark,
+    .step code {
+        transition: none;
+    }
 }

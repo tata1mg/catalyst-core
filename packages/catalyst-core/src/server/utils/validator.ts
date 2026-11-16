@@ -1,4 +1,3 @@
-import pc from "ansis"
 import { createError, formatError, ERROR_CODES } from "../../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
 
@@ -17,13 +16,20 @@ const outputMode = resolveOutputMode([], process.env)
 //     single error and fall back, keeping the request alive.
 // `handleError` below is the shared "log it, in whatever output mode" helper
 // those in-server sites use.
-const handleError = (e: any) => {
+// The default view is the CLI's diagnostic block. This module is also bundled
+// into the app's SSR build, where the CLI is not reachable by a relative path,
+// so the server process installs the renderer as a global (preServerInit.js,
+// the first module it loads). Without it, or under --verbose/--debug, the
+// registry's own format is used.
+const renderError = (e: any) => {
+    const render = (globalThis as any).__catalystRenderRegistryError
+    if (outputMode === "default" && typeof render === "function") return render(e, "server")
     const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-    if (outputMode === "default") {
-        console.log(pc.red("Failed to start server: "), formatError(e, outputMode))
-    } else {
-        console.log(formatError(e, outputMode, debugEnv))
-    }
+    return formatError(e, outputMode, debugEnv)
+}
+
+const handleError = (e: any) => {
+    console.log(renderError(e))
 }
 
 const validatePreInitServer = (fn: any) => {
@@ -129,8 +135,7 @@ const safeCall = async (fn, ...args) => {
         return await fn(...args)
     } catch (e) {
         const wrapped = createError(ERROR_CODES.PROCESS_USER_HOOK_FAILED, { cause: e })
-        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-        console.error(formatError(wrapped, outputMode, debugEnv))
+        console.error(renderError(wrapped))
     }
 }
 
@@ -149,9 +154,37 @@ const safeCallNamed = async (hookName, fn, ...args) => {
             details: `The "${hookName}" hook threw. See the cause below.`,
             cause: e,
         })
-        const debugEnv = outputMode === "debug" ? getDebugEnvInfo() : undefined
-        console.error(formatError(wrapped, outputMode, debugEnv))
+        console.error(renderError(wrapped))
     }
+}
+
+// The hooks Catalyst reads by name from the app's server/index.js. Keep in
+// step with the readers: scripts/preServerInit.js (preServerInit),
+// server/expressServer.ts (onServerError) and server/renderer/handler.tsx.
+const SERVER_HOOK_NAMES = [
+    "preServerInit",
+    "onServerError",
+    "onRouteMatch",
+    "onFetcherSuccess",
+    "onFetcherError",
+    "onAppServerSideSuccess",
+    "onAppServerSideError",
+    "onRenderError",
+    "onRequestError",
+]
+
+/**
+ * Hooks the app put on `export default { ... }` instead of exporting by name.
+ * Every reader takes the named export, so these are silently never called.
+ * Returns the hook names present on a plain-object default export that have
+ * no named export of their own; [] when there is nothing to warn about.
+ */
+const ignoredDefaultHooks = (mod: any): string[] => {
+    const def = mod?.default
+    if (!def || typeof def !== "object") return []
+    const proto = Object.getPrototypeOf(def)
+    if (proto !== Object.prototype && proto !== null) return []
+    return SERVER_HOOK_NAMES.filter((name) => name in def && !(name in mod))
 }
 
 export {
@@ -167,4 +200,5 @@ export {
     validateMiddleware,
     safeCall,
     safeCallNamed,
+    ignoredDefaultHooks,
 }

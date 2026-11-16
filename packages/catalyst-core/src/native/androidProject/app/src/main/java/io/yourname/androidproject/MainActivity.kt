@@ -8,7 +8,9 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 import org.json.JSONObject
 import java.util.Properties
@@ -51,7 +53,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var edgeToEdgeEnabled = false
+    private var backCallback: OnBackPressedCallback? = null
     private var latestSafeAreaInsets: SafeAreaInsets = SafeAreaInsets.ZERO
+    private var splashOverlay: SplashOverlay? = null
 
     private fun enableHardwareAcceleration() {
         if (!isHardwareAccelerationEnabled) {
@@ -75,6 +79,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
         }
     }
+
+    // targetSdk 35+ draws every window edge-to-edge on Android 15+, and Android 16 removed
+    // the opt-out. With edgeToEdge off in the config, the shell pads its root view by the
+    // system-bar insets instead, so content still sits between the bars.
+    private val systemDrawsEdgeToEdge: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
 
     private fun configureEdgeToEdge() {
         edgeToEdgeEnabled = EdgeToEdgeUtils.isEnabled(properties)
@@ -118,6 +128,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         // Track inset changes (first layout, rotation, cutout, bar visibility); insets stay unconsumed
         var lastCachedInsets = cachedInsets
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            // edgeToEdge off on Android 15+: pad by the bars, and hand the children insets
+            // without them so the WebView doesn't inset its content a second time.
+            var childInsets = insets
+            if (!edgeToEdgeEnabled && systemDrawsEdgeToEdge) {
+                val barTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                val bars = insets.getInsets(barTypes)
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                childInsets = WindowInsetsCompat.Builder(insets).setInsets(barTypes, Insets.NONE).build()
+            }
+
             val updatedInsets = SafeAreaUtils.fromWindowInsets(
                 insets,
                 edgeToEdgeEnabled,
@@ -140,7 +160,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 lastCachedInsets = updatedInsets
             }
 
-            insets
+            childInsets
         }
         ViewCompat.requestApplyInsets(rootView)
     }
@@ -325,9 +345,19 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         supportActionBar?.hide()
         setContentView(binding.root)
+
+        // HTML splash handed off from SplashActivity (fresh launch only)
+        if (savedInstanceState == null && intent.getBooleanExtra(SplashActivity.EXTRA_HTML_SPLASH, false)) {
+            splashOverlay = SplashOverlay(this, properties).also { it.show() }
+        }
         
         // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
-        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview, edgeToEdgeEnabled)
+        keyboardUtil = KeyboardUtil(
+            this,
+            binding.webviewContainer,
+            binding.webview,
+            edgeToEdgeEnabled || systemDrawsEdgeToEdge
+        )
         keyboardUtil.initialize()
         
         // Enable hardware acceleration for the window
@@ -340,6 +370,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             progressBar = binding.progress,
             properties = properties
         )
+        customWebView.onInitialPageLoaded = { splashOverlay?.onMainPageLoaded() }
 
         // Handle state restoration
         if (savedInstanceState == null) {
@@ -380,7 +411,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         setupSafeAreaHandling()
 
         // Setup back press handler (modern API)
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        // Android 16 turns predictive back on by default; OnBackPressedDispatcher is the
+        // supported path for it. The callback steps aside to let the system leave the app
+        // and is re-armed in onResume, since a task moved to the back keeps this activity.
+        backCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customWebView.canGoBack()) {
                     if (BuildConfig.DEBUG) {
@@ -396,7 +430,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     onBackPressedDispatcher.onBackPressed()
                 }
             }
-        })
+        }.also { onBackPressedDispatcher.addCallback(this, it) }
         
         // Load URL based on environment and deep link data
         try {
@@ -470,6 +504,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onResume() {
         super.onResume()
+        backCallback?.isEnabled = true
         customWebView.onResume()
     }
 
@@ -488,6 +523,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     override fun onDestroy() {
+        splashOverlay?.release()
+        splashOverlay = null
         io.yourname.androidproject.utils.PerfEventBuffer.reset()
         // Log all performance metrics before destroying
         if (BuildConfig.DEBUG) {

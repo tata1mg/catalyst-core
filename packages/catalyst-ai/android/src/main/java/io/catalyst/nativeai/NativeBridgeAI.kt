@@ -46,7 +46,7 @@ class NativeBridgeAI(
         "gemma-4-E2B" to ModelEntry(
             url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
             filename = "gemma-4-E2B-it.litertlm",
-            sizeHint = 1_870_000_000L
+            sizeHint = 2_588_147_712L
         ),
         "qwen3-0.6B" to ModelEntry(
             url = "https://huggingface.co/litert-community/Qwen3-0.6B-it-litert-lm/resolve/main/Qwen3-0.6B-it-int4.litertlm",
@@ -123,30 +123,7 @@ class NativeBridgeAI(
     // -------------------------------------------------------------------------
 
     private fun buildSystemPrompt(options: JSONObject) {
-        val attachmentComponents = options.optJSONObject("attachmentComponents")
-        if (attachmentComponents == null || attachmentComponents.length() == 0) {
-            log("[attachments] No attachmentComponents provided — skipping system prompt injection")
-            return
-        }
-
-        log("[attachments] Received ${attachmentComponents.length()} component(s): ${attachmentComponents.keys().asSequence().joinToString()}")
-        val appSystemPrompt = options.optString("systemPrompt", "").trim()
-        val sb = StringBuilder()
-        if (appSystemPrompt.isNotBlank()) {
-            sb.appendLine(appSystemPrompt)
-            sb.appendLine()
-        }
-        sb.appendLine("Never use markdown headers, bullet points, numbered lists, or bold. Instead use these components: <tool:create_attachment component='Name' [attr='val']>body</tool:create_attachment>")
-        sb.append("Available components: ")
-        val componentSummary = attachmentComponents.keys().asSequence().map { name ->
-            val def = attachmentComponents.optJSONObject(name)
-            val hint = def?.optString("hint", "")?.trim() ?: ""
-            if (hint.isNotBlank()) "$name ($hint)" else name
-        }.joinToString(", ")
-        sb.appendLine(componentSummary)
-        attachmentComponents.keys().forEach { name -> log("[attachments] Registered component: $name") }
-        systemPrompt = sb.toString().trim()
-        log("[attachments] System prompt set (${systemPrompt.length} chars)")
+        systemPrompt = buildAISystemPrompt(options, ::log)
     }
 
     private fun resolveModel(options: JSONObject): String {

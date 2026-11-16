@@ -1,5 +1,5 @@
 import React from 'react'
-import { Outlet } from 'catalyst-core'
+import { Outlet } from 'react-router'
 import kit from '../shared/appKit.scss'
 
 /**

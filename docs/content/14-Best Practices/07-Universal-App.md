@@ -11,7 +11,7 @@ Universal apps are easiest to maintain when the web app remains the source of tr
 ## Configuration Discipline
 
 - Keep `WEBVIEW_CONFIG` complete and explicit.
-- Use a real `LOCAL_IP`, not `localhost`, for emulator and device builds.
+- Keep `LOCAL_IP` as `localhost` and put the production address in `url`; debug builds reach the dev server on their own.
 - Keep web and native environment targets aligned so the app does not point to different APIs by platform.
 - Treat `accessControl.allowedUrls` as a release checklist, not a casual config detail.
 
@@ -32,7 +32,7 @@ Universal apps are easiest to maintain when the web app remains the source of tr
 
 - request only the native permissions the feature actually needs
 - review camera, files, and notifications before each release
-- set `ios.appBundleId` and Android signing values early instead of right before release
+- set `appId` early, create the Android upload key with the first release build, and back up `credentials/` right away
 - test both debug and release behavior because caching and signing flows differ
 
 ## Observability

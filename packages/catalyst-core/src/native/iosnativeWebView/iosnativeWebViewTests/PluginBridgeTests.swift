@@ -20,6 +20,29 @@ final class PluginBridgeTests: XCTestCase {
     }
 
     @MainActor
+    func testRegister_InjectsPluginManifestAtDocumentStart() throws {
+        let scripts = mockWebView.configuration.userContentController.userScripts
+        let manifest = try XCTUnwrap(scripts.first { $0.source.hasPrefix("window.CatalystPlugins = ") })
+        XCTAssertEqual(manifest.injectionTime, .atDocumentStart)
+        XCTAssertTrue(manifest.isForMainFrameOnly)
+    }
+
+    func testPluginManifestScript_ListsPluginsWithSortedCommands() {
+        let script = PluginBridge.pluginManifestScript([
+            "io.catalyst.ai": ["initAI", "clearConversation"],
+            "io.catalyst.device_info": ["getDeviceInfo"],
+        ])
+        XCTAssertEqual(
+            script.source,
+            #"window.CatalystPlugins = {"io.catalyst.ai":["clearConversation","initAI"],"io.catalyst.device_info":["getDeviceInfo"]};"#
+        )
+    }
+
+    func testPluginManifestScript_NoPlugins_DefinesEmptyObject() {
+        XCTAssertEqual(PluginBridge.pluginManifestScript([:]).source, "window.CatalystPlugins = {};")
+    }
+
+    @MainActor
     override func tearDown() {
         bridge.unregister()
         bridge = nil

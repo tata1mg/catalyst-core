@@ -6,7 +6,21 @@ id: logging
 
 # Logging
 
-Catalyst provides a global `logger` instance for server-side logging.
+Catalyst provides a server-side logger through `catalyst-core/logger`. Call `configureLogger()` once in `preServerInit()` in `server/index.js`. It creates the logger and sets it as the global `logger`.
+
+```javascript title="server/index.js"
+import { configureLogger } from "catalyst-core/logger";
+
+export const preServerInit = () => {
+    configureLogger({
+        enableDebugLogs: process.env.ENABLE_DEBUG_LOGS,
+        enableFileLogging: process.env.ENABLE_FILE_LOGGING,
+        enableConsoleLogging: process.env.ENABLE_CONSOLE_LOGGING,
+    });
+};
+```
+
+Keys in `config/config.json` are available on `process.env` by the time `preServerInit()` runs, so the example above reads the settings from the configuration keys below.
 
 ---
 
@@ -48,9 +62,11 @@ Configure logging in `config/config.json`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `ENABLE_DEBUG_LOGS` | `false` | Enable debug-level logging |
+| `ENABLE_DEBUG_LOGS` | `true` | Enable debug-level logging |
 | `ENABLE_CONSOLE_LOGGING` | `true` | Output logs to console |
-| `ENABLE_FILE_LOGGING` | `false` | Write logs to files |
+| `ENABLE_FILE_LOGGING` | `true` | Write logs to files |
+
+The defaults are what `configureLogger()` uses when an option is not set, so set a key to `false` to turn it off.
 
 ```json title="config/config.json"
 {
@@ -66,6 +82,6 @@ Configure logging in `config/config.json`:
 
 When `ENABLE_FILE_LOGGING` is `true`:
 
-- Logs are written to the project root directory
+- Logs are written to `logs/info`, `logs/debug` and `logs/error` under the project root
 - Log files are automatically rotated
 - Logs older than 3 days are deleted

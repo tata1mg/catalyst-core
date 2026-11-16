@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import { useNativeTransition } from 'catalyst-core/hooks'
 import OnboardingVideo from '../../components/OnboardingVideo'
 

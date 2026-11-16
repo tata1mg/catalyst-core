@@ -1,8 +1,11 @@
 "use strict"
 
 const path = require("path")
+const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
-const { runCommand, runInteractiveCommand } = require("../utils.js")
+const { execFileSync } = require("child_process")
+const { runCommand, runFile, runInteractiveCommand, isInteractive, select } = require("../utils.js")
+const { buildFailure } = require("../../cli/diagnostic.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
 const { resolvePluginConfig, resolveInternalPluginsRoot } = require("../internalPluginUtils.js")
@@ -10,37 +13,70 @@ const { resolvePluginConfig, resolveInternalPluginsRoot } = require("../internal
 const createConfigPhase = require("./config.js")
 const createAssetsPhase = require("./assets.js")
 const createBuildPhase = require("./build.js")
+const { resolveAndroidSigning, exportUploadCertificate, legacyKeystorePath } = require("./signing.js")
+const { parseAdbDevices, chooseAndroidTarget, reachDevServer } = require("./devices.js")
+const {
+    RELEASE_APK_NOTE,
+    artifactName,
+    debugApkNotes,
+    releaseOutputDir,
+    releaseArtifactPaths,
+} = require("./output.js")
+const {
+    DEFAULT_VERSION_NAME,
+    assertReleaseFolderFree,
+    ensureBuildOutputIgnore,
+} = require("../releaseOutput.js")
+const { applyJavaHome, ensureAndroidSdk, ensureJava, resolveSdkPath } = require("../androidToolchain.js")
+const { getLastTarget, saveLastTarget } = require("../localState.js")
+const { ensureDevServer, migrateLanAddresses, devServerPorts, readHmrPort } = require("../setupServer.js")
 
 const catalystCorePath = path.dirname(require.resolve("catalyst-core/package.json"))
 const pwd = path.join(catalystCorePath, "dist/native")
 
 const ANDROID_PACKAGE = "io.yourname.androidproject"
 
+// The summary rows are "<key padded to 11> <value>"; a note under a value
+// starts in the value column.
+const SUMMARY_NOTE_INDENT = " ".repeat(11)
+
 const steps = {
-    config: "Initialize Configuration",
-    tools: "Validate Android Tools",
-    emulator: "Check and Start Emulator",
-    copyAssets: "Copy Build Assets",
-    build: "Build and Install Application",
-    aab: "Build Signed AAB",
+    server: "Start dev server",
+    config: "Initialize configuration",
+    tools: "Check Java and the Android SDK",
+    signing: "Resolve upload key",
+    emulator: "Prepare the device",
+    copyAssets: "Copy build assets",
+    build: "Build and install application",
+    aab: "Build signed AAB",
 }
 
-const progressConfig = {
-    titlePaddingTop: 2,
-    titlePaddingBottom: 1,
-    stepPaddingLeft: 4,
-    stepSpacing: 1,
-    errorPaddingLeft: 6,
-    bottomMargin: 2,
-}
-
-function createAndroidBuild(config) {
+/**
+ * @param {object} config - { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } from config.json
+ * @param {object} [options] - parseNativeArgs()
+ * @param {boolean} [options.release] - `--release`: build the signed AAB whatever android.buildType says
+ * @param {string} [options.url] - `--url`: the release's production URL, over WEBVIEW_CONFIG.url
+ * @param {boolean} [options.device] - `--device`: run on the connected phone, not the emulator
+ * @param {boolean} [options.yes] - `--yes`: allow JDK/SDK/emulator installs without a terminal
+ * @param {boolean} [options.acceptLicenses] - `--accept-licenses`
+ */
+function createAndroidBuild(
+    config,
+    {
+        release: releaseFlag = false,
+        url,
+        device: wantDevice = false,
+        yes = false,
+        acceptLicenses = false,
+    } = {}
+) {
+    const flags = { yes, acceptLicenses }
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
     const configPath = `${process.cwd()}/config/config.json`
     const publicPath = `${process.cwd()}/public`
 
-    const progress = new TerminalProgress(steps, "Catalyst Android Build", progressConfig)
+    const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "android" })
 
     const ctx = {
         WEBVIEW_CONFIG,
@@ -51,6 +87,7 @@ function createAndroidBuild(config) {
         progress,
         ANDROID_PACKAGE,
         runCommand,
+        runFile,
         runInteractiveCommand,
     }
 
@@ -59,19 +96,12 @@ function createAndroidBuild(config) {
         copyBuildAssets,
         copySplashscreenAssets,
         copyOfflinePage,
+        copySplashHtml,
         copyIconAssets,
         configureAppName,
         processNotifications,
     } = createAssetsPhase(ctx)
-    const {
-        detectPhysicalDevice,
-        testPhysicalDeviceInstallation,
-        handleEmulatorSetup,
-        buildApp,
-        launchApp,
-        moveApkToOutputPath,
-        buildSignedAAB,
-    } = createBuildPhase(ctx)
+    const { handleEmulatorSetup, buildApp, launchApp, buildSignedAAB } = createBuildPhase(ctx)
 
     function syncAIPackageIfEnabled(wvConfig, progress) {
         const aiEnabled = wvConfig?.ai?.enabled === true
@@ -103,66 +133,154 @@ function createAndroidBuild(config) {
         }
     }
 
+    /** adb on one SDK, with a bound: a wedged adb server never answers. */
+    function adbRunner(ADB_PATH) {
+        return (args) =>
+            execFileSync(ADB_PATH, args, {
+                encoding: "utf8",
+                timeout: 15000,
+                stdio: ["ignore", "pipe", "pipe"],
+            })
+    }
+
+    function listDevices(ADB_PATH) {
+        if (!fs.existsSync(ADB_PATH)) return []
+        try {
+            return parseAdbDevices(adbRunner(ADB_PATH)(["devices", "-l"]))
+        } catch (error) {
+            progress.log(`adb devices failed: ${error.message}`, "warning")
+            return []
+        }
+    }
+
     async function buildAndroidApp() {
         let androidConfig = null
         let targetDevice = null
+        let resolved = null
+        let signing = null
+        let artifactPath = null
+        let apkPath = null
+        let certificatePath = null
 
         try {
+            const log = (message, type) => progress.log(message, type)
+            const appRoot = process.cwd()
+            // Older setups saved this machine's LAN address in config.json.
+            // Put localhost back once, before the config is read (never for
+            // a release or in CI).
+            migrateLanAddresses({ cwd: appRoot, release: releaseFlag, platform: "android", log })
+
             progress.start("config")
-            const { WEBVIEW_CONFIG: wvConfig, BUILD_OUTPUT_PATH: bop } = await initializeConfig()
+            resolved = await initializeConfig({ release: releaseFlag, url })
+            const { WEBVIEW_CONFIG: wvConfig, version, applicationId } = resolved
             androidConfig = wvConfig.android
-            const buildType = androidConfig.buildType || "debug"
+            const release = resolved.release
             const buildOptimisation = !!androidConfig.buildOptimisation || false
+            progress.log(
+                `Version ${version.versionName || DEFAULT_VERSION_NAME} (${version.buildNumber}), ${applicationId}`,
+                "info"
+            )
+            // Before any tooling runs: a second release in the same minute
+            // would overwrite the first one's bundle.
+            if (release)
+                assertReleaseFolderFree(releaseOutputDir({ appRoot, androidConfig, version }), [
+                    ".aab",
+                    ".apk",
+                ])
             progress.complete("config")
 
+            // One-command dev: a debug build starts the dev server when
+            // nothing answers on its port, and waits until it does.
+            if (resolved.usesDevServer) {
+                progress.start("server")
+                await ensureDevServer({ cwd: appRoot, log })
+                progress.complete("server")
+            }
+
             progress.start("tools")
-            const { ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig)
+            // Gradle and keytool get JDK 17 to 23 through this process's
+            // environment; no shell profile is involved. Missing pieces are
+            // installed after a yes (or --yes); the SDK path is read, never written.
+            const java = await ensureJava({ flags, log })
+            applyJavaHome(java)
+            progress.log(`Java ${java.version} from ${java.source}`, "info")
+            androidConfig.sdkPath = resolveSdkPath(androidConfig)
+            const adbPath = path.join(androidConfig.sdkPath, "platform-tools", "adb")
+
+            // Where a debug build runs: the emulator unless --device, or a
+            // person here picks a connected phone.
+            const last = getLastTarget("android", { cwd: appRoot })
+            let target = null
+            const pickTarget = async () =>
+                chooseAndroidTarget({
+                    wantDevice,
+                    devices: listDevices(adbPath),
+                    last,
+                    isTTY: isInteractive(),
+                    select,
+                    emulatorHint:
+                        androidConfig.emulatorName || (last?.target === "emulator" ? last.avd : undefined),
+                })
+            // Without --device the choice comes first, so a picked phone
+            // skips the emulator install. With it, adb may need installing first.
+            if (!release && !wantDevice) target = await pickTarget()
+            const needEmulator = !release && !wantDevice && target?.target === "emulator"
+
+            const sdk = await ensureAndroidSdk({
+                sdkPath: androidConfig.sdkPath,
+                emulatorName: androidConfig.emulatorName,
+                preferredAvd: last?.target === "emulator" ? last.avd : undefined,
+                needEmulator,
+                flags,
+                log,
+            })
+            if (sdk.installed.length) progress.log(`Installed ${sdk.installed.join(", ")}`, "success")
+            if (sdk.createdAvd) progress.log(`Created the "${sdk.emulatorName}" emulator`, "success")
+            if (sdk.emulatorName) androidConfig.emulatorName = sdk.emulatorName
+            const { ADB_PATH, EMULATOR_PATH } = validateAndroidTools(androidConfig, { needEmulator })
+            if (!release && wantDevice) target = await pickTarget()
             progress.complete("tools")
 
-            if (buildType !== "release") {
-                progress.start("emulator")
-
-                const physicalDevice = await detectPhysicalDevice(ADB_PATH)
-
-                if (physicalDevice) {
-                    progress.log(
-                        `Found physical device: ${physicalDevice.model} (${physicalDevice.id})`,
-                        "success"
-                    )
-
-                    const canInstallOnPhysical = await testPhysicalDeviceInstallation(
-                        ADB_PATH,
-                        physicalDevice.id
-                    )
-
-                    if (canInstallOnPhysical) {
-                        targetDevice = {
-                            type: "physical",
-                            id: physicalDevice.id,
-                            model: physicalDevice.model,
-                        }
-                        progress.log(`Using physical device: ${physicalDevice.model}`, "success")
-                    } else {
-                        progress.log(
-                            "Physical device installation test failed, falling back to emulator",
-                            "warning"
-                        )
-                        targetDevice = await handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig)
-                    }
-                } else {
-                    targetDevice = await handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig)
-                }
-
-                progress.complete("emulator")
+            if (release) {
+                progress.start("signing")
+                signing = await resolveAndroidSigning({
+                    appRoot,
+                    androidConfig,
+                    isTTY: isInteractive(),
+                    log,
+                    // Named from the config as written: appId and appName
+                    // overwrite packageName and android.appName in androidConfig.
+                    legacyKeystorePath: legacyKeystorePath(resolved.config?.WEBVIEW_CONFIG?.android, {
+                        cwd: appRoot,
+                    }),
+                    commonName: androidConfig.appName,
+                })
+                progress.log(`Upload key: ${signing.source} (alias ${signing.keyAlias})`, "info")
+                progress.complete("signing")
             } else {
-                progress.log("Skipping device setup for release build", "info")
+                progress.start("emulator")
+                if (target.target === "device") {
+                    targetDevice = {
+                        type: "physical",
+                        id: target.serial,
+                        model: target.model || target.serial,
+                    }
+                    progress.log(`Using the connected phone ${targetDevice.model}`, "success")
+                    saveLastTarget("android", { target: "device", serial: target.serial }, { cwd: appRoot })
+                } else {
+                    const emulator = await handleEmulatorSetup(ADB_PATH, EMULATOR_PATH, androidConfig)
+                    targetDevice = { ...emulator, id: emulator.serial }
+                    saveLastTarget("android", { target: "emulator", avd: emulator.name }, { cwd: appRoot })
+                }
+                progress.complete("emulator")
             }
 
             progress.start("copyAssets")
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
-            await copyIconAssets()
+            await copySplashHtml()
+            await copyIconAssets(androidConfig)
             await configureAppName(androidConfig)
             const pluginConfig = resolvePluginConfig(wvConfig)
             composeAndroidPlugins({
@@ -176,240 +294,123 @@ function createAndroidBuild(config) {
             syncAIPackageIfEnabled(wvConfig, progress)
             progress.complete("copyAssets")
 
-            let movedApkPath = null
-            if (buildType === "release") {
+            const gradleOptions = { configPath: resolved.resolvedConfigPath, applicationId, version }
+            if (release) {
                 progress.start("aab")
-                await buildSignedAAB(androidConfig)
+                const outputDir = releaseOutputDir({ appRoot, androidConfig, version })
+                const names = releaseArtifactPaths(outputDir, artifactName(androidConfig))
+                ensureBuildOutputIgnore(outputDir, appRoot)
+                const aab = await buildSignedAAB(androidConfig, {
+                    ...gradleOptions,
+                    signing,
+                    buildOptimisation,
+                    finalAabPath: names.aab,
+                    finalApkPath: names.apk,
+                })
+                artifactPath = aab?.finalAabPath || names.aab
+                apkPath = aab?.finalApkPath || names.apk
+                // The upload certificate beside the bundle (#508): Play asks
+                // for it when an upload key is registered or reset.
+                certificatePath = exportUploadCertificate(signing, names.certificate)
                 progress.complete("aab")
-                movedApkPath = await moveApkToOutputPath(buildType, bop, androidConfig.appName)
             } else {
                 progress.start("build")
-                await buildApp(ADB_PATH, androidConfig, buildOptimisation, targetDevice)
-                await launchApp(ADB_PATH, buildType, targetDevice)
-                progress.complete("build")
-                movedApkPath = await moveApkToOutputPath(buildType, bop, androidConfig.appName)
-            }
-
-            const summaryItems = [
-                "Build completed successfully:",
-                { text: `Build Type: ${buildType}`, indent: 1, prefix: "├─ ", color: "gray" },
-                { text: `SDK Path: ${androidConfig.sdkPath}`, indent: 1, prefix: "├─ ", color: "gray" },
-                {
-                    text: `Build Optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`,
-                    indent: 1,
-                    prefix: "├─ ",
-                    color: "gray",
-                },
-            ]
-
-            if (buildType === "release") {
-                if (movedApkPath) {
-                    summaryItems.push({
-                        text: `APK Build Location: ${movedApkPath}`,
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "green",
-                    })
-                }
-                summaryItems.push({
-                    text: `Output: Signed AAB generated in build-output/`,
-                    indent: 1,
-                    prefix: "└─ ",
-                    color: "green",
+                const debug = await buildApp(androidConfig, buildOptimisation, targetDevice.id, {
+                    ...gradleOptions,
+                    appRoot,
+                    name: artifactName(androidConfig),
+                    usesDevServer: resolved.usesDevServer,
                 })
+                apkPath = debug?.apkPath || null
+                const packageName = `${applicationId}.debug`
+                // A dev server build loads http://localhost:<port>; on the
+                // device that is the device itself. Forward every port the app
+                // uses to this machine, after the install and before the
+                // launch, every run. A build that loads a real host from
+                // LOCAL_IP reaches it directly and needs none of this.
+                if (resolved.usesDevServer) {
+                    const ports = devServerPorts(resolved.config, {
+                        hmrPort: await readHmrPort({ cwd: appRoot }),
+                    })
+                    reachDevServer(adbRunner(ADB_PATH), targetDevice.id, packageName, ports)
+                    progress.log(`Forwarded ports ${ports.join(", ")} to this machine (adb reverse)`, "info")
+                }
+                launchApp(ADB_PATH, targetDevice.id, packageName)
+                progress.complete("build")
+            }
+
+            // Aligned key/value rows, matching the Config tree the setup
+            // commands print. printTreeContent draws the branch glyphs.
+            const deviceName =
+                targetDevice?.type === "physical"
+                    ? targetDevice.model
+                    : `${androidConfig.emulatorName} emulator`
+            const summaryItems = release ? [] : [{ text: `device     ${deviceName}`, color: "gray" }]
+            if (artifactPath) {
+                summaryItems.push({ text: `aab        ${displayPath(artifactPath, appRoot)}`, color: "gray" })
+            }
+            if (apkPath) {
+                summaryItems.push({ text: `apk        ${displayPath(apkPath, appRoot)}`, color: "gray" })
+                const notes = release ? [RELEASE_APK_NOTE] : debugApkNotes(resolved.usesDevServer)
+                for (const note of notes)
+                    summaryItems.push({ text: `${SUMMARY_NOTE_INDENT}${note}`, color: "gray" })
+            }
+            if (certificatePath) {
+                summaryItems.push({
+                    text: `cert       ${displayPath(certificatePath, appRoot)}`,
+                    color: "gray",
+                })
+            }
+            summaryItems.push({
+                text: `version    ${version.versionName || DEFAULT_VERSION_NAME} (${version.buildNumber})`,
+                color: "gray",
+            })
+            summaryItems.push({
+                text: `build      ${release ? "release" : "debug"}${buildOptimisation ? ", optimised" : ""}`,
+                color: "gray",
+            })
+
+            progress.printTreeContent("Build", summaryItems)
+            if (release) {
+                progress.summary("Built the signed AAB and APK", "Upload the AAB to Google Play")
             } else {
-                if (movedApkPath) {
-                    summaryItems.push({
-                        text: `APK Build Location: ${movedApkPath}`,
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "green",
-                    })
-                }
-
-                if (targetDevice && targetDevice.type === "physical") {
-                    summaryItems.push({
-                        text: `Target Device: ${targetDevice.model} (Physical)`,
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "green",
-                    })
-                } else {
-                    summaryItems.push({
-                        text: `Target Device: ${androidConfig.emulatorName} (Emulator)`,
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "gray",
-                    })
-                }
-            }
-
-            progress.printTreeContent("Build Summary", summaryItems)
-        } catch (error) {
-            if (progress.currentStep) {
-                progress.fail(progress.currentStep.id, error.message)
-
-                const troubleshootingItems = [
-                    "Build failed. Please try the following steps:",
-                    {
-                        text: "Check if Android SDK is properly configured",
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "yellow",
-                    },
-                    {
-                        text: "Verify build assets exist in the source directory",
-                        indent: 1,
-                        prefix: "├─ ",
-                        color: "yellow",
-                    },
-                ]
-
-                const buildType = androidConfig?.buildType || "debug"
-
-                if (buildType !== "release") {
-                    if (
-                        error.message.includes("physical device") ||
-                        error.message.includes("installation test")
-                    ) {
-                        troubleshootingItems.push(
-                            "\nPhysical Device Issues:",
-                            {
-                                text: "Enable Developer Options on your device",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: "Enable USB Debugging in Developer Options",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: 'Accept the "Allow USB Debugging" prompt on your device',
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: "Try disconnecting and reconnecting your device",
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            },
-                            {
-                                text: 'Check if "adb devices" shows your device as authorized',
-                                indent: 1,
-                                prefix: "├─ ",
-                                color: "yellow",
-                            }
-                        )
-                    }
-
-                    troubleshootingItems.push(
-                        {
-                            text: "Verify that the emulator exists and is working",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "If using physical device, ensure it stays connected",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        }
-                    )
-                } else {
-                    troubleshootingItems.push(
-                        {
-                            text: "Verify keystore configuration for release builds",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        },
-                        {
-                            text: "Check that keystore passwords are properly set",
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "yellow",
-                        }
-                    )
-                }
-
-                troubleshootingItems.push(
-                    {
-                        text: 'Run "npm run setupEmulator:android" to reconfigure Android settings',
-                        indent: 1,
-                        prefix: "└─ ",
-                        color: "yellow",
-                    },
-                    "\nVerify Configuration:"
+                progress.summary(
+                    `Running on ${deviceName}`,
+                    resolved.usesDevServer
+                        ? "Edit your app; the dev server reloads it"
+                        : `The app loads ${resolved.startUrl || wvConfig.LOCAL_IP}`
                 )
-
-                if (androidConfig) {
-                    troubleshootingItems.push(
-                        { text: `Build Type: ${buildType}`, indent: 1, prefix: "├─ ", color: "gray" },
-                        {
-                            text: `Android SDK Path: ${androidConfig.sdkPath || "Not configured"}`,
-                            indent: 1,
-                            prefix: "├─ ",
-                            color: "gray",
-                        }
-                    )
-
-                    if (buildType !== "release") {
-                        if (targetDevice) {
-                            troubleshootingItems.push({
-                                text: `Target Device: ${targetDevice.type === "physical" ? `${targetDevice.model} (Physical)` : `${androidConfig.emulatorName} (Emulator)`}`,
-                                indent: 1,
-                                prefix: "└─ ",
-                                color: "gray",
-                            })
-                        } else {
-                            troubleshootingItems.push({
-                                text: `Selected Emulator: ${androidConfig.emulatorName || "Not configured"}`,
-                                indent: 1,
-                                prefix: "└─ ",
-                                color: "gray",
-                            })
-                        }
-                    } else {
-                        troubleshootingItems.push({
-                            text: `Output Path: ${androidConfig.outputPath || "build-output/"}`,
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "gray",
-                        })
-                    }
-                } else {
-                    troubleshootingItems.push(
-                        { text: "Configuration could not be loaded", indent: 1, prefix: "├─ ", color: "red" },
-                        {
-                            text: "Check if config/config.json exists and has valid Android configuration",
-                            indent: 1,
-                            prefix: "└─ ",
-                            color: "red",
-                        }
-                    )
-                }
-
-                progress.printTreeContent("Troubleshooting Guide", troubleshootingItems)
             }
+        } catch (error) {
+            // Mark the step, then show what actually broke. The old handler
+            // printed a generic "check your SDK" checklist here, which is
+            // noise when the real Kotlin error is sitting in the output.
+            // The ✗ line carries no message: the diagnostic below is the message.
+            if (progress.currentStep) progress.fail(progress.currentStep.id)
+
+            process.stderr.write(
+                buildFailure({ error, stage: error.stage || "Android build", code: "ANDROID-000" })
+            )
+
             throw error
+        } finally {
+            // The unpacked CI credentials and the resolved config are temp files.
+            signing?.cleanup()
+            resolved?.cleanup()
         }
     }
 
     async function buildAndroidForTesting() {
         try {
-            const { WEBVIEW_CONFIG: wvConfig } = await initializeConfig()
+            const { WEBVIEW_CONFIG: wvConfig, cleanup } = await initializeConfig()
+            cleanup()
             const androidConfig = wvConfig.android
             const buildOptimisation = !!androidConfig.buildOptimisation || false
 
             await copyBuildAssets(androidConfig, buildOptimisation)
             await copySplashscreenAssets()
             await copyOfflinePage()
+            await copySplashHtml()
             await copyIconAssets()
             await configureAppName(androidConfig)
 
@@ -423,7 +424,7 @@ function createAndroidBuild(config) {
             await processNotifications(wvConfig)
             syncAIPackageIfEnabled(wvConfig, progress)
 
-            progress.log("✅ buildAndroidForTesting complete — project ready for gradlew test", "success")
+            progress.log("buildAndroidForTesting complete — project ready for gradlew test", "success")
             return { success: true }
         } catch (error) {
             progress.log("buildAndroidForTesting failed: " + error.message, "error")

@@ -138,7 +138,11 @@ const BOX_WIDTH = 70
 function box(bodyLines) {
     const top = pc.red(`┌${"─".repeat(BOX_WIDTH)}`)
     const bottom = pc.red(`└${"─".repeat(BOX_WIDTH)}`)
-    const body = bodyLines.map((line) => (line === "" ? pc.red("│") : `${pc.red("│")} ${line}`))
+    // A multi-line entry (details listing several values) keeps the border on
+    // every line instead of spilling out of the box.
+    const body = bodyLines
+        .flatMap((line) => String(line).split("\n"))
+        .map((line) => (line === "" ? pc.red("│") : `${pc.red("│")} ${line}`))
     return [top, ...body, bottom].join("\n")
 }
 
@@ -163,7 +167,7 @@ function formatCauseChain(cause) {
  */
 function formatVerbose(err) {
     const lines = [
-        pc.bold(`❌ ${err.message}`),
+        pc.bold(err.message),
         `Code: ${err.code}`,
         `Category: ${err.category || "UNKNOWN"}`,
         `Time: ${new Date().toISOString()}`,
@@ -193,7 +197,7 @@ function formatVerbose(err) {
  */
 function formatDebug(err, env) {
     const lines = [
-        pc.bold(`❌ ${err.message}`),
+        pc.bold(err.message),
         `Code: ${err.code}`,
         `Category: ${err.category || "UNKNOWN"}`,
         `Time: ${new Date().toISOString()}`,

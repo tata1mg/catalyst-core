@@ -1,0 +1,293 @@
+.cardWrapper {
+    perspective: 1200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    user-select: none;
+}
+
+.passCard {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: linear-gradient(145deg, rgba(16, 22, 38, 0.95) 0%, rgba(8, 12, 22, 0.98) 100%);
+    border: 1.5px solid rgba(198, 255, 61, 0.5);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 
+        0 20px 50px rgba(0, 0, 0, 0.8),
+        0 0 40px rgba(198, 255, 61, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    transform-style: preserve-3d;
+    transition: transform 0.12s ease-out, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+/* Subtle animated holographic sheen */
+.holoSheen {
+    position: absolute;
+    inset: -100%;
+    background: linear-gradient(
+        115deg,
+        transparent 35%,
+        rgba(198, 255, 61, 0.08) 45%,
+        rgba(61, 224, 255, 0.12) 50%,
+        rgba(255, 62, 165, 0.08) 55%,
+        transparent 65%
+    );
+    pointer-events: none;
+    transform: rotate(25deg);
+    animation: holoGlide 6s ease-in-out infinite alternate;
+}
+
+@keyframes holoGlide {
+    0% {
+        transform: translate(-30%, -30%) rotate(25deg);
+    }
+    100% {
+        transform: translate(30%, 30%) rotate(25deg);
+    }
+}
+
+/* Header */
+.cardHeader {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.headerTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.tagDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.serialTag {
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Hero Profile */
+.heroProfile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 0;
+}
+
+.avatarDisc {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid #c6ff3d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #ffffff;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.heroText {
+    flex: 1;
+    min-width: 0;
+}
+
+.charName {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    font-family: var(--font-mono, monospace);
+    text-shadow: 0 0 16px rgba(198, 255, 61, 0.4);
+}
+
+.charTitle {
+    margin: 3px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.65);
+    letter-spacing: 0.08em;
+    font-family: var(--font-mono, monospace);
+}
+
+.tierBadge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 9px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #ffb23d;
+    white-space: nowrap;
+}
+
+/* Milestones Section */
+.milestonesSection {
+    position: relative;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.sectionHeading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 10px;
+}
+
+.countBadge {
+    color: #c6ff3d;
+}
+
+.milestoneGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.milestoneItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    transition: all 0.2s ease;
+}
+
+.milestoneDone {
+    color: #ffffff;
+    background: rgba(198, 255, 61, 0.06);
+    border-color: rgba(198, 255, 61, 0.2);
+}
+
+.itemIcon {
+    font-size: 13px;
+}
+
+.itemLabel {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.checkMark {
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #c6ff3d;
+}
+
+/* Stats Triad */
+.statsTriad {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.statBox {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.statLabel {
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.06em;
+}
+
+.statValue {
+    font-size: 12px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    color: #ffffff;
+}
+
+/* Actions */
+.cardActions {
+    position: relative;
+    display: flex;
+    gap: 10px;
+}
+
+.copyBtn {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #c6ff3d;
+    border: none;
+    color: #0b0e17;
+    font-size: 12px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 16px rgba(198, 255, 61, 0.3);
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(198, 255, 61, 0.5);
+    }
+}
+
+.closeBtn {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: #3de0ff;
+    }
+}

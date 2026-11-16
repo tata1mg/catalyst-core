@@ -10,6 +10,13 @@
  *   1. Clears packages/catalyst-core/dist  (stale build artifacts)
  *   2. Builds catalyst-core fresh
  *   3. Installs a packed local package with its dependency graph
+ *
+ * ORDERING TRAP: always run your `npm install` / `npm ci` FIRST, then
+ * `sync-core`. Any later install in the app (or `npm ci` at the repo root)
+ * restores the published catalyst-core from the lockfile, silently
+ * discarding the synced build. Symptom: newer subpath exports such as
+ * `catalyst-core/webmcp` fail to resolve ("Package subpath ... is not
+ * defined by exports"). CI does the same: `npm ci`, then `sync-core`.
  */
 
 const { execSync, execFileSync } = require('child_process');

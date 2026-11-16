@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import CopyButton from '../../components/CopyButton'
 import styles from './Landing.scss'
 
@@ -183,7 +183,7 @@ function HomepageHero() {
                             <div className={styles.terminalLine}>
                                 <span className={styles.terminalPrompt}>$</span>
                                 <span className={styles.terminalCommand}>
-                                    npm run buildApp:android
+                                    npm run android
                                 </span>
                                 <span className={styles.terminalLabel}>
                                     Android
@@ -192,7 +192,7 @@ function HomepageHero() {
                             <div className={styles.terminalLine}>
                                 <span className={styles.terminalPrompt}>$</span>
                                 <span className={styles.terminalCommand}>
-                                    npm run buildApp:ios
+                                    npm run ios
                                 </span>
                                 <span className={styles.terminalLabel}>
                                     iOS

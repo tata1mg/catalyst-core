@@ -1,5 +1,4 @@
 import React from "react"
-import PropTypes from "prop-types"
 
 const DEFAULT_SAFE_AREA = { top: 0, right: 0, bottom: 0, left: 0 }
 
@@ -55,14 +54,4 @@ export function Body(props) {
             {children}
         </body>
     )
-}
-
-Body.propTypes = {
-    initialState: PropTypes.object,
-    jsx: PropTypes.any,
-    statusCode: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    fetcherData: PropTypes.object,
-    children: PropTypes.node,
-    safeArea: PropTypes.object,
-    nativeWebView: PropTypes.bool,
 }

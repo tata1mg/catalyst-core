@@ -38,6 +38,10 @@ or conversion instructions. This keeps webpack-era `0.2.x` guidance separate fro
 integrated-router contracts in `0.3.x`. If the installed version cannot be determined, confirm the
 target version before applying generated migration steps.
 
+### On-device AI (`catalyst-ai`)
+
+The knowledge base covers on-device AI, so an MCP client can walk you through enabling Gemma 4 E2B (LiteRT-LM) or Apple Foundation Models: installing `catalyst-ai`, setting `WEBVIEW_CONFIG.ai.enabled`, picking an engine with `useAI({ provider: "litert" | "foundation-models" })`, and the iOS requirements. The `check_config` tool also flags `ai.enabled` without `catalyst-ai` installed, an unknown `AI_CONFIG.browser.engine`, and an on-device provider configured while `ai.enabled` is off.
+
 ## Connecting To MCP Clients
 
 Replace `/complete/path/to/your/project/mcp/mcp.js` with the absolute path to your project's `mcp.js` file.
@@ -96,3 +100,7 @@ For Deputy Dev integration, create or update `.deputydev/mcp_settings.json` in y
   }
 }
 ```
+
+## Looking for WebMCP?
+
+This page covers the **MCP server that helps AI coding tools understand your Catalyst project** (build time, runs in Node). If you want your *running app* to expose tools to in-browser agents, see [WebMCP](/content/webmcp) instead. They are unrelated mechanisms that share a name.

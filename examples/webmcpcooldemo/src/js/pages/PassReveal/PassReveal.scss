@@ -1,0 +1,219 @@
+.passPage {
+    position: relative;
+    min-height: calc(100svh - var(--nav-h));
+    padding: 24px 20px 80px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: radial-gradient(circle at 50% 30%, rgb(25 25 38 / 0.5) 0%, rgb(7 7 11 / 0.95) 100%);
+    overflow-x: hidden;
+
+    @media (max-width: 600px) {
+        padding: 12px 10px 80px 10px;
+    }
+}
+
+/* Background Blueprint Grid matching the user's video */
+.blueprintGrid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.passStageHeader {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    max-width: 640px;
+    margin-bottom: 24px;
+}
+
+.stageChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 99px;
+    background: rgb(255 178 61 / 0.15);
+    border: 1px solid var(--sun);
+    color: var(--sun);
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.stageHeading {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin: 0;
+
+    @media (max-width: 480px) {
+        font-size: 22px;
+    }
+}
+
+.stageSub {
+    font-size: 13px;
+    color: var(--fg-dim);
+    margin-top: 6px;
+}
+
+/* Main Layout: Center Card Stage with Floating Config Panel */
+.stageWorkspace {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 1100px;
+    display: grid;
+    grid-template-columns: 1fr 310px;
+    gap: 24px;
+    align-items: start;
+
+    @media (max-width: 900px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cardStageArea {
+    position: relative;
+    width: 100%;
+    min-height: 540px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    @media (max-width: 900px) {
+        min-height: 440px;
+        margin-bottom: 24px;
+    }
+}
+
+
+/* Floating Config Panel matching the video */
+.configPanel {
+    position: relative;
+    width: 100%;
+    padding: 18px;
+    border-radius: 20px;
+    background: rgb(18 18 26 / 0.88);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 20px 50px -10px rgb(0 0 0 / 0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    color: var(--fg);
+}
+
+.configPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: 0.08em;
+}
+
+.configRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.configLabel {
+    color: var(--fg-dim);
+    font-size: 12px;
+}
+
+.configCheckbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--acid);
+    cursor: pointer;
+}
+
+.configInput {
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid var(--line);
+    color: #fff;
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    width: 130px;
+    text-align: right;
+
+    &:focus {
+        border-color: var(--acid);
+        outline: none;
+    }
+}
+
+.configSelect {
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid var(--line);
+    color: #fff;
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    width: 130px;
+    cursor: pointer;
+
+    option {
+        background: #111;
+        color: #fff;
+    }
+}
+
+.configSlider {
+    width: 100px;
+    accent-color: var(--acid);
+    cursor: pointer;
+}
+
+.configSectionDivider {
+    height: 1px;
+    background: var(--line);
+    margin: 2px 0;
+}
+
+.quickPresetsRow {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.quickPresetBtn {
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--fg-dim);
+    border: 1px solid var(--line);
+    cursor: pointer;
+
+    &:hover {
+        color: #fff;
+        border-color: #fff;
+    }
+}

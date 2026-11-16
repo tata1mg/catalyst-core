@@ -1,34 +1,39 @@
 # How to release.
 #
 # latest:
-#   1. Dispatch this workflow from main with channel=latest and the version to release
+#   1. Bring your tested branch up to date with main, then dispatch this workflow from
+#      main with channel=latest, the version to release and Branch set to that branch
 #      (include_ai + ai_version to ship catalyst-ai too).
-#   2. It opens a release/<version> PR that carries the version bumps.
-#   3. Merging that PR pushes packages/*/package.json to main, which runs publish.
-#      guard only lets it through when the commit came from a release/* branch of this
-#      repo. Other pushes touching those files (dependency bumps) end green with a notice.
+#   2. prepare commits the version bumps and .release-meta.json onto the branch. That
+#      commit is pushed with github.token, so it gets no CI run.
+#   3. Merging the PR changes .release-meta.json on main, which runs publish: every
+#      package listed there is published to npm latest and tagged, and the release notes
+#      cover the commits since the previous stable release. Other merges do not run this.
+#   Prepare right before merging. If two branches are prepared, the second PR conflicts
+#   on .release-meta.json; prepare it again with a new version. Stacked branches release
+#   at the first merge. A "[skip ci]" in the PR body skips the release; use recovery.
+#
+# latest recovery:
+#   Dispatch with channel=latest, Branch=main and no version. It re-runs the release of
+#   the commit that last changed .release-meta.json on main. Nothing is committed.
 #
 # beta / canary:
-#   Dispatch from main with the channel and source_ref set to the branch you want
-#   released. The prerelease number is picked from npm and written into the
-#   checkout only; nothing is committed and no PR is opened.
+#   Dispatch from main with the channel, the version and Branch set to the branch you
+#   want released. The prerelease number is picked from npm and written into the
+#   checkout only. Nothing is committed and there are no release notes; the published
+#   commit gets a <package>@<version> tag.
 #
-# Release notes cover the commits since the previous catalyst-core release on the same
-# channel or stable (its npm gitHead). Without one they fall back to a single PR: the
-# merged release PR on latest, pr_number on beta/canary. Prerelease notes only run
-# when pr_number is given.
-#
-# If publish fails part way, use "Re-run failed jobs": packages already on npm are
-# skipped, the tag is pushed right after each publish, and notes still run.
+# A listed version already on npm from another commit fails the run, so a hand-edited or
+# reverted .release-meta.json never publishes. If publish fails part way, use "Re-run
+# failed jobs": packages already published from this commit are skipped, tags fill in,
+# and notes still run when the GitHub release does not exist yet.
 #
 # publish runs in the "release" concurrency group, so releases never overlap. A newer
 # run can still replace an older one that is waiting for the group.
 #
-# The workflow definition always comes from main; source_ref only selects the code.
-# The release PR is opened with github.token, so pull_request CI does not run on it
-# (it carries version bumps and the lockfile, nothing else).
+# The workflow definition always comes from main; Branch only selects the code.
 # Versions are always given as X.Y.Z; beta and canary append -<channel>.N themselves,
-# picked from npm. dry_run publishes, tags and opens nothing.
+# picked from npm. dry_run publishes, tags and pushes nothing.
 
 name: Release
 
@@ -45,14 +50,15 @@ on:
                     - canary
                 default: beta
             version:
-                description: "Version (X.Y.Z, no suffix)"
-                required: true
-                type: string
-            source_ref:
-                description: "Branch (beta/canary only)"
+                description: "Version (X.Y.Z, no suffix; empty for recovery)"
                 required: false
                 type: string
-                default: main
+                default: ""
+            source_ref:
+                description: "Branch"
+                required: false
+                type: string
+                default: ""
             dry_run:
                 description: "Dry run (publish nothing)"
                 required: false
@@ -68,28 +74,46 @@ on:
                 required: false
                 type: string
                 default: ""
-            pr_number:
-                description: "Release notes PR (beta/canary only)"
-                required: false
-                type: string
-                default: ""
     push:
         branches:
             - main
         paths:
-            - "packages/*/package.json"
+            - ".release-meta.json"
 
 permissions:
-    contents: write
-    pull-requests: write
-    id-token: write
+    contents: read
 
 jobs:
     prepare:
-        if: github.event_name == 'workflow_dispatch' && inputs.channel == 'latest'
+        if: github.event_name == 'workflow_dispatch' && inputs.channel == 'latest' && inputs.source_ref != 'main'
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         steps:
-            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+            - name: Check inputs
+              env:
+                  CHANNEL: ${{ inputs.channel }}
+                  VERSION: ${{ inputs.version }}
+                  SOURCE_REF: ${{ inputs.source_ref }}
+              run: |
+                  if [ -z "$SOURCE_REF" ]; then
+                    echo "::error::set Branch (your release branch, main for latest recovery)"
+                    exit 1
+                  fi
+                  if [ "$CHANNEL" = "latest" ] && [ "$SOURCE_REF" = "main" ] && [ -n "$VERSION" ]; then
+                    echo "::error::recovery takes no version; set Branch to your release branch"
+                    exit 1
+                  fi
+                  case "$SOURCE_REF" in
+                    -* | refs/*)
+                      echo "::error::Branch must be a plain branch name (got '$SOURCE_REF')"
+                      exit 1
+                      ;;
+                  esac
+                  if ! git check-ref-format --branch "$SOURCE_REF" >/dev/null 2>&1; then
+                    echo "::error::'$SOURCE_REF' is not a valid branch name"
+                    exit 1
+                  fi
 
             - name: Require main
               if: ${{ !inputs.dry_run }}
@@ -98,6 +122,26 @@ jobs:
               run: |
                   if [ "$BRANCH" != "main" ]; then
                     echo "::error::latest releases must be dispatched from main (current: $BRANCH)"
+                    exit 1
+                  fi
+
+            - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+              with:
+                  fetch-depth: 0
+
+            - name: Check out the branch
+              env:
+                  SOURCE_REF: ${{ inputs.source_ref }}
+              run: |
+                  if ! git ls-remote --exit-code origin "refs/heads/$SOURCE_REF" >/dev/null; then
+                    echo "::error::branch '$SOURCE_REF' not found on origin"
+                    exit 1
+                  fi
+                  git fetch origin "+refs/heads/$SOURCE_REF:refs/remotes/origin/$SOURCE_REF" "+refs/heads/main:refs/remotes/origin/main"
+                  git checkout --detach "refs/remotes/origin/$SOURCE_REF"
+
+                  if ! git merge-base --is-ancestor refs/remotes/origin/main HEAD; then
+                    echo "::error::$SOURCE_REF is behind main; merge main into $SOURCE_REF first"
                     exit 1
                   fi
 
@@ -111,18 +155,19 @@ jobs:
               id: versions
               env:
                   VERSION: ${{ inputs.version }}
+                  SOURCE_REF: ${{ inputs.source_ref }}
                   AI_VERSION: ${{ inputs.ai_version }}
                   INCLUDE_AI: ${{ inputs.include_ai && '--include-ai' || '' }}
               run: |
                   # INCLUDE_AI is intentionally unquoted: empty means no argument
-                  node scripts/release/release.js version --version "$VERSION" \
+                  node scripts/release/release.js version --version "$VERSION" --branch "$SOURCE_REF" \
                     $INCLUDE_AI \
                     ${AI_VERSION:+--ai-version "$AI_VERSION"}
 
-            - name: Open release PR
-              if: ${{ !inputs.dry_run }}
+            - name: Commit to the branch
               env:
-                  GH_TOKEN: ${{ github.token }}
+                  SOURCE_REF: ${{ inputs.source_ref }}
+                  DRY_RUN: ${{ inputs.dry_run }}
                   CORE_VERSION: ${{ steps.versions.outputs.core_version }}
                   CCA_VERSION: ${{ steps.versions.outputs.cca_version }}
                   AI_VERSION: ${{ steps.versions.outputs.ai_version }}
@@ -130,105 +175,70 @@ jobs:
                   git config user.email "github-actions[bot]@users.noreply.github.com"
                   git config user.name "github-actions[bot]"
 
-                  BRANCH="release/$CORE_VERSION"
-
-                  if git ls-remote --exit-code origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
-                    echo "::error::$BRANCH already exists, delete it first"
-                    exit 1
-                  fi
-
                   SUMMARY="catalyst-core@$CORE_VERSION create-catalyst-app@$CCA_VERSION"
-                  BODY="- catalyst-core@$CORE_VERSION"$'\n'"- create-catalyst-app@$CCA_VERSION"
-
                   if [ -n "$AI_VERSION" ]; then
                     SUMMARY="$SUMMARY catalyst-ai@$AI_VERSION"
-                    BODY="$BODY"$'\n'"- catalyst-ai@$AI_VERSION"
                   fi
 
-                  git checkout -b "$BRANCH"
-                  git commit -am "chore: release $SUMMARY"
-                  git push origin "$BRANCH"
+                  # an already-prepared branch has nothing to commit and fails here
+                  git add .release-meta.json package-lock.json packages
+                  git commit -m "chore: release $SUMMARY"
 
-                  PR_URL=$(gh pr create --base main --head "$BRANCH" \
-                    --title "chore: release $SUMMARY" \
-                    --body "$BODY")
-                  echo "$PR_URL"
-                  echo "Release PR: $PR_URL" >> "$GITHUB_STEP_SUMMARY"
-
-    # runs before the npm environment is entered, so a stray push cannot reach it
-    guard:
-        if: github.event_name == 'push'
-        runs-on: ubuntu-latest
-        outputs:
-            release: ${{ steps.pr.outputs.release }}
-            pr_number: ${{ steps.pr.outputs.pr_number }}
-        steps:
-            - name: Require a release/* PR
-              id: pr
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-              run: |
-                  # merged PR into main that carries this commit: "<head ref> <number> <head repo>"
-                  FILTER='[.[] | select(.merged_at != null and .base.ref == "main")] | first // empty
-                    | "\(.head.ref) \(.number) \(.head.repo.full_name // "")"'
-
-                  # the commit -> PR link can lag right after a merge
-                  for ATTEMPT in 1 2 3 4; do
-                    if ! PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq "$FILTER"); then
-                      echo "::error::could not list pull requests for $GITHUB_SHA"
-                      exit 1
-                    fi
-                    if [ -n "$PR" ] || [ "$ATTEMPT" = 4 ]; then
-                      break
-                    fi
-                    sleep 10
-                  done
-
-                  if [ -z "$PR" ]; then
-                    case "$COMMIT_MESSAGE" in
-                      "chore: release "*)
-                        echo "::error::$GITHUB_SHA looks like a release commit but no merged release PR was found"
-                        exit 1
-                        ;;
-                    esac
-                    echo "::notice::$GITHUB_SHA did not come from a merged PR into main, nothing is published"
-                    echo "release=false" >> "$GITHUB_OUTPUT"
+                  if [ "$DRY_RUN" = "true" ]; then
+                    git show --stat HEAD
+                    echo "- dry run: commit not pushed to $SOURCE_REF" >> "$GITHUB_STEP_SUMMARY"
                     exit 0
                   fi
 
-                  read -r HEAD_REF PR_NUMBER HEAD_REPO <<< "$PR"
-
-                  case "$HEAD_REF" in
-                    release/*)
-                      if [ "$HEAD_REPO" = "$GITHUB_REPOSITORY" ]; then
-                        echo "release=true" >> "$GITHUB_OUTPUT"
-                        echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-                        exit 0
-                      fi
-                      ;;
-                  esac
-
-                  echo "::notice::PR #$PR_NUMBER ($HEAD_REPO:$HEAD_REF) is not a release PR, nothing is published"
-                  echo "release=false" >> "$GITHUB_OUTPUT"
+                  git push origin "HEAD:refs/heads/$SOURCE_REF"
+                  {
+                    echo "- pushed chore: release $SUMMARY to $SOURCE_REF"
+                    echo "- merge the PR to release; the bump commit has no CI run"
+                  } >> "$GITHUB_STEP_SUMMARY"
 
     publish:
-        needs: guard
-        if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && inputs.channel != 'latest') || (needs.guard.result == 'success' && needs.guard.outputs.release == 'true')) }}
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.channel != 'latest' || inputs.source_ref == 'main'))
         runs-on: ubuntu-latest
         environment: npm
+        permissions:
+            contents: write
+            id-token: write
         concurrency:
             group: release
             cancel-in-progress: false
         outputs:
             core_version: ${{ steps.release.outputs.core_version }}
-            core_published: ${{ steps.release.outputs.core_published }}
-            published: ${{ steps.release.outputs.published }}
             sha: ${{ steps.release.outputs.sha }}
             previous_version: ${{ steps.release.outputs.previous_version }}
             previous_sha: ${{ steps.release.outputs.previous_sha }}
-            pr_number: ${{ needs.guard.outputs.pr_number }}
+            notes: ${{ steps.notes.outputs.notes }}
         steps:
+            - name: Check inputs
+              if: github.event_name == 'workflow_dispatch'
+              env:
+                  CHANNEL: ${{ inputs.channel }}
+                  VERSION: ${{ inputs.version }}
+                  SOURCE_REF: ${{ inputs.source_ref }}
+              run: |
+                  if [ -z "$SOURCE_REF" ]; then
+                    echo "::error::set Branch (the branch to release, main for latest recovery)"
+                    exit 1
+                  fi
+                  if [ "$CHANNEL" = "latest" ] && [ "$SOURCE_REF" = "main" ] && [ -n "$VERSION" ]; then
+                    echo "::error::recovery takes no version; set Branch to your release branch"
+                    exit 1
+                  fi
+                  case "$SOURCE_REF" in
+                    -* | refs/*)
+                      echo "::error::Branch must be a plain branch name (got '$SOURCE_REF')"
+                      exit 1
+                      ;;
+                  esac
+                  if ! git check-ref-format --branch "$SOURCE_REF" >/dev/null 2>&1; then
+                    echo "::error::'$SOURCE_REF' is not a valid branch name"
+                    exit 1
+                  fi
+
             - name: Require main
               if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run }}
               env:
@@ -239,9 +249,23 @@ jobs:
                     exit 1
                   fi
 
+            # push: the merge commit. beta/canary: Branch. recovery: full history, see below.
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
               with:
-                  ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || '' }}
+                  ref: ${{ github.event_name == 'workflow_dispatch' && inputs.channel != 'latest' && inputs.source_ref || '' }}
+                  fetch-depth: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'latest' && '0' || '1' }}
+
+            - name: Check out the last release commit
+              if: github.event_name == 'workflow_dispatch' && inputs.channel == 'latest'
+              run: |
+                  git fetch origin "+refs/heads/main:refs/remotes/origin/main"
+                  SHA=$(git log -1 --first-parent --format=%H refs/remotes/origin/main -- .release-meta.json)
+                  if [ -z "$SHA" ]; then
+                    echo "::error::no commit on main changed .release-meta.json, nothing to recover"
+                    exit 1
+                  fi
+                  git checkout --detach "$SHA"
+                  echo "- recovering the release from $SHA" >> "$GITHUB_STEP_SUMMARY"
 
             - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
               with:
@@ -269,19 +293,47 @@ jobs:
                     $INCLUDE_AI \
                     $DRY_RUN
 
+            # latest only: notes run when core is listed and its GitHub release does not exist yet
+            - name: Decide release notes
+              id: notes
+              if: github.event_name == 'push' || inputs.channel == 'latest'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CORE_LISTED: ${{ steps.release.outputs.core_listed }}
+                  CORE_VERSION: ${{ steps.release.outputs.core_version }}
+                  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+              run: |
+                  if [ "$CORE_LISTED" != "true" ] || [ "$DRY_RUN" = "true" ]; then
+                    echo "notes=false" >> "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+                  if RESPONSE=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/catalyst-core@$CORE_VERSION" 2>&1); then
+                    echo "::notice::GitHub release catalyst-core@$CORE_VERSION already exists, notes skipped"
+                    echo "notes=false" >> "$GITHUB_OUTPUT"
+                  elif printf '%s' "$RESPONSE" | grep -q "HTTP 404"; then
+                    echo "notes=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "::error::could not look up the catalyst-core@$CORE_VERSION GitHub release"
+                    echo "$RESPONSE"
+                    exit 1
+                  fi
+
             - name: Explain re-run
               if: failure()
               run: |
                   echo "Re-run failed jobs to finish: packages already on npm are skipped." >> "$GITHUB_STEP_SUMMARY"
 
-    # on push, a re-run where core is already on npm publishes nothing but still sends notes
+    # the service finds the PR from commit_sha (the published commit)
     notes:
         needs: publish
-        if: ${{ !cancelled() && needs.publish.result == 'success' && (github.event_name == 'push' || needs.publish.outputs.core_published == 'true') && (needs.publish.outputs.pr_number != '' || inputs.pr_number != '') }}
+        if: ${{ !cancelled() && needs.publish.result == 'success' && needs.publish.outputs.notes == 'true' }}
+        permissions:
+            contents: read
+            id-token: write
+            pull-requests: read
         uses: ./.github/workflows/release-automation.yml
         with:
             version: ${{ needs.publish.outputs.core_version }}
-            npm_tag: ${{ github.event_name == 'push' && 'latest' || inputs.channel }}
-            pr_number: ${{ needs.publish.outputs.pr_number || inputs.pr_number }}
+            npm_tag: latest
             commit_sha: ${{ needs.publish.outputs.sha }}
             previous_sha: ${{ needs.publish.outputs.previous_sha }}

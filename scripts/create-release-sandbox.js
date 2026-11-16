@@ -16,7 +16,7 @@ function usage() {
 Options:
   --name <name>          App folder name. Default: release-test
   --target-dir <path>    Parent directory. Default: .sandbox
-  --yes, -y              Use CCA default prompts. Existing CCA behavior creates my-app first.
+  --yes, -y              Use CCA default prompts.
   --force                Remove existing sandbox app before creating it.
   --skip-build           Scaffold and install only.
   --help, -h             Show help.
@@ -197,7 +197,8 @@ function main() {
     const options = parseArgs(process.argv.slice(2))
     const sandboxDir = options.targetDir
     const appDir = path.join(sandboxDir, options.name)
-    const ccaCreatedName = options.yes ? "my-app" : options.name
+    // CCA honours the folder name with --yes too (before 1.0.2 it always created my-app).
+    const ccaCreatedName = options.name
     const ccaCreatedDir = path.join(sandboxDir, ccaCreatedName)
     const artifactsDir = path.join(sandboxDir, ".artifacts", options.name)
     const ccaCopyDir = path.join(artifactsDir, "create-catalyst-app")

@@ -8,9 +8,9 @@
             "file: config/config.json must exist",
             "field: NODE_SERVER_PORT must be present",
             "field: WEBVIEW_CONFIG must be present",
-            "field: API_URL must be present"
+            "fields: NODE_SERVER_HOSTNAME, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL and CLIENT_ENV_VARIABLES must be present (API_URL is optional)"
         ],
-        "fix_guide": "Create config/config.json with: { NODE_SERVER_PORT: 3000, API_URL: 'https://api.example.com', CLIENT_ENV_KEYS: [], PUBLIC_STATIC_ASSET_URL: '', WEBVIEW_CONFIG: { port: 3000, accessControl: { enabled: true, allowedUrls: [] } } }",
+        "fix_guide": "Create config/config.json with: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3005, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'http://localhost:3005', CLIENT_ENV_VARIABLES: [], WEBVIEW_CONFIG: { port: 3005 } }. API_URL is optional: add it (and list it in CLIENT_ENV_VARIABLES) only if the app calls an API. WEBVIEW_CONFIG.accessControl is optional too: leave it out to allow every URL, and if you set enabled: true, allowedUrls must be a non-empty list (an empty list blocks every URL, see T11_ACCESS_CONTROL). From 1.0.0, catalyst start/build/serve exit before starting when NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES is missing. Before 1.0.0, also include WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE. On 1.0.0+ they are no longer read and can be removed.",
         "verify_hint": "Run `npm run start` on Catalyst 0.3.x, or `npm run devServe` on legacy 0.2.x. The server should start without config errors.",
         "depends_on": []
     },
@@ -21,9 +21,10 @@
         "detect_pattern": "package_json_dep",
         "how_to_check": [
             "Catalyst 0.2.x: package.json includes @tata1mg/router and Catalyst router APIs import from it",
-            "Catalyst 0.3.x+: package.json does not include @tata1mg/router and Catalyst router APIs import from catalyst-core"
+            "Catalyst 0.3.x: package.json does not include @tata1mg/router and router APIs import from catalyst-core",
+            "Catalyst 1.0.0+: package.json does not include @tata1mg/router, includes react-router ^7.18.2, and router names import from react-router"
         ],
-        "fix_guide": "Version-specific: for Catalyst 0.2.x install @tata1mg/router and import RouterDataProvider, Outlet, navigation, and data hooks from it. For Catalyst 0.3.x+, remove @tata1mg/router and import those APIs from catalyst-core. Never mix the two router generations.",
+        "fix_guide": "Version-specific: for Catalyst 0.2.x install @tata1mg/router and import RouterDataProvider, Outlet, navigation, and data hooks from it. For Catalyst 0.3.x, remove @tata1mg/router and import those APIs from catalyst-core. For Catalyst 1.0.0+, remove @tata1mg/router, add react-router ^7.18.2, import RouterDataProvider, MetaTag and useCurrentRouteData from catalyst-core, and import Outlet, Link, navigation hooks and every other router name from react-router. Never mix router generations.",
         "verify_hint": "Run the development command for the installed generation. Confirm there are no unresolved router imports, duplicate React-element errors, or blank route outlets.",
         "depends_on": ["T1_CONFIG"]
     },
@@ -68,7 +69,7 @@
             "signal: files with .serverFetcher = or .clientFetcher = (converted pages)",
             "llm judges: is any useEffect+fetch file a page component that needs conversion?"
         ],
-        "fix_guide": "For each page component: remove initial useEffect data loading, attach serverFetcher/clientFetcher statics, and read route data with useCurrentRouteData(). Import the hook from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+.",
+        "fix_guide": "For each page component: remove initial useEffect data loading, attach serverFetcher/clientFetcher statics, and read route data with useCurrentRouteData(). Import the hook from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x and 1.0.0+.",
         "verify_hint": "Open a migrated page in browser. Open DevTools Network tab — on first load there should be NO XHR/fetch calls for page data (data arrives server-rendered in HTML). View Page Source and confirm the page content (not just a loading skeleton) is present in the raw HTML. If content is missing from source, serverFetcher is not attached or not running.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
@@ -81,7 +82,7 @@
             "file: src/js/routes/utils.js must exist",
             "pattern: RouterDataProvider must be imported and used in utils.js"
         ],
-        "fix_guide": "Create src/js/routes/utils.js using the CCA preparedRoutes pattern. Import RouterDataProvider and MetaTag from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+. Wrap App and pass routerInitialState plus fetcherArgs when a store is used.",
+        "fix_guide": "Create src/js/routes/utils.js using the CCA preparedRoutes pattern. Import RouterDataProvider and MetaTag from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x and 1.0.0+. Wrap App and pass routerInitialState plus fetcherArgs when a store is used.",
         "verify_hint": "In a page component that uses useCurrentRouteData(), console.log the return value. It should be the data object returned by serverFetcher — not undefined. If undefined, RouterDataProvider is not wrapping the tree or the route entry is missing the component reference.",
         "depends_on": ["T3_ROUTES_FILE"]
     },
@@ -92,10 +93,10 @@
         "detect_pattern": "file_exists + code_pattern",
         "how_to_check": [
             "file: src/js/containers/App/index.js must exist",
-            "pattern: Outlet comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
+            "pattern: Outlet comes from @tata1mg/router on 0.2.x, catalyst-core on 0.3.x, or react-router on 1.0.0+",
             "pattern: <Outlet /> must be rendered in the component"
         ],
-        "fix_guide": "Render <Outlet /> where route content belongs. Import it from @tata1mg/router on Catalyst 0.2.x or catalyst-core on 0.3.x+. Keep global layout around the outlet.",
+        "fix_guide": "Render <Outlet /> where route content belongs. Import it from @tata1mg/router on Catalyst 0.2.x, catalyst-core on 0.3.x, or react-router on 1.0.0+ (catalyst-core no longer re-exports it). Keep global layout around the outlet.",
         "verify_hint": "Open the app in browser. Global layout (header, footer, nav) should appear on every page. The area where page content changes should not be blank. If page content area is empty, <Outlet /> is missing or placed incorrectly in the App shell.",
         "depends_on": ["T5_ROUTER_DATA_PROVIDER"]
     },
@@ -125,27 +126,28 @@
             "pattern: client/index.js must call WebBridge.init()",
             "pattern: client/index.js must use hydrateRoot from 'react-dom/client' (not ReactDOM.render or hydrate)",
             "pattern: client/index.js must import clientRouter from 'catalyst-core/router/ClientRouter'",
-            "pattern: RouterProvider comes from @tata1mg/router on 0.2.x or catalyst-core on 0.3.x+",
+            "pattern: RouterProvider comes from @tata1mg/router on 0.2.x, catalyst-core on 0.3.x, or react-router/dom on 1.0.0+",
             "pattern: 0.2.x waits for loadableReady; 0.3.x+ waits for hydrationReady"
         ],
-        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x+, import RouterProvider and hydrationReady from catalyst-core, then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
+        "fix_guide": "Use hydrateRoot and initialize WebBridge before hydration. On 0.2.x, import RouterProvider from @tata1mg/router and wait for loadableReady from @loadable/component. On 0.3.x, import RouterProvider and hydrationReady from catalyst-core. On 1.0.0+, import hydrationReady from catalyst-core and RouterProvider from react-router/dom (not react-router: only the /dom export passes flushSync to the router). Then call hydrationReady().then(() => hydrateRoot(...)). Do not retain @loadable/component in the Vite runtime.",
         "verify_hint": "Open the app in browser. Open DevTools Console — there should be no 'hydrateRoot' mismatch warnings (if there are, server HTML and client render differ). Open DevTools Elements — the #app or #root div should have React content inside it (not empty). Click an interactive element — if nothing responds, hydration failed. Also confirm global styles are applied (CSS loads).",
         "depends_on": ["T6_APP_SHELL"]
     },
     {
         "id": "T7b_NATIVE_SCRIPTS",
         "tier": 1,
-        "title": "package.json has catalyst native build and emulator scripts",
+        "title": "package.json has catalyst native build scripts",
         "detect_pattern": "package_json_scripts",
         "how_to_check": [
-            "package.json scripts must include: buildApp",
-            "package.json scripts must include: buildApp:ios",
-            "package.json scripts must include: buildApp:android",
-            "package.json scripts must include: setupEmulator",
-            "package.json scripts must include: setupEmulator:ios",
-            "package.json scripts must include: setupEmulator:android"
+            "catalyst-core 1.2.0 and later: package.json scripts must include android, ios, android:release and ios:release (buildApp:* and setupEmulator:* are not needed)",
+            "before 1.2.0: package.json scripts must include buildApp",
+            "before 1.2.0: package.json scripts must include buildApp:ios",
+            "before 1.2.0: package.json scripts must include buildApp:android",
+            "before 1.2.0: package.json scripts must include setupEmulator",
+            "before 1.2.0: package.json scripts must include setupEmulator:ios",
+            "before 1.2.0: package.json scripts must include setupEmulator:android"
         ],
-        "fix_guide": "Add buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android scripts. Legacy 0.2.x may also expose devBuild/devServe. Current 0.3.x removes those commands: use catalyst start for development and catalyst build followed by catalyst serve for production validation.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, add \"android\": \"catalyst buildApp:android\", \"ios\": \"catalyst buildApp:ios\", \"android:release\": \"catalyst buildApp:android --release\" and \"ios:release\": \"catalyst buildApp:ios --release\". npm run android and npm run ios set up missing tools after asking, start the dev server and run the app; setupEmulator scripts are not needed. Before 1.2.0, add buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android scripts, and build a release with npm run buildApp:<platform> -- --release. Legacy 0.2.x may also expose devBuild/devServe. Current 0.3.x removes those commands: use catalyst start for development and catalyst build followed by catalyst serve for production validation.",
         "verify_hint": "Run `npm run start`, then verify the required platform command resolves. On 0.3.x, devBuild/devServe should not be present.",
         "depends_on": ["T1_CONFIG"]
     },
@@ -156,14 +158,16 @@
         "detect_pattern": "field_check",
         "how_to_check": [
             "file: config/config.json",
-            "field: WEBVIEW_CONFIG.android must exist",
-            "field: WEBVIEW_CONFIG.android.buildType must exist",
-            "field: WEBVIEW_CONFIG.android.sdkPath must exist",
-            "field: WEBVIEW_CONFIG.android.emulatorName must exist",
-            "field: WEBVIEW_CONFIG.android.appName must exist"
+            "catalyst-core 1.2.0 and later: WEBVIEW_CONFIG.appId (or android.packageName) and appName must be set; the android block is optional",
+            "catalyst-core 1.2.0 and later (advice, not required): WEBVIEW_CONFIG.url, the deployed https:// origin; without it a release uses LOCAL_IP, port and useHttps, or --url",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.buildType must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.sdkPath must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.emulatorName must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.appName must exist"
         ],
-        "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: android: { buildType: 'debug', sdkPath: '/Users/yourname/Android/sdk', emulatorName: 'Pixel_5_API_30', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. sdkPath must be absolute path to your Android SDK.",
-        "verify_hint": "Run `npm run buildApp:android`. Build should start without 'sdkPath not found' or 'missing android config' errors. If sdkPath is wrong, you'll see an immediate error — run `echo $ANDROID_HOME` in terminal to find the correct path.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, set WEBVIEW_CONFIG.appId (e.g. 'com.acme.shop') and appName, and set url (the deployed https:// origin) for releases. Without url, a release builds its start URL from LOCAL_IP, port and useHttps (or --url), and a terminal run asks for the website when that host is local or private. npm run android installs the SDK, JDK and emulator after asking, so sdkPath and emulatorName are optional. Before 1.2.0, add to WEBVIEW_CONFIG in config/config.json: android: { buildType: 'debug', sdkPath: '/Users/yourname/Android/sdk', emulatorName: 'Pixel_5_API_30', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. sdkPath must be absolute path to your Android SDK.",
+        "verify_hint": "Run `npm run android` (`npm run buildApp:android` before 1.2.0). Build should start without 'sdkPath not found' or 'missing android config' errors. If sdkPath is wrong, you'll see an immediate error — run `echo $ANDROID_HOME` in terminal to find the correct path.",
         "depends_on": ["T1_CONFIG"]
     },
     {
@@ -173,14 +177,16 @@
         "detect_pattern": "field_check",
         "how_to_check": [
             "file: config/config.json",
-            "field: WEBVIEW_CONFIG.ios must exist",
-            "field: WEBVIEW_CONFIG.ios.buildType must exist",
-            "field: WEBVIEW_CONFIG.ios.appBundleId must exist",
-            "field: WEBVIEW_CONFIG.ios.simulatorName must exist",
-            "field: WEBVIEW_CONFIG.ios.appName must exist"
+            "catalyst-core 1.2.0 and later: WEBVIEW_CONFIG.appId (or ios.bundleIdentifier) and appName must be set, and the iOS id has no underscore; the ios block is optional",
+            "catalyst-core 1.2.0 and later (advice, not required): WEBVIEW_CONFIG.url, the deployed https:// origin; without it a release uses LOCAL_IP, port and useHttps, or --url",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.buildType must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.appBundleId must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.simulatorName must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.appName must exist"
         ],
-        "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: ios: { buildType: 'Debug', appBundleId: 'com.company.appname', simulatorName: 'iPhone 15', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. appBundleId must match your Apple Developer provisioning profile.",
-        "verify_hint": "Run `npm run buildApp:ios`. Build should start Xcode compilation without 'missing ios config' or 'bundle ID not found' errors. If simulatorName is wrong, run `xcrun simctl list devices` to see available simulators and update the field.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, set WEBVIEW_CONFIG.appId and appName, and set url (the deployed https:// origin) for releases; without url a release uses LOCAL_IP, port and useHttps (or --url). If appId has an underscore, set ios.bundleIdentifier to an id without one. npm run ios picks or creates a simulator, so simulatorName is optional. Before 1.2.0, add to WEBVIEW_CONFIG in config/config.json: ios: { buildType: 'Debug', appBundleId: 'com.company.appname', simulatorName: 'iPhone 15', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. appBundleId must match your Apple Developer provisioning profile.",
+        "verify_hint": "Run `npm run ios` (`npm run buildApp:ios` before 1.2.0). Build should start Xcode compilation without 'missing ios config' or 'bundle ID not found' errors. If simulatorName is wrong, run `xcrun simctl list devices` to see available simulators and update the field.",
         "depends_on": ["T1_CONFIG"]
     },
     {
@@ -205,12 +211,13 @@
         "detect_pattern": "field_check + file_exists",
         "how_to_check": [
             "file: config/config.json",
-            "field: splashScreen must exist at top level (NOT inside WEBVIEW_CONFIG)",
-            "file: public/android/splashscreen.png must exist",
-            "file: public/ios/splashscreen.png must exist"
+            "field: WEBVIEW_CONFIG.splashScreen must exist (NOT at the top level of config.json)",
+            "file (optional): public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}",
+            "file (optional): public/ios/splashscreen.{png|jpg|jpeg}",
+            "file (optional, 1.0.2+): public/splashscreen.html"
         ],
-        "fix_guide": "1) Add to top level of config/config.json (NOT inside WEBVIEW_CONFIG): splashScreen: { android: { path: 'public/android/splashscreen.png' }, ios: { path: 'public/ios/splashscreen.png' } }. 2) Place splash images at those paths. Recommended sizes: Android 1080x1920px, iOS 1242x2688px.",
-        "verify_hint": "Build and install the app on a device/emulator. On cold launch (after force-closing), you should see the splash image for ~1-2 seconds before the app loads. If you see a white flash instead, either the asset path is wrong or splashScreen is inside WEBVIEW_CONFIG instead of at the top level of config.json.",
+        "fix_guide": "1) Add WEBVIEW_CONFIG.splashScreen to config/config.json, e.g. { backgroundColor: '#ffffff', duration: 1000, imageWidth: 120, imageHeight: 120 }. There is no path field: images are found by filename. 2) Place the images at public/android/splashscreen.<ext> and public/ios/splashscreen.<ext>; without one, Android shows the launcher icon and iOS a loader. 3) Optional on catalyst-core 1.0.2+: add a self-contained public/splashscreen.html (inline CSS/JS, data: URI images, no network) for an animated splash shown after the native image until the first page loads; set splashScreen.minDuration (ms) to hold it longer. duration is ignored in that mode.",
+        "verify_hint": "Build and install the app on a device/emulator. On cold launch (after force-closing), you should see the splash image for ~1-2 seconds before the app loads. If you see no splash, check that splashScreen sits inside WEBVIEW_CONFIG (not at the top level of config.json) and that the image filename is splashscreen.<ext>.",
         "depends_on": ["T1_CONFIG"]
     },
     {

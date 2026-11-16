@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'catalyst-core'
+import { Link } from 'react-router'
 import { ThemeProvider } from '../components/docs/ThemeContext'
 import DocumentBootstrap from '../components/DocumentBootstrap'
 import Navbar from '../components/Navbar'

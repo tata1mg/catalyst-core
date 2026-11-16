@@ -1,0 +1,493 @@
+.studio {
+    position: relative;
+    min-height: calc(100svh - var(--nav-h));
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    padding-bottom: 32px;
+
+    @media (min-width: 1024px) {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        min-height: calc(100svh - var(--nav-h));
+        padding-bottom: 0;
+    }
+}
+
+.canvasStage,
+.flatCanvasStage {
+    position: relative;
+    width: 100%;
+    height: 48vh;
+    min-height: 340px;
+    background: radial-gradient(circle at center, rgb(30 30 50 / 0.45) 0%, transparent 75%);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+
+    @media (min-width: 768px) {
+        height: 60vh;
+        min-height: 440px;
+    }
+
+    @media (min-width: 1024px) {
+        height: calc(100svh - var(--nav-h));
+        position: sticky;
+        top: var(--nav-h);
+    }
+}
+
+.flatCanvasStage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, rgb(35 25 60 / 0.5) 0%, #06060c 80%);
+    overflow: hidden;
+    cursor: default;
+}
+
+.flatGrid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(circle at center, black 40%, transparent 75%);
+}
+
+.flatGraphicWrap {
+    position: relative;
+    width: min(85vw, 360px);
+    height: min(85vw, 360px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 0 40px rgb(198 255 61 / 0.25));
+}
+
+.flatSvg {
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes spinFlat {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.flatKnockoutBadge {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000;
+    color: #fff;
+    mix-blend-mode: multiply;
+    padding: 6px 14px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid #fff;
+    box-shadow: 0 4px 20px rgb(0 0 0 / 0.6);
+}
+
+.flatStickerTag {
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+}
+
+.dimToggleRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.dimOption {
+    padding: 8px 12px;
+    border-radius: var(--radius-m);
+    font-size: 12px;
+    font-weight: 600;
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgb(255 255 255 / 0.08);
+        color: var(--fg);
+    }
+}
+
+.dimOptionActive {
+    background: var(--acid) !important;
+    border-color: var(--acid) !important;
+    color: var(--ink) !important;
+    box-shadow: 0 0 16px -4px rgb(198 255 61 / 0.6);
+}
+
+.dragHint {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    padding: 6px 14px;
+    border-radius: 99px;
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+}
+
+/* Knockout background typography */
+.backdropTitleWrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.backdropTitle {
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 16vw, 15rem);
+    line-height: 0.85;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.035);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    text-align: center;
+    transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+
+.firingGlow {
+    color: rgb(198 255 61 / 0.15) !important;
+    text-shadow: 0 0 80px rgb(198 255 61 / 0.5);
+}
+
+/* Hero overlay information */
+.heroBanner {
+    position: relative;
+    z-index: 10;
+    padding: 24px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+
+    @media (min-width: 1024px) {
+        position: absolute;
+        top: 24px;
+        left: 24px;
+        max-width: 520px;
+        pointer-events: none;
+    }
+}
+
+.badgeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    pointer-events: auto;
+}
+
+.heroHeading {
+    font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    text-shadow: 0 2px 20px rgb(0 0 0 / 0.8);
+}
+
+.heroDesc {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--fg-dim);
+    max-width: 480px;
+
+    code {
+        color: var(--acid);
+        background: rgb(198 255 61 / 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+}
+
+.heroActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+    pointer-events: auto;
+}
+
+.actionBtn {
+    font-size: 13px;
+    height: 40px;
+    padding: 0 16px;
+}
+
+/* Control deck panel */
+.controlDeck {
+    position: relative;
+    z-index: 10;
+    margin: 16px 16px 0;
+    padding: 20px;
+    background: linear-gradient(180deg, rgb(18 18 26 / 0.85), rgb(12 12 18 / 0.95));
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-l);
+    box-shadow: 0 16px 40px -10px rgb(0 0 0 / 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    @media (min-width: 1024px) {
+        margin: 20px 20px 20px 0;
+        height: fit-content;
+        max-height: calc(100svh - var(--nav-h) - 40px);
+        overflow-y: auto;
+    }
+}
+
+.deckHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.deckTitle {
+    h3 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+}
+
+.deckSub {
+    font-size: 11px;
+    color: var(--fg-mute);
+    font-family: var(--font-mono);
+}
+
+.activeStatus {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--fg-dim);
+    background: rgb(255 255 255 / 0.05);
+    padding: 4px 10px;
+    border-radius: 99px;
+    border: 1px solid var(--line);
+}
+
+.activeDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.deckSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-m);
+    background: rgb(255 255 255 / 0.02);
+    border: 1px solid var(--line);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.sectionFiring {
+    border-color: var(--acid) !important;
+    box-shadow: 0 0 20px -4px rgb(198 255 61 / 0.35);
+}
+
+.sectionLabelRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sectionLabel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+}
+
+.toolPulse {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--acid);
+    animation: toolGlow 1s infinite alternate;
+}
+
+@keyframes toolGlow {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+}
+
+.pillGroup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.pill {
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgb(255 255 255 / 0.1);
+        color: var(--fg);
+    }
+}
+
+.pillActive {
+    background: var(--acid) !important;
+    border-color: var(--acid) !important;
+    color: var(--ink) !important;
+    font-weight: 700;
+}
+
+.swatchGroup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.2s var(--ease-spring), border-color 0.2s;
+
+    &:hover {
+        transform: scale(1.15);
+    }
+}
+
+.swatchActive {
+    border-color: #fff !important;
+    transform: scale(1.18);
+    box-shadow: 0 0 14px currentColor;
+}
+
+.sliderRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.rangeInput {
+    flex: 1;
+    accent-color: var(--acid);
+    cursor: pointer;
+}
+
+.burstBtn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 99px;
+    background: rgb(255 62 165 / 0.15);
+    color: var(--hot);
+    border: 1px solid rgb(255 62 165 / 0.4);
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: var(--hot);
+        color: var(--ink);
+    }
+}
+
+.burstActive {
+    background: var(--hot) !important;
+    color: var(--ink) !important;
+    box-shadow: 0 0 16px var(--hot);
+}
+
+/* Experience Mode Switcher */
+.experienceSwitcher {
+    display: inline-flex;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    gap: 4px;
+    margin-bottom: 8px;
+    pointer-events: auto;
+}
+
+.questCalloutBanner {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(198, 255, 61, 0.12) 0%, rgba(61, 224, 255, 0.12) 100%);
+    border: 1px solid rgba(198, 255, 61, 0.35);
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    margin-bottom: 12px;
+    pointer-events: auto;
+
+    &:hover {
+        background: linear-gradient(90deg, rgba(198, 255, 61, 0.22) 0%, rgba(61, 224, 255, 0.22) 100%);
+        border-color: #c6ff3d;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(198, 255, 61, 0.25);
+    }
+}
+
+.questPill {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #c6ff3d;
+    color: #0b0e17;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    font-family: var(--font-mono, monospace);
+}
+
+.questArrow {
+    color: #3de0ff;
+    font-weight: 700;
+}
+

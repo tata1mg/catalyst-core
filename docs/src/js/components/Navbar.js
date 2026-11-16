@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useLocation } from 'catalyst-core'
+import { Link, useLocation } from 'react-router'
 import { useTheme } from './docs/ThemeContext'
 import SearchModal from './SearchModal'
 import manifest from '../generated/docsManifest.json'
@@ -179,6 +179,9 @@ const Navbar = ({ onToggleSidebar, hasSidebar }) => {
                 <a href="/#features" onClick={closeMenu}>
                     Features
                 </a>
+                <Link to="/releases" onClick={closeMenu}>
+                    Releases
+                </Link>
                 <div className={`hub-dropdown ${communityOpen ? 'open' : ''}`}>
                     <button
                         onClick={() => setCommunityOpen(!communityOpen)}
