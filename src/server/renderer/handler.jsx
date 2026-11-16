@@ -629,7 +629,6 @@ const _renderMarkUp = async (
                     }
                     try {
                         res.setHeader("content-type", "text/html")
-                        if (res.locals.earlyHintLinks) res.append("link", res.locals.earlyHintLinks.join(", "))
                         pipe(tail)
                     } catch (error) {
                         done(reject, error)
