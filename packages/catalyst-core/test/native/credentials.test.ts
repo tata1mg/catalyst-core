@@ -15,6 +15,7 @@ import {
     packCredentials,
     resolveCredentials,
     unpackCredentials,
+    tarCommand,
 } from "../../src/native/credentials.js"
 import { runExportCredentials } from "../../src/native/exportCredentials.js"
 
@@ -237,5 +238,17 @@ describe("catalyst credentials:export", () => {
             1
         )
         expect(err.join("")).toContain("<android|ios>")
+    })
+})
+
+// Git's GNU tar, often first on PATH on Windows, reads the C: of an absolute path as a host.
+describe("tarCommand", () => {
+    it("uses Windows' own tar there, and tar from PATH everywhere else", () => {
+        const env = { SystemRoot: "C:/Windows" }
+        expect(tarCommand({ platform: "darwin" })).toBe("tar")
+        expect(tarCommand({ platform: "win32", env, exists: () => true })).toBe(
+            path.join("C:/Windows", "System32", "tar.exe")
+        )
+        expect(tarCommand({ platform: "win32", env, exists: () => false })).toBe("tar")
     })
 })

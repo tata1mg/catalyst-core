@@ -12,9 +12,9 @@ id: android-emulator-setup
 
 ## Prerequisites
 
-- macOS or Linux
+- macOS, Linux or Windows
 - About 10 GB of free disk space for the SDK and a system image
-- Homebrew on macOS if you have no JDK yet. On Linux, install a JDK 17 or 21 package (for example `openjdk-17-jdk`) yourself
+- Homebrew on macOS if you have no JDK yet. On Linux, install a JDK 17 or 21 package (for example `openjdk-17-jdk`) yourself. On Windows, Android Studio's bundled JDK is enough; without Android Studio, install one with `winget install Microsoft.OpenJDK.17`
 
 ---
 
@@ -22,8 +22,8 @@ id: android-emulator-setup
 
 Every `npm run android` and `npm run android:release` checks the toolchain and installs only what is missing. Each install asks first; press Enter to accept the default answer.
 
-1. Java. Catalyst looks for JDK 17 to 23 in `JAVA_HOME`, then `/usr/libexec/java_home`, then the runtime bundled with Android Studio, and prefers 21, then 17. A JDK 24 or newer is skipped, because Gradle 8.13 cannot run on it. On macOS with none found, it offers to run `brew install --cask zulu@17`. Your shell profile is never edited; the JDK is passed to Gradle and the SDK tools directly.
-2. Android SDK. It uses `WEBVIEW_CONFIG.android.sdkPath`, then `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux). It never asks for a path and never writes one to `config/config.json`. When packages are missing it downloads the Android command-line tools, checks them against their published SHA-256, and installs `platform-tools`, `platforms;android-36` and `build-tools;36.0.0`, plus `emulator` when the app runs on one.
+1. Java. Catalyst looks for JDK 17 to 23 in `JAVA_HOME`, then `/usr/libexec/java_home` on macOS, then the runtime bundled with Android Studio, then (on Linux and Windows) the `java` on your `PATH`, and prefers 21, then 17. A JDK 24 or newer is skipped, because Gradle 8.13 cannot run on it. On macOS with none found, it offers to run `brew install --cask zulu@17`. Your shell profile is never edited; the JDK is passed to Gradle and the SDK tools directly.
+2. Android SDK. It uses `WEBVIEW_CONFIG.android.sdkPath`, then `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk` (macOS), `%LOCALAPPDATA%\Android\Sdk` (Windows) or `~/Android/Sdk` (Linux). It never asks for a path and never writes one to `config/config.json`. When packages are missing it downloads the Android command-line tools, checks them against their published SHA-256, and installs `platform-tools`, `platforms;android-36` and `build-tools;36.0.0`, plus `emulator` when the app runs on one.
 3. Licences. The first install shows the Android SDK licences for you to review and accept.
 4. Emulator. An existing emulator is reused: `android.emulatorName` when it is set, else the one you used last, else the first one found. With none, Catalyst installs the API 36 Google APIs system image for your CPU (arm64 on Apple silicon, x86_64 elsewhere, about 1.5 GB) and creates `catalyst-api36` with a Pixel 7 profile.
 
@@ -78,7 +78,7 @@ All of these are optional:
 
 ### Windows
 
-The SDK is usually at `C:\\Users\\yourname\\AppData\\Local\\Android\\Sdk`. In `config.json`, double the backslashes or use forward slashes:
+The SDK is usually at `C:\Users\yourname\AppData\Local\Android\Sdk`. In `config.json`, double the backslashes or use forward slashes:
 
 ```json
 {
@@ -92,7 +92,7 @@ The SDK is usually at `C:\\Users\\yourname\\AppData\\Local\\Android\\Sdk`. In `c
 
 The emulator needs the Windows Hypervisor Platform. If it does not start, run `emulator -accel-check` from the SDK's `emulator` folder. It reports what is missing.
 
-Gradle writes long paths under `node_modules`. If a build fails with a path that is too long, move the app closer to the root of the drive, for example `C:\\dev\\my-app`, or [enable long paths in Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
+Gradle writes long paths under `node_modules`. If a build fails with a path that is too long, move the app closer to the root of the drive, for example `C:\dev\my-app`, or [enable long paths in Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation#enable-long-paths-in-windows-10-version-1607-and-later).
 
 ---
 
