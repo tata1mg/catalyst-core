@@ -70,7 +70,9 @@ const program = new Commander.Command()
 
             if (process.argv.includes("new-route")) {
                 const createRoutePath = path.join(__dirname, "../codemod/new-route/index.js")
-                execFileSync(process.execPath, [createRoutePath], { stdio: "inherit" })
+                // Everything after new-route is its own: -p/--path and -c/--component.
+                const routeArgs = process.argv.slice(process.argv.indexOf("new-route") + 1)
+                execFileSync(process.execPath, [createRoutePath, ...routeArgs], { stdio: "inherit" })
                 return
             }
 

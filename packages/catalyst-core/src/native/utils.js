@@ -504,7 +504,7 @@ const NATIVE_ERRORS = {
     },
     "ANDROID-007": {
         message: "No JDK 17 to 23 found",
-        hint: "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
+        hint: "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package; Windows: Android Studio, or winget install Microsoft.OpenJDK.17) and set JAVA_HOME, or on macOS run catalyst buildApp:android in a terminal, or with --yes, to install it.",
     },
     "ANDROID-008": {
         message: "Android SDK setup was declined",

@@ -177,10 +177,34 @@ describe("Java resolution", () => {
         expect(pick([onPath])).toMatchObject({ home: onPath, source: "PATH" })
     })
 
+    // A winget or MSI install is on PATH only in a new terminal; its folder is there at once.
+    it("finds a JDK in the usual Windows install folders, newest first", () => {
+        const local = "C:/Users/me/AppData/Local"
+        const microsoft = path.join(local, "Programs", "Microsoft")
+        const jdk17 = path.join(microsoft, "jdk-17.0.21.0.2+1")
+        const jdk11 = path.join(microsoft, "jdk-11.0.25.9")
+        const javaOf = (home: string) => path.join(home, "bin", "java.exe")
+        const versions: Record<string, string> = {
+            [javaOf(jdk17)]: 'openjdk version "17.0.21"',
+            [javaOf(jdk11)]: 'openjdk version "11.0.25"',
+        }
+        const skipped: string[] = []
+        const java = resolveJavaHome({
+            env: { LOCALAPPDATA: local },
+            platform: "win32",
+            run: (command) => versions[command] ?? null,
+            exists: (file) => file in versions,
+            list: (dir) => (dir === microsoft ? ["jdk-11.0.25.9", "notes.txt", "jdk-17.0.21.0.2+1"] : []),
+            onSkip: (candidate) => skipped.push(candidate),
+        })
+        expect(java).toMatchObject({ home: jdk17, version: 17, source: "Microsoft" })
+    })
+
     it("names a Windows install for a missing JDK there", async () => {
         const error = await rejection(ensureJava({ platform: "win32", isTTY: true, resolve: () => null }))
         expect(error.code).toBe("ANDROID-007")
         expect(error.message).toMatch(/winget install Microsoft\.OpenJDK\.17/)
+        expect(error.hint).toMatch(/Windows: Android Studio, or winget install/)
     })
 
     it("returns null with no JDK 17+", () => {

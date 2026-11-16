@@ -54,6 +54,7 @@ function defaultRun(command, args) {
  * @param {string} [options.platform]
  * @param {(command: string, args: string[]) => string | null} [options.run] - combined output, or null on failure
  * @param {(file: string) => boolean} [options.exists]
+ * @param {(dir: string) => string[]} [options.list] - a folder's entries, or [] when it cannot be read
  * @param {(candidate: string, reason: string) => void} [options.onSkip]
  * @returns {{ home: string, version: number, source: string } | null}
  */
@@ -62,6 +63,13 @@ function resolveJavaHome({
     platform = process.platform,
     run = defaultRun,
     exists = fs.existsSync,
+    list = (dir) => {
+        try {
+            return fs.readdirSync(dir)
+        } catch {
+            return []
+        }
+    },
     onSkip = () => {},
 } = {}) {
     const home = os.homedir()
@@ -96,6 +104,25 @@ function resolveJavaHome({
         const java = run("where", ["java"])
         const first = java && java.split(/\r?\n/)[0].trim()
         if (first) add(path.dirname(path.dirname(first)), "PATH")
+        // Where the usual installers put a JDK, which only a new terminal finds on PATH.
+        // Newest name first; the version check below still decides.
+        const vendorDirs = [
+            [env.ProgramFiles, "Microsoft"],
+            [env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, "Programs"), "Microsoft"],
+            [env.ProgramFiles, "Eclipse Adoptium"],
+            [env.ProgramFiles, "Zulu"],
+            [env.ProgramFiles, "Java"],
+        ]
+        for (const [root, vendor] of vendorDirs) {
+            if (!root) continue
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root names the machine's own program folders, never remote input.
+            const dir = path.join(root, vendor)
+            const jdks = list(dir)
+                .filter((name) => /^(jdk|zulu)/i.test(name))
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - name comes from readdirSync of that folder.
+            for (const name of jdks) add(path.join(dir, name), vendor)
+        }
     }
 
     const exe = platform === "win32" ? "java.exe" : "java"

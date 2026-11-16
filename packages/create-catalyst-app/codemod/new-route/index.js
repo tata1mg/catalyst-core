@@ -28,7 +28,24 @@ program
     .parse(process.argv)
 
 async function main() {
-    let { routePath, templateType, componentName } = program
+    // commander 8 keeps options on opts(), named after the long flag.
+    const options = program.opts()
+    let routePath = options.path
+    let componentName = options.component
+    let templateType
+
+    // A value given on the command line skips its question, so check it here.
+    for (const [value, validate] of [
+        [routePath, validatePath],
+        [componentName, validateComponentName],
+    ]) {
+        const verdict = value === undefined ? true : validate(value)
+        if (verdict !== true) {
+            console.log(pc.red(`\nError: ${verdict}`))
+            process.exitCode = 1
+            return
+        }
+    }
 
     // If all options are not provided, prompt the user for input
     if (!routePath || !componentName || !templateType) {
