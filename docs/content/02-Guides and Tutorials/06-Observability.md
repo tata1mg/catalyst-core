@@ -86,6 +86,32 @@ const preServerInit = () => {
 | `metricHeaders` | object | Headers for metric export | `{}` |
 | `exportIntervalMillis` | number | Metric export interval in ms | `10000` |
 | `exportTimeoutMillis` | number | Export timeout in ms | `10000` |
+| `samplingRate` | number | Head-sampling rate in `[0, 1]` for normal traffic | `1.0` |
+| `errorSampling` | object | Status-aware error sampling, described below | off |
+| `enableMemoryDiagnostics` | boolean | Periodic memory heartbeat and high-memory warnings. Needs `errorSampling.ENABLED` | `true` |
+| `diagnosticsIntervalMillis` | number | Memory heartbeat interval in ms | `60000` |
+
+### Status-Aware Error Sampling
+
+Head sampling decides whether to keep a trace when the request starts, before anyone knows it will fail. With a low `samplingRate`, most error traces are dropped along with everything else. Setting `errorSampling.ENABLED` buffers unsampled traces in memory and re-evaluates each one when its request ends. Traces that ended in an error get a second, independent chance to be exported, on top of the normal sampling rate.
+
+```javascript
+Otel.init({
+    samplingRate: 0.05,
+    errorSampling: {
+        ENABLED: true,
+        RATE_5XX: 1.0, // promote 5xx roots and roots with an OTel ERROR status
+        RATE_4XX: 0.2, // promote a share of 4xx roots
+        PROMOTE_HANDLED_ERRORS: false, // also promote 2xx roots whose child spans errored
+        SKIP_PROMOTION_CODES: [408, 504, 524, 598, 599], // never promoted
+        PROMOTE_BOT_TRAFFIC: false, // bot traffic (http.response.is_bot) is not promoted
+    },
+})
+```
+
+Every `errorSampling` key is optional. The values above are the defaults, except `RATE_4XX`, which defaults to `samplingRate`. The JSDoc on `init()` in `catalyst-core/otel` lists the remaining keys.
+
+While error sampling is on, the server also logs a memory heartbeat every `diagnosticsIntervalMillis` with RSS, heap, and trace buffer size, and warns when memory gets close to the container limit.
 
 ## Production Guidance
 

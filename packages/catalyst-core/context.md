@@ -117,7 +117,7 @@ Key exports from `catalyst-core` package:
 ### Execution order on first page load:
 
 1. `preServerInit()` → server starts
-2. `App.serverSideFunction({ store, req, res })` → runs on every request
+2. `App.serverSideFunction({ store, req, res, runInParallel })` → runs on every request. Promises passed to `runInParallel(...promises)` run alongside step 3, and the request waits for them before step 4 (or before returning, when a response was already sent). If one rejects and no response has been sent, the rejection takes the same path as a rejected `serverSideFunction`, after `onAppServerSideSuccess` has already run. If a fetcher or hook has already sent a response (e.g. a redirect), that response wins: the rejection does not reach `onAppServerSideError` and is only recorded on the `App.serverSideFunction.runInParallel` span when OTEL is on. Call it before `serverSideFunction` returns, and only pass work that page fetchers don't depend on.
 3. `Page.serverFetcher({ route, location, params, searchParams, navigate }, { store })` → runs for matched route
 4. React SSR renders HTML → sent to client
 5. Client hydrates → `Page.clientFetcher` runs on next client navigation
