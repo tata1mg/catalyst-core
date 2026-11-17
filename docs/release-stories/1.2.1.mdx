@@ -1,0 +1,104 @@
+<Kicker>
+Everything since 1.1.0, from 1.2.0 and 1.2.1. The web runtime has no breaking changes. Universal apps should read the upgrade guide before upgrading.
+</Kicker>
+
+<Section eyebrow="01 / Try it" title="Two commands for each platform.">
+
+<Snippets>
+
+<Snippet label="Terminal" note="Builds, installs and opens the app">
+
+```bash
+npm run android
+npm run ios
+```
+
+</Snippet>
+
+<Snippet label="Terminal" note="Signed store builds in build-output/">
+
+```bash
+npm run android:release
+npm run ios:release
+```
+
+</Snippet>
+
+</Snippets>
+
+Older apps keep `buildApp:<platform>` and build a release with `npm run buildApp:<platform> -- --release`. Full setup: [Universal App Deployment](/content/Deployment/universal-app-deployment) and the upgrade guides from [1.1.x to 1.2.0](/content/Migration/0.0.1-beta.4#upgrading-from-11x-to-120) and [1.2.0 to 1.2.1](/content/Migration/0.0.1-beta.4#upgrading-from-120-to-121).
+
+</Section>
+
+<Section eyebrow="02 / What's new" title="New since 1.1.0.">
+
+<Features>
+
+<Feature title="No Android Studio, no Xcode" image="/img/releases/1.2.1/run.jpg" by="mayansharma" pr="575">
+
+`npm run android` and `npm run ios` check the toolchain and install what is missing after asking, start the dev server when nothing answers, and open the app on an emulator, simulator or phone. Android also saves a debug APK in `build-output/android/debug/` that you can share.
+
+</Feature>
+
+<Feature title="Store builds, one command" image="/img/releases/1.2.1/release.jpg" by="mayansharma" pr="595">
+
+`npm run android:release` writes a signed App Bundle, a signed APK and `upload_certificate.pem`. `npm run ios:release` writes a signed IPA and a zip of its dSYMs. A Mac signed in to Xcode needs no signing files, and CI needs one secret per platform from `catalyst credentials:export`.
+
+</Feature>
+
+<Feature title="Every security fix, published" image="/img/releases/1.2.1/security.jpg" by="mayansharma">
+
+Catalyst now publishes [GitHub Security Advisories](https://github.com/tata1mg/catalyst-core/security/advisories). Each one says what broke, why it matters and which version fixes it.
+
+</Feature>
+
+</Features>
+
+</Section>
+
+<Section eyebrow="03 / Goodbye, hello">
+
+<Farewell from="keystore passwords in config" to="credentials/" by="mayansharma" pr="575">
+
+Signing files live in `credentials/android/` and `credentials/ios/`, which new apps keep out of git, and the passwords in `android.keystoreConfig` are no longer used. If you uploaded a build signed with the keystore that shipped in the template, or with a key an earlier release build generated, ask for an upload key reset in Play Console.
+
+</Farewell>
+
+</Section>
+
+<Section eyebrow="04 / Also new" title="Smaller things, sorted.">
+
+<Fixes>
+
+<Fix by="mayansharma" pr="618">`useIntent()` adds `openInBrowser(url)`, which opens an `http` or `https` link in the default browser, or in the app that owns the link.</Fix>
+
+<Fix by="mayansharma" pr="618">The Android and iOS apps send `WEBVIEW_CONFIG.appInfo` to your server in an `X-App-Info` request header.</Fix>
+
+<Fix by="mayansharma" pr="618">iOS with `edgeToEdge.enabled` no longer adds the safe-area insets itself, matching Android. Pad the page with `useSafeArea()`; content that relied on the automatic inset moves up.</Fix>
+
+<Fix by="mayansharma" pr="585">New apps get a new starter page, the animated HTML splash screen on by default, a restyled offline page and a placeholder `public/icon.png`.</Fix>
+
+<Fix by="mayansharma" pr="585">The template's `server/index.js` exports a stub for `preServerInit` and each per-request hook, and startup warns when a hook sits inside `export default {}`, where it is never called.</Fix>
+
+<Fix by="mayansharma" pr="575">Android apps target API 36 and align their native libraries for 16 KB memory pages.</Fix>
+
+<Fix by="mayansharma" pr="595">`MetaTag` waits for a `split()` route's chunk, so the server's head tags stay until the route's `setMetaData` is ready.</Fix>
+
+<Fix by="mayansharma" pr="608">Debug builds on a physical iPhone reach the dev server, with one Keychain prompt.</Fix>
+
+<Fix by="SpideyPotter" pr="555">Android AI system prompts without attachment components have regression tests in CI.</Fix>
+
+</Fixes>
+
+The three changes at the top of this list are new in 1.2.1. Everything else on this page first shipped in [1.2.0](/releases/1.2.0) on 13 November.
+
+</Section>
+
+<Tip title="Back up your upload key.">
+
+1. The first Android release creates one upload key per app in `credentials/android/`, which new apps keep out of git.
+2. Google Play only accepts updates signed with that key. Keep a copy somewhere safe, or store it as the `CATALYST_ANDROID_CREDENTIALS` secret with `npx catalyst credentials:export android`.
+
+</Tip>
+
+<Thanks release="1.2.1" people={["mayansharma", "SpideyPotter"]} />

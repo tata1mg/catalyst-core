@@ -14,6 +14,12 @@ iOS still needs macOS and Xcode. On Windows and Linux, `catalyst buildApp` and `
 - `new-route` exits non-zero when it fails. It used to exit 0 with nothing created.
 - `create-catalyst-app` removes its `temp-*` folder when it fails.
 
+## [1.2.1] - 2026-11-17
+
+- `useIntent()` adds `openInBrowser(url)`, which opens a link outside the WebView: in the default browser, or in the app that owns the link when one is installed. Only `http` and `https` URLs are accepted; any other scheme fails with an error.
+- The Android and iOS apps send `WEBVIEW_CONFIG.appInfo` in an `X-App-Info` request header, next to the `X-Safe-Area-*` headers. The header is left out when `appInfo` is empty.
+- iOS: with `edgeToEdge.enabled`, the WebView no longer adds the safe-area insets itself, matching Android. Pages draw under the status bar and home indicator, so pad them with `useSafeArea()`. Apps that relied on the automatic inset will see their content move up.
+
 ## [1.2.0] - 2026-11-13
 
 This release builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Universal apps should read the breaking changes below and the 1.1.x to 1.2.0 section of the Version Upgrades guide. After upgrading, run `npm audit fix`: the `body-parser` floor is raised to `^1.20.9`.

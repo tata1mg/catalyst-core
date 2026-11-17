@@ -6,6 +6,16 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading From 1.2.0 To 1.2.1
+
+`1.2.1` adds `openInBrowser(url)` to `useIntent()` and an `X-App-Info` request header to the native apps. Web-only apps have nothing to change.
+
+```bash
+npm install catalyst-core@1.2.1
+```
+
+Universal apps with `WEBVIEW_CONFIG.edgeToEdge.enabled` should check their pages on iOS. The iOS WebView no longer adds the safe-area padding itself, matching Android, so a page that does not pad with [`useSafeArea()`](/content/API%20Reference/hooks#usesafearea) now draws under the status bar and the home indicator. Apps that already pad with `useSafeArea()` now lay out the same on iOS as on Android.
+
 ## Upgrading From 1.1.x To 1.2.0
 
 `1.2.0` builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Set `catalyst-core` to `1.2.0`, reinstall, then run `npm audit fix` so your lockfile picks up the patched `body-parser`, whose minimum is now `^1.20.9`:
