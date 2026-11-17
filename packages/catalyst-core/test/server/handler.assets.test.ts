@@ -29,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const TEMPLATE_DOC = "@catalyst/template/server/document"
 const MANIFEST_CACHE = "../../src/server/manifestCache.js"
+const HOOKS = "@catalyst/template/server/index.js"
 
 // Fake build manifest. HomePage's __cacheKey → a critical chunk with CSS;
 // WIDGET_CACHE_KEY → a deferred chunk with its own CSS (registered during
@@ -44,6 +45,23 @@ function mockManifest() {
         getManifest: () => FAKE_MANIFEST,
         getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
     }))
+}
+
+// Server hooks with overrides. Every name handler.jsx reads must be defined (as undefined if unused):
+// vitest throws on reading an export a mock factory does not define.
+const HOOK_NAMES = [
+    "onRouteMatch",
+    "onFetcherSuccess",
+    "onFetcherError",
+    "onAppServerSideSuccess",
+    "onAppServerSideError",
+    "onRenderError",
+    "onRequestError",
+    "getEarlyHintLinks",
+]
+function mockHooks(overrides: Record<string, unknown>) {
+    const none = Object.fromEntries(HOOK_NAMES.map((name) => [name, undefined]))
+    vi.doMock(HOOKS, () => ({ ...none, ...overrides }))
 }
 
 // A real Writable so renderToPipeableStream's Transform → res pipe works.
@@ -130,6 +148,7 @@ afterEach(() => {
     vi.resetModules()
     vi.doUnmock(TEMPLATE_DOC)
     vi.doUnmock(MANIFEST_CACHE)
+    vi.doUnmock(HOOKS)
     try {
         fs.rmSync(buildDir, { recursive: true, force: true })
     } catch {
@@ -383,6 +402,53 @@ describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE
         expect(html).toContain(`<script type="module" src="${home}">`)
         expect(html).toContain(`<link rel="modulepreload" href="${vendor}"`)
         expect(html).not.toContain(`<script type="module" src="${vendor}">`)
+    })
+
+    it.each([
+        ["a sync", (links: any) => () => links],
+        ["an async", (links: any) => async () => links],
+    ])("adds entries returned by %s getEarlyHintLinks hook", async (_label, makeHook) => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const hook = vi.fn(makeHook([{ url: "https://cdn.example.com", rel: "preconnect" }]))
+        mockHooks({ getEarlyHintLinks: hook })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(hook).toHaveBeenCalledWith(expect.objectContaining({ req, res }))
+        expect(res.headers.link).toBe(
+            [
+                "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high",
+                "<https://cdn.example.com>; rel=preconnect",
+            ].join(", ")
+        )
+    })
+
+    it("counts the header budget in UTF-8 bytes, not string length", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const route =
+            "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high"
+        // "é" is 1 UTF-16 code unit but 2 UTF-8 bytes; 20 of them make the entry 20 bytes longer on the
+        // wire than its .length. Budget = exact .length of both entries, so only a byte count drops it.
+        const url = `https://cdn.example.com/${"é".repeat(20)}`
+        const appLink = `<${url}>; rel=preconnect`
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = route.length + 2 + appLink.length
+        mockHooks({ getEarlyHintLinks: () => [{ url, rel: "preconnect" }] })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBe(route)
     })
 
     it("sends no Link header when the flag is off", async () => {

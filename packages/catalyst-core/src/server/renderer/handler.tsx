@@ -267,7 +267,8 @@ const fitLinkBudget = (links: string[]) => {
     const kept: string[] = []
     let bytes = 0
     for (const link of links) {
-        const size = link.length + (kept.length ? 2 : 0)
+        // Header bytes, not UTF-16 code units: a non-ASCII URL or attribute is longer on the wire.
+        const size = Buffer.byteLength(link, "utf8") + (kept.length ? 2 : 0)
         if (bytes + size > EARLY_HINTS_MAX_LINK_BYTES) continue
         kept.push(link)
         bytes += size
@@ -330,10 +331,12 @@ const getCriticalHintLinks = (allMatches: any) => {
     return hint
 }
 
-const getEarlyHintLinks = (req: any, res: any, allMatches: any) => {
+const getEarlyHintLinks = async (req: any, res: any, allMatches: any) => {
     const critical = getCriticalHintLinks(allMatches)
     const deferredJs = getDeferredPreloadScriptUrls(getDeferredRouteKey(req, allMatches), critical.js)
-    const appLinks = safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
+    // safeCall is async (it awaits the hook to catch rejections), so its result must be awaited; the
+    // hook itself may be sync or async.
+    const appLinks = await safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
     return fitLinkBudget([
         ...new Set([
             ...critical.rootLinks,
@@ -606,7 +609,7 @@ async function _handler(req: any, res: any) {
         if (res.headersSent) return
 
         if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
-            const earlyHintLinks = getEarlyHintLinks(req, res, allMatches)
+            const earlyHintLinks = await getEarlyHintLinks(req, res, allMatches)
             if (earlyHintLinks.length && res.locals) res.locals.earlyHintLinks = earlyHintLinks
         }
 

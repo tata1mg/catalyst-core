@@ -17,6 +17,7 @@ These hooks are part of the current server hook surface:
 | `preServerInit` | Before the Express server starts | Bootstrapping config, creating DB connections, warming shared services |
 | `onRouteMatch` | After the incoming request is matched to a route | Auth checks, redirects, request-scoped setup |
 | `onServerError` | When the server hits an uncaught startup error | Logging, alerting, custom process handling |
+| `getEarlyHintLinks` | Per rendered request, after `onRouteMatch`, when `CLOUDFLARE_EARLY_HINTS_ENABLE` is on | Adding `preconnect`/`preload` entries to the Early Hints `Link` header |
 
 ```javascript title="server/index.js"
 export default {
@@ -36,6 +37,21 @@ export default {
 ```
 
 If you do not need any hooks yet, `export default {}` is valid.
+
+### `getEarlyHintLinks`
+
+Optional. Add it as a named export of `server/index.js`. It receives `{ req, res, matches }` (the matched route list) and returns an array of link entries, or a promise of one. Each entry is `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }`, the same shape as `EARLY_HINTS_LINKS`. Use it for URLs that change per release or per request; static entries belong in `EARLY_HINTS_LINKS`. A hook that throws or returns something other than an array adds nothing, and the rest of the header is still sent.
+
+```javascript title="server/index.js"
+export function getEarlyHintLinks({ req, res, matches }) {
+  return [
+    { url: "https://cdn.example.com", rel: "preconnect" },
+    { url: "https://cdn.example.com/hero.webp", rel: "preload", as: "image" },
+  ];
+}
+```
+
+The entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. See [Configuration](/content/configuration-api#early-hints).
 
 ## Rendering Flow
 
