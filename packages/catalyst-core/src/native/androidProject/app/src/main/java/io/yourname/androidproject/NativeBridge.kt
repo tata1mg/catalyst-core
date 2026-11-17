@@ -492,9 +492,10 @@ class NativeBridge(
                     BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "URL is required")
                     return@runOnUiThread
                 }
-                val uri = android.net.Uri.parse(url)
+                // normalizeScheme() lowercases HTTPS://, which intent resolution would not match
+                val uri = android.net.Uri.parse(url).normalizeScheme()
                 // Web links only: other schemes would open other apps (tel:, file:, deep links)
-                if (uri.scheme?.lowercase() !in setOf("http", "https")) {
+                if (uri.scheme !in setOf("http", "https")) {
                     BridgeUtils.notifyWebError(webView, BridgeUtils.WebEvents.ON_INTENT_ERROR, "Only http and https URLs can be opened in the browser")
                     return@runOnUiThread
                 }
