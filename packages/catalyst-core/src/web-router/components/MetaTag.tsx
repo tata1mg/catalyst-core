@@ -22,8 +22,27 @@ export const MetaTag = (): any => {
 
     useEffect(() => {
         serverTags.current ??= Array.from(document.head.querySelectorAll("[data-catalyst]"))
-        const mergedMetaTags = getMetaData(matchedRoutes, routeData)
-        setMetaTags(Array.isArray(mergedMetaTags) ? mergedMetaTags : [])
+        let current = true
+        const update = () => {
+            if (!current) return
+            const mergedMetaTags = getMetaData(matchedRoutes, routeData)
+            setMetaTags(Array.isArray(mergedMetaTags) ? mergedMetaTags : [])
+        }
+        // A split() route only gains setMetaData once its chunk has loaded.
+        // Nothing guarantees that before this effect runs (in dev no chunk is
+        // prefetched before hydration, and a client navigation can reach a
+        // route whose chunk is not loaded yet), so wait for load(), which is
+        // cached once resolved. Until then metaTags stays as it is, so the
+        // server's tags (or the previous page's) are not removed early.
+        const loads = (matchedRoutes || [])
+            .map((match: any) => match?.route?.component)
+            .filter((component: any) => typeof component?.load === "function")
+            .map((component: any) => component.load())
+        if (loads.length) Promise.allSettled(loads).then(update)
+        else update()
+        return () => {
+            current = false
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location])
 

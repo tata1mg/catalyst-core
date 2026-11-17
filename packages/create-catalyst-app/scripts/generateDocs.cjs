@@ -48,6 +48,12 @@ function generateDocs() {
     // Merge into the shared errors/index.json rather than overwriting it —
     // catalyst-core's own generateDocs.js owns every other category.
     const index = readExistingIndex()
+    // Drop this package's own entries first, so a code removed from
+    // ERROR_DEFINITIONS does not linger in the index.
+    const ownedCategories = new Set(Object.values(ERROR_DEFINITIONS).map((d) => d.category))
+    for (const code of Object.keys(index)) {
+        if (ownedCategories.has(index[code].category)) delete index[code]
+    }
 
     for (const [code, def] of Object.entries(ERROR_DEFINITIONS)) {
         const dir = path.join(ERRORS_DIR, def.category)
