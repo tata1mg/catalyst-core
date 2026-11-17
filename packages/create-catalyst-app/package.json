@@ -1,7 +1,7 @@
 {
     "name": "create-catalyst-app",
     "bin": "scripts/cli.cjs",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "engines": {
         "node": ">=20.12.0"
     },

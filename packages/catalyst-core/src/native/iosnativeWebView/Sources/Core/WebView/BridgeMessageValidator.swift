@@ -218,6 +218,13 @@ class BridgeMessageValidator {
             ],
             "required": ["filename", "trace"],
             "additionalProperties": false
+        ],
+        "openInBrowser": [
+            "type": "object",
+            "properties": [
+                "url": ["type": "string"]
+            ],
+            "additionalProperties": false
         ]
     ]
 
@@ -386,7 +393,8 @@ class BridgeMessageValidator {
             "getSafeArea",
             "startTransition",
             "commitTransition",
-            "cancelTransition"
+            "cancelTransition",
+            "openInBrowser"
         ]
 
         if flexibleCommands.contains(command) {
