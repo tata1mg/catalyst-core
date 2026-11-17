@@ -1,5 +1,5 @@
 <Kicker>
-The web runtime has no breaking changes. Universal apps should read the breaking changes below before upgrading.
+Everything since 1.1.0, from 1.2.0 and 1.2.1. The web runtime has no breaking changes. Universal apps should read the upgrade guide before upgrading.
 </Kicker>
 
 <Section eyebrow="01 / Try it" title="Two commands for each platform.">
@@ -26,7 +26,7 @@ npm run ios:release
 
 </Snippets>
 
-Older apps keep `buildApp:<platform>` and build a release with `npm run buildApp:<platform> -- --release`. Full setup: [Universal App Deployment](/content/Deployment/universal-app-deployment) and the [1.1.x to 1.2.0 upgrade guide](/content/Migration/0.0.1-beta.4#upgrading-from-11x-to-120).
+Older apps keep `buildApp:<platform>` and build a release with `npm run buildApp:<platform> -- --release`. Full setup: [Universal App Deployment](/content/Deployment/universal-app-deployment) and the upgrade guides from [1.1.x to 1.2.0](/content/Migration/0.0.1-beta.4#upgrading-from-11x-to-120) and [1.2.0 to 1.2.1](/content/Migration/0.0.1-beta.4#upgrading-from-120-to-121).
 
 </Section>
 
@@ -34,19 +34,19 @@ Older apps keep `buildApp:<platform>` and build a release with `npm run buildApp
 
 <Features>
 
-<Feature title="No Android Studio, no Xcode" image="/img/releases/1.2.0/run.jpg" by="mayansharma" pr="575">
+<Feature title="No Android Studio, no Xcode" image="/img/releases/1.2.1/run.jpg" by="mayansharma" pr="575">
 
 `npm run android` and `npm run ios` check the toolchain and install what is missing after asking, start the dev server when nothing answers, and open the app on an emulator, simulator or phone. Android also saves a debug APK in `build-output/android/debug/` that you can share.
 
 </Feature>
 
-<Feature title="Store builds, one command" image="/img/releases/1.2.0/release.jpg" by="mayansharma" pr="595">
+<Feature title="Store builds, one command" image="/img/releases/1.2.1/release.jpg" by="mayansharma" pr="595">
 
 `npm run android:release` writes a signed App Bundle, a signed APK and `upload_certificate.pem`. `npm run ios:release` writes a signed IPA and a zip of its dSYMs. A Mac signed in to Xcode needs no signing files, and CI needs one secret per platform from `catalyst credentials:export`.
 
 </Feature>
 
-<Feature title="Every security fix, published" image="/img/releases/1.2.0/security.jpg" by="mayansharma">
+<Feature title="Every security fix, published" image="/img/releases/1.2.1/security.jpg" by="mayansharma">
 
 Catalyst now publishes [GitHub Security Advisories](https://github.com/tata1mg/catalyst-core/security/advisories). Each one says what broke, why it matters and which version fixes it.
 
@@ -70,6 +70,12 @@ Signing files live in `credentials/android/` and `credentials/ios/`, which new a
 
 <Fixes>
 
+<Fix by="mayansharma" pr="618">`useIntent()` adds `openInBrowser(url)`, which opens an `http` or `https` link in the default browser, or in the app that owns the link.</Fix>
+
+<Fix by="mayansharma" pr="618">The Android and iOS apps send `WEBVIEW_CONFIG.appInfo` to your server in an `X-App-Info` request header.</Fix>
+
+<Fix by="mayansharma" pr="618">iOS with `edgeToEdge.enabled` no longer adds the safe-area insets itself, matching Android. Pad the page with `useSafeArea()`; content that relied on the automatic inset moves up.</Fix>
+
 <Fix by="mayansharma" pr="585">New apps get a new starter page, the animated HTML splash screen on by default, a restyled offline page and a placeholder `public/icon.png`.</Fix>
 
 <Fix by="mayansharma" pr="585">The template's `server/index.js` exports a stub for `preServerInit` and each per-request hook, and startup warns when a hook sits inside `export default {}`, where it is never called.</Fix>
@@ -84,6 +90,8 @@ Signing files live in `credentials/android/` and `credentials/ios/`, which new a
 
 </Fixes>
 
+The three changes at the top of this list are new in 1.2.1. Everything else on this page first shipped in [1.2.0](/releases/1.2.0) on 13 November.
+
 </Section>
 
 <Tip title="Back up your upload key.">
@@ -93,4 +101,4 @@ Signing files live in `credentials/android/` and `credentials/ios/`, which new a
 
 </Tip>
 
-<Thanks release="1.2.0" people={["mayansharma", "SpideyPotter"]} />
+<Thanks release="1.2.1" people={["mayansharma", "SpideyPotter"]} />
