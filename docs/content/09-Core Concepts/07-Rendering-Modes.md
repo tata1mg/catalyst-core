@@ -52,7 +52,7 @@ A PPR response is written in three parts:
 2. **App**, the postponed hole: resumed with `resumeToPipeableStream` when this request's `serverFetcher` data is ready, so existing fetchers work unchanged.
 3. **Trailer**: this request's `__INITIAL_STATE__`, router data, rendered `split()` keys, deferred CSS/JS, and any cookies/redirects set after the headers went out (replayed client-side).
 
-The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`; as a guard, a shell that contains a value from the request's cookies is not cached. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server.
+The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`. As a safety net, a shell that contains one of the request's cookie values (or a `|`, `:` or `.` separated part of one) of 12 or more characters is not cached. Shorter values are not checked, because short strings such as `1`, `true` or `en` also occur in ordinary markup and would stop every page from caching; keeping per-request values out of the shell is the app's job. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server.
 
 ```jsx
 // server/document.js (custom Document): per-request markup stays out of the shared shell
@@ -106,22 +106,20 @@ StaticDemo.renderMode = "static"
 
 The entire page — not just a shell — is rendered once (via `prerenderToNodeStream` with no abort/postpone, so it waits for the whole tree, including `serverFetcher` data, to fully resolve) and cached in full, keyed by pathname plus the sorted query string. Every later request, bots included, runs `App.serverSideFunction` (so its redirects, auth checks and cookies still apply) and then replays those bytes with no data fetch and no render.
 
-Requests with a CSP nonce in `res.locals.cspNonce` or native safe-area headers are rendered fresh instead. The cached page includes the store state of the request that rendered it, so use static mode only for routes whose store holds nothing per-user. As a guard, a page that contains a value from the request's cookies is not cached.
+Requests with a CSP nonce in `res.locals.cspNonce` or native safe-area headers are rendered fresh instead. The cached page includes the store state of the request that rendered it, so use static mode only for routes whose store holds nothing per-user. As a safety net, a page that contains one of the request's cookie values of 12 or more characters is not cached (the same check as for PPR shells; shorter values are not detected).
 
-**`serverFetcher`/`clientFetcher` are only discovered on a lazily-loaded route** — `renderMode` and any fetchers must be set on a `split()`-wrapped component, not a plain direct import:
+`renderMode` is read from the matched route's component. On a directly imported component, set it on the component as above. When the route is wrapped with `split()`, set it on the wrapper too: the server checks it synchronously and can't await the lazy import.
 
 ```js
 import { split } from "catalyst-core"
 
 const StaticDemo = split(() => import("@containers/StaticDemo/StaticDemo"))
-// renderMode has to be mirrored onto the split() wrapper itself — the
-// static-mode check is synchronous and can't await the lazy import.
 StaticDemo.renderMode = "static"
 ```
 
 **Refreshing the cache during development:** append `?__refresh_static_cache` to the URL to force one request to bypass the cache and re-render (which also repopulates that route's cache entry with the new output). This only works when `NODE_ENV !== "production"` — in production the query param is ignored and the cached page is always served, since a client-controlled way to force a full re-render would defeat the point of the cache.
 
-The cache is in-process and per-server: it's cleared on restart/redeploy, and (like the PPR shell cache) isn't currently exposed as a public API for a consuming app to clear programmatically at runtime.
+The cache is in-process and per-server, bounded by `STATIC_PAGE_CACHE_MAX` pages (default 50) and `STATIC_PAGE_CACHE_MAX_BYTES` of HTML (default 64 MiB; least recently used pages are evicted first, a page larger than the whole budget is not cached, and a negative value means no byte budget). It's cleared on restart/redeploy, and (like the PPR shell cache) isn't currently exposed as a public API for a consuming app to clear programmatically at runtime.
 
 ## x-rendering-mode reference
 

@@ -53,6 +53,20 @@ describe("usePPRRouteData (client)", () => {
         expect(fetcher).toHaveBeenCalledTimes(2)
     })
 
+    it("keeps at most 100 paths in the client cache, dropping the oldest", async () => {
+        const fetcher = vi.fn(async () => ({ value: "fetched" }))
+        const first = window.location.pathname
+        await renderReader(fetcher)
+        for (let i = 0; i < 100; i++) {
+            window.history.replaceState(null, "", `/page-${i}`)
+            await renderReader(fetcher)
+        }
+        expect(fetcher).toHaveBeenCalledTimes(101)
+        window.history.replaceState(null, "", first)
+        await renderReader(fetcher) // evicted, so fetched again
+        expect(fetcher).toHaveBeenCalledTimes(102)
+    })
+
     it("suspends without fetching while the PPR shell is prerendered", async () => {
         const fetcher = vi.fn(async () => ({ value: "fetched" }))
         await renderReader(fetcher, (el) => (

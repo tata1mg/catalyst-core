@@ -37,6 +37,8 @@ import {
     PPR_PROGRESSIVE_CHUNK_SIZE,
     ShellCache,
     shellCache,
+    STATIC_PAGE_CACHE_MAX,
+    STATIC_PAGE_CACHE_MAX_BYTES,
     cssSignature,
     createNoncePlaceholder,
     applyNonce,
@@ -586,7 +588,12 @@ const _renderMarkUp = async (
 // A route opted into `Component.renderMode = "static"` is rendered once and the bytes are
 // replayed to every later request, bots included. Only for pages that are identical for
 // every visitor: no cookies, tokens or nonces in the markup.
-const staticPageCache = new ShellCache()
+// Whole pages, so it is bounded in bytes as well as entries (see STATIC_PAGE_CACHE_MAX_BYTES).
+const staticPageCache = new ShellCache({
+    maxEntries: STATIC_PAGE_CACHE_MAX,
+    maxBytes: STATIC_PAGE_CACHE_MAX_BYTES,
+    sizeOf: (page: any) => page.buffer.byteLength,
+})
 export const clearStaticPageCache = () => staticPageCache.clear()
 
 // Dev-only escape hatch: ?__refresh_static_cache re-renders (and re-caches) one static route.
@@ -878,13 +885,15 @@ const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes }: a
     safeCall(beforePPRFlush, { req, res, store })
     if (res.headersSent) return true
 
+    // The nonce this response's CSP header uses, when the app sets one.
+    const appNonce = res.locals?.cspNonce
     const cacheKey = getPathname(req)
-    const key = `${cacheKey}|${appKey ?? ""}`
+    // A shell built for a nonce request carries a nonce placeholder, one built without a nonce
+    // has none to replace, so the two are cached apart.
+    const key = `${cacheKey}|${appKey ?? ""}${appNonce ? "|nonce" : ""}`
     const chunkExtractor = collectAssets(req, allMatches)
     const fallback = getRouteComponent(allMatches)?.pprFallback ?? null
     const metaTags = tracedGetMetaData(allMatches, {})
-    // The nonce this response's CSP header uses, when the app sets one.
-    const appNonce = res.locals?.cspNonce
 
     // Rebuild the shell when the route has learned new deferred CSS/JS since it was built,
     // so the shell's inlined CSS and modulepreloads keep up with the classic path.
@@ -1161,18 +1170,19 @@ async function _handler(req: any, res: any) {
         if (res.headersSent) return
 
         const renderMode = getRenderMode(allMatches)
-        // A cached static page or PPR shell is shared by every visitor, so requests that carry
-        // per-request document values (a nonce-based CSP, native safe-area insets) use the
-        // classic path.
         const hasSafeArea = parseSafeAreaFromHeaders(req) !== null
-        const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce && !hasSafeArea
-        const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
 
         try {
             await tracedAppServerSideFunction({ store, req, res })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
             if (res.headersSent) return
+
+            // A cached static page is shared by every visitor, so requests that carry per-request
+            // document values (a nonce-based CSP, native safe-area insets) use the classic path.
+            // Decided after the app hooks, since they are where a nonce is usually set.
+            const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce && !hasSafeArea
+            const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
 
             // Static: replay a cached page only after App.serverSideFunction, so its redirects,
             // auth checks and cookies still apply to every request.
@@ -1276,8 +1286,10 @@ async function _handler(req: any, res: any) {
 
             if (res.headersSent) return
 
+            // Rendered fresh, never as a static page: an error page must not be cached (and
+            // error.status_code may be unset, which would otherwise read as a clean 200).
             const chunkExtractor = collectAssets(req, allMatches)
-            await renderMarkUp(
+            await tracedRenderMarkUp(
                 error.status_code,
                 req,
                 res,

@@ -19,6 +19,12 @@ export const isPPREnabled = () =>
     (process.env.PPR_ENABLE as any) === true || process.env.PPR_ENABLE === "true"
 export const PPR_SHELL_CACHE_MAX = () => toInt(process.env.PPR_SHELL_CACHE_MAX, 50)
 // Shell prerenders allowed to run at the same time (each is a full React render).
+// Static (full-page) cache: at most this many pages and this many bytes of HTML in memory.
+// A page larger than the byte budget is not cached. Negative STATIC_PAGE_CACHE_MAX_BYTES means no
+// byte budget.
+export const STATIC_PAGE_CACHE_MAX = () => toInt(process.env.STATIC_PAGE_CACHE_MAX, 50)
+export const STATIC_PAGE_CACHE_MAX_BYTES = () =>
+    toInt(process.env.STATIC_PAGE_CACHE_MAX_BYTES, 64 * 1024 * 1024)
 export const PPR_SHELL_BUILDS_MAX = () => toInt(process.env.PPR_SHELL_BUILDS_MAX, 8)
 // How long the prerender waits for the static parts before it is cut (the hole never settles).
 export const PPR_PRERENDER_SETTLE_MS = () => toInt(process.env.PPR_PRERENDER_SETTLE_MS, 50)
@@ -31,13 +37,32 @@ export const PPR_RESUME_TIMEOUT_MS = () => toInt(process.env.PPR_RESUME_TIMEOUT_
 export const PPR_PROGRESSIVE_CHUNK_SIZE = () => toInt(process.env.PPR_PROGRESSIVE_CHUNK_SIZE, undefined)
 
 /** Bounded LRU of built shells. Keys come from the URL, so the bound also caps memory. */
+type ShellCacheOptions = {
+    maxEntries?: () => number
+    /** Total size budget; negative means none. */
+    maxBytes?: () => number
+    sizeOf?: (value: any) => number
+}
+
 export class ShellCache {
     map: Map<string, any>
     inflight: Map<string, Promise<any>>
     epoch: number
     versions: Map<string, number>
+    bytes: number
+    maxEntries: () => number
+    maxBytes: () => number
+    sizeOf: (value: any) => number
 
-    constructor() {
+    constructor({
+        maxEntries = PPR_SHELL_CACHE_MAX,
+        maxBytes = () => -1,
+        sizeOf = () => 0,
+    }: ShellCacheOptions = {}) {
+        this.maxEntries = maxEntries
+        this.maxBytes = maxBytes
+        this.sizeOf = sizeOf
+        this.bytes = 0
         this.map = new Map()
         this.inflight = new Map()
         // delete()/clear() bump these, so a build that started before them can't publish.
@@ -55,13 +80,23 @@ export class ShellCache {
         }
         return value
     }
-    set(key: string, value: any) {
+    remove(key: string) {
+        if (!this.map.has(key)) return
+        this.bytes -= this.sizeOf(this.map.get(key))
         this.map.delete(key)
+    }
+    set(key: string, value: any) {
+        this.remove(key)
+        const size = this.sizeOf(value)
+        const maxBytes = this.maxBytes()
+        if (maxBytes >= 0 && size > maxBytes) return
         this.map.set(key, value)
-        while (this.map.size > PPR_SHELL_CACHE_MAX()) this.map.delete(this.map.keys().next().value)
+        this.bytes += size
+        while (this.map.size > this.maxEntries() || (maxBytes >= 0 && this.bytes > maxBytes))
+            this.remove(this.map.keys().next().value as string)
     }
     delete(key: string) {
-        this.map.delete(key)
+        this.remove(key)
         this.inflight.delete(key)
         this.versions.set(key, (this.versions.get(key) || 0) + 1)
         if (this.versions.size > 10000) {
@@ -72,6 +107,7 @@ export class ShellCache {
     }
     clear() {
         this.map.clear()
+        this.bytes = 0
         this.inflight.clear()
         this.versions.clear()
         this.epoch++
@@ -98,7 +134,12 @@ export class ShellCache {
         return pending
     }
     stats() {
-        return { size: this.map.size, keys: Array.from(this.map.keys()), building: this.inflight.size }
+        return {
+            size: this.map.size,
+            bytes: this.bytes,
+            keys: Array.from(this.map.keys()),
+            building: this.inflight.size,
+        }
     }
 }
 

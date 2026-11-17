@@ -64,6 +64,29 @@ test("ShellCache is bounded LRU and builds each key once", async () => {
     delete process.env.PPR_SHELL_CACHE_MAX
 })
 
+test("ShellCache with a byte budget evicts least recently used entries and skips oversized ones", () => {
+    let maxBytes = 10
+    const cache = new ShellCache({ maxEntries: () => 10, maxBytes: () => maxBytes, sizeOf: (v) => v.length })
+    cache.set("a", "aaaa")
+    cache.set("b", "bbbb")
+    cache.get("a") // b is now least recent
+    cache.set("c", "cccc") // 12 bytes: b goes
+    assert.deepEqual(cache.stats().keys.sort(), ["a", "c"])
+    assert.equal(cache.stats().bytes, 8)
+    cache.set("a", "aa") // replacing an entry swaps its size
+    assert.equal(cache.stats().bytes, 6)
+    cache.set("big", "x".repeat(11)) // larger than the whole budget: not cached, nothing evicted
+    assert.equal(cache.get("big"), undefined)
+    assert.deepEqual(cache.stats().keys.sort(), ["a", "c"])
+    cache.delete("c")
+    assert.equal(cache.stats().bytes, 2)
+    maxBytes = -1 // negative: no byte budget
+    cache.set("big", "x".repeat(100))
+    assert.equal(cache.get("big"), "x".repeat(100))
+    cache.clear()
+    assert.deepEqual(cache.stats(), { size: 0, bytes: 0, keys: [], building: 0 })
+})
+
 const fakeRes = () => {
     const res: any = new EventEmitter()
     res.headersSent = false
@@ -179,4 +202,69 @@ test("ShellCache: a build started before delete/clear does not publish; concurre
     cache.build("/d", () => hold)
     assert.equal(cache.isSaturated("/e", 2), true, "a third distinct key is refused at max 2")
     assert.equal(cache.isSaturated("/c", 2), false, "a key already building can still be joined")
+})
+
+test("guarded calls pass through before the shell is sent; restore() puts the originals back", () => {
+    const res = fakeRes()
+    const own = { cookie: res.cookie, clearCookie: res.clearCookie, redirect: res.redirect }
+    const guard = guardLateResponseCalls(res, { warn() {} })
+    res.clearCookie("early")
+    res.redirect(302, "/login")
+    assert.deepEqual(res.calls, [
+        ["clearCookie", "early"],
+        ["redirect", 302, "/login"],
+    ])
+    res.headersSent = true
+    res.cookie("pref", { theme: "dark" }, { domain: "example.com", expires: new Date(0) })
+    res.redirect("/elsewhere")
+    const js = guard.scripts()
+    assert.match(
+        js,
+        /document\.cookie="pref=j%3A%7B%22theme%22%3A%22dark%22%7D; Expires=Thu, 01 Jan 1970[^"]*; Domain=example\.com; Path=\/"/
+    )
+    assert.equal(guard.redirectTo, "/elsewhere")
+    guard.restore()
+    assert.equal(res.cookie, own.cookie)
+    assert.equal(res.clearCookie, own.clearCookie)
+    assert.equal(res.redirect, own.redirect)
+
+    // Methods that came from the prototype (not own properties) are removed again, not copied on.
+    class Proto extends EventEmitter {
+        cookie() {
+            return this
+        }
+    }
+    const inherited: any = new Proto()
+    const g2 = guardLateResponseCalls(inherited)
+    assert.ok(Object.prototype.hasOwnProperty.call(inherited, "cookie"))
+    g2.restore()
+    assert.ok(!Object.prototype.hasOwnProperty.call(inherited, "cookie"))
+    assert.equal(g2.scripts("n"), "")
+})
+
+test("priority preload extraction stops at MAX_LEARNED_PRELOADS; no <head> means no offset", async () => {
+    const { extractPriorityImagePreloads, findHeadPreloadOffset, MAX_LEARNED_PRELOADS } =
+        await import("../../src/server/renderer/ppr.js")
+    const html = Array.from(
+        { length: MAX_LEARNED_PRELOADS + 2 },
+        (_, i) => `<link rel="preload" as="image" href="https://cdn/${i}.png" fetchPriority="high"/>`
+    ).join("")
+    assert.equal(extractPriorityImagePreloads(html).length, MAX_LEARNED_PRELOADS)
+    assert.equal(findHeadPreloadOffset("<div>no head</div>"), -1)
+})
+
+test("ShellCache starts a new epoch once 10000 keys have been deleted", async () => {
+    const cache = new ShellCache()
+    for (let i = 0; i <= 10000; i++) cache.delete(`/k${i}`)
+    assert.equal(cache.epoch, 1)
+    assert.equal(cache.versions.size, 0)
+})
+
+test("the PPR shell cache helpers clear and report the shared cache", async () => {
+    const { clearPPRShellCache, getPPRShellCacheStats, shellCache } =
+        await import("../../src/server/renderer/ppr.js")
+    shellCache.set("/x|", { prelude: "x" })
+    assert.deepEqual(getPPRShellCacheStats().keys, ["/x|"])
+    clearPPRShellCache()
+    assert.equal(getPPRShellCacheStats().size, 0)
 })

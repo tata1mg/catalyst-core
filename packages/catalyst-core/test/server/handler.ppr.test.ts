@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const TEMPLATE_DOC = "@catalyst/template/server/document"
 const HOOKS = "@catalyst/template/server/index.js"
+const ROUTER_DATA = "../../src/web-router/components/RouterDataProvider.jsx"
 
 // vitest mocks throw on exports the factory leaves out, and the handler reads every hook.
 const mockHooks = (hooks: Record<string, any>) =>
@@ -41,6 +42,62 @@ const leakyDocument = (props: any) =>
 
 // A Writable whose headersSent turns true once the first byte is written, like a real
 // ServerResponse, so the PPR path's late-call guards behave as in production.
+// The app Document for the current test (undefined: the built-in one). The Document is mocked
+// once, in beforeEach, with a factory that reads this. A second vi.doMock of the same path from
+// inside a test raced with the first (registration is asynchronous), so a test sometimes got the
+// built-in Document.
+let currentDocument: any
+const mockDocument = (Document: any) => {
+    currentDocument = Document
+}
+
+// Documents whose PPR shell can't be used; the classic render (pprShell unset) is a normal page.
+const shellDocument = (shell: (props: any) => any) => (props: any) =>
+    props.pprShell
+        ? shell(props)
+        : React.createElement(
+              "html",
+              null,
+              React.createElement("head", null),
+              React.createElement("body", null, props.jsx)
+          )
+// [label, shell document, expected log, settle ms]. The prerender is aborted after
+// PPR_PRERENDER_SETTLE_MS, and an abort before it finishes counts as postponed, so the
+// "nothing postponed" case gets time to finish on a slow machine.
+const SHELL_DOCUMENTS: [string, (props: any) => any, string, number][] = [
+    [
+        "the Document throws while the shell is prerendered",
+        () => {
+            throw new Error("shell document exploded")
+        },
+        "shell document exploded",
+        50,
+    ],
+    [
+        "the Document leaves the app out (nothing is postponed)",
+        () =>
+            React.createElement("html", null, React.createElement("head", null), React.createElement("body")),
+        "nothing was postponed",
+        2000,
+    ],
+    [
+        "the shell has no #app",
+        (props: any) =>
+            React.createElement(
+                "html",
+                null,
+                React.createElement("head", null),
+                React.createElement(
+                    "body",
+                    null,
+                    React.createElement("section", null, props.jsx.props.children)
+                )
+            ),
+        "shell is incomplete",
+        50,
+    ],
+]
+
 function makeReqRes(url: string, { cookies = {}, userAgent = "Mozilla/5.0 test" } = {}) {
     const chunks: Buffer[] = []
     let started = false
@@ -93,8 +150,9 @@ function makeReqRes(url: string, { cookies = {}, userAgent = "Mozilla/5.0 test" 
 }
 
 async function load(query: Record<string, string> = {}) {
-    const { default: handler } = await import("../../src/server/renderer/handler.jsx")
-    return async (url: string, opts: any = {}) => {
+    const handlerModule: any = await import("../../src/server/renderer/handler.jsx")
+    const handler = handlerModule.default
+    const get = async (url: string, opts: any = {}) => {
         const { req, res } = makeReqRes(url, opts)
         req.query = { ...query, ...(opts.query || {}) }
         if (opts.nonce) res.locals.cspNonce = opts.nonce
@@ -102,6 +160,7 @@ async function load(query: Record<string, string> = {}) {
         await res.waitForEnd()
         return { html: res.getHtml() as string, mode: res.headers["x-rendering-mode"], res }
     }
+    return Object.assign(get, { handlerModule })
 }
 
 // At runtime process.env is the plain object built from config.json (booleans stay booleans).
@@ -109,7 +168,8 @@ let realEnv: NodeJS.ProcessEnv
 beforeEach(() => {
     realEnv = process.env
     process.env = { ...realEnv, src_path: process.cwd(), BUILD_OUTPUT_PATH: "build", APPLICATION: "test" }
-    vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+    currentDocument = undefined
+    vi.doMock(TEMPLATE_DOC, () => ({ default: currentDocument }))
     vi.spyOn(console, "error").mockImplementation(() => {})
     vi.spyOn(console, "log").mockImplementation(() => {})
     vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -228,6 +288,96 @@ describe("SSR handler — PPR request handling", () => {
         expect(page.html).toContain("late=1")
     })
 
+    it("keeps shells for nonce and no-nonce requests apart", async () => {
+        const get = await load()
+        const plain = await get("/ppr", { cookies: USER_A })
+        const withNonce = await get("/ppr", { cookies: USER_B, nonce: "nonce-one" })
+        const plainAgain = await get("/ppr", { cookies: USER_A })
+        expect(plain.mode).toBe("ppr-miss")
+        // A shell built without a nonce has no placeholder, so reusing it would drop the nonce.
+        expect(withNonce.mode).toBe("ppr-miss")
+        expect(withNonce.html).toContain('nonce="nonce-one"')
+        expect(plainAgain.mode).toBe("ppr-hit")
+        expect(plainAgain.html).not.toContain("nonce=")
+    })
+
+    it("rebuilds the shell on every request in development", async () => {
+        ;(process.env as any).NODE_ENV = "development"
+        const get = await load()
+        expect((await get("/ppr", { cookies: USER_A })).mode).toBe("ppr-miss")
+        expect((await get("/ppr", { cookies: USER_B })).mode).toBe("ppr-miss")
+    })
+
+    it("flushes the shell when the response supports flush()", async () => {
+        const handler = (await load()).handlerModule.default
+        const { req, res } = makeReqRes("/ppr", { cookies: USER_A })
+        res.flush = vi.fn()
+        await handler(req, res)
+        await res.waitForEnd()
+        expect(res.flush).toHaveBeenCalled()
+        expect(res.getHtml()).toContain("user:<!-- -->user-aaaaaaaaaaaa")
+    })
+
+    it("stops resuming when the client disconnects", async () => {
+        const handler = (await load()).handlerModule.default
+        const { req, res } = makeReqRes("/ppr", { cookies: USER_A })
+        req.query = { slow: "" } // route data takes 100 ms
+        const handled = handler(req, res)
+        await vi.waitFor(() => expect(res.getHtml()).toContain("skeleton"))
+        res.destroy()
+        await handled
+        await res.waitForEnd()
+        expect(res.getHtml()).not.toContain("user-aaaaaaaaaaaa")
+    })
+
+    it.each(SHELL_DOCUMENTS)(
+        "serves the classic render when %s, and does not retry the shell at once",
+        async (_label, shell, logged, settleMs) => {
+            ;(process.env as any).PPR_PRERENDER_SETTLE_MS = settleMs
+            mockDocument(shellDocument(shell))
+            const get = await load()
+            const first = await get("/ppr", { cookies: USER_A })
+            const second = await get("/ppr", { cookies: USER_B })
+            expect(first.mode).toBeUndefined()
+            expect(first.html).toContain("user:<!-- -->user-aaaaaaaaaaaa")
+            expect(second.mode).toBeUndefined()
+            const messages = [...(console.warn as any).mock.calls, ...(console.error as any).mock.calls]
+                .flat()
+                .map(String)
+            expect(messages.some((m) => m.includes(logged))).toBe(true)
+        }
+    )
+
+    it.each([
+        ["a PPR route, after the shell went out", "/ppr", "ppr-miss"],
+        ["the classic path", "/", undefined],
+    ])("renders a 404 when serverDataFetcher itself throws on %s", async (_label, url, mode) => {
+        vi.doMock(ROUTER_DATA, async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            serverDataFetcher: async () => {
+                throw new Error("data layer down")
+            },
+        }))
+        const onFetcherError = vi.fn()
+        mockHooks({ onFetcherError })
+        const get = await load()
+        const page = await get(url, { cookies: USER_A })
+        expect(page.mode).toBe(mode)
+        expect(onFetcherError).toHaveBeenCalledWith(
+            expect.objectContaining({ error: expect.objectContaining({ message: "data layer down" }) })
+        )
+        if (mode) expect(page.html).toContain("window.__STATUS_CODE__=404")
+        else expect(page.res.statusCode).toBe(404)
+        vi.doUnmock(ROUTER_DATA)
+    })
+
+    it("stops when beforePPRFlush sends the response itself", async () => {
+        mockHooks({ beforePPRFlush: ({ res }: any) => res.end("redirecting") })
+        const get = await load()
+        const page = await get("/ppr", { cookies: USER_A })
+        expect(page.html).toBe("redirecting")
+    })
+
     it("swaps in each response's own CSP nonce", async () => {
         const get = await load()
         const first = await get("/ppr", { cookies: USER_A, nonce: "nonce-one" })
@@ -284,7 +434,7 @@ describe("SSR handler — PPR request handling", () => {
     })
 
     it("does not cache a shell that contains a request cookie value", async () => {
-        vi.doMock(TEMPLATE_DOC, () => ({ default: leakyDocument }))
+        mockDocument(leakyDocument)
         const get = await load()
         const first = await get("/ppr", { cookies: USER_A })
         const second = await get("/ppr", { cookies: USER_B })
@@ -311,7 +461,7 @@ describe("SSR handler — PPR request handling", () => {
 
 describe("SSR handler — static cache guards", () => {
     it("does not cache a static page that contains a request cookie value", async () => {
-        vi.doMock(TEMPLATE_DOC, () => ({ default: leakyDocument }))
+        mockDocument(leakyDocument)
         const get = await load()
         const first = await get("/static", { cookies: USER_A })
         const second = await get("/static", { cookies: USER_B })
@@ -322,10 +472,48 @@ describe("SSR handler — static cache guards", () => {
         )
     })
 
+    it("clearStaticPageCache drops cached pages", async () => {
+        const get = await load()
+        const { clearStaticPageCache } = get.handlerModule
+        await get("/static")
+        expect((await get("/static")).mode).toBe("static-cache-hit")
+        clearStaticPageCache()
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+    })
+
     it("answers 500 when a static page fails to render", async () => {
         const get = await load()
         const page = await get("/static-error")
         expect(page.res.statusCode).toBe(500)
+    })
+
+    it("renders fresh when App.serverSideFunction sets a CSP nonce", async () => {
+        const AppModule: any = await import("./fixtures/template/src/js/containers/App/index.jsx")
+        const get = await load()
+        await get("/static") // cache the page
+        vi.spyOn(AppModule.default, "serverSideFunction").mockImplementationOnce(async ({ res }: any) => {
+            res.locals.cspNonce = "late-nonce"
+        })
+        const page = await get("/static")
+        expect(page.mode).toBeUndefined()
+        expect(page.html).toContain("static page")
+    })
+
+    it("does not cache the page rendered after App.serverSideFunction throws", async () => {
+        const AppModule: any = await import("./fixtures/template/src/js/containers/App/index.jsx")
+        const get = await load()
+        vi.spyOn(AppModule.default, "serverSideFunction").mockRejectedValueOnce(new Error("boom"))
+        const failed = await get("/static")
+        const next = await get("/static")
+        expect(failed.mode).toBeUndefined()
+        expect(next.mode).toBe("static-cache-miss")
+    })
+
+    it("does not cache a static page larger than STATIC_PAGE_CACHE_MAX_BYTES", async () => {
+        ;(process.env as any).STATIC_PAGE_CACHE_MAX_BYTES = 10
+        const get = await load()
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+        expect((await get("/static")).mode).toBe("static-cache-miss")
     })
 
     it("renders fresh when the response carries a CSP nonce", async () => {

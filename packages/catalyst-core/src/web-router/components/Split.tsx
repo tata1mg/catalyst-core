@@ -36,6 +36,10 @@ export interface SplitComponent {
     clientFetcher?: any
     serverFetcher?: any
     setMetaData?: any
+    /** Server rendering mode for the route; mirror it onto the wrapper (the server reads it synchronously). */
+    renderMode?: "ppr" | "static"
+    /** Static skeleton prerendered into the PPR shell in place of the route. */
+    pprFallback?: any
 }
 
 // Synchronous module cache: importFn → resolved module.
