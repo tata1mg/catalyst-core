@@ -96,11 +96,31 @@ export async function prepareAudioParts(messages, { decode = browserDecode, onEr
                         return { ...part, data: `data:audio/wav;base64,${bytesToBase64(wav)}` }
                     } catch (error) {
                         onError?.(error)
-                        return part
+                        // Keep the clip usable: recorders label it "audio/webm;codecs=opus", which the strict media check refuses.
+                        const data = normalizeAudioMime(part.data)
+                        return data === part.data ? part : { ...part, data }
                     }
                 })
             )
             return { ...message, content }
         })
     )
+}
+
+/**
+ * "data:audio/webm;codecs=opus;base64,..." -> "data:audio/webm;base64,...". Recorders label clips with codec parameters;
+ * the server's media check wants the bare type. Anything that is not a base64 audio data URL is returned unchanged.
+ */
+export function normalizeAudioMime(dataUrl) {
+    if (typeof dataUrl !== "string") return dataUrl
+    const match = /^data:(audio\/[^;,]+)(?:;[^;,]+)*;base64,/i.exec(dataUrl)
+    return match ? `data:${match[1].toLowerCase()};base64,${dataUrl.slice(dataUrl.indexOf(",") + 1)}` : dataUrl
+}
+
+/** Same audio parts, with codec parameters stripped from their MIME type. Other parts are the same objects. */
+export function normalizeAudioParts(messages) {
+    return messages.map((message) => {
+        if (!Array.isArray(message.content)) return message
+        return { ...message, content: message.content.map((part) => (part?.type === "audio" ? { ...part, data: normalizeAudioMime(part.data) } : part)) }
+    })
 }

@@ -231,3 +231,18 @@ describe("scope not yet implemented", () => {
     it.todo("useAI auto routing never sends image/audio to cloud when privacy is 'sensitive' (ask/deny, no silent fallback)")
     it.todo("useWebAI keeps the media-capable worker alive across calls and refuses media for other models")
 })
+
+describe("data URL attributes", () => {
+    it("accepts a recorder's codec attribute and keeps the bare type", async () => {
+        const { normalizeMessages, getModalities } = await mod
+        const messages = [{ role: "user", content: [{ type: "audio", data: "data:audio/webm;codecs=opus;base64,GkXfoAAA" }] }]
+        expect(normalizeMessages(messages)[0].parts[0]).toEqual({ type: "audio", mimeType: "audio/webm", base64: "GkXfoAAA" })
+        expect([...getModalities(messages)]).toEqual(["audio"])
+    })
+
+    it("still refuses a data URL that is not base64 or has a wrong type", async () => {
+        const { normalizeMessages } = await mod
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "audio", data: "data:audio/webm;codecs=opus,AAAA" }] }])).toThrow(/base64 data URL/)
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "audio", data: "data:image/png;codecs=x;base64,AAAA" }] }])).toThrow(/cannot carry/)
+    })
+})

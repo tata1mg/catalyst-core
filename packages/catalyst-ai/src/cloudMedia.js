@@ -95,7 +95,8 @@ const IMAGE_MIMES = {
     anthropic: ["image/png", "image/jpeg", "image/webp", "image/gif"],
 }
 const OPENAI_AUDIO_MIMES = { "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mpeg": "mp3", "audio/mp3": "mp3" }
-const GEMINI_AUDIO_MIMES = ["audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac"]
+// webm / mp4 / opus are what browsers and phones record; Gemini takes them as they are, so cloud calls need no conversion.
+const GEMINI_AUDIO_MIMES = ["audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac", "audio/webm", "audio/mp4", "audio/m4a", "audio/x-m4a", "audio/opus"]
 
 /** What a provider endpoint accepts. `audio: false` also covers "format not confirmed, refused for safety". */
 function capabilitiesFor({ provider, stateful, model }) {
@@ -116,7 +117,7 @@ function capabilitiesFor({ provider, stateful, model }) {
             // Inline audio is documented for generateContent; the Interactions inline format is unconfirmed.
             audio: !stateful,
             audioMimes: GEMINI_AUDIO_MIMES,
-            audioHint: "use wav, mp3, aiff, aac, ogg or flac",
+            audioHint: "use wav, mp3, aiff, aac, ogg, flac, webm, mp4 or opus",
         }
     }
     if (provider === "anthropic") {

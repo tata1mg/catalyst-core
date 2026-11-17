@@ -11,7 +11,14 @@ export const DEFAULT_LIMITS = {
 }
 
 const MEDIA_TYPES = ["image", "audio"]
-const DATA_URL = /^data:([^;,]+);base64,(.*)$/s
+// Recorders label clips "audio/webm;codecs=opus": RFC 2397 allows ;name=value attributes before ;base64, so accept them and keep the bare type.
+const DATA_URL = /^data:([^;,]+)(?:;[^;,=]+=[^;,]*)*;base64,(.*)$/s
+
+// What a rejected `data` looked like, without the payload: "string, 125591 chars, starts \"data:audio/wav;base64,UklG\"".
+export function describeData(value) {
+    if (typeof value !== "string") return `${value === null ? "null" : typeof value}`
+    return `string, ${value.length} chars, starts ${JSON.stringify(value.slice(0, 40))}`
+}
 
 function inputError(reason, message, extra = {}) {
     return Object.assign(new Error(message), { reason, ...extra })
@@ -32,7 +39,7 @@ function normalizePart(part, limits) {
         throw inputError("invalid-part", `Unknown content part type "${part.type}" (expected text, image or audio)`)
     }
     const match = typeof part.data === "string" ? DATA_URL.exec(part.data) : null
-    if (!match) throw inputError("invalid-part", `A ${part.type} part needs \`data\` as a base64 data URL`)
+    if (!match) throw inputError("invalid-part", `A ${part.type} part needs \`data\` as a base64 data URL (got ${describeData(part.data)})`)
     const [, mimeType, base64] = match
     if (!mimeType.startsWith(`${part.type}/`)) {
         throw inputError("invalid-part", `A ${part.type} part cannot carry ${mimeType}`)

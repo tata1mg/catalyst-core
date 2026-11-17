@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react"
 import { assertCloudMediaAllowed, getModalities } from "./contentParts.js"
-import { prepareAudioParts } from "./audioPrep.js"
+import { prepareAudioParts, normalizeAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
@@ -115,10 +115,15 @@ export function useCloudAI({
                 const modalities = getModalities(rawMessages)
                 assertCloudMediaAllowed(modalities, allowMediaRef.current)
                 if (modalities.has("image") || modalities.has("audio")) {
+                    // Gemini takes recorder formats (webm, mp4, opus) as they are and handles minutes of audio, so its audio is
+                    // sent untouched (only codec parameters are trimmed from the MIME type). Other providers need wav/mp3, and
+                    // on-device models need 16 kHz mono capped at 30 s, which prepareAudioParts produces.
                     messages = await prepareImageParts(
-                        await prepareAudioParts(rawMessages, {
-                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
-                        }),
+                        providerRef.current === "gemini"
+                            ? normalizeAudioParts(rawMessages)
+                            : await prepareAudioParts(rawMessages, {
+                                  onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                              }),
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
                     )
                     getModalities(messages) // re-check the client size caps on the prepared media

@@ -154,3 +154,22 @@ describe("mappers: media", () => {
         ])
     })
 })
+
+describe("recorder formats on the cloud route", () => {
+    const WEBM = "data:audio/webm;base64,GkXfowEAAAAA"
+    const msgs = [user([{ type: "text", text: "transcribe" }, { type: "audio", data: WEBM }])]
+    const check = (provider: string, model = "m", stateful = false) =>
+        m.assertSupported(m.validateMessages(msgs), m.capabilitiesFor({ provider, stateful, model }), `${provider}/${model}`)
+
+    it("Gemini generateContent accepts webm as recorded", () => {
+        expect(() => check("gemini")).not.toThrow()
+    })
+
+    it("OpenAI audio models still require wav or mp3", () => {
+        expect(() => check("openai", "gpt-4o-audio-preview")).toThrow(/does not accept audio\/webm/)
+    })
+
+    it("a data URL that still carries codec parameters is rejected rather than guessed", () => {
+        expect(() => m.validateMessages([user([{ type: "audio", data: "data:audio/webm;codecs=opus;base64,GkXfowEAAAAA" }])])).toThrow()
+    })
+})
