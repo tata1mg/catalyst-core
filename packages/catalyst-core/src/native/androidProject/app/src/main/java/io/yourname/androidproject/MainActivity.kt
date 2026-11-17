@@ -165,16 +165,22 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         ViewCompat.requestApplyInsets(rootView)
     }
 
-    private fun buildSafeAreaHeaders(): Map<String, String> = mapOf(
-        "X-Safe-Area-Top" to latestSafeAreaInsets.top.toString(),
-        "X-Safe-Area-Right" to latestSafeAreaInsets.right.toString(),
-        "X-Safe-Area-Bottom" to latestSafeAreaInsets.bottom.toString(),
-        "X-Safe-Area-Left" to latestSafeAreaInsets.left.toString(),
-        "X-Catalyst-Native-WebView" to "1",
-        // Prevent caching of SSR response so updated headers are always used
-        "Cache-Control" to "no-cache, no-store, must-revalidate",
-        "Pragma" to "no-cache"
-    )
+    private fun buildSafeAreaHeaders(): Map<String, String> {
+        val appInfo = properties.getProperty("appInfo", "")
+        return buildMap {
+            put("X-Safe-Area-Top", latestSafeAreaInsets.top.toString())
+            put("X-Safe-Area-Right", latestSafeAreaInsets.right.toString())
+            put("X-Safe-Area-Bottom", latestSafeAreaInsets.bottom.toString())
+            put("X-Safe-Area-Left", latestSafeAreaInsets.left.toString())
+            put("X-Catalyst-Native-WebView", "1")
+            // Prevent caching of SSR response so updated headers are always used
+            put("Cache-Control", "no-cache, no-store, must-revalidate")
+            put("Pragma", "no-cache")
+            if (appInfo.isNotEmpty()) {
+                put("X-App-Info", appInfo)
+            }
+        }
+    }
 
     // Public method for NativeBridge to get current safe area insets
     fun getCurrentSafeAreaInsets(): SafeAreaInsets = latestSafeAreaInsets
