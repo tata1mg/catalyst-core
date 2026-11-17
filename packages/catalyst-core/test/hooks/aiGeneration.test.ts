@@ -28,6 +28,18 @@ describe("aiGeneration wrappers", () => {
         expect(idle.error).toMatch(/useLiveTranscribe needs/)
     })
 
+    it("forwards the device image engine registration and support check", async () => {
+        const pkg = { registerDeviceImageEngine: vi.fn(), deviceImageSupport: vi.fn().mockResolvedValue({ available: true }) }
+        const api = createGenerationApi(() => pkg)
+        const loader = async () => ({})
+        api.registerDeviceImageEngine(loader)
+        expect(pkg.registerDeviceImageEngine).toHaveBeenCalledWith(loader, {})
+        expect(await api.deviceImageSupport()).toEqual({ available: true })
+        const none = createGenerationApi(() => null)
+        expect(() => none.registerDeviceImageEngine(loader)).not.toThrow()
+        expect((await none.deviceImageSupport()).available).toBe(false)
+    })
+
     it("fails clearly when catalyst-ai is missing or too old", async () => {
         const api = createGenerationApi(() => null)
         await expect(api.requestImage({ prompt: "a" })).rejects.toThrow(/Update catalyst-ai/)

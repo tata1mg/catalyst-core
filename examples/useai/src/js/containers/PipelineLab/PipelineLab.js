@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
-import { useAI, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe } from "catalyst-core/hooks"
+import { useAI, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
 // Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
@@ -30,6 +30,9 @@ const chip = "px-3 py-1.5 rounded-full border border-[var(--border)] text-[12px]
 // On-device engines. In the native app the platform's own model does text and audio (Gemma via LiteRT on Android, the best
 // available on iOS). In a plain browser, Gemma 4 E2B (~3.4 GB) does the text/JSON step and Whisper base (~210 MB) hears the
 // speech, both through Transformers.js on WebGPU; nothing downloads until the first run.
+// The app owns the heavy optional dependency: SD-Turbo through web-txt2img (WebGPU). Loaded only when a picture is first made on the device.
+registerDeviceImageEngine(() => import("web-txt2img"), { wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/" })
+
 const GEMMA_WEB = "onnx-community/gemma-4-E2B-it-ONNX"
 const WHISPER_WEB = "onnx-community/whisper-base"
 const nativeAIAvailable = () => {
@@ -55,6 +58,12 @@ export default function PipelineLab() {
     aiRef.current = ai
     const providerRef = useRef(imageProvider)
     providerRef.current = imageProvider
+    // On-device pictures (SD-Turbo): available only with WebGPU and the registered engine. Progress covers the model download.
+    const [deviceImage, setDeviceImage] = useState({ available: false, reason: "checking…" })
+    const [imgProgress, setImgProgress] = useState(null)
+    useEffect(() => {
+        deviceImageSupport().then(setDeviceImage, (e) => setDeviceImage({ available: false, reason: String(e?.message || e) }))
+    }, [])
 
     // On-device hooks. Instantiating them loads nothing; a model only downloads when a device run first calls generate().
     const device = useAI({
@@ -96,9 +105,19 @@ export default function PipelineLab() {
             generate: async (prompt) => ask(prompt),
         })
         const draw = imageStage({
-            requestImage: (args) => requestImage({ ...args, provider: providerRef.current }),
+            requestImage: async (args) => {
+                setImgProgress(null)
+                try {
+                    return await requestImage({ ...args, provider: providerRef.current, onProgress: (p) => setImgProgress(p) })
+                } finally {
+                    setImgProgress(null)
+                }
+            },
             prompt: (spec) => `${spec.scene}. Style: ${spec.style}.${spec.mood ? ` Mood: ${spec.mood}.` : ""}`,
         })
+        // The same image stage serves cloud and device: when the picture is made on the device the stage is not a cloud
+        // stage, so no consent is needed. runPipeline reads `cloud` at run time, hence a getter.
+        Object.defineProperty(draw, "cloud", { enumerable: true, get: () => providerRef.current !== "device" })
         const hear = transcribeStage(
             (data) => ask([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }]),
             { cloud: true }
@@ -118,7 +137,7 @@ export default function PipelineLab() {
     const activeText = onDevice ? textPipeD : textPipe
     const activeAudio = onDevice ? audioPipeD : audioPipe
     // Device runs may stop before the picture: "deny" blocks only the cloud picture stage, so nothing leaves the device.
-    const deviceOverrides = skipImage ? { cloudPolicy: "deny" } : undefined
+    const deviceOverrides = skipImage && imageProvider !== "device" ? { cloudPolicy: "deny" } : undefined
     const fromAudio = mode === "audio" || mode === "voice"
     const [voiceConsent, setVoiceConsent] = useState(false)
     // Live mode streams the microphone to Gemini and gets text back while you speak; that text then runs the text pipeline.
@@ -164,7 +183,7 @@ export default function PipelineLab() {
     const whisperPct = percentOf(asr)
     const sceneStep = pipe.steps.find((st) => st.type === "end" && st.stage === "json")?.preview
     const imageUrl = pipe.output?.url ?? pipe.output?.[0]?.url ?? (typeof pipe.output === "string" ? pipe.output : null)
-    const keptOnDevice = onDevice && skipImage && pipe.status === "denied"
+    const keptOnDevice = onDevice && skipImage && imageProvider !== "device" && pipe.status === "denied"
     const needsConsent = (pipe.status === "needs-consent" || pipe.status === "denied") && !keptOnDevice
 
     return (
@@ -177,7 +196,7 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-2">
                 {[["cloud", "☁️ Cloud models"], ["device", "📱 On-device models"]].map(([key, label]) => (
-                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); if (key === "device" && mode === "live") setMode("text"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
+                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); if (key === "device" && mode === "live") setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
                         {label}
                     </button>
                 ))}
@@ -188,12 +207,12 @@ export default function PipelineLab() {
                         {nativeAvailable
                             ? "Speech and text run on this phone's own model. "
                             : "Running in the browser on WebGPU: Gemma 4 E2B (~3.4 GB) writes the scene and Whisper base (~210 MB) hears speech. The first run downloads them, then they stay cached. "}
-                        Your voice and words stay on this device. A picture needs a cloud image model (nothing on-device draws yet), so only the finished scene description can go to {imageProvider}.
+                        Your voice and words stay on this device. {imageProvider === "device" ? "The picture is made on this device too, so nothing leaves it." : `The picture is made by ${imageProvider}; only the finished scene description can go there. Choose On-device as the image model to keep that local too.`}
                     </p>
-                    <label className="mt-2 flex items-center gap-2">
+                    {imageProvider !== "device" && <label className="mt-2 flex items-center gap-2">
                         <input type="checkbox" data-testid="skip-image" checked={skipImage} onChange={(e) => setSkipImage(e.target.checked)} />
                         Stop at the scene (no picture, nothing leaves the device)
-                    </label>
+                    </label>}
                     {(gemmaPct != null || whisperPct != null) && (
                         <p data-testid="device-progress" className="mt-1">
                             {gemmaPct != null && gemmaPct < 100 && `Gemma download ${gemmaPct}%. `}
@@ -223,9 +242,18 @@ export default function PipelineLab() {
                     <select value={imageProvider} onChange={(e) => setImageProvider(e.target.value)} disabled={running} className="w-full mt-1 px-2 py-1.5 rounded-lg border border-[var(--border)] bg-neutral-900 text-white">
                         <option value="openai">OpenAI</option>
                         <option value="gemini">Gemini</option>
+                        <option value="device" disabled={!deviceImage.available}>
+                            {deviceImage.available ? "On-device (SD-Turbo, ~2.3 GB)" : `On-device unavailable: ${deviceImage.reason}`}
+                        </option>
                     </select>
                 </label>
             </div>
+            {imageProvider === "device" && (
+                <p data-testid="device-image-note" className="mb-3 text-[12px]">
+                    The picture is made on this device with SD-Turbo on WebGPU (512×512). The first one downloads about 2.3 GB, then it is cached.
+                    {imgProgress && ` Image model: ${imgProgress.phase}${imgProgress.pct != null ? ` ${Math.round(imgProgress.pct)}%` : ""}…`}
+                </p>
+            )}
 
             {mode === "text" ? (
                 <textarea data-testid="typed" value={typed} onChange={(e) => setTyped(e.target.value)} rows={3} disabled={running} className="w-full mb-3 px-3 py-2 rounded-lg border border-[var(--border)] bg-neutral-900 text-white text-[13px]" />

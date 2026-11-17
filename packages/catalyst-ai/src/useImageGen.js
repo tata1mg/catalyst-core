@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react"
 import { imageCost } from "./metrics.js"
+import { generateOnDevice } from "./deviceImage.js"
 
 const REQUEST_TIMEOUT_MS = 180_000
 
@@ -21,10 +22,13 @@ export function toImageInput(img) {
  * Resolves { images: [{ mimeType, data, url }], usage, model, cost, costPartial } where `url` is a data: URL ready for <img src>.
  * `cost` is USD from AI_CONFIG.pricing (perImage and/or token prices), or null when no price is set; never guessed.
  * Pass `images` (max 4, data URLs or { mimeType, data }) to edit/transform instead of generate; usage then carries `inputImages`.
+ * provider "device" runs the picture on this device instead (web desktop, WebGPU; see deviceImage.js) and returns the
+ * same shape with cost 0; `onProgress` is only used there.
  * Rejects with Error (message from the server's `error` field); aborts via `signal`.
  */
-export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, images: inputImages, signal } = {}) {
+export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, images: inputImages, signal, onProgress, seed } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")
+    if (provider === "device") return generateOnDevice({ prompt, n, size, images: inputImages, signal, onProgress, seed })
     const inputs = inputImages && inputImages.length > 0 ? inputImages.map(toImageInput) : undefined
     const timeout = AbortSignal.timeout ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined
     const combined = signal && timeout && AbortSignal.any ? AbortSignal.any([signal, timeout]) : signal || timeout
