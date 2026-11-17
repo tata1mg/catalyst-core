@@ -151,7 +151,7 @@ export default function PipelineLab() {
                             <div data-testid="level" className="h-full bg-green-400" style={{ width: `${Math.round(recorder.level * 100)}%` }} />
                         </div>
                     )}
-                    <p className="mt-2 text-[12px]">It stops by itself when you pause for two seconds, or at {MAX_SECONDS}s (longer audio is trimmed before sending). Then the pipeline runs on its own.</p>
+                    <p className="mt-2 text-[12px]">It stops by itself when you pause for two seconds, or at {MAX_SECONDS}s. The recording goes to Gemini as recorded, with no conversion. Then the pipeline runs on its own.</p>
                     {textProvider !== "gemini" && <p className="mt-1 text-[12px] text-yellow-400">Voice needs a model that takes audio: set Text model to Gemini.</p>}
                     <label className="mt-2 flex items-center gap-2 text-[12px]">
                         <input type="checkbox" data-testid="voice-consent" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} />

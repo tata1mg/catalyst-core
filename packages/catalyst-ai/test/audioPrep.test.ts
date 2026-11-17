@@ -79,3 +79,29 @@ describe("prepareAudioParts", () => {
         expect(onError).toHaveBeenCalledTimes(1)
     })
 })
+
+describe("normalizeAudioMime / normalizeAudioParts", () => {
+    it("strips codec parameters and lowercases the type, leaving the payload alone", async () => {
+        const { normalizeAudioMime } = await mod
+        expect(normalizeAudioMime("data:audio/webm;codecs=opus;base64,AAAA")).toBe("data:audio/webm;base64,AAAA")
+        expect(normalizeAudioMime("data:Audio/WebM;base64,AAAA")).toBe("data:audio/webm;base64,AAAA")
+        expect(normalizeAudioMime("data:audio/wav;base64,AAAA")).toBe("data:audio/wav;base64,AAAA")
+    })
+
+    it("returns anything that is not a base64 audio data URL unchanged", async () => {
+        const { normalizeAudioMime } = await mod
+        expect(normalizeAudioMime("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA")
+        expect(normalizeAudioMime("https://x/y.webm")).toBe("https://x/y.webm")
+        expect(normalizeAudioMime(undefined as any)).toBeUndefined()
+    })
+
+    it("rewrites audio parts only and keeps other parts and string messages as the same objects", async () => {
+        const { normalizeAudioParts } = await mod
+        const text = { type: "text", text: "hi" }
+        const plain = { role: "system", content: "be brief" }
+        const out = normalizeAudioParts([plain, { role: "user", content: [text, { type: "audio", data: "data:audio/webm;codecs=opus;base64,AAAA" }] }])
+        expect(out[0]).toBe(plain)
+        expect(out[1].content[0]).toBe(text)
+        expect(out[1].content[1].data).toBe("data:audio/webm;base64,AAAA")
+    })
+})

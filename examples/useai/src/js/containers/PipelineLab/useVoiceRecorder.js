@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 // Click-to-talk recorder for the Pipeline lab. Records with MediaRecorder, shows a live level, and stops by itself
-// when you stop talking (SILENCE_MS of quiet after speech) or at MAX_SECONDS, because catalyst-ai trims audio to 30 s
-// before it is sent. Hands the finished clip to onRecorded(dataUrl, { seconds }). Nothing leaves the browser here.
+// when you stop talking (SILENCE_MS of quiet after speech) or at MAX_SECONDS. Gemini takes the recording as it is
+// (webm), so there is no conversion and no 30 s trim on this path; the cap just bounds one request. Hands the finished clip to onRecorded(dataUrl, { seconds }). Nothing leaves the browser here.
 
-export const MAX_SECONDS = 30
+export const MAX_SECONDS = 120
 const SPEECH_LEVEL = 0.02 // RMS above this counts as speech
 const SILENCE_MS = 2000
 const TICK_MS = 100
