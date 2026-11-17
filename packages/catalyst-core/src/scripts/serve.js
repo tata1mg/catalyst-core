@@ -2,7 +2,7 @@ import path from "path"
 import { spawn } from "child_process"
 import { arrayToObject, loaderImportArg, resolveOutputMode } from "./scriptUtils.js"
 import { runStaticPreflightOrExit, checkBuildMatchesConfig, renderRegistryError } from "./preflight.js"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { dirname } from "path"
 import { existsSync, readFileSync } from "fs"
 import { createRequire } from "module"
@@ -14,9 +14,11 @@ const requireCjs = createRequire(import.meta.url)
 const { diagnostic } = requireCjs("../cli/diagnostic.js")
 const { superviseServer, ensurePortFree } = requireCjs("../cli/devOutput.js")
 const { loadAppConfig } = requireCjs("../cli/appConfig.js")
+const { appRoot } = requireCjs("../cli/platform.js")
 
 const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
-const preInitPath = path.resolve(__dirname, "preServerInit.js")
+// A URL: --import takes a module specifier, and C:\ reads as a scheme.
+const preInitUrl = pathToFileURL(path.resolve(__dirname, "preServerInit.js")).href
 
 /**
  * @description - serves the production build
@@ -35,24 +37,25 @@ async function startProd() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
+    const appDir = appRoot()
 
     // Read package.json
-    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const packageJson = JSON.parse(readFileSync(path.join(appDir, "package.json"), "utf-8"))
     const { name } = packageJson
 
     // Serving a build that was never made produces a stack trace from deep
     // inside the server. Say the useful thing instead.
     // From config.json, not the env: config values are promoted to env only
     // inside the child, so reading env here always saw the default.
-    const appConfig = loadAppConfig(process.env.PWD || process.cwd())
+    const appConfig = loadAppConfig(appDir)
     const buildDir = path.join(
-        process.env.PWD,
+        appDir,
         appConfig.BUILD_OUTPUT_PATH || process.env.BUILD_OUTPUT_PATH || "build"
     )
     if (!existsSync(buildDir)) {
         process.stderr.write(
             diagnostic({
-                message: `No production build in ${path.relative(process.env.PWD, buildDir) || buildDir}/`,
+                message: `No production build in ${path.relative(appDir, buildDir) || buildDir}/`,
                 scope: "server",
                 hint: "Run catalyst build first, then catalyst serve.",
             })
@@ -76,11 +79,11 @@ async function startProd() {
 
     const inspectArgs = commandLineArguments.includes("--inspect") ? ["--inspect"] : []
     const child = spawn(
-        "node",
+        process.execPath,
         [
             ...inspectArgs,
             "--import",
-            preInitPath,
+            preInitUrl,
             "--import",
             loaderImportArg(loaderPath),
             "./dist/server/expressServer.js",
@@ -92,7 +95,7 @@ async function startProd() {
                 ...process.env,
                 // When the command was run, so "Ready in" counts the whole wait.
                 CATALYST_STARTED_AT: String(Math.round(performance.timeOrigin)),
-                src_path: process.env.PWD,
+                src_path: appDir,
                 NODE_ENV: "production",
                 APPLICATION: name || "catalyst_app",
                 CATALYST_OUTPUT_MODE: outputMode,

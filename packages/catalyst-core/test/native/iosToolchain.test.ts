@@ -571,7 +571,9 @@ describe("connected iPhones", () => {
                         expect(options.timeout).toBe(30000)
                         written = args[4]
                         // A private folder from mkdtemp, not a guessable name in tmp.
-                        expect(fs.statSync(path.dirname(written)).mode & 0o077).toBe(0)
+                        if (process.platform !== "win32") {
+                            expect(fs.statSync(path.dirname(written)).mode & 0o077).toBe(0)
+                        }
                         fs.writeFileSync(written, JSON.stringify(json))
                         return ""
                     }) as any,

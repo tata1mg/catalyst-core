@@ -1,6 +1,7 @@
 "use strict"
 
 const { GUTTER, glyph, t, ANSI, isVerbose } = require("./theme.js")
+const { isWindows, stopProcessCommand } = require("./platform.js")
 
 // Fences the dev server writes around its banner block, so the wrapper can
 // forward those lines verbatim rather than guessing from their text. Colour
@@ -484,7 +485,7 @@ function ensurePortFree({ port, host, scope }) {
                     message: `Port ${numeric} is already in use${owner ? ` by ${owner.command} (pid ${owner.pid})` : ""}`,
                     scope,
                     hint: owner
-                        ? `Stop it with \`kill ${owner.pid}\`, or change NODE_SERVER_PORT and PUBLIC_STATIC_ASSET_URL in config/config.json.`
+                        ? `Stop it with \`${stopProcessCommand(owner.pid)}\`, or change NODE_SERVER_PORT and PUBLIC_STATIC_ASSET_URL in config/config.json.`
                         : "Stop whatever is using it, or change NODE_SERVER_PORT and PUBLIC_STATIC_ASSET_URL in config/config.json.",
                 })
             )
@@ -495,9 +496,53 @@ function ensurePortFree({ port, host, scope }) {
     })
 }
 
-/** The process listening on a port, via lsof; null where lsof is unavailable. */
+/**
+ * The pid listening on a port, from `netstat -ano`: Proto, Local Address,
+ * Foreign Address, State, PID. Matched on the address's last colon, which also
+ * handles [::]:3005. The state is not compared as a word because Windows
+ * translates it; only a listening socket has the wildcard foreign address.
+ */
+function listeningPidFromNetstat(output, port) {
+    for (const line of String(output).split(/\r?\n/)) {
+        const [proto, local, foreign, , pid] = line.trim().split(/\s+/)
+        if (!/^TCP/i.test(proto || "") || !pid) continue
+        if (local.endsWith(`:${port}`) && /:0$|:\*$/.test(foreign)) return pid
+    }
+    return null
+}
+
+/** The image name of a pid, from the CSV `tasklist` prints. */
+function imageNameFromTasklist(output) {
+    return /^"([^"]+)"/.exec(String(output).trim())?.[1] || null
+}
+
+/** portOwner for Windows, which has no lsof. netstat and tasklist ship with it. */
+function windowsPortOwner(port) {
+    const { execFileSync } = require("child_process")
+    const options = {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 3000,
+        windowsHide: true,
+    }
+    // No -p TCP: that hides IPv6, where a server on "localhost" usually is.
+    const pid = listeningPidFromNetstat(execFileSync("netstat", ["-ano"], options), port)
+    if (!pid) return null
+    let command = null
+    try {
+        command = imageNameFromTasklist(
+            execFileSync("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"], options)
+        )
+    } catch (error) {
+        // The pid alone is still enough to act on.
+    }
+    return { pid, command: command || "another process" }
+}
+
+/** The process listening on a port; null when that cannot be found out. */
 function portOwner(port) {
     try {
+        if (isWindows()) return windowsPortOwner(port)
         const { execFileSync } = require("child_process")
         const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpc"], {
             encoding: "utf8",
@@ -514,6 +559,8 @@ function portOwner(port) {
 
 module.exports = {
     ensurePortFree,
+    listeningPidFromNetstat,
+    imageNameFromTasklist,
     formatDevLine,
     createLineReader,
     wireServerOutput,

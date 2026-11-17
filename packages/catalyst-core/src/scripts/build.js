@@ -28,12 +28,13 @@ const { loadAppConfig } = requireCjs("../cli/appConfig.js")
 const { bundleWarnings } = requireCjs("../cli/buildWarnings.js")
 const { extractBuildErrors, outputTail } = requireCjs("../cli/buildErrors.js")
 const { hintFor } = requireCjs("../cli/hints.js")
+const { appRoot } = requireCjs("../cli/platform.js")
 const loaderPath = path.resolve(__dirname, "../../dist/vite/node-loader.mjs")
 
 // A missing or malformed config used to throw a raw ENOENT/SyntaxError stack at
 // module load, before any output at all. Note the "utf-8" was being passed as
 // JSON.parse's reviver argument, not as the read encoding.
-const configJSON = loadAppConfig(process.env.PWD || process.cwd())
+const configJSON = loadAppConfig(appRoot())
 
 // Resolve vite's actual JS entry point rather than spawning the "vite" command name,
 // which on Windows only resolves via the npm-installed .cmd shim (i.e. requires a shell).
@@ -109,7 +110,11 @@ function runBuildStep(args, options, label = "Build step") {
  * the bundles they broke become a dim suffix rather than a second block.
  */
 function shortenPaths(text, cwd) {
-    return String(text).split(`${cwd}/`).join("")
+    // Both spellings: on Windows the bundler reports C:/app/ as often as C:\app\.
+    return [`${cwd}${path.sep}`, `${cwd.split(path.sep).join("/")}/`].reduce(
+        (shortened, prefix) => shortened.split(prefix).join(""),
+        String(text)
+    )
 }
 
 /** A step's own last words, fenced under the diagnostic that names it. */
@@ -171,7 +176,7 @@ function reportBundleFailures(failures, cwd) {
                 code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
                 // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cause.file is a build-tool diagnostic path, only used to display a location.
-                file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.\/)+/, "")) : undefined,
+                file: cause.file ? path.resolve(cwd, cause.file.replace(/^(\.\.[\\/])+/, "")) : undefined,
                 line: cause.line,
                 // esbuild reports columns 0-based; the frame's caret is 1-based.
                 column: cause.column != null ? cause.column + 1 : undefined,
@@ -261,14 +266,15 @@ async function build() {
     const argumentsObject = arrayToObject(commandLineArguments)
     const outputMode = resolveOutputMode(process.argv)
     const dirname = path.resolve(__dirname, "../../")
+    const appDir = appRoot()
 
     // Read package.json
-    const packageJson = JSON.parse(readFileSync(path.join(process.env.PWD, "package.json"), "utf-8"))
+    const packageJson = JSON.parse(readFileSync(path.join(appDir, "package.json"), "utf-8"))
     const { name } = packageJson
 
     process.stdout.write(header("catalyst build", "production"))
 
-    const buildOutputPath = path.join(process.env.PWD, configJSON.BUILD_OUTPUT_PATH || "build")
+    const buildOutputPath = path.join(appDir, configJSON.BUILD_OUTPUT_PATH || "build")
     if (existsSync(buildOutputPath)) {
         const cleaning = Date.now()
         rmSync(buildOutputPath, { recursive: true, force: true })
@@ -281,7 +287,7 @@ async function build() {
         // bundler would drop colour. Forward our own terminal's answer, so a
         // redirect to a file still comes out plain.
         ...(process.stdout.isTTY && !process.env.NO_COLOR ? { FORCE_COLOR: "1" } : {}),
-        src_path: process.env.PWD,
+        src_path: appDir,
         NODE_ENV: "production",
         VITE_BUILD_MODE: "true",
         APPLICATION: name || "catalyst_app",
@@ -327,7 +333,7 @@ async function build() {
 
     if (failures.length > 0) {
         bundling.stop("fail", "Build failed")
-        process.stderr.write(reportBundleFailures(failures, process.env.PWD))
+        process.stderr.write(reportBundleFailures(failures, appDir))
         // --verbose/--debug add the registry code and the bundler's full
         // output under the extracted errors.
         if (outputMode !== "default") {
@@ -359,7 +365,7 @@ async function build() {
     }
 
     // Lets `serve` refuse a build that no longer matches config/config.json.
-    writeBuildInfo(process.env.PWD, configJSON, argumentsObject)
+    writeBuildInfo(appDir, configJSON, argumentsObject)
 
     const manifest = new Spinner().start("Generating offline manifest")
     try {

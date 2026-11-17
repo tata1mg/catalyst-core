@@ -314,7 +314,8 @@ describe("generateConfigConstants: defaults and failures", () => {
             progress: recorder.progress,
         })
         const error = await rejection(generateConfigConstants())
-        expect(error.code).toBe("ENOTDIR")
+        // A file in the way of a folder: ENOTDIR on macOS and Linux, ENOENT on Windows.
+        expect(["ENOTDIR", "ENOENT"]).toContain(error.code)
         expect(recorder.events[0]).toBe("start:config")
         expect(recorder.events).toContain(`fail:config:${error.message}`)
         expect(recorder.events).not.toContain("complete:config")
@@ -354,7 +355,8 @@ describe("generateXCConfig", () => {
         })
         const error = await rejection(generateXCConfig())
         expect(error.message).toMatch(/^Failed to generate Shared\.xcconfig: /)
-        expect(error.code).toBe("ENOTDIR")
+        // A file in the way of a folder: ENOTDIR on macOS and Linux, ENOENT on Windows.
+        expect(["ENOTDIR", "ENOENT"]).toContain(error.code)
     })
 })
 

@@ -61,6 +61,8 @@ npm run ios -- --device
 
 Without a terminal and without `--device`, the app always runs on the emulator or simulator.
 
+On Windows and Linux, `npm run ios` stops with [IOS-007](/errors/IOS/IOS-007), and `catalyst buildApp` skips iOS and builds Android.
+
 ---
 
 ## How the app reaches the dev server

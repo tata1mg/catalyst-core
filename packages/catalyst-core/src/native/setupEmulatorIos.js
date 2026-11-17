@@ -5,6 +5,7 @@ import { ensureXcodeReady, ensureIosRuntime, ensureSimulator } from "./iosToolch
 import { getLastTarget } from "./localState.js"
 import TerminalProgress from "./terminalProgress.js"
 import { buildFailure } from "../cli/diagnostic.js"
+import { iosRequiresMacError } from "./iosPlatform.js"
 
 // `catalyst setupEmulator:ios`: install what an iOS debug build needs on this
 // Mac (Xcode's licence and first-launch components, a simulator runtime, the
@@ -39,10 +40,8 @@ async function setupIOSEnvironment() {
         const flags = parseNativeArgs(process.argv.slice(2))
 
         progress.start("platform")
-        if (process.platform !== "darwin") {
-            progress.log("iOS Simulator is only available on macOS.", "error")
-            process.exit(1)
-        }
+        // Coded, so the catch below prints IOS-007 with its hint and doc link.
+        if (process.platform !== "darwin") throw iosRequiresMacError()
         progress.complete("platform")
 
         progress.start("xcode")

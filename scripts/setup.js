@@ -7,20 +7,32 @@ const docsDir = path.join(repoRoot, "docs")
 const docsConfigPath = path.join(docsDir, "config", "config.json")
 const docsConfigTemplatePath = path.join(docsDir, "config", "config_template.json")
 
+// npm is a .cmd on Windows, which Node refuses to spawn directly (EINVAL). Under
+// `npm run` npm has told us where its script is; run directly, it takes a shell.
+function npmInvocation(args) {
+    if (process.platform !== "win32") return { file: "npm", args, shell: false }
+    if (process.env.npm_execpath) {
+        return { file: process.execPath, args: [process.env.npm_execpath, ...args], shell: false }
+    }
+    const quoted = args.map((arg) => `"${arg}"`)
+    return { file: ["npm", ...quoted].join(" "), args: [], shell: true }
+}
+
 function run(command, args, options = {}) {
     let result
     if (command === "npm") {
-        result = spawnSync(process.platform === "win32" ? "npm.cmd" : "npm", args, {
+        const npm = npmInvocation(args)
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - fixed setup commands; see npmInvocation.
+        result = spawnSync(npm.file, npm.args, {
             cwd: repoRoot,
             stdio: "inherit",
+            shell: npm.shell,
             ...options,
         })
     } else if (command === "node") {
-        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility during setup.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             stdio: "inherit",
-            shell: process.platform === "win32",
             ...options,
         })
     } else {

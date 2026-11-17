@@ -44,7 +44,7 @@ Useful starting points:
 ## Requirements
 
 - Node.js `20.4.0` or later for generated Catalyst apps.
-- macOS or Linux for local development.
+- macOS, Linux or Windows for local development. iOS builds need macOS.
 
 ## Repository
 

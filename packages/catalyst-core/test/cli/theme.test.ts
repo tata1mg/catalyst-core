@@ -139,7 +139,9 @@ describe("displayPath", () => {
     it("keeps absolute paths elsewhere, and the root itself", () => {
         const outside = path.join(path.parse(root).root, "opt-catalyst-elsewhere", "file.js")
         expect(theme.displayPath(outside, root)).toBe(outside)
-        expect(theme.displayPath(root, root)).toBe(root)
+        // Not os.tmpdir(): on Windows that lives under home, and reads as ~.
+        const elsewhere = path.dirname(outside)
+        expect(theme.displayPath(elsewhere, elsewhere)).toBe(elsewhere)
     })
 
     it("passes empty values through", () => {

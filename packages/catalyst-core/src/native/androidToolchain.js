@@ -54,6 +54,7 @@ function defaultRun(command, args) {
  * @param {string} [options.platform]
  * @param {(command: string, args: string[]) => string | null} [options.run] - combined output, or null on failure
  * @param {(file: string) => boolean} [options.exists]
+ * @param {(dir: string) => string[]} [options.list] - a folder's entries, or [] when it cannot be read
  * @param {(candidate: string, reason: string) => void} [options.onSkip]
  * @returns {{ home: string, version: number, source: string } | null}
  */
@@ -62,6 +63,13 @@ function resolveJavaHome({
     platform = process.platform,
     run = defaultRun,
     exists = fs.existsSync,
+    list = (dir) => {
+        try {
+            return fs.readdirSync(dir)
+        } catch {
+            return []
+        }
+    },
     onSkip = () => {},
 } = {}) {
     const home = os.homedir()
@@ -84,6 +92,37 @@ function resolveJavaHome({
         add(path.join(home, "android-studio", "jbr"), "Android Studio")
         const java = run("sh", ["-c", 'readlink -f "$(command -v java)"'])
         if (java && java.trim()) add(path.dirname(path.dirname(java.trim())), "PATH")
+    } else if (platform === "win32") {
+        // Android Studio's JBR, which nothing puts on PATH, then any java on PATH.
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+        if (env.ProgramFiles)
+            add(path.join(env.ProgramFiles, "Android", "Android Studio", "jbr"), "Android Studio")
+        if (env.LOCALAPPDATA) {
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - Paths come from env vars naming the machine's own program folders, never remote input.
+            add(path.join(env.LOCALAPPDATA, "Programs", "Android Studio", "jbr"), "Android Studio")
+        }
+        const java = run("where", ["java"])
+        const first = java && java.split(/\r?\n/)[0].trim()
+        if (first) add(path.dirname(path.dirname(first)), "PATH")
+        // Where the usual installers put a JDK, which only a new terminal finds on PATH.
+        // Newest name first; the version check below still decides.
+        const vendorDirs = [
+            [env.ProgramFiles, "Microsoft"],
+            [env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, "Programs"), "Microsoft"],
+            [env.ProgramFiles, "Eclipse Adoptium"],
+            [env.ProgramFiles, "Zulu"],
+            [env.ProgramFiles, "Java"],
+        ]
+        for (const [root, vendor] of vendorDirs) {
+            if (!root) continue
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root names the machine's own program folders, never remote input.
+            const dir = path.join(root, vendor)
+            const jdks = list(dir)
+                .filter((name) => /^(jdk|zulu)/i.test(name))
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - name comes from readdirSync of that folder.
+            for (const name of jdks) add(path.join(dir, name), vendor)
+        }
     }
 
     const exe = platform === "win32" ? "java.exe" : "java"
@@ -165,7 +204,9 @@ async function ensureJava({
     if (platform !== "darwin") {
         throw nativeError(
             "ANDROID-007",
-            "install a JDK 17 or 21 (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
+            platform === "win32"
+                ? "install a JDK 17 or 21 (e.g. winget install Microsoft.OpenJDK.17), or Android Studio, then open a new terminal"
+                : "install a JDK 17 or 21 (e.g. sudo apt install openjdk-17-jdk) and set JAVA_HOME"
         )
     }
     if (!hasCommand("brew")) {
@@ -260,9 +301,11 @@ function missingAndroidPackages(sdkPath, packages, exists = fs.existsSync) {
 function defaultSdkPath(env = process.env, platform = process.platform) {
     if (env.ANDROID_HOME) return env.ANDROID_HOME
     if (env.ANDROID_SDK_ROOT) return env.ANDROID_SDK_ROOT
-    return platform === "darwin"
-        ? path.join(os.homedir(), "Library", "Android", "sdk")
-        : path.join(os.homedir(), "Android", "Sdk")
+    if (platform === "darwin") return path.join(os.homedir(), "Library", "Android", "sdk")
+    // Where Android Studio puts it, so the two share one SDK.
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - LOCALAPPDATA names this user's own folder, never remote input.
+    if (platform === "win32" && env.LOCALAPPDATA) return path.join(env.LOCALAPPDATA, "Android", "Sdk")
+    return path.join(os.homedir(), "Android", "Sdk")
 }
 
 /**
@@ -323,9 +366,23 @@ async function curlDownload(url, dest) {
     await runInteractiveCommand("curl", ["-fsSL", "--retry", "2", "-o", dest, url])
 }
 
-function unzipArchive(zip, dest) {
+function unzipArchive(
+    zip,
+    dest,
+    { platform = process.platform, env = process.env, exec = execFileSync, exists = fs.existsSync } = {}
+) {
+    if (platform === "win32") {
+        // No unzip on Windows. Its own tar (bsdtar, in System32 since Windows 10)
+        // reads zip; Git's GNU tar, often first on PATH, does not.
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - SystemRoot names the Windows folder, never remote input.
+        const systemTar = path.join(env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
+        const tar = exists(systemTar) ? systemTar : "tar"
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - tar with an argv array on a checksum-verified archive.
+        exec(tar, ["-xf", zip, "-C", dest], { stdio: ["ignore", "ignore", "pipe"] })
+        return
+    }
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - unzip with an argv array on a checksum-verified archive.
-    execFileSync("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
+    exec("unzip", ["-q", "-o", zip, "-d", dest], { stdio: ["ignore", "ignore", "pipe"] })
 }
 
 /**
@@ -571,7 +628,10 @@ async function ensureAndroidSdk({
         await installTools(sdkPath, { log })
         sdkmanager = cmdlineTool(sdkPath, "sdkmanager", { platform })
         if (!sdkmanager)
-            throw nativeError("ANDROID-009", `no sdkmanager under ${sdkPath}/cmdline-tools/latest`)
+            throw nativeError(
+                "ANDROID-009",
+                `no sdkmanager under ${path.join(sdkPath, "cmdline-tools", "latest")}`
+            )
     }
 
     const sdkRoot = `--sdk_root=${sdkPath}`
@@ -611,7 +671,10 @@ async function ensureAndroidSdk({
     if (createAvd) {
         const avdmanager = cmdlineTool(sdkPath, "avdmanager", { platform })
         if (!avdmanager)
-            throw nativeError("ANDROID-009", `no avdmanager under ${sdkPath}/cmdline-tools/latest`)
+            throw nativeError(
+                "ANDROID-009",
+                `no avdmanager under ${path.join(sdkPath, "cmdline-tools", "latest")}`
+            )
         log(`Creating the "${avdName}" emulator`)
         await run(
             avdmanager,
@@ -638,6 +701,7 @@ export {
     requiredAndroidPackages,
     missingAndroidPackages,
     defaultSdkPath,
+    unzipArchive,
     resolveSdkPath,
     cmdlineTool,
     licensesAccepted,

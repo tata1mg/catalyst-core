@@ -85,6 +85,8 @@ beforeEach(() => {
     writeFileSync(path.join(appDir, "config", "config.json"), JSON.stringify({ BUILD_OUTPUT_PATH: "build" }))
     writeFileSync(path.join(appDir, "package.json"), JSON.stringify({ name: "fixture-app" }))
     process.env.PWD = appDir
+    // appRoot() reads PWD or the working directory, depending on the platform.
+    vi.spyOn(process, "cwd").mockReturnValue(appDir)
     stderr = ""
     vi.spyOn(process.stderr, "write").mockImplementation(((chunk: string) => {
         stderr += String(chunk)

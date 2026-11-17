@@ -2,7 +2,7 @@ import crypto from "crypto"
 import fs from "fs"
 import os from "os"
 import path from "path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import {
     AVD_NAME,
@@ -12,6 +12,7 @@ import {
     cmdlineTool,
     cmdlineToolsArchive,
     defaultSdkPath,
+    unzipArchive,
     ensureAndroidSdk,
     ensureJava,
     halfInstalledPaths,
@@ -67,6 +68,9 @@ function acceptLicences(sdk: string) {
 }
 
 describe("Java resolution", () => {
+    // As resolveJavaHome builds it: path.join, so backslashes on Windows.
+    const bin = (home: string) => path.join(home, "bin", "java")
+
     it("parses modern and 1.x version strings", () => {
         expect(parseJavaMajor('openjdk version "17.0.9" 2023-10-17')).toBe(17)
         expect(parseJavaMajor('java version "1.8.0_392"')).toBe(8)
@@ -78,8 +82,8 @@ describe("Java resolution", () => {
         const skipped: string[] = []
         const run = (command: string) => {
             if (command === "/usr/libexec/java_home") return "/jdks/zulu-17/Contents/Home\n"
-            if (command === "/old/jdk/bin/java") return 'openjdk version "11.0.2"'
-            if (command === "/jdks/zulu-17/Contents/Home/bin/java") return 'openjdk version "17.0.12"'
+            if (command === bin("/old/jdk")) return 'openjdk version "11.0.2"'
+            if (command === bin("/jdks/zulu-17/Contents/Home")) return 'openjdk version "17.0.12"'
             return null
         }
         const java = resolveJavaHome({
@@ -96,9 +100,9 @@ describe("Java resolution", () => {
     it("skips a JDK newer than 23 with a reason, and prefers 21 over 17", () => {
         const skipped: Array<[string, string]> = []
         const versions: Record<string, string> = {
-            "/jdk25/bin/java": 'openjdk version "25" 2025-09-16',
-            "/jdk17/bin/java": 'openjdk version "17.0.12"',
-            "/jdk21/bin/java": 'openjdk version "21.0.4"',
+            [bin("/jdk25")]: 'openjdk version "25" 2025-09-16',
+            [bin("/jdk17")]: 'openjdk version "17.0.12"',
+            [bin("/jdk21")]: 'openjdk version "21.0.4"',
         }
         const run = (command: string, args: string[]) => {
             if (command === "/usr/libexec/java_home") {
@@ -119,8 +123,8 @@ describe("Java resolution", () => {
 
     it("takes 17 over another in-range JDK, and nothing when only 24+ is installed", () => {
         const versions: Record<string, string> = {
-            "/jdk22/bin/java": 'openjdk version "22.0.1"',
-            "/jdk17/bin/java": 'openjdk version "17.0.12"',
+            [bin("/jdk22")]: 'openjdk version "22.0.1"',
+            [bin("/jdk17")]: 'openjdk version "17.0.12"',
         }
         const pick = (javaHome: string, others: string[]) =>
             resolveJavaHome({
@@ -136,7 +140,7 @@ describe("Java resolution", () => {
                 env: { JAVA_HOME: "/jdk24" },
                 platform: "linux",
                 run: () => 'openjdk version "24"',
-                exists: (file) => file === "/jdk24/bin/java",
+                exists: (file) => file === bin("/jdk24"),
             })
         ).toBeNull()
     })
@@ -146,10 +150,61 @@ describe("Java resolution", () => {
         const java = resolveJavaHome({
             env: {},
             platform: "darwin",
-            run: (command) => (command === `${jbr}/bin/java` ? 'openjdk version "21.0.6"' : null),
-            exists: (file) => file === `${jbr}/bin/java`,
+            run: (command) => (command === bin(jbr) ? 'openjdk version "21.0.6"' : null),
+            exists: (file) => file === bin(jbr),
         })
         expect(java).toMatchObject({ home: jbr, version: 21, source: "Android Studio" })
+    })
+
+    it("finds Android Studio's JBR on Windows, then a java on PATH", () => {
+        const jbr = path.join("C:/Program Files", "Android", "Android Studio", "jbr")
+        const javaOf = (home: string) => path.join(home, "bin", "java.exe")
+        // Normalised, as dirname() of the where output gives it back with this OS separator.
+        const onPath = path.normalize("C:/jdk17")
+        const pick = (installed: string[]) =>
+            resolveJavaHome({
+                env: { ProgramFiles: "C:/Program Files", LOCALAPPDATA: "C:/Users/me/AppData/Local" },
+                platform: "win32",
+                run: (command, args) => {
+                    if (command === "where") return `${javaOf(onPath)}\r\nC:/other/bin/java.exe\r\n`
+                    if (args[0] === "-version" && installed.map(javaOf).includes(command))
+                        return 'openjdk version "17.0.12"'
+                    return null
+                },
+                exists: (file) => installed.map(javaOf).includes(file),
+            })
+        expect(pick([jbr, onPath])).toMatchObject({ home: jbr, source: "Android Studio" })
+        expect(pick([onPath])).toMatchObject({ home: onPath, source: "PATH" })
+    })
+
+    // A winget or MSI install is on PATH only in a new terminal; its folder is there at once.
+    it("finds a JDK in the usual Windows install folders, newest first", () => {
+        const local = "C:/Users/me/AppData/Local"
+        const microsoft = path.join(local, "Programs", "Microsoft")
+        const jdk17 = path.join(microsoft, "jdk-17.0.21.0.2+1")
+        const jdk11 = path.join(microsoft, "jdk-11.0.25.9")
+        const javaOf = (home: string) => path.join(home, "bin", "java.exe")
+        const versions: Record<string, string> = {
+            [javaOf(jdk17)]: 'openjdk version "17.0.21"',
+            [javaOf(jdk11)]: 'openjdk version "11.0.25"',
+        }
+        const skipped: string[] = []
+        const java = resolveJavaHome({
+            env: { LOCALAPPDATA: local },
+            platform: "win32",
+            run: (command) => versions[command] ?? null,
+            exists: (file) => file in versions,
+            list: (dir) => (dir === microsoft ? ["jdk-11.0.25.9", "notes.txt", "jdk-17.0.21.0.2+1"] : []),
+            onSkip: (candidate) => skipped.push(candidate),
+        })
+        expect(java).toMatchObject({ home: jdk17, version: 17, source: "Microsoft" })
+    })
+
+    it("names a Windows install for a missing JDK there", async () => {
+        const error = await rejection(ensureJava({ platform: "win32", isTTY: true, resolve: () => null }))
+        expect(error.code).toBe("ANDROID-007")
+        expect(error.message).toMatch(/winget install Microsoft\.OpenJDK\.17/)
+        expect(error.hint).toMatch(/Windows: Android Studio, or winget install/)
     })
 
     it("returns null with no JDK 17+", () => {
@@ -373,6 +428,10 @@ describe("SDK locations", () => {
         expect(defaultSdkPath({ ANDROID_SDK_ROOT: "/b" }, "linux")).toBe("/b")
         expect(defaultSdkPath({}, "darwin")).toBe(path.join(os.homedir(), "Library", "Android", "sdk"))
         expect(defaultSdkPath({}, "linux")).toBe(path.join(os.homedir(), "Android", "Sdk"))
+        // Where Android Studio puts it on Windows, so both use one SDK.
+        expect(defaultSdkPath({ LOCALAPPDATA: "C:/Users/me/AppData/Local" }, "win32")).toBe(
+            path.join("C:/Users/me/AppData/Local", "Android", "Sdk")
+        )
     })
 
     it("finds sdkmanager in cmdline-tools/latest, else the newest versioned folder, else nothing", () => {
@@ -434,6 +493,8 @@ describe("ensureAndroidSdk", () => {
                     )
             },
             installTools: async (dir: string) => installTools(dir),
+            // The fakes write POSIX tool names (no .bat), so look them up as Linux would.
+            platform: "linux",
         }
         return { calls, deps }
     }
@@ -625,7 +686,17 @@ describe("ensureAndroidSdk", () => {
 })
 
 describe("ensureAndroidSdk failures after consent", () => {
-    const ci = { flags: { yes: true, acceptLicenses: true }, isTTY: false, arch: "arm64" }
+    // platform: the fakes write POSIX tool names. installTools: a lookup that misses
+    // must never fall through to the real cmdline-tools download.
+    const ci = {
+        flags: { yes: true, acceptLicenses: true },
+        isTTY: false,
+        arch: "arm64",
+        platform: "linux",
+        installTools: async () => {
+            throw new Error("a test reached the real cmdline-tools download")
+        },
+    }
 
     it("fails with ANDROID-009 when the tools install leaves no sdkmanager", async () => {
         const sdk = tempDir()
@@ -762,5 +833,33 @@ describe("sdkmanager recovery (#301)", () => {
         )
         expect(runs).toBe(1)
         expect(network.message).toBe("exit 1")
+    })
+})
+
+describe("unzipArchive", () => {
+    const calls: unknown[][] = []
+    const exec = ((...args: unknown[]) => {
+        calls.push(args)
+        return ""
+    }) as any
+    beforeEach(() => {
+        calls.length = 0
+    })
+
+    it("uses unzip off Windows", () => {
+        unzipArchive("/t/tools.zip", "/t/out", { platform: "darwin", exec })
+        expect(calls[0].slice(0, 2)).toEqual(["unzip", ["-q", "-o", "/t/tools.zip", "-d", "/t/out"]])
+    })
+
+    // No unzip there. Windows' own tar reads zip; Git's GNU tar, often first on PATH, does not.
+    it("uses System32's tar on Windows, and tar from PATH without it", () => {
+        const env = { SystemRoot: "C:/Windows" }
+        const systemTar = path.join("C:/Windows", "System32", "tar.exe")
+        unzipArchive("C:/t/tools.zip", "C:/t/out", { platform: "win32", env, exec, exists: () => true })
+        unzipArchive("C:/t/tools.zip", "C:/t/out", { platform: "win32", env, exec, exists: () => false })
+        expect(calls.map((call) => call.slice(0, 2))).toEqual([
+            [systemTar, ["-xf", "C:/t/tools.zip", "-C", "C:/t/out"]],
+            ["tar", ["-xf", "C:/t/tools.zip", "-C", "C:/t/out"]],
+        ])
     })
 })

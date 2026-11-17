@@ -1,7 +1,7 @@
 "use strict"
 
 const fs = require("fs")
-const { ANDROID_SDK_HINT } = require("../utils.js")
+const { androidTools, ANDROID_SDK_HINT } = require("../utils.js")
 const { resolveNativeConfig } = require("../nativeConfig.js")
 
 /** An error carrying the one action that fixes it, shown as the diagnostic's hint. */
@@ -64,8 +64,7 @@ function createConfigPhase(ctx) {
         progress.status("validating tools")
 
         const ANDROID_SDK = androidConfig.sdkPath
-        const ADB_PATH = `${ANDROID_SDK}/platform-tools/adb`
-        const EMULATOR_PATH = `${ANDROID_SDK}/emulator/emulator`
+        const { adb: ADB_PATH, emulator: EMULATOR_PATH } = androidTools(ANDROID_SDK)
 
         if (!fs.existsSync(ADB_PATH)) throw withHint(`adb not found at ${ADB_PATH}`, ANDROID_SDK_HINT)
 

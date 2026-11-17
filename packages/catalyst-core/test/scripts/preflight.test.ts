@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import path from "path"
-import { runStaticPreflight, writeBuildInfo, checkBuildMatchesConfig } from "../../src/scripts/preflight.js"
+import {
+    runStaticPreflight,
+    runStaticPreflightOrExit,
+    renderRegistryError,
+    writeBuildInfo,
+    checkBuildMatchesConfig,
+} from "../../src/scripts/preflight.js"
 import { ERROR_CODES } from "../../src/errors/registry.js"
 
 // runStaticPreflight(appDir) reads config/config.json + package.json from a
@@ -212,5 +218,56 @@ describe("checkBuildMatchesConfig", () => {
         buildWith(CONFIG)
         expect(checkBuildMatchesConfig(appDir, { CLIENT_ENV_VARIABLES: "not-json" })).toBeNull()
         expect(console.warn).toHaveBeenCalledWith(SKIPPED)
+    })
+})
+
+describe("runStaticPreflightOrExit", () => {
+    const run = (dir?: string) => {
+        const errors: string[] = []
+        vi.spyOn(console, "error").mockImplementation((line) => void errors.push(String(line)))
+        const exit = vi.spyOn(process, "exit").mockImplementation((() => {
+            throw new Error("exited")
+        }) as any)
+        let exited = false
+        try {
+            runStaticPreflightOrExit(dir)
+        } catch (error: any) {
+            if (error.message !== "exited") throw error
+            exited = true
+        }
+        const code = exit.mock.calls[0]?.[0]
+        vi.restoreAllMocks()
+        return { exited, code, output: errors.join("\n") }
+    }
+
+    it("returns quietly for a valid app", () => {
+        writeApp({ config: VALID_CONFIG, pkg: VALID_PKG })
+        expect(run(appDir)).toMatchObject({ exited: false, output: "" })
+    })
+
+    it("prints every problem with a count, then exits 1", () => {
+        const result = run(appDir)
+        expect(result).toMatchObject({ exited: true, code: 1 })
+        expect(result.output).toContain("PREFLIGHT-001")
+        expect(result.output).toMatch(/\d+ problems found/)
+    })
+
+    // Without an argument it checks appRoot(): cwd on Windows, where PWD is unset or stale.
+    it("defaults to the app the command runs in", () => {
+        writeApp({ config: VALID_CONFIG, pkg: VALID_PKG })
+        vi.spyOn(process, "cwd").mockReturnValue(appDir)
+        vi.stubEnv("PWD", appDir)
+        try {
+            expect(run()).toMatchObject({ exited: false })
+        } finally {
+            vi.unstubAllEnvs()
+        }
+    })
+})
+
+describe("renderRegistryError", () => {
+    it("shows the registry's box under --verbose", () => {
+        const [error] = runStaticPreflight(appDir)
+        expect(renderRegistryError(error, "verbose")).toContain(error.code)
     })
 })

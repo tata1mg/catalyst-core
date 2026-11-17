@@ -459,10 +459,10 @@ export const sharedViteConfig = {
         // graph. Without this (SSR middleware mode has no index.html), Vite
         // can't see dynamic `import()` chunks produced by split(), so every
         // first-navigation discovers new deps and triggers a full reload.
-        entries: [
-            path.join(process.env.src_path, "client/index.js"),
-            path.join(process.env.src_path, "src/**/*.{js,jsx,ts,tsx}"),
-        ],
+        // Relative to root, the app in every dev server: these are globs, and an
+        // absolute path brings its own backslashes and parentheses into the
+        // pattern on Windows, where the scanner then matches nothing.
+        entries: ["client/index.js", "src/**/*.{js,jsx,ts,tsx}"],
         include: resolvableFrom(candidateBrowserDeps, process.env.src_path),
         // catalyst-core/webmcp (and its shim subpath) must share the SAME
         // pre-bundled module instance as catalyst-core's main entry:

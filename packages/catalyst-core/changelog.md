@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Windows support
+
+Catalyst now runs natively on Windows, in PowerShell, Command Prompt and Git Bash, without WSL. `create-catalyst-app`, `catalyst start`, `build`, `serve`, `plugins`, `setupEmulator:android` and `buildApp:android`, including signed release bundles, all work there.
+
+iOS still needs macOS and Xcode. On Windows and Linux, `catalyst buildApp` and `catalyst setupEmulator` skip iOS and run Android, and the `:ios` commands exit with the new error [IOS-007](https://github.com/tata1mg/catalyst-core/blob/main/errors/IOS/IOS-007.md).
+
+### Fixes
+
+- `buildApp:android` no longer depends on `rsync`, `find`, `mv` or `sh`, and an SDK or app path with spaces no longer breaks it, on any platform.
+- `new-route` exits non-zero when it fails. It used to exit 0 with nothing created.
+- `create-catalyst-app` removes its `temp-*` folder when it fails.
+
 ## [1.2.1] - 2026-11-17
 
 - `useIntent()` adds `openInBrowser(url)`, which opens a link outside the WebView: in the default browser, or in the app that owns the link when one is installed. Only `http` and `https` URLs are accepted; any other scheme fails with an error.

@@ -35,6 +35,7 @@ export const ERROR_CODES = {
     IOS_SIMULATOR_RUNTIME_MISSING: "IOS-004",
     IOS_APP_ICON_INVALID: "IOS-005",
     IOS_APP_ICON_HAS_ALPHA: "IOS-006",
+    IOS_REQUIRES_MACOS: "IOS-007",
     IOS_SIGNING_NOT_SET_UP: "IOS-010",
     IOS_ASC_API_KEY_INVALID: "IOS-011",
     IOS_MANUAL_SIGNING_INVALID: "IOS-012",
@@ -326,6 +327,14 @@ export const ERROR_DEFINITIONS = {
         suggestedAction:
             "Export public/icon.png without an alpha channel (flatten it onto a solid background), then rebuild.",
     },
+    [ERROR_CODES.IOS_REQUIRES_MACOS]: {
+        category: "IOS",
+        defaultMessage: "iOS builds need macOS and Xcode",
+        defaultDetails:
+            "buildApp:ios and setupEmulator:ios drive Xcode and the iOS Simulator, which only run on macOS. Everything else, including the Android commands, works on this machine.",
+        suggestedAction:
+            "Build the iOS app on a Mac or a macOS CI runner. Plain catalyst buildApp and catalyst setupEmulator skip iOS on other systems and carry on with Android.",
+    },
     [ERROR_CODES.IOS_SIGNING_NOT_SET_UP]: {
         category: "IOS",
         defaultMessage: "iOS code signing is not set up",
@@ -411,9 +420,9 @@ export const ERROR_DEFINITIONS = {
         category: "ANDROID",
         defaultMessage: "No JDK 17 to 23 found",
         defaultDetails:
-            "Gradle 8.13 and the Android SDK tools need JDK 17 to 23. None was found in JAVA_HOME, /usr/libexec/java_home or Android Studio's bundled runtime (a JDK 24 or newer is skipped), and none could be installed: this is not macOS, Homebrew is missing, or the install was declined.",
+            "Gradle 8.13 and the Android SDK tools need JDK 17 to 23. None was found in JAVA_HOME, /usr/libexec/java_home, Android Studio's bundled runtime, the java on PATH or (on Windows) the usual JDK install folders (a JDK 24 or newer is skipped), and none could be installed: this is not macOS, Homebrew is missing, or the install was declined.",
         suggestedAction:
-            "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package) and set JAVA_HOME, or run catalyst buildApp:android in a terminal, or with --yes, to install it.",
+            "Install JDK 17 or 21 (macOS: brew install --cask zulu@17; Linux: your distribution's openjdk-17-jdk package; Windows: Android Studio, or winget install Microsoft.OpenJDK.17) and set JAVA_HOME, or on macOS run catalyst buildApp:android in a terminal, or with --yes, to install it.",
     },
     [ERROR_CODES.ANDROID_SDK_SETUP_DECLINED]: {
         category: "ANDROID",

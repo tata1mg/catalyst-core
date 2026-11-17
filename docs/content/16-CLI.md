@@ -100,6 +100,8 @@ In a terminal, a release asks once for a missing or placeholder app id and a mis
 
 See [Universal App Deployment](/content/Deployment/universal-app-deployment) for the release flow and CI, and [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp) for development.
 
+The iOS commands need macOS and Xcode. On Windows and Linux, `catalyst buildApp` and `catalyst setupEmulator` skip iOS and run Android, and `buildApp:ios` and `setupEmulator:ios` exit with [IOS-007](/errors/IOS/IOS-007).
+
 ## Production Web Flow
 
 1. Run `catalyst build`.
