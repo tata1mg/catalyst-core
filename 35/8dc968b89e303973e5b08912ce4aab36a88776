@@ -1,0 +1,23 @@
+docs/content/12-Migration/02-Version-Upgrades.md
+  ad5d61bce3a22d59 9-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "358dc968b89e303973e5b08912ce4aab36a88776",
+  "prompts": {
+    "ad5d61bce3a22d59": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "edb81c1e-9f8c-4130-8b28-a91652231330",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 1,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}
