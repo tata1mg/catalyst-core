@@ -22,6 +22,17 @@ const loadLibrary = () => {
     return (libPromise ??= registered())
 }
 
+/**
+ * Frees SD-Turbo from GPU/RAM (the downloaded files stay cached, so the next picture only re-initialises it).
+ * A no-op when nothing is loaded or no engine is registered.
+ */
+export async function unloadDeviceImage({ load = loadLibrary } = {}) {
+    if (!registered && load === loadLibrary) return
+    let lib
+    try { lib = await load() } catch { return }
+    if (lib.isModelLoaded?.(DEVICE_IMAGE_MODEL)) await lib.unloadModel?.(DEVICE_IMAGE_MODEL)
+}
+
 // arrayBuffer() + btoa works in browsers and in Node (tests); FileReader would not.
 async function blobToBase64(blob) {
     const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -54,9 +65,10 @@ export function parseDeviceSize(size) {
 /**
  * -> { images: [{ mimeType, data, url }], usage, model, cost: 0, costPartial: false }  (same shape as the cloud route).
  * `onProgress({ phase, pct?, message? })` reports "loading" (model download, pct 0-100) then denoising/decoding.
- * `load` is injectable for tests. Rejects on cancel, missing WebGPU, or a failed load/generation.
+ * The model is freed from GPU/RAM after the picture (cached files stay) unless `keepLoaded: true`, because it is ~2.3 GB and
+ * usually shares the page with a text model. `load` is injectable for tests. Rejects on cancel, missing WebGPU, or a failed load/generation.
  */
-export async function generateOnDevice({ prompt, size, seed, n, images: inputImages, signal, onProgress, load = loadLibrary } = {}) {
+export async function generateOnDevice({ prompt, size, seed, n, images: inputImages, signal, onProgress, keepLoaded = false, load = loadLibrary } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")
     if (inputImages && inputImages.length > 0) throw new Error("The on-device image model cannot edit images yet; use a cloud provider for edits")
     if (n && n > 1) throw new Error("The on-device image model makes one picture per request")
@@ -65,20 +77,24 @@ export async function generateOnDevice({ prompt, size, seed, n, images: inputIma
     if (!support.available) throw new Error(support.reason)
     const lib = await load()
 
-    if (!lib.isModelLoaded(DEVICE_IMAGE_MODEL)) {
-        const loaded = await lib.loadModel(DEVICE_IMAGE_MODEL, {
-            backendPreference: ["webgpu"],
-            ...(engineOptions.wasmPaths && { wasmPaths: engineOptions.wasmPaths }),
-            onProgress: (p) => onProgress?.({ phase: "loading", pct: p.pct, message: p.message }),
-        })
-        if (!loaded.ok) throw new Error(`Could not load the on-device image model: ${loaded.message || loaded.reason}`)
-    }
-    if (signal?.aborted) throw new Error("cancelled")
-
+    let result
     const started = Date.now()
-    const result = await lib.generateImage({ model: DEVICE_IMAGE_MODEL, prompt, seed, width, height, signal, onProgress })
-    if (!result.ok) throw new Error(result.reason === "cancelled" ? "cancelled" : `On-device image generation failed: ${result.message || result.reason}`)
+    try {
+        if (!lib.isModelLoaded(DEVICE_IMAGE_MODEL)) {
+            const loaded = await lib.loadModel(DEVICE_IMAGE_MODEL, {
+                backendPreference: ["webgpu"],
+                ...(engineOptions.wasmPaths && { wasmPaths: engineOptions.wasmPaths }),
+                onProgress: (p) => onProgress?.({ phase: "loading", pct: p.pct, message: p.message }),
+            })
+            if (!loaded.ok) throw new Error(`Could not load the on-device image model: ${loaded.message || loaded.reason}`)
+        }
+        if (signal?.aborted) throw new Error("cancelled")
 
+        result = await lib.generateImage({ model: DEVICE_IMAGE_MODEL, prompt, seed, width, height, signal, onProgress })
+        if (!result.ok) throw new Error(result.reason === "cancelled" ? "cancelled" : `On-device image generation failed: ${result.message || result.reason}`)
+    } finally {
+        if (!keepLoaded) await lib.unloadModel?.(DEVICE_IMAGE_MODEL)?.catch?.(() => {})
+    }
     const mimeType = result.blob.type || "image/png"
     const data = await blobToBase64(result.blob)
     return {

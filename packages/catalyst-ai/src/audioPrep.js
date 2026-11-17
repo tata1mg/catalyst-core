@@ -96,7 +96,9 @@ export async function prepareAudioParts(messages, { decode = browserDecode, onEr
                         return { ...part, data: `data:audio/wav;base64,${bytesToBase64(wav)}` }
                     } catch (error) {
                         onError?.(error)
-                        return part
+                        // Keep the clip usable: recorders label it "audio/webm;codecs=opus", which the strict media check refuses.
+                        const data = normalizeAudioMime(part.data)
+                        return data === part.data ? part : { ...part, data }
                     }
                 })
             )

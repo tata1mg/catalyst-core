@@ -55,6 +55,10 @@ export function createGenerationApi(getPkg: () => any) {
             const pkg = getPkg()
             return pkg?.deviceImageSupport ? pkg.deviceImageSupport() : { available: false, reason: missing("deviceImageSupport").message }
         },
+        /** Frees the on-device image model from GPU/RAM (cached files stay). generate() already does this after each picture unless keepLoaded is set. */
+        async unloadDeviceImage(): Promise<void> {
+            await getPkg()?.unloadDeviceImage?.()
+        },
         /** Live speech-to-text over the Gemini Live API: { start, stop, cancel, state, listening, partial, text, level, seconds, error }. */
         useLiveTranscribe(options: Record<string, unknown> = {}): any {
             const pkg = getPkg()
@@ -78,3 +82,4 @@ export const useSpeech = api.useSpeech
 export const useLiveTranscribe = api.useLiveTranscribe
 export const registerDeviceImageEngine = api.registerDeviceImageEngine
 export const deviceImageSupport = api.deviceImageSupport
+export const unloadDeviceImage = api.unloadDeviceImage

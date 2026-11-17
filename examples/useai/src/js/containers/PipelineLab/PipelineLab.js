@@ -84,8 +84,11 @@ export default function PipelineLab() {
         return (result?.output ?? "").trim()
     }
 
+    // Lifecycle: downloads stay cached, but a model only stays in GPU/RAM while its stage runs. Gemma (~3.4 GB), Whisper and
+    // SD-Turbo (~2.3 GB) together ran the tab out of memory, so each is released as soon as its stage is done.
     const askDevice = async (content) => {
         const result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
+        deviceRef.current.unload?.()
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }
@@ -93,6 +96,7 @@ export default function PipelineLab() {
     const hearOnDevice = async (data) => {
         if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }])
         const result = await asrRef.current.generate({ messages: [{ role: "user", content: [{ type: "audio", data }, { type: "text", text: "Transcribe" }] }] })
+        asrRef.current.unload?.()
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }

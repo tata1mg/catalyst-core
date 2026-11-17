@@ -38,6 +38,10 @@ describe("aiGeneration wrappers", () => {
         const none = createGenerationApi(() => null)
         expect(() => none.registerDeviceImageEngine(loader)).not.toThrow()
         expect((await none.deviceImageSupport()).available).toBe(false)
+        const unload = vi.fn().mockResolvedValue(undefined)
+        await createGenerationApi(() => ({ unloadDeviceImage: unload })).unloadDeviceImage()
+        expect(unload).toHaveBeenCalled()
+        await expect(none.unloadDeviceImage()).resolves.toBeUndefined()
     })
 
     it("fails clearly when catalyst-ai is missing or too old", async () => {

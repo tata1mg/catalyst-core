@@ -352,6 +352,24 @@ export function useWebAI({
         settle()
     }, [settle])
 
+    /**
+     * Frees the model from GPU/RAM: stops a running generation and terminates the worker. The downloaded files stay in the
+     * cache, so the next generate() only re-initialises the model, it does not download it again. Call it when a stage is
+     * done and something else (e.g. an image model) needs the memory.
+     */
+    const unload = useCallback(() => {
+        cancelledRef.current = true
+        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        workerModelRef.current = null
+        busyRef.current = false
+        setModelReady(false)
+        setDownloadProgress(null)
+        setStreaming(false)
+        setLoading(false)
+        settle()
+    }, [settle])
+
     // The page's connection state follows the worker: offline interrupts its transfers, back online resumes them.
     useEffect(() => {
         if (online !== undefined && workerRef.current) workerRef.current.postMessage({ type: "network", online })
@@ -377,6 +395,7 @@ export function useWebAI({
         generate,
         cancel,
         reset,
+        unload,
         clearError: useCallback(() => setError(null), []),
         get conversationId() { return conversationIdRef.current },
         getSessionMetrics: useCallback(() => aggregateWebSessionMetrics(historyRef.current), []),

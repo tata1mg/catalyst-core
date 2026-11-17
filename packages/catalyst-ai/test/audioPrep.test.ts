@@ -105,3 +105,14 @@ describe("normalizeAudioMime / normalizeAudioParts", () => {
         expect(out[1].content[1].data).toBe("data:audio/webm;base64,AAAA")
     })
 })
+
+describe("prepareAudioParts fallback", () => {
+    it("strips codec parameters from a clip it could not re-encode, and reports why", async () => {
+        const { prepareAudioParts } = await mod
+        const onError = vi.fn()
+        const messages = [{ role: "user", content: [{ type: "audio", data: "data:audio/webm;codecs=opus;base64,AAAA" }] }]
+        const out = await prepareAudioParts(messages as any, { decode: async () => { throw new Error("cannot decode") }, onError })
+        expect((out[0].content as any)[0].data).toBe("data:audio/webm;base64,AAAA")
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "cannot decode" }))
+    })
+})

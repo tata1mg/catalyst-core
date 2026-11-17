@@ -61,6 +61,18 @@ describe("useWebAI keeps the media model loaded", () => {
         expect(instances[0].generations).toBe(2)
     })
 
+    it("unload() terminates an idle worker to free the model; the next call starts a fresh one", async () => {
+        const { useWebAI } = await mod
+        const { result } = renderHook(() => useWebAI({ model: GEMMA }))
+        await act(async () => { await result.current.generate({ messages: ask }) })
+        expect(result.current.modelReady).toBe(true)
+        act(() => result.current.unload())
+        expect(instances[0].terminated).toBe(true)
+        expect(result.current.modelReady).toBe(false)
+        await act(async () => { await result.current.generate({ messages: ask }) })
+        expect(instances).toHaveLength(2)
+    })
+
     it("cancel() during a generation still stops it (the worker is terminated, the next call starts a new one)", async () => {
         const { useWebAI } = await mod
         FakeWorker.autoFinish = false
