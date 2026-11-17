@@ -1,0 +1,45 @@
+"docs/content/09-Core Concepts/07-Rendering-Modes.md"
+  s_59b1a927e8e518::t_c0afb6f919a0a7 55,109,111,122
+packages/catalyst-core/src/web-router/components/Split.tsx
+  s_59b1a927e8e518::t_e08890d4b66ea5 39,41-42
+  s_59b1a927e8e518::t_7586e8c72b7cd5 40
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_59b1a927e8e518::t_ee115ed1d3e58f 1289-1290,1292
+  s_59b1a927e8e518::t_e08890d4b66ea5 40-41,591-596,888-889,891-893,1181-1185
+  s_59b1a927e8e518::t_eaf9f6b70aafe6 1186
+packages/catalyst-core/test/server/handler.ppr.test.ts
+  s_59b1a927e8e518::t_74829cca65eeab 154-155,163,477
+  s_59b1a927e8e518::t_30c30293687b18 45-49,51,153,171-172
+  s_59b1a927e8e518::t_a6236cb93c1737 312,322
+  s_59b1a927e8e518::t_ec184e0ebf6d44 10,50,52-100,291-311,313-321,323-378,437,464,475-476,478-483,490-517
+  s_59b1a927e8e518::t_0e0affd605b0cf 379-380
+  s_59b1a927e8e518::t_478e41547a8730 518
+packages/catalyst-core/test/types/split.test.ts
+  s_59b1a927e8e518::t_7586e8c72b7cd5 11
+  s_59b1a927e8e518::t_074b36c3e48160 1-10,12-14
+packages/catalyst-core/src/server/renderer/ppr.ts
+  s_59b1a927e8e518::t_e08890d4b66ea5 22-25,40-46,52-55,62-65,83-85,87-92,94-96,99,110,137-142
+  s_59b1a927e8e518::t_c357a497e304df 26-27,57-61
+packages/catalyst-core/test/server/ppr.test.ts
+  s_59b1a927e8e518::t_8e0f9b9a79bd11 206-220,225-263,266-270
+  s_59b1a927e8e518::t_c357a497e304df 221-224,264-265
+  s_59b1a927e8e518::t_8acaae9f871856 67-89
+packages/catalyst-core/src/web-router/components/DataFetcher.test.jsx
+  s_59b1a927e8e518::t_9c8c257527cd80 56-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d4fc356d615f6f86cabb1e9611ed041e7f18726",
+  "prompts": {},
+  "sessions": {
+    "s_59b1a927e8e518": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "77c2acac-cda5-4562-b200-a06c6fe98761",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
