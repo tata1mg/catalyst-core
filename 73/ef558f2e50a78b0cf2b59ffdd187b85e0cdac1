@@ -1,0 +1,51 @@
+packages/catalyst-ai/test/audioPrep.test.ts
+  s_b51c9b0dcf5264::t_98325f97fad727 108-110,112-118
+  s_b51c9b0dcf5264::t_2596781f505015 111
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_b51c9b0dcf5264::t_de6d62effe216f 64-75
+packages/catalyst-ai/test/deviceImage.test.ts
+  s_b51c9b0dcf5264::t_de6d62effe216f 1,13,84-107
+  s_b51c9b0dcf5264::t_d1898c2d4cc266 108
+packages/catalyst-ai/src/index.js
+  s_b51c9b0dcf5264::t_4d2a085f5399ae 11
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_b51c9b0dcf5264::t_47332dbafa90a2 236-237,239-240
+  s_b51c9b0dcf5264::t_4d2a085f5399ae 233,261
+packages/catalyst-ai/src/useWebAI.js
+  s_b51c9b0dcf5264::t_ae95e00424994e 355-372,398
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_b51c9b0dcf5264::t_4d2a085f5399ae 6
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_b51c9b0dcf5264::t_47332dbafa90a2 87-88,91,99
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_b51c9b0dcf5264::t_4d2a085f5399ae 58-61,85
+packages/catalyst-ai/src/contentParts.js
+  s_b51c9b0dcf5264::t_7ab654e7441221 17-21,42
+  s_b51c9b0dcf5264::t_f8f1dbc4b8c9bd 14-15
+  s_b51c9b0dcf5264::t_d4ead9835dec43 16
+packages/catalyst-ai/test/contentParts.test.ts
+  s_b51c9b0dcf5264::t_2e420b5539a53c 234-248
+packages/catalyst-ai/src/audioPrep.js
+  s_b51c9b0dcf5264::t_98325f97fad727 99
+  s_b51c9b0dcf5264::t_2596781f505015 100-101
+packages/catalyst-core/test/hooks/aiGeneration.test.ts
+  s_b51c9b0dcf5264::t_de6d62effe216f 41-44
+packages/catalyst-ai/src/deviceImage.js
+  s_b51c9b0dcf5264::t_ae95e00424994e 25-35,68-69,71,80,82-91,93-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73ef558f2e50a78b0cf2b59ffdd187b85e0cdac1",
+  "prompts": {},
+  "sessions": {
+    "s_b51c9b0dcf5264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14779470-e579-476b-994f-ca5f906d20c2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
