@@ -1,11 +1,10 @@
 import React, { useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
-import { useAI, usePipeline, transcribeStage, jsonStage, imageStage } from "catalyst-core/hooks"
+import { useAI, usePipeline, transcribeStage, jsonStage, imageStage, requestImage } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
 // Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
-// a voice recording's words must not reach a provider silently. The app reaches catalyst-ai only through
-// catalyst-core/hooks, so the image request is an inline fetch to the same /ai/:provider/image route requestImage uses.
+// a voice recording's words must not reach a provider silently. requestImage comes from catalyst-core/hooks.
 
 const SCENE_SCHEMA = {
     type: "object",
@@ -24,18 +23,6 @@ const readAsDataUrl = (file) =>
         reader.onerror = () => reject(reader.error)
         reader.readAsDataURL(file)
     })
-
-async function requestImage({ prompt, signal, provider = "openai" }) {
-    const response = await fetch(`/ai/${provider}/image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-        signal,
-    })
-    const data = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(data?.error || `Image request failed (${response.status})`)
-    return { images: (data.images ?? []).map((i) => ({ ...i, url: `data:${i.mimeType};base64,${i.data}` })), usage: data.usage }
-}
 
 const chip = "px-3 py-1.5 rounded-full border border-[var(--border)] text-[12px] cursor-pointer bg-transparent text-[var(--text-2)]"
 
