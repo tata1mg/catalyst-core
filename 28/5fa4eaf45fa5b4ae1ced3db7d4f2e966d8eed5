@@ -1,0 +1,299 @@
+benchmarks/harness/compose.py
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-58
+  s_2b5c6c7a2de2aa::t_4a5a472cac169f 59-65
+benchmarks/pokedex/results/README.md
+  s_2b5c6c7a2de2aa::t_87f82542fc6b71 1-50
+  s_2b5c6c7a2de2aa::t_de20b4d3be5b64 51
+benchmarks/pokedex/results/catalyst-1.1.0/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_71e4fca5204d57 5-37
+benchmarks/pokedex/results/exact/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_db28669382dfa2 5-37
+benchmarks/harness/early.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,32
+benchmarks/harness/lhreports.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 14
+benchmarks/pokedex/results/sveltekit/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_cd34934924cf0f 5-36
+benchmarks/harness/waterfall.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,33
+benchmarks/harness/render.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4
+benchmarks/harness/images.mjs
+  s_2b5c6c7a2de2aa::t_42136e3db49602 1
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4,7-9,30,33,41-43,45-47
+benchmarks/harness/extract_lighthouse_images.py
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-12
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_87f82542fc6b71 11,18,20,22,24-31
+benchmarks/harness/record.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-35
+  s_2b5c6c7a2de2aa::t_89d64531ebd03e 36-40
+benchmarks/harness/late.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,14,21,24
+benchmarks/pokedex/exact/AGENTS.md
+  s_2b5c6c7a2de2aa::t_139dbbd5f90659 1-30
+benchmarks/pokedex/exact/CLAUDE.md
+  s_2b5c6c7a2de2aa::t_fdd9b2008ac971 1-30
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact-build.json
+  s_2b5c6c7a2de2aa::t_aaf97427334cc6 1
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact/install.json
+  s_2b5c6c7a2de2aa::t_c1098c7348a8fc 1-32
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact/install/index.html
+  s_2b5c6c7a2de2aa::t_db48eb71e68e44 1-49
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact/install/ios/index.html
+  s_2b5c6c7a2de2aa::t_4f3ba1337235b1 1-49
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact/install/macos/index.html
+  s_2b5c6c7a2de2aa::t_e23ad40270d20e 1-49
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.exact/install/web/index.html
+  s_2b5c6c7a2de2aa::t_6a63d0fe649e1a 1-49
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/.gen/server.js
+  s_2b5c6c7a2de2aa::t_f5e18006a06eee 1-22537
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/404.html
+  s_2b5c6c7a2de2aa::t_bd3b03a62a9a23 1-11
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/app.js
+  s_2b5c6c7a2de2aa::t_23b2a87f106edb 1-3
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/fragment-CCJ2nEXq.js
+  s_2b5c6c7a2de2aa::t_b4a6a28845d40d 1
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/index.html
+  s_2b5c6c7a2de2aa::t_edd886c656f45c 1-11
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/input-glue-CPaHxp_7.js
+  s_2b5c6c7a2de2aa::t_46caa26b8f5686 1-2
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/manifest.json
+  s_2b5c6c7a2de2aa::t_79b61091753ac2 1-8
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/routes.json
+  s_2b5c6c7a2de2aa::t_a347ff8db68a4d 1-22
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/shell.html
+  s_2b5c6c7a2de2aa::t_7fa1db31a0fe5f 1-12
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/storage-environment-Cl6q2ZQ_.js
+  s_2b5c6c7a2de2aa::t_d25fb6ba35de1d 1
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/style.css
+  s_2b5c6c7a2de2aa::t_4ee1718dc654cb 1
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/symbol-roles-B-ExGlrT.js
+  s_2b5c6c7a2de2aa::t_1b65debbcd940a 1
+benchmarks/pokedex/exact/dist.gen/359bd5fda2b5ce4784ada24580e22008/ts-stream-BA5SavDJ.js
+  s_2b5c6c7a2de2aa::t_2c162f0262d251 1-8
+benchmarks/pokedex/exact/dist.lock
+  s_2b5c6c7a2de2aa::t_9c49cdad4df874 1
+benchmarks/pokedex/exact/dist/.exact-build.json
+  s_2b5c6c7a2de2aa::t_2bc9ce4d6fa89a 1
+benchmarks/pokedex/exact/dist/.exact/install.json
+  s_2b5c6c7a2de2aa::t_807d902a46f547 1-32
+benchmarks/pokedex/exact/dist/.exact/install/index.html
+  s_2b5c6c7a2de2aa::t_bc5cd2bd21ed92 1-49
+benchmarks/pokedex/exact/dist/.exact/install/ios/index.html
+  s_2b5c6c7a2de2aa::t_19bedf4778053f 1-49
+benchmarks/pokedex/exact/dist/.exact/install/macos/index.html
+  s_2b5c6c7a2de2aa::t_a85824e3db7e18 1-49
+benchmarks/pokedex/exact/dist/.exact/install/web/index.html
+  s_2b5c6c7a2de2aa::t_4bb8b36dd578e5 1-49
+benchmarks/pokedex/exact/dist/.gen/server.js
+  s_2b5c6c7a2de2aa::t_10c8713678d525 1-22537
+benchmarks/pokedex/exact/dist/404.html
+  s_2b5c6c7a2de2aa::t_93036d85cc384b 1-11
+benchmarks/pokedex/exact/dist/app.js
+  s_2b5c6c7a2de2aa::t_ca60320b8e4364 1-3
+benchmarks/pokedex/exact/dist/fragment-CCJ2nEXq.js
+  s_2b5c6c7a2de2aa::t_30ac1fad02198f 1
+benchmarks/pokedex/exact/dist/index.html
+  s_2b5c6c7a2de2aa::t_785a47c1ffdcde 1-11
+benchmarks/pokedex/exact/dist/input-glue-CPaHxp_7.js
+  s_2b5c6c7a2de2aa::t_845b77836efe66 1-2
+benchmarks/pokedex/exact/dist/manifest.json
+  s_2b5c6c7a2de2aa::t_eedc58b3ece626 1-8
+benchmarks/pokedex/exact/dist/routes.json
+  s_2b5c6c7a2de2aa::t_9a326a26912cd2 1-22
+benchmarks/pokedex/exact/dist/shell.html
+  s_2b5c6c7a2de2aa::t_4c5be4371e1394 1-12
+benchmarks/pokedex/exact/dist/storage-environment-Cl6q2ZQ_.js
+  s_2b5c6c7a2de2aa::t_4ba5f53ba5407c 1
+benchmarks/pokedex/exact/dist/style.css
+  s_2b5c6c7a2de2aa::t_d3597287fbc910 1
+benchmarks/pokedex/exact/dist/symbol-roles-B-ExGlrT.js
+  s_2b5c6c7a2de2aa::t_ae6d571a33c801 1
+benchmarks/pokedex/exact/dist/ts-stream-BA5SavDJ.js
+  s_2b5c6c7a2de2aa::t_abd0ca8edefad4 1-8
+benchmarks/pokedex/exact/exact.mjs
+  s_2b5c6c7a2de2aa::t_1cb5333b73109f 1-24
+benchmarks/pokedex/exact/types.json
+  s_2b5c6c7a2de2aa::t_2abb0c7902ab40 1
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/chunks/vendor.js
+  s_2b5c6c7a2de2aa::t_64a47a5b535c36 1-883
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/env.js
+  s_2b5c6c7a2de2aa::t_dc7cb7ffae262a 1-99
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/handler.js
+  s_2b5c6c7a2de2aa::t_b090902ab0b04c 1-247
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/index.js
+  s_2b5c6c7a2de2aa::t_cb34bd30ce5c8d 1-130
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/shims.js
+  s_2b5c6c7a2de2aa::t_4b98f56a57f7b4 1-3
+benchmarks/pokedex/sveltekit/.svelte-kit/adapter-node/entries/utils.js
+  s_2b5c6c7a2de2aa::t_fa570884aa2ee1 1-85
+benchmarks/pokedex/sveltekit/.svelte-kit/ambient.d.ts
+  s_2b5c6c7a2de2aa::t_c67eccbf8bbcfc 1-366
+benchmarks/pokedex/sveltekit/.svelte-kit/env.d.ts
+  s_2b5c6c7a2de2aa::t_116ba32053a330 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/app.js
+  s_2b5c6c7a2de2aa::t_f11608e04465fe 1-41
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/matchers.js
+  s_2b5c6c7a2de2aa::t_6f3852a8e77fa9 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/nodes/0.js
+  s_2b5c6c7a2de2aa::t_0dda1bc0dc8a08 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/nodes/1.js
+  s_2b5c6c7a2de2aa::t_ffa8110fd2e9b7 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/nodes/2.js
+  s_2b5c6c7a2de2aa::t_7a6f310ecf1238 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client-optimized/nodes/3.js
+  s_2b5c6c7a2de2aa::t_b697a77667864b 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/app.js
+  s_2b5c6c7a2de2aa::t_ff1ee04fc48930 1-41
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/matchers.js
+  s_2b5c6c7a2de2aa::t_14e63ad5a0a43b 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/nodes/0.js
+  s_2b5c6c7a2de2aa::t_b2ceb70ba8ae6c 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/nodes/1.js
+  s_2b5c6c7a2de2aa::t_77f15df338d474 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/nodes/2.js
+  s_2b5c6c7a2de2aa::t_efde828e9e7bb9 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/client/nodes/3.js
+  s_2b5c6c7a2de2aa::t_7c9065a2168d7e 1
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/root.js
+  s_2b5c6c7a2de2aa::t_e2abc01b7a2f40 1-3
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/root.svelte
+  s_2b5c6c7a2de2aa::t_4c5946b8d3007a 1-68
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/server/internal.js
+  s_2b5c6c7a2de2aa::t_45b19b80acdc9e 1-55
+benchmarks/pokedex/sveltekit/.svelte-kit/generated/shared/error-template.js
+  s_2b5c6c7a2de2aa::t_6ed5e7c74e5666 1
+benchmarks/pokedex/sveltekit/.svelte-kit/non-ambient.d.ts
+  s_2b5c6c7a2de2aa::t_9a8fffe8f5be2e 1-45
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/.vite/manifest.json
+  s_2b5c6c7a2de2aa::t_2b91ed6d637f34 1-140
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/assets/0.DcNDL5BU.css
+  s_2b5c6c7a2de2aa::t_a335783af91f7e 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/D2ThDd3q.js
+  s_2b5c6c7a2de2aa::t_9114b93e908777 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/DIHA38eN.js
+  s_2b5c6c7a2de2aa::t_edd4b804e20ea4 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/DwabCYUB.js
+  s_2b5c6c7a2de2aa::t_347727a3a99e69 1-2
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/JOAg28iE.js
+  s_2b5c6c7a2de2aa::t_488eaaa2e27c63 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/JmsXEvdU.js
+  s_2b5c6c7a2de2aa::t_d793f95f6b8e97 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/X20OPxYD.js
+  s_2b5c6c7a2de2aa::t_df9ac1a24e6262 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/Z7vKI4fa.js
+  s_2b5c6c7a2de2aa::t_0ee23b3c53cc9a 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/chunks/wbPk3Yxo.js
+  s_2b5c6c7a2de2aa::t_0e8209f10ad604 1-81
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/entry/app.2q56BcZb.js
+  s_2b5c6c7a2de2aa::t_c5511e55a7c9d4 1-2
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/entry/start.BpqLD-1r.js
+  s_2b5c6c7a2de2aa::t_50fc3a33c9b6bc 1-2
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/nodes/0.jjZID4wD.js
+  s_2b5c6c7a2de2aa::t_e4e3fd0848c140 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/nodes/1.CicqhrNZ.js
+  s_2b5c6c7a2de2aa::t_9f7e6088dea906 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/nodes/2.BVLSOymE.js
+  s_2b5c6c7a2de2aa::t_a533d84a872c09 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/immutable/nodes/3.D4J02P_7.js
+  s_2b5c6c7a2de2aa::t_654ce91ba9ec46 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/client/_app/version.json
+  s_2b5c6c7a2de2aa::t_9fc61203e1a4c7 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/.vite/manifest.json
+  s_2b5c6c7a2de2aa::t_fe2eb6681a6057 1-143
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/_app/immutable/assets/_layout.DcNDL5BU.css
+  s_2b5c6c7a2de2aa::t_52742893461ed1 1
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/exports.js
+  s_2b5c6c7a2de2aa::t_83046615e9b64c 1-174
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/index.js
+  s_2b5c6c7a2de2aa::t_17beebbffaaae6 1-1443
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/internal.js
+  s_2b5c6c7a2de2aa::t_17d88cca47c625 1-135
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/pokemon.js
+  s_2b5c6c7a2de2aa::t_291c4029a0b1ed 1-4
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/root.js
+  s_2b5c6c7a2de2aa::t_711a3fe8e11a56 1-3061
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/server.js
+  s_2b5c6c7a2de2aa::t_c295b1d164b686 1-34
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/utils.js
+  s_2b5c6c7a2de2aa::t_7d003d30e864b7 1-1014
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/chunks/utils2.js
+  s_2b5c6c7a2de2aa::t_c85979cf10a53e 1-41
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/fallbacks/error.svelte.js
+  s_2b5c6c7a2de2aa::t_83a314c7f2f3db 1-52
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/pages/_layout.svelte.js
+  s_2b5c6c7a2de2aa::t_88f710e675ddbd 1-10
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/pages/_page.server.js
+  s_2b5c6c7a2de2aa::t_e25863c194d431 1-5
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/pages/_page.svelte.js
+  s_2b5c6c7a2de2aa::t_d9874ddfb1b7bb 1-46
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/pages/pokemon/_name_/_page.server.js
+  s_2b5c6c7a2de2aa::t_9e2aa4d28b46f7 1-10
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/entries/pages/pokemon/_name_/_page.svelte.js
+  s_2b5c6c7a2de2aa::t_61a1ba3421c145 1-33
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/env.js
+  s_2b5c6c7a2de2aa::t_51a7c06fca4134 1-13
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/index.js
+  s_2b5c6c7a2de2aa::t_9631b2f10a6805 1-4024
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/internal.js
+  s_2b5c6c7a2de2aa::t_6ee69d96d4dc5a 1-14
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/manifest-full.js
+  s_2b5c6c7a2de2aa::t_b9b2c1c368ffe5 1-47
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/manifest.js
+  s_2b5c6c7a2de2aa::t_c0ffd0aa5a6d62 1-47
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/nodes/0.js
+  s_2b5c6c7a2de2aa::t_954bf5182d84ed 1-8
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/nodes/1.js
+  s_2b5c6c7a2de2aa::t_09639abd8abe48 1-8
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/nodes/2.js
+  s_2b5c6c7a2de2aa::t_2ef84b4e57593f 1-10
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/nodes/3.js
+  s_2b5c6c7a2de2aa::t_71209a19f5c1a7 1-10
+benchmarks/pokedex/sveltekit/.svelte-kit/output/server/remote-entry.js
+  s_2b5c6c7a2de2aa::t_3189960ba06502 1-1171
+benchmarks/pokedex/sveltekit/.svelte-kit/tsconfig.json
+  s_2b5c6c7a2de2aa::t_cd07e0002fbe98 1-56
+benchmarks/pokedex/sveltekit/.svelte-kit/types/route_meta_data.json
+  s_2b5c6c7a2de2aa::t_36302f4e921baa 1-8
+benchmarks/pokedex/sveltekit/.svelte-kit/types/src/routes/$types.d.ts
+  s_2b5c6c7a2de2aa::t_36c7fb05d75a2d 1-30
+benchmarks/pokedex/sveltekit/.svelte-kit/types/src/routes/pokemon/[name]/$types.d.ts
+  s_2b5c6c7a2de2aa::t_c73a9174649de8 1-25
+benchmarks/pokedex/sveltekit/install.log
+  s_2b5c6c7a2de2aa::t_dbe99cad206a84 1
+benchmarks/pokedex/sveltekit/package-lock.json
+  s_2b5c6c7a2de2aa::t_c53b292b25cd44 1-1801
+benchmarks/exact-dog-adoption/.gitignore
+  s_2b5c6c7a2de2aa::t_20853f77c2d5df 1-8
+benchmarks/exact-dog-adoption/AGENTS.md
+  s_2b5c6c7a2de2aa::t_77bb2a7d3e8dfe 1-30
+benchmarks/exact-dog-adoption/CLAUDE.md
+  s_2b5c6c7a2de2aa::t_7e60fe4a14f2c3 1
+benchmarks/exact-dog-adoption/exact.mjs
+  s_2b5c6c7a2de2aa::t_bd5c5600761167 1-24
+benchmarks/exact-error-catalog/.gitignore
+  s_2b5c6c7a2de2aa::t_ac9fcc6c9cf6c2 1-8
+benchmarks/exact-error-catalog/AGENTS.md
+  s_2b5c6c7a2de2aa::t_9e548edadc5cc9 1-30
+benchmarks/exact-error-catalog/CLAUDE.md
+  s_2b5c6c7a2de2aa::t_9d9a079c239129 1
+benchmarks/exact-error-catalog/exact.mjs
+  s_2b5c6c7a2de2aa::t_0ba323e1a9b398 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "285fa4eaf45fa5b4ae1ced3db7d4f2e966d8eed5",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

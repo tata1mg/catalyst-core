@@ -1,0 +1,23 @@
+src/server/renderer/handler.jsx
+  s_a7699bea22436f::t_5c2562496cc443 24-25,100-101,129,156-205,269-314,357-359,370,505,540,568,632,749,764,782,1083,1228,1413-1417,1491
+src/server/renderer/ChunkExtractor.js
+  s_a7699bea22436f::t_5c2562496cc443 12-16,29-32,35,103-106,108,110,122-140,154-161,163,165-166,171,173,175-176
+src/server/renderer/extract.js
+  s_a7699bea22436f::t_5c2562496cc443 103-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efb467be1835bbec063f06f1f50d52b748ab0ce2",
+  "prompts": {},
+  "sessions": {
+    "s_a7699bea22436f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b89c20d2-65c5-46f7-bab8-adeefa02fcda",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

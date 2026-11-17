@@ -1,0 +1,25 @@
+examples/useai/src/js/routes/index.js
+  s_86d86931dd4995::t_c8d64dc4fd8129 7,26-28
+  s_86d86931dd4995::t_5cd44110990f6c 29
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_86d86931dd4995::t_c8d64dc4fd8129 1-165,167-177
+  s_86d86931dd4995::t_d461e72d6cbcb1 166
+examples/useai/config/config.template.json
+  s_86d86931dd4995::t_c8d64dc4fd8129 17-19,23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f529e9a28d21976567f9725933904f3b2806ab22",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+packages/catalyst-ai/test/useImageGen.test.ts
+  s_86d86931dd4995::t_1ac0899758feb9 2,33-42
+  s_86d86931dd4995::t_a8f061a873cfc1 43
+packages/catalyst-ai/src/useImageGen.js
+  s_86d86931dd4995::t_1ac0899758feb9 2,8-9,30-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4a49794c283e471461049d44f6e9349599d4cd73",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
