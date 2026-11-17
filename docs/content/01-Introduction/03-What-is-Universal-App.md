@@ -52,14 +52,12 @@ The result is a web-first architecture with native delivery and native capabilit
 
 Universal app behavior is controlled through `WEBVIEW_CONFIG`, including:
 
-- `port`
-- `LOCAL_IP`
-- `useHttps`
+- `appId` and `appName`
+- `url`
 - `accessControl.allowedUrls`
 - `splashScreen`
 - `notifications.enabled`
 - `android.buildOptimisation`
-- `ios.appBundleId`
 
 ## Start Here
 

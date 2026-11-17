@@ -8,9 +8,9 @@
             "file: config/config.json must exist",
             "field: NODE_SERVER_PORT must be present",
             "field: WEBVIEW_CONFIG must be present",
-            "field: API_URL must be present"
+            "fields: NODE_SERVER_HOSTNAME, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL and CLIENT_ENV_VARIABLES must be present (API_URL is optional)"
         ],
-        "fix_guide": "Create config/config.json with: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3005, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'http://localhost:3005', API_URL: 'https://api.example.com', CLIENT_ENV_VARIABLES: ['API_URL'], WEBVIEW_CONFIG: { port: 3005, accessControl: { enabled: true, allowedUrls: [] } } }. From 1.0.0, catalyst start/build/serve exit before starting when NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES is missing. Before 1.0.0, also include WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE. On 1.0.0+ they are no longer read and can be removed.",
+        "fix_guide": "Create config/config.json with: { NODE_SERVER_HOSTNAME: 'localhost', NODE_SERVER_PORT: 3005, BUILD_OUTPUT_PATH: 'build', PUBLIC_STATIC_ASSET_PATH: '/assets/', PUBLIC_STATIC_ASSET_URL: 'http://localhost:3005', CLIENT_ENV_VARIABLES: [], WEBVIEW_CONFIG: { port: 3005 } }. API_URL is optional: add it (and list it in CLIENT_ENV_VARIABLES) only if the app calls an API. WEBVIEW_CONFIG.accessControl is optional too: leave it out to allow every URL, and if you set enabled: true, allowedUrls must be a non-empty list (an empty list blocks every URL, see T11_ACCESS_CONTROL). From 1.0.0, catalyst start/build/serve exit before starting when NODE_SERVER_HOSTNAME, NODE_SERVER_PORT, BUILD_OUTPUT_PATH, PUBLIC_STATIC_ASSET_PATH, PUBLIC_STATIC_ASSET_URL or CLIENT_ENV_VARIABLES is missing. Before 1.0.0, also include WEBPACK_DEV_SERVER_HOSTNAME, WEBPACK_DEV_SERVER_PORT and ANALYZE_BUNDLE. On 1.0.0+ they are no longer read and can be removed.",
         "verify_hint": "Run `npm run start` on Catalyst 0.3.x, or `npm run devServe` on legacy 0.2.x. The server should start without config errors.",
         "depends_on": []
     },
@@ -136,17 +136,18 @@
     {
         "id": "T7b_NATIVE_SCRIPTS",
         "tier": 1,
-        "title": "package.json has catalyst native build and emulator scripts",
+        "title": "package.json has catalyst native build scripts",
         "detect_pattern": "package_json_scripts",
         "how_to_check": [
-            "package.json scripts must include: buildApp",
-            "package.json scripts must include: buildApp:ios",
-            "package.json scripts must include: buildApp:android",
-            "package.json scripts must include: setupEmulator",
-            "package.json scripts must include: setupEmulator:ios",
-            "package.json scripts must include: setupEmulator:android"
+            "catalyst-core 1.2.0 and later: package.json scripts must include android, ios, android:release and ios:release (buildApp:* and setupEmulator:* are not needed)",
+            "before 1.2.0: package.json scripts must include buildApp",
+            "before 1.2.0: package.json scripts must include buildApp:ios",
+            "before 1.2.0: package.json scripts must include buildApp:android",
+            "before 1.2.0: package.json scripts must include setupEmulator",
+            "before 1.2.0: package.json scripts must include setupEmulator:ios",
+            "before 1.2.0: package.json scripts must include setupEmulator:android"
         ],
-        "fix_guide": "Add buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android scripts. Legacy 0.2.x may also expose devBuild/devServe. Current 0.3.x removes those commands: use catalyst start for development and catalyst build followed by catalyst serve for production validation.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, add \"android\": \"catalyst buildApp:android\", \"ios\": \"catalyst buildApp:ios\", \"android:release\": \"catalyst buildApp:android --release\" and \"ios:release\": \"catalyst buildApp:ios --release\". npm run android and npm run ios set up missing tools after asking, start the dev server and run the app; setupEmulator scripts are not needed. Before 1.2.0, add buildApp, buildApp:ios, buildApp:android, setupEmulator, setupEmulator:ios, and setupEmulator:android scripts, and build a release with npm run buildApp:<platform> -- --release. Legacy 0.2.x may also expose devBuild/devServe. Current 0.3.x removes those commands: use catalyst start for development and catalyst build followed by catalyst serve for production validation.",
         "verify_hint": "Run `npm run start`, then verify the required platform command resolves. On 0.3.x, devBuild/devServe should not be present.",
         "depends_on": ["T1_CONFIG"]
     },
@@ -157,14 +158,16 @@
         "detect_pattern": "field_check",
         "how_to_check": [
             "file: config/config.json",
-            "field: WEBVIEW_CONFIG.android must exist",
-            "field: WEBVIEW_CONFIG.android.buildType must exist",
-            "field: WEBVIEW_CONFIG.android.sdkPath must exist",
-            "field: WEBVIEW_CONFIG.android.emulatorName must exist",
-            "field: WEBVIEW_CONFIG.android.appName must exist"
+            "catalyst-core 1.2.0 and later: WEBVIEW_CONFIG.appId (or android.packageName) and appName must be set; the android block is optional",
+            "catalyst-core 1.2.0 and later (advice, not required): WEBVIEW_CONFIG.url, the deployed https:// origin; without it a release uses LOCAL_IP, port and useHttps, or --url",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.buildType must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.sdkPath must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.emulatorName must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.android.appName must exist"
         ],
-        "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: android: { buildType: 'debug', sdkPath: '/Users/yourname/Android/sdk', emulatorName: 'Pixel_5_API_30', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. sdkPath must be absolute path to your Android SDK.",
-        "verify_hint": "Run `npm run buildApp:android`. Build should start without 'sdkPath not found' or 'missing android config' errors. If sdkPath is wrong, you'll see an immediate error — run `echo $ANDROID_HOME` in terminal to find the correct path.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, set WEBVIEW_CONFIG.appId (e.g. 'com.acme.shop') and appName, and set url (the deployed https:// origin) for releases. Without url, a release builds its start URL from LOCAL_IP, port and useHttps (or --url), and a terminal run asks for the website when that host is local or private. npm run android installs the SDK, JDK and emulator after asking, so sdkPath and emulatorName are optional. Before 1.2.0, add to WEBVIEW_CONFIG in config/config.json: android: { buildType: 'debug', sdkPath: '/Users/yourname/Android/sdk', emulatorName: 'Pixel_5_API_30', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. sdkPath must be absolute path to your Android SDK.",
+        "verify_hint": "Run `npm run android` (`npm run buildApp:android` before 1.2.0). Build should start without 'sdkPath not found' or 'missing android config' errors. If sdkPath is wrong, you'll see an immediate error — run `echo $ANDROID_HOME` in terminal to find the correct path.",
         "depends_on": ["T1_CONFIG"]
     },
     {
@@ -174,14 +177,16 @@
         "detect_pattern": "field_check",
         "how_to_check": [
             "file: config/config.json",
-            "field: WEBVIEW_CONFIG.ios must exist",
-            "field: WEBVIEW_CONFIG.ios.buildType must exist",
-            "field: WEBVIEW_CONFIG.ios.appBundleId must exist",
-            "field: WEBVIEW_CONFIG.ios.simulatorName must exist",
-            "field: WEBVIEW_CONFIG.ios.appName must exist"
+            "catalyst-core 1.2.0 and later: WEBVIEW_CONFIG.appId (or ios.bundleIdentifier) and appName must be set, and the iOS id has no underscore; the ios block is optional",
+            "catalyst-core 1.2.0 and later (advice, not required): WEBVIEW_CONFIG.url, the deployed https:// origin; without it a release uses LOCAL_IP, port and useHttps, or --url",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.buildType must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.appBundleId must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.simulatorName must exist",
+            "before 1.2.0: field: WEBVIEW_CONFIG.ios.appName must exist"
         ],
-        "fix_guide": "Add to WEBVIEW_CONFIG in config/config.json: ios: { buildType: 'Debug', appBundleId: 'com.company.appname', simulatorName: 'iPhone 15', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. appBundleId must match your Apple Developer provisioning profile.",
-        "verify_hint": "Run `npm run buildApp:ios`. Build should start Xcode compilation without 'missing ios config' or 'bundle ID not found' errors. If simulatorName is wrong, run `xcrun simctl list devices` to see available simulators and update the field.",
+        "fix_guide": "On catalyst-core 1.2.0 or later, set WEBVIEW_CONFIG.appId and appName, and set url (the deployed https:// origin) for releases; without url a release uses LOCAL_IP, port and useHttps (or --url). If appId has an underscore, set ios.bundleIdentifier to an id without one. npm run ios picks or creates a simulator, so simulatorName is optional. Before 1.2.0, add to WEBVIEW_CONFIG in config/config.json: ios: { buildType: 'Debug', appBundleId: 'com.company.appname', simulatorName: 'iPhone 15', appName: 'MyApp', cachePattern: '*.css,*.js,*.png,*.svg,*.jpg' }. appBundleId must match your Apple Developer provisioning profile.",
+        "verify_hint": "Run `npm run ios` (`npm run buildApp:ios` before 1.2.0). Build should start Xcode compilation without 'missing ios config' or 'bundle ID not found' errors. If simulatorName is wrong, run `xcrun simctl list devices` to see available simulators and update the field.",
         "depends_on": ["T1_CONFIG"]
     },
     {

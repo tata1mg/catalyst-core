@@ -3,54 +3,75 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="color-scheme" content="light dark" />
         <title>Offline</title>
         <style>
+            :root {
+                --paper: #f5f4ff;
+                --ink: #14132a;
+                --muted: #4b4a6b;
+                --accent: #5353dc;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --paper: #0b0a14;
+                    --ink: #f3f2ff;
+                    --muted: #a9a8c9;
+                    --accent: #a0a0ff;
+                }
+            }
             body {
                 margin: 0;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                background: #282c34;
-                color: #ffffff;
-                min-height: 100vh;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    sans-serif;
+                background: var(--paper);
+                color: var(--ink);
+                min-height: 100dvh;
                 display: flex;
                 align-items: center;
-                justify-content: center;
-                text-align: center;
-                font-size: calc(10px + 2vmin);
+                padding: 0 28px;
+                box-sizing: border-box;
+                -webkit-font-smoothing: antialiased;
             }
             .card {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 12px;
-                padding: 0 24px;
                 max-width: 440px;
             }
             h1 {
                 margin: 0;
-                font-size: 2rem;
-                font-weight: 700;
+                font-size: clamp(2.5rem, 11vw, 3.5rem);
+                font-weight: 800;
+                line-height: 1.05;
+                letter-spacing: -0.04em;
             }
             p {
-                margin: 0;
-                color: #d8e0f7;
-                line-height: 1.4;
+                margin: 16px 0 0;
+                color: var(--muted);
+                font-size: 1.0625rem;
+                line-height: 1.5;
             }
             a.retry {
-                color: #61dafb;
-                font-weight: 600;
+                display: inline-block;
+                margin-top: 16px;
+                padding: 12px 0;
+                color: var(--accent);
+                font-weight: 650;
                 text-decoration: none;
-                transition: color 0.2s ease;
             }
-            a.retry:hover {
-                color: #9ae3fb;
+            a.retry:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 3px;
+                border-radius: 4px;
             }
         </style>
     </head>
     <body>
         <div class="card">
-            <h1>You're Offline</h1>
-            <p>Please check your connection and try again.</p>
-            <a class="retry" href="catalyst://retry">Try Again</a>
+            <h1>You're offline.</h1>
+            <p>Check your connection and try again.</p>
+            <a class="retry" href="catalyst://retry">Try again</a>
         </div>
     </body>
 </html>

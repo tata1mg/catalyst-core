@@ -13,6 +13,10 @@
         "setupEmulator": "catalyst setupEmulator",
         "setupEmulator:ios": "catalyst setupEmulator:ios",
         "setupEmulator:android": "catalyst setupEmulator:android",
+        "android": "catalyst buildApp:android",
+        "ios": "catalyst buildApp:ios",
+        "android:release": "catalyst buildApp:android --release",
+        "ios:release": "catalyst buildApp:ios --release",
         "typecheck": "tsc --noEmit"
     },
     "_moduleAliases": {
@@ -24,7 +28,7 @@
         "@routes": "src/js/routes/"
     },
     "dependencies": {
-        "catalyst-core": "1.1.0",
+        "catalyst-core": "1.2.0",
         "react": "19.0.0",
         "react-dom": "19.0.0",
         "react-router": "^7.18.2"

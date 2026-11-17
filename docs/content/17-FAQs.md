@@ -31,15 +31,21 @@ Default app port is usually `3005`. Change it only if:
 - your local environment requires a different port
 - your team has standard local networking rules
 
-## Why does `LOCAL_IP` matter for universal apps?
+## How does the native app reach my dev server?
 
-`LOCAL_IP` tells the native WebView where to load the local server from. It must be a reachable LAN IP, not `localhost`, because emulators and devices cannot reliably resolve your host machine through `localhost`.
+You do not configure an address for it. Keep `LOCAL_IP` as `localhost`; each debug build works out the address and puts it into the build only:
 
-If your IP changes:
+- Android emulator or USB phone: `localhost`, forwarded to your machine with `adb reverse`
+- iOS simulator: `localhost`
+- iPhone: your Mac's `<Local Hostname>.local` name, so it keeps working when your IP changes
 
-1. update `WEBVIEW_CONFIG.LOCAL_IP`
-2. restart the Catalyst server
-3. rebuild or rerun the universal app
+Set `LOCAL_IP` to a real host, such as a staging server, only when you want the debug build to load that site instead of the dev server.
+
+Apps set up before Catalyst 1.2.0 had a LAN address saved in `config/config.json`. The first debug build on 1.2.0 puts `localhost` back and prints what it changed. It runs once per checkout, so if this checkout already ran a 1.2.0 debug build, for example a canary, set `LOCAL_IP` and `NODE_SERVER_HOSTNAME` to `localhost` by hand. See [Running Universal Apps](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#how-the-app-reaches-the-dev-server).
+
+## The dev server or app is stuck on an old IP address
+
+Apps set up before Catalyst 1.2.0 can have a LAN address in both `NODE_SERVER_HOSTNAME` and `WEBVIEW_CONFIG.LOCAL_IP`. After your IP address changes, for example on another Wi-Fi network, `npm run start` cannot bind it and the app cannot reach the dev server. The first debug build on 1.2.0 (`npm run android` or `npm run ios`) puts `localhost` back and prints the change. That runs once per checkout, so if this checkout already ran a 1.2.0 debug build, for example a canary, fix it by hand: set `NODE_SERVER_HOSTNAME` and `LOCAL_IP` to `localhost`. If you run the dev server yourself for a phone on the same Wi-Fi, set both to this machine's current IP address instead. Change any `PUBLIC_STATIC_ASSET_URL` or `API_URL` on the old address the same way. See [Fix a stale LAN address by hand](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#fix-a-stale-lan-address-by-hand).
 
 ## What does `CLIENT_ENV_VARIABLES` do?
 
@@ -66,15 +72,23 @@ Android CLI tooling can be inconsistent with space-separated names. Prefer names
 
 First setup is slower because SDK and bridge checks are performed.
 
-## Why is iOS `buildType` failing even though the value looks right?
+## Why does `npm run ios` build an IPA instead of opening the simulator?
 
-iOS `buildType` is case-sensitive. Use `Debug` or `Release`, not lowercase values.
+`WEBVIEW_CONFIG.ios.buildType` is `release` (in any case), which builds the store IPA like `--release` and prints a deprecation warning. Set it to `debug` or remove it, and use `npm run ios:release` for store builds. The same applies to `android.buildType`.
+
+## How do I share an Android test build?
+
+Set `WEBVIEW_CONFIG.LOCAL_IP` to a site the other phone can reach, such as your public staging site or one on your VPN, and run `npm run android` (`npm run buildApp:android` in apps created before 1.2.0). Send them `build-output/android/debug/<App>-debug.apk`. A `<App>-debug-devserver.apk` loads your computer's dev server and only works on your setup. You can also run `npm run android:release` and share the `<App>.apk` next to the AAB; it will not install over a copy from Google Play, so uninstall that first. See [Share a test build](/content/Guides%20and%20Tutorials/First%20Universal%20App/RunUniversalApp#share-a-test-build).
+
+## Do I need signing files for an iOS release?
+
+Not on your own Mac. Sign in to Xcode with your company team's Apple account (Xcode > Settings > Accounts), or have the App Store profile for the app installed, and `npm run ios:release` signs with that. The files in `credentials/ios/` are for CI. See [Set up signing](/content/Deployment/ios-production-release#2-set-up-signing).
 
 ## Common Errors
 
 - **Port already in use**: switch to a free port.
-- **Emulator not found**: verify exact emulator name.
+- **Emulator not found**: verify the exact `emulatorName`, or remove it so Catalyst picks or creates one.
 - **Connection refused**: check host/IP and running dev server.
 - **Blank or blocked WebView**: check `accessControl.allowedUrls`.
-- **Native app cannot reach local server**: verify `LOCAL_IP` and `port`.
+- **Native app cannot reach local server**: on Android, check `adb reverse --list`; on an iPhone, check that the Mac and the phone share a Wi-Fi network.
 - **ADB issues**: restart ADB (`adb kill-server && adb start-server`).

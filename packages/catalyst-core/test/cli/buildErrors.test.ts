@@ -155,6 +155,18 @@ describe("hintFor", () => {
         )
     })
 
+    it("names NODE_SERVER_HOSTNAME when the server cannot bind its address", () => {
+        expect(hintFor("listen EADDRNOTAVAIL: address not available 10.255.255.1:3005").hint).toBe(
+            "NODE_SERVER_HOSTNAME 10.255.255.1 is not an address of this machine; set it to localhost (or this machine's address) in config/config.json."
+        )
+        expect(hintFor("listen EADDRNOTAVAIL: address not available fe80::1:3005").hint).toMatch(
+            /^NODE_SERVER_HOSTNAME fe80::1 is not/
+        )
+        expect(hintFor("listen EADDRNOTAVAIL").hint).toMatch(/^NODE_SERVER_HOSTNAME is not an address/)
+        // An outgoing connection is not the server's own address.
+        expect(hintFor("connect EADDRNOTAVAIL 10.0.0.1:443")).toBeNull()
+    })
+
     it("covers the native setup failures it understands", () => {
         expect(hintFor("Unknown AVD name [Pixel_9]").hint).toMatch(/emulator -list-avds/)
         expect(hintFor("Command not found: adb ").hint).toBe(

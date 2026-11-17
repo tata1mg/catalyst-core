@@ -241,10 +241,10 @@ Want to see your app on iOS or Android?
 
 ```bash
 # For Android
-npm run buildApp:android
+npm run android
 
 # For iOS (macOS only)
-npm run buildApp:ios
+npm run ios
 ```
 
 Learn more in the [Universal Apps guide](/content/Guides%20and%20Tutorials/First%20Universal%20App/first-universal-app).
@@ -316,9 +316,9 @@ npm run build              # Build for production
 npm run analyze            # Analyze bundle size
 
 # Universal Apps
-npm run buildApp:android   # Build Android app
-npm run buildApp:ios       # Build iOS app (macOS only)
-npm run installApp:android # Install on Android device
+npm run android            # Build and run the Android app
+npm run ios                # Build and run the iOS app (macOS only)
+npm run android:release    # Build the signed Android release
 ```
 
 See all commands in [CLI Reference](/content/cli-reference).

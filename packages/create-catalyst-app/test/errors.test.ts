@@ -206,6 +206,46 @@ describe("formatError() — same 3-mode contract (default/verbose/debug) as cata
     })
 })
 
+describe("formatError() with a cause or details", () => {
+    const strip = (text: string) => text.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g"), "")
+
+    it("default mode shows the cause's message, or the details when there is no cause", () => {
+        const caused = cca.createError(cca.ERROR_CODES.CCA_UPSTREAM_ERROR, { cause: new Error("npm ERR! 404") })
+        expect(cca.formatError(caused)).toContain("npm ERR! 404")
+        const plain = cca.createError(cca.ERROR_CODES.CCA_UPSTREAM_ERROR, { cause: "exit code 7" as any })
+        expect(cca.formatError(plain)).toContain("exit code 7")
+        const detailed = cca.createError(cca.ERROR_CODES.CCA_DIRECTORY_EXISTS, { details: "./shop is not empty" })
+        expect(cca.formatError(detailed).split("\n")[1]).toBe("./shop is not empty")
+    })
+
+    it("verbose mode names the problem from the cause, else the details", () => {
+        const caused = cca.createError(cca.ERROR_CODES.CCA_UPSTREAM_ERROR, { cause: new Error("ETIMEDOUT") })
+        expect(strip(cca.formatError(caused, "verbose"))).toContain("Problem: ETIMEDOUT")
+        const detailed = cca.createError(cca.ERROR_CODES.CCA_DIRECTORY_EXISTS, { details: "./shop is not empty" })
+        expect(strip(cca.formatError(detailed, "verbose"))).toContain("Problem: ./shop is not empty")
+    })
+
+    it("debug mode without a cause shows the details and the error's own stack", () => {
+        const err = cca.createError(cca.ERROR_CODES.CCA_DIRECTORY_EXISTS, { details: "./shop is not empty" })
+        const output = strip(cca.formatError(err, "debug"))
+        expect(output).toContain("Problem: ./shop is not empty")
+        expect(output).not.toContain("Environment:")
+        expect(output).toContain("Stack trace:")
+        expect(output).toContain(String(err.stack).split("\n")[0])
+        const stackless = Object.assign(cca.createError(cca.ERROR_CODES.CCA_DIRECTORY_EXISTS), { stack: "" })
+        expect(strip(cca.formatError(stackless, "debug"))).toContain("(no stack available)")
+    })
+
+    it("getDebugEnvInfo reports node, platform and this package's version", () => {
+        const info = cca.getDebugEnvInfo()
+        expect(info).toEqual({
+            node: process.version,
+            platform: process.platform,
+            createCatalystApp: require("../package.json").version,
+        })
+    })
+})
+
 describe("resolveOutputMode() — same bare-flag contract as scriptUtils.js#resolveOutputMode", () => {
     it("detects --debug and --verbose from an argv array", () => {
         expect(cca.resolveOutputMode(["node", "cli.js", "--debug"])).toBe("debug")
