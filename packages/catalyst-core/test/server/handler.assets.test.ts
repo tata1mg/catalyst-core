@@ -29,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const TEMPLATE_DOC = "@catalyst/template/server/document"
 const MANIFEST_CACHE = "../../src/server/manifestCache.js"
+const HOOKS = "@catalyst/template/server/index.js"
 
 // Fake build manifest. HomePage's __cacheKey → a critical chunk with CSS;
 // WIDGET_CACHE_KEY → a deferred chunk with its own CSS (registered during
@@ -44,6 +45,23 @@ function mockManifest() {
         getManifest: () => FAKE_MANIFEST,
         getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
     }))
+}
+
+// Server hooks with overrides. Every name handler.jsx reads must be defined (as undefined if unused):
+// vitest throws on reading an export a mock factory does not define.
+const HOOK_NAMES = [
+    "onRouteMatch",
+    "onFetcherSuccess",
+    "onFetcherError",
+    "onAppServerSideSuccess",
+    "onAppServerSideError",
+    "onRenderError",
+    "onRequestError",
+    "getEarlyHintLinks",
+]
+function mockHooks(overrides: Record<string, unknown>) {
+    const none = Object.fromEntries(HOOK_NAMES.map((name) => [name, undefined]))
+    vi.doMock(HOOKS, () => ({ ...none, ...overrides }))
 }
 
 // A real Writable so renderToPipeableStream's Transform → res pipe works.
@@ -82,6 +100,11 @@ function makeReqRes(url = "/", userAgent = "test") {
     })
     res.send = vi.fn(() => {
         res.headersSent = true
+        return res
+    })
+    res.locals = {}
+    res.append = vi.fn((k: string, v: string) => {
+        res.headers[k] = res.headers[k] ? `${res.headers[k]}, ${v}` : v
         return res
     })
     res.getHtml = () => Buffer.concat(chunks).toString("utf8")
@@ -125,6 +148,7 @@ afterEach(() => {
     vi.resetModules()
     vi.doUnmock(TEMPLATE_DOC)
     vi.doUnmock(MANIFEST_CACHE)
+    vi.doUnmock(HOOKS)
     try {
         fs.rmSync(buildDir, { recursive: true, force: true })
     } catch {
@@ -220,7 +244,7 @@ describe("SSR handler — critical asset collection", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)
@@ -260,7 +284,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const deferredStyleIdx = html.indexOf("<style>.widget{color:blue}</style>")
         expect(deferredStyleIdx).toBeGreaterThan(htmlEnd)
         expect(html).toContain(
-            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>',
+            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>'
         )
         expect(html.indexOf('src="http://localhost/assets/widget.def456.js"')).toBeGreaterThan(htmlEnd)
     })
@@ -277,7 +301,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         await first.res.waitForEnd()
         const firstHtml = first.res.getHtml()
         expect(firstHtml.indexOf("<style>.widget{color:blue}</style>")).toBeGreaterThan(
-            firstHtml.indexOf("</html>"),
+            firstHtml.indexOf("</html>")
         )
 
         // Second visit — same route key. getCachedDeferredCssPathsForRoute
@@ -300,7 +324,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         // Warm-cache modulepreload for the deferred JS learned last visit
         // (getDeferredPreloadScriptUrls -> deferredPreloadLinks, Head.jsx:33).
         const preloadIdx = secondHtml.indexOf(
-            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"',
+            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"'
         )
         expect(preloadIdx).toBeGreaterThan(-1)
         expect(preloadIdx).toBeLessThan(headEnd)
@@ -313,7 +337,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/widget",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)
@@ -326,5 +350,118 @@ describe("SSR handler — deferred assets discovered during render", () => {
         // registerDeferredAssetsForRoute.
         expect(html.indexOf("<style>.widget{color:blue}</style>")).toBeGreaterThan(htmlEnd)
         expect(html).not.toContain("widget.def456.js")
+    })
+})
+
+describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE)", () => {
+    // At runtime process.env is replaced by a plain object built from config.json, so booleans stay
+    // booleans; the real process.env would turn `true` into "true".
+    let realEnv: NodeJS.ProcessEnv
+    beforeEach(() => {
+        realEnv = process.env
+        process.env = { ...realEnv }
+    })
+    afterEach(() => {
+        process.env = realEnv
+    })
+
+    it("sends the route script and its static imports as a Link header; imports get no <script> of their own", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        process.env.EARLY_HINTS_LINKS = JSON.stringify([
+            { url: "https://api.example.com", rel: "preconnect" },
+        ])
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": {
+                    ...FAKE_MANIFEST["src/js/routes/HomePage"],
+                    imports: ["_vendor.js"],
+                },
+                "_vendor.js": { file: "vendor.111.js" },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        const home = "http://localhost/assets/home.abc123.js"
+        const vendor = "http://localhost/assets/vendor.111.js"
+        expect(res.headers.link).toBe(
+            [
+                `<${home}>; rel=preload; as=script; crossorigin; fetchpriority=high`,
+                "<https://api.example.com>; rel=preconnect",
+                `<${vendor}>; rel=preload; as=script; crossorigin; fetchpriority=high`,
+            ].join(", ")
+        )
+        const html = res.getHtml()
+        expect(html).toContain(`<script type="module" src="${home}">`)
+        expect(html).toContain(`<link rel="modulepreload" href="${vendor}"`)
+        expect(html).not.toContain(`<script type="module" src="${vendor}">`)
+    })
+
+    it.each([
+        ["a sync", (links: any) => () => links],
+        ["an async", (links: any) => async () => links],
+    ])("adds entries returned by %s getEarlyHintLinks hook", async (_label, makeHook) => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const hook = vi.fn(makeHook([{ url: "https://cdn.example.com", rel: "preconnect" }]))
+        mockHooks({ getEarlyHintLinks: hook })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(hook).toHaveBeenCalledWith(expect.objectContaining({ req, res }))
+        expect(res.headers.link).toBe(
+            [
+                "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high",
+                "<https://cdn.example.com>; rel=preconnect",
+            ].join(", ")
+        )
+    })
+
+    it("counts the header budget in UTF-8 bytes, not string length", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const route =
+            "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high"
+        // "é" is 1 UTF-16 code unit but 2 UTF-8 bytes; 20 of them make the entry 20 bytes longer on the
+        // wire than its .length. Budget = exact .length of both entries, so only a byte count drops it.
+        const url = `https://cdn.example.com/${"é".repeat(20)}`
+        const appLink = `<${url}>; rel=preconnect`
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = route.length + 2 + appLink.length
+        mockHooks({ getEarlyHintLinks: () => [{ url, rel: "preconnect" }] })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBe(route)
+    })
+
+    it("sends no Link header when the flag is off", async () => {
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBeUndefined()
+        expect(res.append).not.toHaveBeenCalled()
     })
 })
