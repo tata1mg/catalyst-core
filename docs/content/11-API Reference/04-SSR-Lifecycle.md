@@ -71,7 +71,7 @@ When a hook itself throws, Catalyst logs it and carries on. A failing `preServer
 
 ## Early Hints links
 
-`getEarlyHintLinks` adds entries to the Early Hints `Link` header (see [Configuration](/content/configuration-api#early-hints)). Use it for URLs that change per release or per request; fixed entries belong in `EARLY_HINTS_LINKS`. It returns an array of `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }` entries, the same shape as `EARLY_HINTS_LINKS`.
+`getEarlyHintLinks` adds entries to the Early Hints `Link` header (see [Configuration](/content/API%20Reference/configuration-api#early-hints)). Use it for URLs that change per release or per request; fixed entries belong in `EARLY_HINTS_LINKS`. It returns an array of `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }` entries, the same shape as `EARLY_HINTS_LINKS`.
 
 ```javascript title="server/index.js"
 export const getEarlyHintLinks = ({ req, res, matches }) => [
