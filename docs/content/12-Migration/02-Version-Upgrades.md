@@ -6,6 +6,26 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading To The Release With Partial Prerendering
+
+`react` and `react-dom` are now peer dependencies of `catalyst-core` (`^19.0.0`), so the app's own React is the copy everything uses. Keep both in the app's `dependencies`. Apps that stay on React 19.0 or 19.1 need no other change.
+
+To use partial prerendering (`renderMode = "ppr"`), move to React 19.2, which has the APIs PPR resumes with:
+
+```bash
+npm install react@19.2.9 react-dom@19.2.9
+```
+
+Then wrap the hydrated root in `client/index.js` in `<PPRHydrationBoundary>`. It renders its children as they are on a non-PPR response:
+
+```jsx title="client/index.js"
+import { hydrationReady, PPRHydrationBoundary } from "catalyst-core"
+
+hydrateRoot(container, <PPRHydrationBoundary>{Application}</PPRHydrationBoundary>)
+```
+
+With `PPR_ENABLE` on and React older than 19.2, PPR routes render on the streaming path and the server logs one error that says so.
+
 ## Upgrading From 1.2.0 To 1.2.1
 
 `1.2.1` adds `openInBrowser(url)` to `useIntent()` and an `X-App-Info` request header to the native apps. Web-only apps have nothing to change.

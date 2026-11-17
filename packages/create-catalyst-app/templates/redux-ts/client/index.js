@@ -2,7 +2,7 @@ import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
 import { Provider } from "react-redux"
-import { hydrationReady } from "catalyst-core"
+import { hydrationReady, PPRHydrationBoundary } from "catalyst-core"
 import { RouterProvider } from "react-router/dom"
 import clientRouter from "catalyst-core/router/ClientRouter"
 import configureStore from "@store"
@@ -15,11 +15,13 @@ window.addEventListener("load", () => {
         const router = clientRouter({ store, routerInitialState: routerInitialData })
 
         const Application = (
-            <Provider store={store} serverState={__INITIAL_STATE__}>
-                <React.StrictMode>
-                    <RouterProvider router={router} />
-                </React.StrictMode>
-            </Provider>
+            <PPRHydrationBoundary>
+                <Provider store={store} serverState={__INITIAL_STATE__}>
+                    <React.StrictMode>
+                        <RouterProvider router={router} />
+                    </React.StrictMode>
+                </Provider>
+            </PPRHydrationBoundary>
         )
 
         const container = document.getElementById("app")

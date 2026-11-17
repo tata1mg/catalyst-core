@@ -36,6 +36,10 @@ export interface SplitComponent {
     clientFetcher?: any
     serverFetcher?: any
     setMetaData?: any
+    /** Server rendering mode for the route; mirror it onto the wrapper (the server reads it synchronously). */
+    renderMode?: "ppr" | "static"
+    /** Static skeleton prerendered into the PPR shell in place of the route. */
+    pprFallback?: any
 }
 
 // Synchronous module cache: importFn → resolved module.
@@ -91,6 +95,11 @@ const Split = ({
     skipVisibility,
     children,
 }: SplitProps) => {
+    // Per-request chunk extractor from context. The global is a fallback for apps that
+    // render without SsrRequestProvider; every new request overwrites it, so with concurrent
+    // requests (and PPR, where rendering resumes after an await) it can point at another
+    // request's extractor.
+    const ssrRequest = useContext(SsrRequestContext)
     // Check if we're on the server
     const isServer = typeof window === "undefined"
     if (isServer) {
@@ -98,8 +107,9 @@ const Split = ({
             // On server with SSR enabled: actually load and render the component
             try {
                 // Track this component for asset extraction
-                if (global.__CHUNK_EXTRACTOR__) {
-                    global.__CHUNK_EXTRACTOR__.addComponent(cacheKey)
+                const extractor = ssrRequest?.chunkExtractor || global.__CHUNK_EXTRACTOR__
+                if (extractor) {
+                    extractor.addComponent(cacheKey)
                 }
 
                 return <Suspense fallback={fallback}>{children}</Suspense>
