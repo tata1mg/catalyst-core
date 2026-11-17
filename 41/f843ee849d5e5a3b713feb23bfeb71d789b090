@@ -1,0 +1,86 @@
+packages/create-catalyst-app/templates/none-js/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 4,15-19
+packages/create-catalyst-app/templates/redux-js/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 5,18-24
+examples/catalyst-core-test/src/js/pages/PPRPage/PPRPage.js
+  s_511387137e0ef6::t_124770dc8ffa2b 1-27
+packages/create-catalyst-app/templates/rtk-js/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 5,18-24
+packages/create-catalyst-app/templates/rtk-ts/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 5,18-24
+packages/catalyst-core/test/server/fixtures/template/src/js/routes/index.jsx
+  s_511387137e0ef6::t_55b737195fbe62 5,97-131,173
+packages/catalyst-core/src/web-router/components/DataFetcher.test.jsx
+  s_511387137e0ef6::t_7d4894c4e024b0 77-79
+  s_511387137e0ef6::t_3e645ea5e514db 75,83-93
+  s_511387137e0ef6::t_8ded6254dda640 18-27
+  s_511387137e0ef6::t_522c71b04f2f59 66-74,76,80-82,94-95
+docs/content/12-Migration/02-Version-Upgrades.md
+  s_511387137e0ef6::t_9901bff42e19c9 9-28
+examples/catalyst-core-test/client/index.js
+  s_511387137e0ef6::t_124770dc8ffa2b 4,15-19
+packages/catalyst-core/test/server/ppr.test.ts
+  s_511387137e0ef6::t_2afe3ea9db0460 11,114,122-145
+  s_511387137e0ef6::t_8ded6254dda640 115-121
+  s_511387137e0ef6::t_ccccbea78ea1c7 146
+packages/create-catalyst-app/templates/redux-ts/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 5,18-24
+packages/catalyst-core/test/server/handler.ppr.test.ts
+  s_511387137e0ef6::t_9cbce5cc57aac2 144
+  s_511387137e0ef6::t_c6e286e0eb4b07 487,489-509
+  s_511387137e0ef6::t_3f2bf643573db2 462-486
+  s_511387137e0ef6::t_55b737195fbe62 142-143,154,287-288,325,405,408,457-458
+  s_511387137e0ef6::t_823ed2e71cbb91 510-525
+  s_511387137e0ef6::t_d7f55205f2c677 488
+examples/catalyst-core-test/src/js/routes/index.js
+  s_511387137e0ef6::t_124770dc8ffa2b 18-25,43-45
+  s_511387137e0ef6::t_c6ab58dbc267c6 46
+packages/catalyst-core/package.json
+  s_511387137e0ef6::t_8e3b6e1b0236c4 94-95,130-131
+packages/catalyst-core/src/web-router/components/PPR.tsx
+  s_511387137e0ef6::t_cf1cad58ae24d6 94-95,97,103-117
+  s_511387137e0ef6::t_3882eed7f2b26d 118
+examples/catalyst-core-test/tests/main.spec.js
+  s_511387137e0ef6::t_124770dc8ffa2b 50-74
+packages/catalyst-core/changelog.md
+  s_511387137e0ef6::t_9901bff42e19c9 3-8
+"docs/content/09-Core Concepts/07-Rendering-Modes.md"
+  s_511387137e0ef6::t_3d8c4a9d429777 53
+  s_511387137e0ef6::t_9901bff42e19c9 55,85
+packages/catalyst-core/src/web-router/components/DataFetcher.tsx
+  s_511387137e0ef6::t_7d4894c4e024b0 35-36,46-50,80
+  s_511387137e0ef6::t_3e645ea5e514db 45,51-54,69,77-79
+  s_511387137e0ef6::t_522c71b04f2f59 71-76,81-83
+packages/catalyst-core/src/router/ClientRouter.ts
+  s_511387137e0ef6::t_cf1cad58ae24d6 4,13
+packages/catalyst-core/src/web-router/components/PPR.test.jsx
+  s_511387137e0ef6::t_a5b503def08930 121-162
+  s_511387137e0ef6::t_a426b2f5f74d2d 2
+packages/create-catalyst-app/templates/none-ts/client/index.js
+  s_511387137e0ef6::t_cf1cad58ae24d6 4,15-19
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_511387137e0ef6::t_06413c66c786a5 10-12,278-295,315-326,329-330,1232
+packages/catalyst-core/src/server/renderer/ppr.ts
+  s_511387137e0ef6::t_8ded6254dda640 261-264
+  s_511387137e0ef6::t_2afe3ea9db0460 221-233,259-260
+examples/catalyst-core-test/config/config.json
+  s_511387137e0ef6::t_29adeb96b41567 9
+package-lock.json
+  s_511387137e0ef6::t_c4255c173d1cf6 11121,11761,13564-13565,13575-13576
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41f843ee849d5e5a3b713feb23bfeb71d789b090",
+  "prompts": {},
+  "sessions": {
+    "s_511387137e0ef6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3f42ea8c-d8bc-4c6b-996f-7bb6a60ed021",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
