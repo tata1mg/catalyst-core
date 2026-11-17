@@ -1,0 +1,139 @@
+{
+ "label": "catalyst-safe",
+ "sum": {
+  "tInput": 661.9611250000016,
+  "tTyped": 709.3473340000055,
+  "tFiltered": 1857.3965419999986,
+  "tLoad": 1788.6820000000007
+ },
+ "all": [
+  {
+   "tInput": 663.3276660000001,
+   "tClick": 701.6315409999997,
+   "tTyped": 732.9977079999999,
+   "tFiltered": 1860.8192909999998,
+   "tLoad": 1791.3613329999998,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@589",
+    "vendor-react-CRcozs3N.js@589",
+    "app-CGeJ6C_T.js@589",
+    "vendor-router-Cf8OGRCj.js@589",
+    "Home-AxZUa6Gk.js@589"
+   ]
+  },
+  {
+   "tInput": 613.1575420000008,
+   "tClick": 673.416333000001,
+   "tTyped": 702.9378749999996,
+   "tFiltered": 1849.5512500000004,
+   "tLoad": 1783.5301250000011,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@579",
+    "vendor-react-CRcozs3N.js@580",
+    "app-CGeJ6C_T.js@580",
+    "vendor-router-Cf8OGRCj.js@580",
+    "Home-AxZUa6Gk.js@580"
+   ]
+  },
+  {
+   "tInput": 661.9820420000015,
+   "tClick": 691.2784580000007,
+   "tTyped": 725.0062500000004,
+   "tFiltered": 1848.3076669999991,
+   "tLoad": 1780.9767919999995,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@582",
+    "vendor-react-CRcozs3N.js@582",
+    "app-CGeJ6C_T.js@582",
+    "vendor-router-Cf8OGRCj.js@582",
+    "Home-AxZUa6Gk.js@582"
+   ]
+  },
+  {
+   "tInput": 615.1853750000009,
+   "tClick": 684.2241250000006,
+   "tTyped": 691.7475410000006,
+   "tFiltered": 1847.8187079999989,
+   "tLoad": 1783.540832999999,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@581",
+    "vendor-react-CRcozs3N.js@581",
+    "app-CGeJ6C_T.js@581",
+    "vendor-router-Cf8OGRCj.js@581",
+    "Home-AxZUa6Gk.js@581"
+   ]
+  },
+  {
+   "tInput": 649.8142919999991,
+   "tClick": 677.7837499999987,
+   "tTyped": 686.905999999999,
+   "tFiltered": 1865.6000420000018,
+   "tLoad": 1788.6820000000007,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@581",
+    "vendor-react-CRcozs3N.js@581",
+    "app-CGeJ6C_T.js@581",
+    "vendor-router-Cf8OGRCj.js@582",
+    "Home-AxZUa6Gk.js@582"
+   ]
+  },
+  {
+   "tInput": 661.9611250000016,
+   "tClick": 696.9828339999985,
+   "tTyped": 706.4178750000028,
+   "tFiltered": 1857.3965419999986,
+   "tLoad": 1791.7992919999997,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@582",
+    "vendor-react-CRcozs3N.js@583",
+    "app-CGeJ6C_T.js@583",
+    "vendor-router-Cf8OGRCj.js@583",
+    "Home-AxZUa6Gk.js@583"
+   ]
+  },
+  {
+   "tInput": 626.3312499999956,
+   "tClick": 699.6286249999976,
+   "tTyped": 733.3252919999941,
+   "tFiltered": 1856.8006669999959,
+   "tLoad": 1787.6607079999958,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@587",
+    "vendor-react-CRcozs3N.js@587",
+    "app-CGeJ6C_T.js@587",
+    "vendor-router-Cf8OGRCj.js@587",
+    "Home-AxZUa6Gk.js@587"
+   ]
+  },
+  {
+   "tInput": 662.1925420000043,
+   "tClick": 700.7540000000008,
+   "tTyped": 709.3473340000055,
+   "tFiltered": 1880.1220420000027,
+   "tLoad": 1798.7769590000025,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-3ImDnyFP.js@588",
+    "vendor-react-CRcozs3N.js@588",
+    "app-CGeJ6C_T.js@588",
+    "vendor-router-Cf8OGRCj.js@589",
+    "Home-AxZUa6Gk.js@589"
+   ]
+  }
+ ]
+}

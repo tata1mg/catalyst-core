@@ -1,0 +1,1509 @@
+{
+ "flow": "newtab",
+ "label": "exact-immutable",
+ "url": "http://127.0.0.1:8775/",
+ "profile": "cpu4x",
+ "reps": 10,
+ "all": [
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 120,
+     "lcp": 132,
+     "lcpEl": "IMG",
+     "dcl": 39.80000019073486,
+     "load": 86.10000014305115,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 108,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 33.90000009536743,
+     "load": 77.60000014305115,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 135.599853515625,
+     "toFrame": 137.300048828125,
+     "toPaint": 142.099853515625,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 21.600000143051147,
+     "longTasks": 1,
+     "longTaskMs": 69,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 162.60009765625,
+     "toFrame": 165.39990234375,
+     "toPaint": 170,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 1,
+     "longTasks": 1,
+     "longTaskMs": 69,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 128,
+     "lcpEl": "IMG",
+     "dcl": 37.09999990463257,
+     "load": 85.29999995231628,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 104,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 32.5,
+     "load": 77.39999985694885,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 128.89990234375,
+     "toFrame": 130.599853515625,
+     "toPaint": 135.300048828125,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 19.700000047683716,
+     "longTasks": 1,
+     "longTaskMs": 67,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 164.89990234375,
+     "toFrame": 167.599853515625,
+     "toPaint": 172,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 19.90000009536743,
+     "longTasks": 1,
+     "longTaskMs": 67,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 120,
+     "lcp": 136,
+     "lcpEl": "IMG",
+     "dcl": 40.299999952316284,
+     "load": 87.20000004768372,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 104,
+     "lcp": 120,
+     "lcpEl": "IMG",
+     "dcl": 34.799999952316284,
+     "load": 78.79999995231628,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 120.599853515625,
+     "toFrame": 122.39990234375,
+     "toPaint": 127,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 1.1000001430511475,
+     "longTasks": 1,
+     "longTaskMs": 68,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 160.199951171875,
+     "toFrame": 162.800048828125,
+     "toPaint": 167.60009765625,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 0.7000000476837158,
+     "longTasks": 1,
+     "longTaskMs": 67,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 116,
+     "lcp": 132,
+     "lcpEl": "IMG",
+     "dcl": 37.59999990463257,
+     "load": 85.09999990463257,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 108,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 33.40000009536743,
+     "load": 77.5,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 122.699951171875,
+     "toFrame": 124.5,
+     "toPaint": 129,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 0.7999999523162842,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 167.900146484375,
+     "toFrame": 170.800048828125,
+     "toPaint": 175.400146484375,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 20.100000143051147,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 120,
+     "lcpEl": "IMG",
+     "dcl": 36.90000009536743,
+     "load": 83.79999995231628,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 104,
+     "lcp": 120,
+     "lcpEl": "IMG",
+     "dcl": 32.700000047683716,
+     "load": 77.29999995231628,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 130.599853515625,
+     "toFrame": 132.699951171875,
+     "toPaint": 137.099853515625,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 18.800000190734863,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 164,
+     "toFrame": 166.400146484375,
+     "toPaint": 170.800048828125,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 0.9000000953674316,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 35.40000009536743,
+     "load": 82.60000014305115,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 108,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 33,
+     "load": 76.70000004768372,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 138.5,
+     "toFrame": 140.60009765625,
+     "toPaint": 145,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 21.399999856948853,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 169.5,
+     "toFrame": 171.800048828125,
+     "toPaint": 176.699951171875,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 20.200000047683716,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 36.299999952316284,
+     "load": 83.79999995231628,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 108,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 33.69999980926514,
+     "load": 77.39999985694885,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 131.60009765625,
+     "toFrame": 133.400146484375,
+     "toPaint": 137.699951171875,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 20.700000047683716,
+     "longTasks": 1,
+     "longTaskMs": 71,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 164.39990234375,
+     "toFrame": 166.599853515625,
+     "toPaint": 171,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 1,
+     "longTasks": 1,
+     "longTaskMs": 71,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 116,
+     "lcp": 132,
+     "lcpEl": "IMG",
+     "dcl": 35.89999985694885,
+     "load": 84.19999980926514,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 100,
+     "lcp": 116,
+     "lcpEl": "IMG",
+     "dcl": 33,
+     "load": 75.89999985694885,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 123.800048828125,
+     "toFrame": 125.300048828125,
+     "toPaint": 129.300048828125,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 18.600000143051147,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 165.7998046875,
+     "toFrame": 168.5,
+     "toPaint": 172.2998046875,
+     "maxEventMs": 24,
+     "maxInputDelayMs": 20.200000047683716,
+     "longTasks": 1,
+     "longTaskMs": 71,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 132,
+     "lcpEl": "IMG",
+     "dcl": 35.19999980926514,
+     "load": 83.09999990463257,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 100,
+     "lcp": 116,
+     "lcpEl": "IMG",
+     "dcl": 34,
+     "load": 77.70000004768372,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 138.199951171875,
+     "toFrame": 140.199951171875,
+     "toPaint": 144.60009765625,
+     "maxEventMs": 24,
+     "maxInputDelayMs": 18.59999990463257,
+     "longTasks": 1,
+     "longTaskMs": 70,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 164.60009765625,
+     "toFrame": 167.800048828125,
+     "toPaint": 172.300048828125,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 0.6000001430511475,
+     "longTasks": 1,
+     "longTaskMs": 73,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  },
+  {
+   "loads": [
+    {
+     "name": "tab 1 cold visit",
+     "fcp": 112,
+     "lcp": 128,
+     "lcpEl": "IMG",
+     "dcl": 37.39999985694885,
+     "load": 84.09999990463257,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 30.66015625,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Document / 200 10.6KiB cc=no-cache",
+      "Image 1.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 2.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 3.png 200 1.7KiB cc=public, max-age=3600",
+      "Image 6.png 200 1.5KiB cc=public, max-age=3600",
+      "Image 4.png 200 0.8KiB cc=public, max-age=3600",
+      "Image 5.png 200 1.0KiB cc=public, max-age=3600",
+      "Image 7.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 11.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 8.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 10.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 9.png 200 1.3KiB cc=public, max-age=3600",
+      "Image 12.png 200 1.1KiB cc=public, max-age=3600",
+      "Manifest manifest.json 200 0.4KiB cc=public, max-age=31536000, immutable",
+      "Image 15.png 200 1.2KiB cc=public, max-age=3600",
+      "Image 13.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 17.png 200 1.4KiB cc=public, max-age=3600",
+      "Image 14.png 200 0.6KiB cc=public, max-age=3600",
+      "Image 16.png 200 0.7KiB cc=public, max-age=3600",
+      "Image 18.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 20.png 200 1.1KiB cc=public, max-age=3600",
+      "Image 19.png 200 0.7KiB cc=public, max-age=3600"
+     ]
+    },
+    {
+     "name": "F new tab (HTTP cache warm)",
+     "fcp": 104,
+     "lcp": 124,
+     "lcpEl": "IMG",
+     "dcl": 32,
+     "load": 76.39999985694885,
+     "navType": "navigate",
+     "net": {
+      "requests": 22,
+      "totalKiB": 0.201171875,
+      "jsFiles": 0,
+      "jsKiB": 0,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 21,
+      "allRevalidated": 1
+     },
+     "urls": [
+      "Document / 200 0.2KiB cc=no-cache",
+      "Image 1.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 2.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 3.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 4.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 6.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 5.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 7.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 9.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 8.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 10.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 12.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 11.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 13.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 15.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 14.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 16.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 17.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 19.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 18.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Image 20.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Manifest manifest.json CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "name": "tab 1: type pika",
+     "ok": true,
+     "toVisible": 122.5,
+     "toFrame": 123.800048828125,
+     "toPaint": 128.60009765625,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 19.09999990463257,
+     "longTasks": 1,
+     "longTaskMs": 68,
+     "net": {
+      "requests": 4,
+      "totalKiB": 77.8876953125,
+      "jsFiles": 2,
+      "jsKiB": 66.0791015625,
+      "jsFromCache": 0,
+      "jsRevalidated": 0,
+      "jsDownloaded": 2,
+      "allFromCache": 0,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js 200 53.3KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css 200 11.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js 200 12.8KiB cc=public, max-age=31536000, immutable"
+     ]
+    },
+    {
+     "name": "tab 2: type pika (first activation in this tab)",
+     "ok": true,
+     "toVisible": 165,
+     "toFrame": 167.300048828125,
+     "toPaint": 171.800048828125,
+     "maxEventMs": 32,
+     "maxInputDelayMs": 21.299999952316284,
+     "longTasks": 1,
+     "longTaskMs": 69,
+     "net": {
+      "requests": 4,
+      "totalKiB": 0,
+      "jsFiles": 2,
+      "jsKiB": 0,
+      "jsFromCache": 2,
+      "jsRevalidated": 0,
+      "jsDownloaded": 0,
+      "allFromCache": 4,
+      "allRevalidated": 0
+     },
+     "urls": [
+      "Script app.js CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Stylesheet style.css CACHE 0.0KiB cc=public, max-age=31536000, immutable",
+      "Image 25.png CACHE 0.0KiB cc=public, max-age=3600",
+      "Script input-glue-CPaHxp_7.js CACHE 0.0KiB cc=public, max-age=31536000, immutable"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 // Writes the median-LCP Lighthouse HTML+JSON report (of N runs) per target and throttling mode.
 import lighthouse from "lighthouse"; import * as cl from "chrome-launcher"; import { writeFileSync, mkdirSync } from "node:fs"
 const OUT = process.argv[2], N = +(process.argv[3] || 3); mkdirSync(OUT, { recursive: true })
-const targets = { "catalyst-1.0.0": "http://localhost:3015/", "catalyst-1.1.0": "http://localhost:3016/", exact: "http://127.0.0.1:8765/", sveltekit: "http://localhost:3030/" }
+const targets = process.env.TARGETS ? JSON.parse(process.env.TARGETS) : { "catalyst-1.0.0": "http://localhost:3015/", "catalyst-1.1.0": "http://localhost:3016/", exact: "http://127.0.0.1:8765/", sveltekit: "http://localhost:3030/" } // TARGETS='{"name":"url"}' runs just those
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 for (const [name, url] of Object.entries(targets)) for (const mode of ["simulated", "applied"]) {
   const runs = []

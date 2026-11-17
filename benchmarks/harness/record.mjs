@@ -22,7 +22,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (scenario === "early") {
   while (!(await has())) await sleep(15); ev.input = now()
   await p.click(INPUT); ev.tapStart = now(); await p.keyboard.type("pika", { delay: 90 }); ev.typed = now()
-  while (now() - wall0 < 5.2) { if (!ev.filtered && (await cards()) <= 3) ev.filtered = now(); await sleep(25) }
+  while (now() - wall0 < 5.2) { if (!ev.filtered && (await cards()) >= 1 && (await cards()) <= 3) ev.filtered = now(); await sleep(25) }
 } else if (scenario === "load") {
   await nav; while (now() - wall0 < 4.6) await sleep(50)
   const info = await p.evaluate(() => { const n = performance.getEntriesByType("navigation")[0]; const pt = Object.fromEntries(performance.getEntriesByType("paint").map((e) => [e.name, e.startTime])); const l = window.__lcp.at(-1); return { origin: performance.timeOrigin / 1000, fcp: pt["first-contentful-paint"], lcp: l && l.t, el: l && l.el, dcl: n.domContentLoadedEventEnd, load: n.loadEventEnd } })
@@ -31,7 +31,7 @@ if (scenario === "early") {
   await nav; await sleep(2500); ev.input = wall0 + 0.63 // box has been visible since the first paint
   await sleep(100); await p.click(INPUT); ev.tapStart = now(); const tEnd = ev.tapStart + 3.2
   await p.keyboard.type("pika", { delay: 90 }); ev.typed = now()
-  while (now() < tEnd) { if (!ev.filtered && (await cards()) <= 3) ev.filtered = now(); await sleep(25); if (ev.filtered && now() > ev.filtered + 0.9) break }
+  while (now() < tEnd) { if (!ev.filtered && (await cards()) >= 1 && (await cards()) <= 3) ev.filtered = now(); await sleep(25); if (ev.filtered && now() > ev.filtered + 0.9) break }
 }
 await c.send("Page.stopScreencast"); await b.close()
 const files = frames.map((f, i) => { const n = `${OUT}/${label}-${scenario}/f${String(i).padStart(4, "0")}.jpg`; writeFileSync(n, Buffer.from(f.data, "base64")); return { ts: f.ts, file: n } })

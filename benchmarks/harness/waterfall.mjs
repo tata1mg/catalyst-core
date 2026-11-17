@@ -21,7 +21,8 @@ async function waterfall() {
   c.on("Network.responseReceived", (e) => { const r = req.get(e.requestId); if (r) { r.ttfb = e.timestamp; r.status = e.response.status } })
   c.on("Network.loadingFinished", (e) => { const r = req.get(e.requestId); if (r) { r.end = e.timestamp; r.bytes = e.encodedDataLength } })
   await p.evaluateOnNewDocument(() => { window.__lcp = []; new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__lcp.push({ t: e.startTime, el: e.element ? e.element.tagName + (e.url ? " " + e.url.split("/").pop() : "") : "" }))).observe({ type: "largest-contentful-paint", buffered: true }); window.__lt = []; new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__lt.push([e.startTime, e.duration]))).observe({ type: "longtask", buffered: true }) })
-  await p.goto(url, { waitUntil: "load", timeout: 120000 }); await new Promise((r) => setTimeout(r, 2500))
+  await p.goto(url, { waitUntil: "load", timeout: 120000 }); await p.waitForFunction(() => document.querySelectorAll('a[href*="/pokemon/"]').length > 100, { timeout: 30000, polling: 100 }).catch(() => {}) // PPR-style pages fill the grid after load
+  await new Promise((r) => setTimeout(r, 2500))
   const info = await p.evaluate(() => { const n = performance.getEntriesByType("navigation")[0]; const pt = Object.fromEntries(performance.getEntriesByType("paint").map((e) => [e.name, e.startTime])); return { dcl: n.domContentLoadedEventEnd, load: n.loadEventEnd, fcp: pt["first-contentful-paint"], lcp: window.__lcp.at(-1), lt: window.__lt } })
   const m = (await c.send("Performance.getMetrics")).metrics; const g = (k) => m.find((x) => x.name === k)?.value
   await b.close()

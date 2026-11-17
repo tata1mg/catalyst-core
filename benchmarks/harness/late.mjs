@@ -12,11 +12,12 @@ async function once() {
   const c = await p.createCDPSession(); await c.send("Network.enable"); await c.send("Network.setCacheDisabled", { cacheDisabled: true }); await c.send("Performance.enable")
   await c.send("Emulation.setCPUThrottlingRate", { rate: 4 }); await c.send("Network.emulateNetworkConditions", { offline: false, latency: 150 * 3.75, downloadThroughput: Math.floor(1.6 * 1024 * 0.9 * 1024 / 8), uploadThroughput: Math.floor(750 * 0.9 * 1024 / 8) })
   let after = 0, js = 0, on = false; const ty = new Map(); c.on("Network.requestWillBeSent", (e) => ty.set(e.requestId, e.type)); c.on("Network.loadingFinished", (e) => { if (on) { after += e.encodedDataLength; if (ty.get(e.requestId) === "Script") js += e.encodedDataLength } })
-  await p.goto(url, { waitUntil: "load", timeout: 120000 }); await new Promise((r) => setTimeout(r, 2500)); on = true
+  await p.goto(url, { waitUntil: "load", timeout: 120000 }); await p.waitForFunction(() => document.querySelectorAll('a[href*="/pokemon/"]').length > 100, { timeout: 30000, polling: 100 }).catch(() => {}) // PPR-style pages fill the grid after load
+  await new Promise((r) => setTimeout(r, 2500)); on = true
   const heap = async () => { await c.send("HeapProfiler.collectGarbage"); return (await c.send("Performance.getMetrics")).metrics.find((m) => m.name === "JSHeapUsedSize").value / 1048576 }
   const h0 = await heap(); const t0 = performance.now()
   await p.click(INPUT); await p.keyboard.type("pika", { delay: 0 })
-  await p.waitForFunction((s) => document.querySelectorAll(s).length <= 3, { timeout: 30000, polling: "raf" }, CARD)
+  await p.waitForFunction((s) => document.querySelectorAll(s).length >= 1 && document.querySelectorAll(s).length <= 3, { timeout: 30000, polling: "raf" }, CARD)
   const ms = performance.now() - t0; await new Promise((r) => setTimeout(r, 1500)); const h1 = await heap(); await b.close()
   return { ms, kib: after / 1024, jsKiB: js / 1024, h0, h1 }
 }

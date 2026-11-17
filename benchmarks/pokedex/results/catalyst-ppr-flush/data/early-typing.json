@@ -1,0 +1,91 @@
+{
+ "label": "catalyst-ppr-flush",
+ "sum": {
+  "tInput": 625.3195840000001,
+  "tTyped": 694.081625,
+  "tFiltered": null,
+  "tLoad": 1771.0872499999969
+ },
+ "all": [
+  {
+   "tInput": 625.3195840000001,
+   "tClick": 684.8435,
+   "tTyped": 694.081625,
+   "tFiltered": null,
+   "tLoad": 1767.92375,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-Cv1u89Aa.js@581",
+    "vendor-react-CRcozs3N.js@581",
+    "app-_pI0ebvB.js@582",
+    "vendor-router-Cf8OGRCj.js@582",
+    "Home-CF17qfUu.js@582"
+   ]
+  },
+  {
+   "tInput": 623.8983750000007,
+   "tClick": 673.797208,
+   "tTyped": 702.414249999998,
+   "tFiltered": null,
+   "tLoad": 1764.9898749999993,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-Cv1u89Aa.js@577",
+    "vendor-react-CRcozs3N.js@579",
+    "app-_pI0ebvB.js@579",
+    "vendor-router-Cf8OGRCj.js@579",
+    "Home-CF17qfUu.js@579"
+   ]
+  },
+  {
+   "tInput": 631.1949999999997,
+   "tClick": 682.4939579999991,
+   "tTyped": 711.2968330000003,
+   "tFiltered": null,
+   "tLoad": 1772.8604580000028,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-Cv1u89Aa.js@583",
+    "vendor-react-CRcozs3N.js@584",
+    "app-_pI0ebvB.js@584",
+    "vendor-router-Cf8OGRCj.js@584",
+    "Home-CF17qfUu.js@584"
+   ]
+  },
+  {
+   "tInput": 625.8251670000027,
+   "tClick": 675.328708999994,
+   "tTyped": 683.1067499999917,
+   "tFiltered": null,
+   "tLoad": 1771.0872499999969,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-Cv1u89Aa.js@580",
+    "vendor-react-CRcozs3N.js@580",
+    "app-_pI0ebvB.js@580",
+    "vendor-router-Cf8OGRCj.js@580",
+    "Home-CF17qfUu.js@580"
+   ]
+  },
+  {
+   "tInput": 617.7331249999988,
+   "tClick": 670.6922500000073,
+   "tTyped": 679.8897089999955,
+   "tFiltered": null,
+   "tLoad": 1777.6302920000016,
+   "finalValue": "",
+   "finalCards": 151,
+   "scripts": [
+    "main-Cv1u89Aa.js@575",
+    "vendor-react-CRcozs3N.js@576",
+    "app-_pI0ebvB.js@576",
+    "vendor-router-Cf8OGRCj.js@576",
+    "Home-CF17qfUu.js@576"
+   ]
+  }
+ ]
+}

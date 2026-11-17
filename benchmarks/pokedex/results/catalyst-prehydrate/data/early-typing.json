@@ -1,0 +1,139 @@
+{
+ "label": "catalyst-prehydrate",
+ "sum": {
+  "tInput": 628.507375000001,
+  "tTyped": 724.981292,
+  "tFiltered": 727.0774580000001,
+  "tLoad": 1798.4356249999983
+ },
+ "all": [
+  {
+   "tInput": 626.9282079999999,
+   "tClick": 684.9425,
+   "tTyped": 724.981292,
+   "tFiltered": 727.0774580000001,
+   "tLoad": 1805.010667,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@584",
+    "vendor-react-CRcozs3N.js@584",
+    "app-Dw6SuBnR.js@584",
+    "vendor-router-Cf8OGRCj.js@584",
+    "Home-C0YLB-eO.js@584"
+   ]
+  },
+  {
+   "tInput": 625.9479579999997,
+   "tClick": 683.4617499999995,
+   "tTyped": 727.8850000000002,
+   "tFiltered": 730.2247499999994,
+   "tLoad": 1787.4903329999997,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@583",
+    "vendor-react-CRcozs3N.js@583",
+    "app-Dw6SuBnR.js@583",
+    "vendor-router-Cf8OGRCj.js@583",
+    "Home-C0YLB-eO.js@583"
+   ]
+  },
+  {
+   "tInput": 620.7168750000001,
+   "tClick": 678.7832080000007,
+   "tTyped": 716.8500829999994,
+   "tFiltered": 718.1356250000008,
+   "tLoad": 1784.8072499999998,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@580",
+    "vendor-react-CRcozs3N.js@580",
+    "app-Dw6SuBnR.js@580",
+    "vendor-router-Cf8OGRCj.js@580",
+    "Home-C0YLB-eO.js@580"
+   ]
+  },
+  {
+   "tInput": 622.0602499999986,
+   "tClick": 675.2397920000003,
+   "tTyped": 716.3144169999978,
+   "tFiltered": 717.6982089999983,
+   "tLoad": 1793.9577499999978,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@580",
+    "vendor-react-CRcozs3N.js@580",
+    "app-Dw6SuBnR.js@580",
+    "vendor-router-Cf8OGRCj.js@580",
+    "Home-C0YLB-eO.js@580"
+   ]
+  },
+  {
+   "tInput": 631.6364590000012,
+   "tClick": 689.8903750000027,
+   "tTyped": 723.9768750000003,
+   "tFiltered": 725.6545839999999,
+   "tLoad": 1798.37025,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@590",
+    "vendor-react-CRcozs3N.js@590",
+    "app-Dw6SuBnR.js@590",
+    "vendor-router-Cf8OGRCj.js@590",
+    "Home-C0YLB-eO.js@590"
+   ]
+  },
+  {
+   "tInput": 663.0102080000033,
+   "tClick": 699.1385829999999,
+   "tTyped": 740.5116250000028,
+   "tFiltered": 742.3716250000034,
+   "tLoad": 1799.6312080000025,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@586",
+    "vendor-react-CRcozs3N.js@586",
+    "app-Dw6SuBnR.js@587",
+    "vendor-router-Cf8OGRCj.js@587",
+    "Home-C0YLB-eO.js@587"
+   ]
+  },
+  {
+   "tInput": 628.507375000001,
+   "tClick": 680.4333340000012,
+   "tTyped": 716.0049169999984,
+   "tFiltered": 717.7100419999988,
+   "tLoad": 1798.4356249999983,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@589",
+    "vendor-react-CRcozs3N.js@589",
+    "app-Dw6SuBnR.js@589",
+    "vendor-router-Cf8OGRCj.js@589",
+    "Home-C0YLB-eO.js@589"
+   ]
+  },
+  {
+   "tInput": 633.9022909999985,
+   "tClick": 695.7412909999985,
+   "tTyped": 736.5416659999973,
+   "tFiltered": 737.5434999999998,
+   "tLoad": 1800.202624999998,
+   "finalValue": "pika",
+   "finalCards": 1,
+   "scripts": [
+    "main-BSHSs9zR.js@585",
+    "vendor-react-CRcozs3N.js@585",
+    "app-Dw6SuBnR.js@585",
+    "vendor-router-Cf8OGRCj.js@585",
+    "Home-C0YLB-eO.js@586"
+   ]
+  }
+ ]
+}

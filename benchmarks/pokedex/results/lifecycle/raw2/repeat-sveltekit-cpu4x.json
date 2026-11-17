@@ -1,0 +1,8699 @@
+{
+ "label": "sveltekit",
+ "url": "http://localhost:3030/",
+ "profile": "cpu4x",
+ "reps": 8,
+ "all": [
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6770858764648438,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.572357177734375,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7841606140136719,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.1743202209472656,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.2165603637695312,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.7666053771972656,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.599853515625,
+     "toPaint": 32.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 24.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 14.199951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 16,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 22.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.400146484375,
+     "toPaint": 10.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 29.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.2998046875,
+     "toPaint": 13,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.10009765625,
+     "toPaint": 23,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 11.89990234375,
+     "toPaint": 23.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 26.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.2001953125,
+     "toPaint": 24.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 32,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 14.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 23,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 29.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 11.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 31.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 13.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 30.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 13,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 34.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.199951171875,
+     "toPaint": 26.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 29.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.39990234375,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 27.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 25.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 23.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 31.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 11.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 30.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.099853515625,
+     "toPaint": 15,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 23.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 15.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 24.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.89990234375,
+     "toPaint": 23.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.099853515625,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.800048828125,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 24.2001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.900146484375,
+     "toPaint": 23.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 24.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 19.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 23.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.10009765625,
+     "toPaint": 22.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 29.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 14.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.099853515625,
+     "toPaint": 28.2998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 28.099853515625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 29.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.5,
+     "toPaint": 22.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 19.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.60009765625,
+     "toPaint": 26.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 22.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 29.2001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10,
+     "toPaint": 22.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 29.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 30.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 24.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 29,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.900146484375,
+     "toPaint": 23.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 15.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 21.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 16,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 29.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.39990234375,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 28.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 23.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 27.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 17.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 26,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 18.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 27.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 16.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 25,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2001953125,
+     "toPaint": 29.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 10.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 22.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 26.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.400146484375,
+     "toPaint": 17.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 25.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 15.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 22.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 11.199951171875,
+     "toPaint": 26.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 22.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 15.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 29.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.900146484375,
+     "toPaint": 20.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 32.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 19.599853515625,
+     "open": 53.300048828125,
+     "back": 49.400146484375
+    },
+    {
+     "type": 17.099853515625,
+     "open": 24.900146484375,
+     "back": 48
+    },
+    {
+     "type": 17.900146484375,
+     "open": 41.300048828125,
+     "back": 59.300048828125
+    },
+    {
+     "type": 18.800048828125,
+     "open": 38.10009765625,
+     "back": 44
+    },
+    {
+     "type": 12.300048828125,
+     "open": 39.5,
+     "back": 44
+    },
+    {
+     "type": 10.10009765625,
+     "open": 39.10009765625,
+     "back": 42.300048828125
+    },
+    {
+     "type": 19.89990234375,
+     "open": 26.5,
+     "back": 42.60009765625
+    },
+    {
+     "type": 19.5,
+     "open": 26.400146484375,
+     "back": 45
+    },
+    {
+     "type": 20.699951171875,
+     "open": 29.60009765625,
+     "back": 43.5
+    },
+    {
+     "type": 23.400146484375,
+     "open": 36.60009765625,
+     "back": 45
+    },
+    {
+     "type": 23.2001953125,
+     "open": 29.900146484375,
+     "back": 45.900146484375
+    },
+    {
+     "type": 21.199951171875,
+     "open": 28.300048828125,
+     "back": 43.699951171875
+    },
+    {
+     "type": 17.300048828125,
+     "open": 27.800048828125,
+     "back": 45.10009765625
+    },
+    {
+     "type": 16.5,
+     "open": 25.60009765625,
+     "back": 44.800048828125
+    },
+    {
+     "type": 23.099853515625,
+     "open": 40.300048828125,
+     "back": 46.10009765625
+    },
+    {
+     "type": 17,
+     "open": 38.10009765625,
+     "back": 45.10009765625
+    },
+    {
+     "type": 10.199951171875,
+     "open": 40.10009765625,
+     "back": 44.800048828125
+    },
+    {
+     "type": 24.300048828125,
+     "open": 30.800048828125,
+     "back": 46.900146484375
+    },
+    {
+     "type": 21.10009765625,
+     "open": 27.800048828125,
+     "back": 47.199951171875
+    },
+    {
+     "type": 11,
+     "open": 35.699951171875,
+     "back": 51.300048828125
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558290095,
+    "vis": 1794558290135.4001,
+    "f2": 1794558290151.8,
+    "toVisible": 40.400146484375,
+    "toFrame": 50.699951171875,
+    "toPaint": 56.800048828125,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 20,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 18,
+     "totalKiB": 16.955078125,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 70.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 78.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 127.png 200 1.2KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6762886047363281,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5719451904296875,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7864990234375,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.173919677734375,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.215747833251953,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.7703857421875,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.699951171875,
+     "toPaint": 31.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 10.10009765625,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 15.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 23.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 15.199951171875,
+     "toPaint": 27.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.699951171875,
+     "toPaint": 25.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 31.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 11.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 15.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 24.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.800048828125,
+     "toPaint": 25.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 23,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 14.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 26.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 11.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 31.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 12.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 21.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 8.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 30.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 13.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 23.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.699951171875,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 32.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 15.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 21.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.800048828125,
+     "toPaint": 16.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 22.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 16,
+     "toPaint": 23.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 22.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 14,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 21.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 17.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 25.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.39990234375,
+     "toPaint": 25.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 27.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.900146484375,
+     "toPaint": 26.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 30.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 13.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 20.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 18,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.5,
+     "toPaint": 21.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 25,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 21.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 23.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.7001953125,
+     "toPaint": 20.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 25.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.099853515625,
+     "toPaint": 11.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 25.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 26.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 27.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.5,
+     "toPaint": 20.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 24.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.89990234375,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.099853515625,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 25.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.60009765625,
+     "toPaint": 22.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 26.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 21.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 27,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 8,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 23,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 25.60009765625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 23.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.900146484375,
+     "toPaint": 21.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 24.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.699951171875,
+     "toPaint": 18.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 5.60009765625,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 17.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 24.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 18.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.099853515625,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 15.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 22.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 14.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 29.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 8.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 27.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.199951171875,
+     "toPaint": 21.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.10009765625,
+     "toPaint": 24,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 21.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 27.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.2998046875,
+     "toPaint": 22.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 26,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 17.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 24.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 17.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 27.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 21.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.60009765625,
+     "toPaint": 16.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 37.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 16.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 29.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 21.199951171875,
+     "open": 49.5,
+     "back": 46.699951171875
+    },
+    {
+     "type": 16.800048828125,
+     "open": 39.300048828125,
+     "back": 47.10009765625
+    },
+    {
+     "type": 18,
+     "open": 39.699951171875,
+     "back": 43.5
+    },
+    {
+     "type": 17.60009765625,
+     "open": 26.199951171875,
+     "back": 41.800048828125
+    },
+    {
+     "type": 26.599853515625,
+     "open": 36.900146484375,
+     "back": 45.199951171875
+    },
+    {
+     "type": 17.599853515625,
+     "open": 37.300048828125,
+     "back": 47.800048828125
+    },
+    {
+     "type": 25.300048828125,
+     "open": 37.5,
+     "back": 43
+    },
+    {
+     "type": 24.800048828125,
+     "open": 37.10009765625,
+     "back": 44
+    },
+    {
+     "type": 25.89990234375,
+     "open": 40.5,
+     "back": 44.199951171875
+    },
+    {
+     "type": 22.60009765625,
+     "open": 29.800048828125,
+     "back": 43.699951171875
+    },
+    {
+     "type": 25.300048828125,
+     "open": 35.800048828125,
+     "back": 46.300048828125
+    },
+    {
+     "type": 22.39990234375,
+     "open": 40.300048828125,
+     "back": 44.60009765625
+    },
+    {
+     "type": 16.900146484375,
+     "open": 39.900146484375,
+     "back": 54.10009765625
+    },
+    {
+     "type": 22.599853515625,
+     "open": 40.10009765625,
+     "back": 46.10009765625
+    },
+    {
+     "type": 23.699951171875,
+     "open": 27.60009765625,
+     "back": 45.900146484375
+    },
+    {
+     "type": 19.699951171875,
+     "open": 38.60009765625,
+     "back": 46.60009765625
+    },
+    {
+     "type": 27.400146484375,
+     "open": 42,
+     "back": 48.199951171875
+    },
+    {
+     "type": 19.39990234375,
+     "open": 42.699951171875,
+     "back": 49
+    },
+    {
+     "type": 19.10009765625,
+     "open": 41.60009765625,
+     "back": 48.900146484375
+    },
+    {
+     "type": 24.300048828125,
+     "open": 43.900146484375,
+     "back": 50.199951171875
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558320398.5,
+    "vis": 1794558320437.4001,
+    "f2": 1794558320456.1,
+    "toVisible": 38.900146484375,
+    "toFrame": 51.800048828125,
+    "toPaint": 57.60009765625,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 21.40000009536743,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 18,
+     "totalKiB": 16.955078125,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 70.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 78.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 127.png 200 1.2KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6763229370117188,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5717811584472656,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7943458557128906,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.1820411682128906,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.2143402099609375,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.776996612548828,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.900146484375,
+     "toPaint": 27.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 9.900146484375,
+     "toPaint": 30.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.89990234375,
+     "toPaint": 14.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.800048828125,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 30.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.599853515625,
+     "toPaint": 13.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 22.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 16.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 29.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 13.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 21.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 18.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 27.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 12.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 20.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 16.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 22,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 22.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 14,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.099853515625,
+     "toPaint": 22.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 21.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 15.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 33,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.89990234375,
+     "toPaint": 16.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 21.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.2001953125,
+     "toPaint": 18.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.300048828125,
+     "toPaint": 25.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 28.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 9.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 29.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 27.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 31.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 14.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 23.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.900146484375,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 20.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 15.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 20.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.400146484375,
+     "toPaint": 16.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 24.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 20.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 27.2998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.2998046875,
+     "toPaint": 28.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 23,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.099853515625,
+     "toPaint": 15.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 23.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 25.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 28.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.89990234375,
+     "toPaint": 23,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 22.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.2001953125,
+     "toPaint": 16.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 40.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 19.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.900146484375,
+     "toPaint": 28.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 18.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 29.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.10009765625,
+     "toPaint": 21,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 24.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 15.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 25,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 16.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.10009765625,
+     "toPaint": 23.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.39990234375,
+     "toPaint": 18.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 24.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.900146484375,
+     "toPaint": 19.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 26.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 18.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 23,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 16.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 5.900146484375,
+     "toPaint": 19.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 15.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 17.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 15.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 14.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 30.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 9.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 26.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 20.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 24.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.2001953125,
+     "toPaint": 17.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 25.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 16.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 23,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 11.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.2001953125,
+     "toPaint": 21.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.2001953125,
+     "toPaint": 33.10009765625,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 8.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.900146484375,
+     "toPaint": 18.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.10009765625,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 11.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 40.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 16.900146484375,
+     "open": 47.699951171875,
+     "back": 46.300048828125
+    },
+    {
+     "type": 16.800048828125,
+     "open": 27,
+     "back": 62.400146484375
+    },
+    {
+     "type": 26.800048828125,
+     "open": 38.5,
+     "back": 47.199951171875
+    },
+    {
+     "type": 19.199951171875,
+     "open": 27.5,
+     "back": 42.300048828125
+    },
+    {
+     "type": 22.89990234375,
+     "open": 35,
+     "back": 45.5
+    },
+    {
+     "type": 15.60009765625,
+     "open": 37.800048828125,
+     "back": 41.900146484375
+    },
+    {
+     "type": 23.5,
+     "open": 30.10009765625,
+     "back": 43.60009765625
+    },
+    {
+     "type": 16.39990234375,
+     "open": 37.60009765625,
+     "back": 42.300048828125
+    },
+    {
+     "type": 18.2001953125,
+     "open": 36.199951171875,
+     "back": 45.699951171875
+    },
+    {
+     "type": 25.199951171875,
+     "open": 31.699951171875,
+     "back": 44.699951171875
+    },
+    {
+     "type": 25.099853515625,
+     "open": 39.60009765625,
+     "back": 55.5
+    },
+    {
+     "type": 16.199951171875,
+     "open": 38.800048828125,
+     "back": 45.10009765625
+    },
+    {
+     "type": 25.300048828125,
+     "open": 28.300048828125,
+     "back": 45.199951171875
+    },
+    {
+     "type": 18.300048828125,
+     "open": 40.10009765625,
+     "back": 46.300048828125
+    },
+    {
+     "type": 23.39990234375,
+     "open": 28.60009765625,
+     "back": 40.300048828125
+    },
+    {
+     "type": 19.5,
+     "open": 41.60009765625,
+     "back": 47
+    },
+    {
+     "type": 19.10009765625,
+     "open": 39,
+     "back": 48.10009765625
+    },
+    {
+     "type": 22.39990234375,
+     "open": 28.900146484375,
+     "back": 45.199951171875
+    },
+    {
+     "type": 19,
+     "open": 39.699951171875,
+     "back": 49.699951171875
+    },
+    {
+     "type": 22.7001953125,
+     "open": 41.400146484375,
+     "back": 47.800048828125
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558350830,
+    "vis": 1794558350864.6,
+    "f2": 1794558350884.8,
+    "toVisible": 34.60009765625,
+    "toFrame": 35.300048828125,
+    "toPaint": 54.800048828125,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 18.100000143051147,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 15,
+     "totalKiB": 13.546875,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6762886047363281,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5716438293457031,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7936515808105469,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.180774688720703,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.215686798095703,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.774311065673828,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11,
+     "toPaint": 14.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 32.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 12.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 29.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 11,
+     "toPaint": 32.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 30.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 11.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 23.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.400146484375,
+     "toPaint": 16.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 26.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 11.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 31.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 14.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 26,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 12.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 12.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 30.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 12.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 21.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.400146484375,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 27.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 31.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 13.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 34.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 17,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 23.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 19.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 15,
+     "toPaint": 26.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 25.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 31.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.2998046875,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 25,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.39990234375,
+     "toPaint": 11.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 21.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.400146484375,
+     "toPaint": 23.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 23.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.699951171875,
+     "toPaint": 23.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 21.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.699951171875,
+     "toPaint": 15.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 25.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.800048828125,
+     "toPaint": 19.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 25.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.60009765625,
+     "toPaint": 24,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 5.89990234375,
+     "toPaint": 28.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.800048828125,
+     "toPaint": 25.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2001953125,
+     "toPaint": 30.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 26.300048828125,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 29.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 29,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.300048828125,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 10.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 23.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 28.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.39990234375,
+     "toPaint": 23.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 28.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 30.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.2998046875,
+     "toPaint": 8.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 28.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.800048828125,
+     "toPaint": 18,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 17.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 17.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 36.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.39990234375,
+     "toPaint": 15.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.099853515625,
+     "toPaint": 19.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 14.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 21.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 11.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 28.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 23.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 26.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.699951171875,
+     "toPaint": 18.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 21.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 11.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 30.7998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.89990234375,
+     "toPaint": 23.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 20.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 26.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 18.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.900146484375,
+     "toPaint": 28.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.699951171875,
+     "toPaint": 15,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2001953125,
+     "toPaint": 19.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 14.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 16.5,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 24.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.199951171875,
+     "toPaint": 17,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 21,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 23.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 23.5,
+     "open": 49.199951171875,
+     "back": 47.800048828125
+    },
+    {
+     "type": 17.5,
+     "open": 27,
+     "back": 50.39990234375
+    },
+    {
+     "type": 20.699951171875,
+     "open": 27,
+     "back": 42.199951171875
+    },
+    {
+     "type": 23.699951171875,
+     "open": 35.099853515625,
+     "back": 41.699951171875
+    },
+    {
+     "type": 16.800048828125,
+     "open": 27.599853515625,
+     "back": 45.300048828125
+    },
+    {
+     "type": 24.900146484375,
+     "open": 34.39990234375,
+     "back": 44.300048828125
+    },
+    {
+     "type": 16.900146484375,
+     "open": 36.099853515625,
+     "back": 42.199951171875
+    },
+    {
+     "type": 16.39990234375,
+     "open": 26.5,
+     "back": 44.39990234375
+    },
+    {
+     "type": 20.5,
+     "open": 28.800048828125,
+     "back": 43.199951171875
+    },
+    {
+     "type": 23.800048828125,
+     "open": 38,
+     "back": 42.5
+    },
+    {
+     "type": 17.699951171875,
+     "open": 39.39990234375,
+     "back": 45.89990234375
+    },
+    {
+     "type": 18.60009765625,
+     "open": 37.39990234375,
+     "back": 54.39990234375
+    },
+    {
+     "type": 28.39990234375,
+     "open": 39.5,
+     "back": 45.39990234375
+    },
+    {
+     "type": 11.2001953125,
+     "open": 41,
+     "back": 45.099853515625
+    },
+    {
+     "type": 17.699951171875,
+     "open": 37,
+     "back": 43.699951171875
+    },
+    {
+     "type": 25.699951171875,
+     "open": 31,
+     "back": 46.89990234375
+    },
+    {
+     "type": 21.89990234375,
+     "open": 40.099853515625,
+     "back": 48.800048828125
+    },
+    {
+     "type": 20.699951171875,
+     "open": 28.699951171875,
+     "back": 45.39990234375
+    },
+    {
+     "type": 21.300048828125,
+     "open": 40.199951171875,
+     "back": 48.800048828125
+    },
+    {
+     "type": 23.5,
+     "open": 30.199951171875,
+     "back": 53.699951171875
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558381058.3,
+    "vis": 1794558381088.9,
+    "f2": 1794558381105.5999,
+    "toVisible": 30.599853515625,
+    "toFrame": 32,
+    "toPaint": 47.2998046875,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 1.2000000476837158,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 6,
+     "totalKiB": 5.8359375,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 70.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 78.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 127.png 200 1.2KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6768112182617188,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5730705261230469,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7946052551269531,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.182952880859375,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.2158164978027344,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.769306182861328,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.89990234375,
+     "toPaint": 15.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 15,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.10009765625,
+     "toPaint": 26.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 11.60009765625,
+     "toPaint": 27.10009765625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 30.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.60009765625,
+     "toPaint": 12.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 23.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 25.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 31.7998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 13.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 23.2998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.199951171875,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.39990234375,
+     "toPaint": 25.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 30.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 17,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 25.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.199951171875,
+     "toPaint": 24.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 14.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 27.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.699951171875,
+     "toPaint": 26.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 33.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.7001953125,
+     "toPaint": 26.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 26.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.89990234375,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 25.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 15,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.10009765625,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 15.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 23.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 11.60009765625,
+     "toPaint": 14.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 26.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.800048828125,
+     "toPaint": 14.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 21.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 17.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 13.300048828125,
+     "toPaint": 23.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 20,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 17.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.10009765625,
+     "toPaint": 25.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 22.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 26.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 31,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.39990234375,
+     "toPaint": 26,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 28.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 9.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 27.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.900146484375,
+     "toPaint": 22.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 26.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 17.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2998046875,
+     "toPaint": 20.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 15.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 21.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 15.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 23.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.7001953125,
+     "toPaint": 25.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 29.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 10.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 29.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 27.39990234375,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 30.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 10.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 30.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 14.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.7998046875,
+     "toPaint": 31,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 14.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 25.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.300048828125,
+     "toPaint": 24.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 27.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.800048828125,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 21.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 11.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 29.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.800048828125,
+     "toPaint": 23.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 27.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.599853515625,
+     "toPaint": 19.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 22.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 10.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 28.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.599853515625,
+     "toPaint": 25.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 26.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 21.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 25.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 17.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 32.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.199951171875,
+     "toPaint": 23.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 28.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 16.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 16.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 27.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.60009765625,
+     "toPaint": 16,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 30,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.5,
+     "toPaint": 23.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 23.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 23.39990234375,
+     "open": 51.699951171875,
+     "back": 60.39990234375
+    },
+    {
+     "type": 32.10009765625,
+     "open": 30.800048828125,
+     "back": 53.10009765625
+    },
+    {
+     "type": 27.60009765625,
+     "open": 28.300048828125,
+     "back": 51.699951171875
+    },
+    {
+     "type": 16.699951171875,
+     "open": 30.89990234375,
+     "back": 50.699951171875
+    },
+    {
+     "type": 20.10009765625,
+     "open": 31.199951171875,
+     "back": 45
+    },
+    {
+     "type": 19.099853515625,
+     "open": 26.800048828125,
+     "back": 51
+    },
+    {
+     "type": 17.699951171875,
+     "open": 38.699951171875,
+     "back": 47
+    },
+    {
+     "type": 26.699951171875,
+     "open": 38.10009765625,
+     "back": 45
+    },
+    {
+     "type": 26.400146484375,
+     "open": 31.60009765625,
+     "back": 44.39990234375
+    },
+    {
+     "type": 20.800048828125,
+     "open": 29.300048828125,
+     "back": 44
+    },
+    {
+     "type": 22.599853515625,
+     "open": 36.60009765625,
+     "back": 48.89990234375
+    },
+    {
+     "type": 19.400146484375,
+     "open": 26.60009765625,
+     "back": 46.89990234375
+    },
+    {
+     "type": 18.099853515625,
+     "open": 39,
+     "back": 47.10009765625
+    },
+    {
+     "type": 17.199951171875,
+     "open": 38.699951171875,
+     "back": 44.60009765625
+    },
+    {
+     "type": 25.699951171875,
+     "open": 29.699951171875,
+     "back": 47.60009765625
+    },
+    {
+     "type": 18.10009765625,
+     "open": 44.60009765625,
+     "back": 48.300048828125
+    },
+    {
+     "type": 23.300048828125,
+     "open": 39.800048828125,
+     "back": 46.60009765625
+    },
+    {
+     "type": 20,
+     "open": 26.39990234375,
+     "back": 45.800048828125
+    },
+    {
+     "type": 19.699951171875,
+     "open": 37.800048828125,
+     "back": 48.199951171875
+    },
+    {
+     "type": 25.400146484375,
+     "open": 28.5,
+     "back": 49.300048828125
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558411272,
+    "vis": 1794558411311.3,
+    "f2": 1794558411322,
+    "toVisible": 39.300048828125,
+    "toFrame": 43.60009765625,
+    "toPaint": 50,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 21.399999856948853,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 18,
+     "totalKiB": 16.955078125,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 70.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 78.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 127.png 200 1.2KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6768112182617188,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5726089477539062,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7936439514160156,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.180816650390625,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.212078094482422,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.762042999267578,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 15.60009765625,
+     "toPaint": 30.900146484375,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 10.300048828125,
+     "toPaint": 29,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.900146484375,
+     "toPaint": 26.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 28.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 16.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.099853515625,
+     "toPaint": 30.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 11.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 30.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 28.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 24.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 13.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 25.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.300048828125,
+     "toPaint": 26.199951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.800048828125,
+     "toPaint": 30.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 24.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 28.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 12.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 39.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14,
+     "toPaint": 24.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 26.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 25.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 14.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 26.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.39990234375,
+     "toPaint": 14.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 37.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11,
+     "toPaint": 15.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.60009765625,
+     "toPaint": 32,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.60009765625,
+     "toPaint": 28.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 27.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 15.10009765625,
+     "toPaint": 28.400146484375,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 30.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 10.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 14.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 20.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 16.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 25.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.800048828125,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 30.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 14.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 21.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 15.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 25.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 24.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 14,
+     "toPaint": 24.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.10009765625,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 23.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 14.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 22.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 11.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 30.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 13.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 13.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 23.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 15,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 23.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9,
+     "toPaint": 13.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 20.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.099853515625,
+     "toPaint": 12.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 21.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6,
+     "toPaint": 16.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.5,
+     "toPaint": 23.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 37.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 17.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.2998046875,
+     "toPaint": 15.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 21.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 13.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 13.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 25.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.7001953125,
+     "toPaint": 17.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 24.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.699951171875,
+     "toPaint": 19.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 26.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 13.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 20.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 15.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 22.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.7998046875,
+     "toPaint": 11.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.400146484375,
+     "toPaint": 29.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 20.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 18,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 21.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.699951171875,
+     "toPaint": 15.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 21.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 27.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2998046875,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.599853515625,
+     "toPaint": 18.2998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.2998046875,
+     "toPaint": 20.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 15,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 32.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 5.89990234375,
+     "toPaint": 10,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 29.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 19,
+     "open": 46.199951171875,
+     "back": 47.5
+    },
+    {
+     "type": 12.699951171875,
+     "open": 38.89990234375,
+     "back": 44.699951171875
+    },
+    {
+     "type": 17.60009765625,
+     "open": 26,
+     "back": 44.199951171875
+    },
+    {
+     "type": 22.699951171875,
+     "open": 34.199951171875,
+     "back": 44.800048828125
+    },
+    {
+     "type": 17.2001953125,
+     "open": 25.5,
+     "back": 43.300048828125
+    },
+    {
+     "type": 20.699951171875,
+     "open": 28.800048828125,
+     "back": 52.300048828125
+    },
+    {
+     "type": 31.300048828125,
+     "open": 37.699951171875,
+     "back": 42.300048828125
+    },
+    {
+     "type": 15.900146484375,
+     "open": 25.39990234375,
+     "back": 41.5
+    },
+    {
+     "type": 16.800048828125,
+     "open": 26.300048828125,
+     "back": 41.199951171875
+    },
+    {
+     "type": 25.7001953125,
+     "open": 26.099853515625,
+     "back": 42.89990234375
+    },
+    {
+     "type": 22.7998046875,
+     "open": 40.699951171875,
+     "back": 42.599853515625
+    },
+    {
+     "type": 17.2001953125,
+     "open": 26.199951171875,
+     "back": 40.800048828125
+    },
+    {
+     "type": 25.10009765625,
+     "open": 37.300048828125,
+     "back": 43.89990234375
+    },
+    {
+     "type": 16.7001953125,
+     "open": 26.39990234375,
+     "back": 44.5
+    },
+    {
+     "type": 17.5,
+     "open": 25.199951171875,
+     "back": 37.39990234375
+    },
+    {
+     "type": 18.400146484375,
+     "open": 41.199951171875,
+     "back": 45.89990234375
+    },
+    {
+     "type": 17.099853515625,
+     "open": 26.5,
+     "back": 38.39990234375
+    },
+    {
+     "type": 10.7001953125,
+     "open": 37.699951171875,
+     "back": 45.199951171875
+    },
+    {
+     "type": 17,
+     "open": 38.800048828125,
+     "back": 48.800048828125
+    },
+    {
+     "type": 21.199951171875,
+     "open": 26.099853515625,
+     "back": 45.199951171875
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558441663,
+    "vis": 1794558441706.8,
+    "f2": 1794558441723.8,
+    "toVisible": 43.800048828125,
+    "toFrame": 54.39990234375,
+    "toPaint": 60.800048828125,
+    "maxEventMs": 40,
+    "maxInputDelayMs": 23.600000143051147,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 18,
+     "totalKiB": 16.955078125,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 70.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 78.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 127.png 200 1.2KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6768112182617188,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5726089477539062,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7861099243164062,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.1720046997070312,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.212646484375,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.781230926513672,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.199951171875,
+     "toPaint": 28.900146484375,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 10.099853515625,
+     "toPaint": 30.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.2001953125,
+     "toPaint": 25.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 32.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 17.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 23.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.2998046875,
+     "toPaint": 21.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 31.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 12.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 20.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 15.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 23.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 13.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.60009765625,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 25.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 22.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10,
+     "toPaint": 22.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 22.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 14.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.10009765625,
+     "toPaint": 25,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 8.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 29.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 12.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 37.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 13.699951171875,
+     "toPaint": 25.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 30.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.2998046875,
+     "toPaint": 28.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 31,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.099853515625,
+     "toPaint": 15.199951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 23.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 13.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 22.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 16.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.7998046875,
+     "toPaint": 14.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 20.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 15.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 25.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 13.5,
+     "toPaint": 23.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 20.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12.10009765625,
+     "toPaint": 20.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 27,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 14,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 32.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.7998046875,
+     "toPaint": 24.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 27.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.2998046875,
+     "toPaint": 20.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 24.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 13.800048828125,
+     "toPaint": 21.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 10.2001953125,
+     "toPaint": 30.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 20,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 27.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.5,
+     "toPaint": 14,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 20.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 16.39990234375,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 31.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 32.099853515625,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.699951171875,
+     "toPaint": 20.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 23.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 11.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 31.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 10.5,
+     "toPaint": 23,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 27.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 19.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 14.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 26.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.5,
+     "toPaint": 26.300048828125,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 26.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.60009765625,
+     "toPaint": 28,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 28.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 15.5,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.599853515625,
+     "toPaint": 33.5,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 18,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 33.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.89990234375,
+     "toPaint": 18.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 30.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.599853515625,
+     "toPaint": 18.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 21.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 17.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 30.2001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.699951171875,
+     "toPaint": 16.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 29.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 16.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 22,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 14.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2998046875,
+     "toPaint": 32.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.5,
+     "toPaint": 24,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 26.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.599853515625,
+     "toPaint": 18.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 22.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 16.300048828125,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.400146484375,
+     "toPaint": 35.800048828125,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 15,
+     "toPaint": 29.800048828125,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 13.099853515625,
+     "toPaint": 23.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 33.800048828125,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 22.7998046875,
+     "open": 52.10009765625,
+     "back": 47.60009765625
+    },
+    {
+     "type": 17.39990234375,
+     "open": 39.300048828125,
+     "back": 46.900146484375
+    },
+    {
+     "type": 17.900146484375,
+     "open": 41.60009765625,
+     "back": 45.10009765625
+    },
+    {
+     "type": 17.60009765625,
+     "open": 41.10009765625,
+     "back": 45
+    },
+    {
+     "type": 17.10009765625,
+     "open": 28.199951171875,
+     "back": 45.60009765625
+    },
+    {
+     "type": 26.199951171875,
+     "open": 37.5,
+     "back": 45.5
+    },
+    {
+     "type": 17.5,
+     "open": 39.199951171875,
+     "back": 46.10009765625
+    },
+    {
+     "type": 11.5,
+     "open": 40.300048828125,
+     "back": 44.199951171875
+    },
+    {
+     "type": 17.2001953125,
+     "open": 38.5,
+     "back": 47.699951171875
+    },
+    {
+     "type": 21.099853515625,
+     "open": 27.800048828125,
+     "back": 47.10009765625
+    },
+    {
+     "type": 19.5,
+     "open": 38,
+     "back": 47.699951171875
+    },
+    {
+     "type": 27.400146484375,
+     "open": 32.199951171875,
+     "back": 55.199951171875
+    },
+    {
+     "type": 29.5,
+     "open": 40.900146484375,
+     "back": 48.5
+    },
+    {
+     "type": 19.7998046875,
+     "open": 43.60009765625,
+     "back": 47.10009765625
+    },
+    {
+     "type": 26.599853515625,
+     "open": 42.400146484375,
+     "back": 47.900146484375
+    },
+    {
+     "type": 20.5,
+     "open": 40.300048828125,
+     "back": 46.60009765625
+    },
+    {
+     "type": 18.5,
+     "open": 28.800048828125,
+     "back": 48.60009765625
+    },
+    {
+     "type": 23.300048828125,
+     "open": 29.400146484375,
+     "back": 51.300048828125
+    },
+    {
+     "type": 23.5,
+     "open": 29.699951171875,
+     "back": 49.800048828125
+    },
+    {
+     "type": 23.400146484375,
+     "open": 29.300048828125,
+     "back": 49.400146484375
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558471726.8,
+    "vis": 1794558471762.7,
+    "f2": 1794558471774.4001,
+    "toVisible": 35.89990234375,
+    "toFrame": 42.699951171875,
+    "toPaint": 47.60009765625,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 0.5,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 15,
+     "totalKiB": 13.546875,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600"
+    ]
+   }
+  },
+  {
+   "mem": {
+    "load": {
+     "heapMB": 1.6768112182617188,
+     "nodes": 2443,
+     "listeners": 16,
+     "documents": 2
+    },
+    "activated": {
+     "heapMB": 1.5722694396972656,
+     "nodes": 210,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after25": {
+     "heapMB": 1.7871932983398438,
+     "nodes": 268,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after50": {
+     "heapMB": 2.1749839782714844,
+     "nodes": 2336,
+     "listeners": 16,
+     "documents": 2
+    },
+    "after100": {
+     "heapMB": 2.2146644592285156,
+     "nodes": 2361,
+     "listeners": 16,
+     "documents": 2
+    },
+    "afterNav": {
+     "heapMB": 2.7780609130859375,
+     "nodes": 5922,
+     "listeners": 56,
+     "documents": 2
+    }
+   },
+   "inter": [
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.39990234375,
+     "toPaint": 28.099853515625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 10.10009765625,
+     "toPaint": 26.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 13.5,
+     "toPaint": 25.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 25.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12.10009765625,
+     "toPaint": 28,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.2001953125,
+     "toPaint": 24.60009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.89990234375,
+     "toPaint": 11.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 24.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 11.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.7001953125,
+     "toPaint": 22.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 16.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 23.199951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.199951171875,
+     "toPaint": 24.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 26.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.800048828125,
+     "toPaint": 26.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 30.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 14.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 21.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.099853515625,
+     "toPaint": 14.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 23.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.10009765625,
+     "toPaint": 23.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 31.2998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 5.89990234375,
+     "toPaint": 12.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2998046875,
+     "toPaint": 22.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.2001953125,
+     "toPaint": 15.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.199951171875,
+     "toPaint": 36.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 9.900146484375,
+     "toPaint": 17.7001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.60009765625,
+     "toPaint": 24.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8.900146484375,
+     "toPaint": 15.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.39990234375,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 14.599853515625,
+     "toPaint": 29.300048828125,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 29.39990234375,
+     "maxEventMs": 32,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 12.599853515625,
+     "toPaint": 20.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 22.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.800048828125,
+     "toPaint": 16,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.300048828125,
+     "toPaint": 21.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 17.2001953125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 23.300048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 11.10009765625,
+     "toPaint": 25.39990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 28.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 13.800048828125,
+     "toPaint": 24,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 21.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.300048828125,
+     "toPaint": 16.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 24.2998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.2998046875,
+     "toPaint": 21.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.199951171875,
+     "toPaint": 25.599853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 12,
+     "toPaint": 21.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.39990234375,
+     "toPaint": 31.7998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.699951171875,
+     "toPaint": 25.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.599853515625,
+     "toPaint": 24.7998046875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.400146484375,
+     "toPaint": 23.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.2001953125,
+     "toPaint": 28.7001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.89990234375,
+     "toPaint": 16.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 22.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.400146484375,
+     "toPaint": 15.10009765625,
+     "maxEventMs": 16,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 24.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.5,
+     "toPaint": 17.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 24.900146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 15.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.2001953125,
+     "toPaint": 33.400146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.599853515625,
+     "toPaint": 11.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 30.89990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 24.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.89990234375,
+     "toPaint": 30,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 9.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.699951171875,
+     "toPaint": 27.39990234375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.800048828125,
+     "toPaint": 20.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 26.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7,
+     "toPaint": 15.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 21.300048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 18.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.300048828125,
+     "toPaint": 20.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 10.39990234375,
+     "toPaint": 12.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 29.099853515625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 8.199951171875,
+     "toPaint": 23.7998046875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.5,
+     "toPaint": 29.10009765625,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 8.60009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 27.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 13.900146484375,
+     "toPaint": 22.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.300048828125,
+     "toPaint": 24.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.300048828125,
+     "toPaint": 25.400146484375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 8.60009765625,
+     "toPaint": 29.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 9.699951171875,
+     "toPaint": 19.199951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.7998046875,
+     "toPaint": 20.89990234375,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.199951171875,
+     "toPaint": 16.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.099853515625,
+     "toPaint": 21.599853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 6.5,
+     "toPaint": 14.10009765625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.699951171875,
+     "toPaint": 22.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 8,
+     "toPaint": 9.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 28.900146484375,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 11.2998046875,
+     "toPaint": 18.699951171875,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.800048828125,
+     "toPaint": 26.800048828125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 10.199951171875,
+     "toPaint": 23,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.400146484375,
+     "toPaint": 23.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "bulba",
+     "ok": true,
+     "toVisible": 6.900146484375,
+     "toPaint": 11.5,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 29.2001953125,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "char",
+     "ok": true,
+     "toVisible": 9.199951171875,
+     "toPaint": 17.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 6.39990234375,
+     "toPaint": 22.099853515625,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "pika",
+     "ok": true,
+     "toVisible": 7.900146484375,
+     "toPaint": 11.800048828125,
+     "maxEventMs": 0,
+     "longTasks": 0,
+     "longTaskMs": 0
+    },
+    {
+     "what": "clear",
+     "ok": true,
+     "toVisible": 7.10009765625,
+     "toPaint": 29.699951171875,
+     "maxEventMs": 24,
+     "longTasks": 0,
+     "longTaskMs": 0
+    }
+   ],
+   "nav": [
+    {
+     "type": 20.300048828125,
+     "open": 52.699951171875,
+     "back": 53.10009765625
+    },
+    {
+     "type": 17.099853515625,
+     "open": 39.699951171875,
+     "back": 48.10009765625
+    },
+    {
+     "type": 18.2998046875,
+     "open": 39.60009765625,
+     "back": 41
+    },
+    {
+     "type": 23.400146484375,
+     "open": 32.10009765625,
+     "back": 45
+    },
+    {
+     "type": 23.699951171875,
+     "open": 36.5,
+     "back": 47.10009765625
+    },
+    {
+     "type": 25.199951171875,
+     "open": 36,
+     "back": 43.60009765625
+    },
+    {
+     "type": 16.800048828125,
+     "open": 38.199951171875,
+     "back": 44.300048828125
+    },
+    {
+     "type": 19.7001953125,
+     "open": 38.199951171875,
+     "back": 45.699951171875
+    },
+    {
+     "type": 11.60009765625,
+     "open": 37.699951171875,
+     "back": 45.5
+    },
+    {
+     "type": 26.900146484375,
+     "open": 30.89990234375,
+     "back": 45.5
+    },
+    {
+     "type": 20.89990234375,
+     "open": 26.60009765625,
+     "back": 47.800048828125
+    },
+    {
+     "type": 19.10009765625,
+     "open": 37,
+     "back": 45.699951171875
+    },
+    {
+     "type": 23.39990234375,
+     "open": 30.199951171875,
+     "back": 45.300048828125
+    },
+    {
+     "type": 20.199951171875,
+     "open": 44.10009765625,
+     "back": 47.800048828125
+    },
+    {
+     "type": 23.300048828125,
+     "open": 29,
+     "back": 47.10009765625
+    },
+    {
+     "type": 11.60009765625,
+     "open": 40.39990234375,
+     "back": 48.60009765625
+    },
+    {
+     "type": 21.2001953125,
+     "open": 41.800048828125,
+     "back": 48.89990234375
+    },
+    {
+     "type": 21.099853515625,
+     "open": 41,
+     "back": 50.60009765625
+    },
+    {
+     "type": 19.10009765625,
+     "open": 42.300048828125,
+     "back": 48.39990234375
+    },
+    {
+     "type": 20.599853515625,
+     "open": 41.800048828125,
+     "back": 42.199951171875
+    }
+   ],
+   "first": {
+    "name": "first activation (type pika)",
+    "ok": true,
+    "t0": 1794558502353.2,
+    "vis": 1794558502389.2,
+    "f2": 1794558502410.1,
+    "toVisible": 36,
+    "toFrame": 37,
+    "toPaint": 56.900146484375,
+    "maxEventMs": 32,
+    "maxInputDelayMs": 20.399999856948853,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "net": {
+     "requests": 15,
+     "totalKiB": 13.546875,
+     "jsFiles": 0,
+     "jsKiB": 0,
+     "jsFromCache": 0,
+     "jsRevalidated": 0,
+     "jsDownloaded": 0,
+     "allFromCache": 0,
+     "allRevalidated": 0
+    },
+    "urls": [
+     "Image 21.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 25.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 37.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 45.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 46.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 39.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 53.png 200 0.9KiB cc=public, max-age=3600",
+     "Image 47.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 54.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 60.png 200 0.7KiB cc=public, max-age=3600",
+     "Image 57.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 62.png 200 1.1KiB cc=public, max-age=3600",
+     "Image 66.png 200 0.8KiB cc=public, max-age=3600",
+     "Image 61.png 200 1.0KiB cc=public, max-age=3600",
+     "Image 68.png 200 1.4KiB cc=public, max-age=3600"
+    ]
+   }
+  }
+ ]
+}

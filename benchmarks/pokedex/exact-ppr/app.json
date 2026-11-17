@@ -1,0 +1,22 @@
+{
+  "name": "Exact Pokedex PPR",
+  "short_name": "Exact Pokedex PPR",
+  "id": "com.example.exact-pokedex-ppr-d4e5f6",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.example.exact-pokedex-ppr-d4e5f6",
+    "name": "Exact Pokedex PPR"
+  },
+  "host": {
+    "web": {}
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  },
+  "server": {
+    "database": false
+  }
+}

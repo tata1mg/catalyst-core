@@ -20,7 +20,7 @@ async function once() {
   await p.click(INPUT).catch(() => {}); const tClick = performance.now() - t0
   await p.keyboard.type("pika", { delay: 0 }); const tTyped = performance.now() - t0
   let tFiltered = null
-  while (tFiltered === null && performance.now() - t0 < 25000) { const n = await p.evaluate((s) => document.querySelectorAll(s).length, CARD).catch(() => 999); if (n <= 3) tFiltered = performance.now() - t0; else await new Promise((r) => setTimeout(r, 25)) }
+  while (tFiltered === null && performance.now() - t0 < 25000) { const n = await p.evaluate((s) => document.querySelectorAll(s).length, CARD).catch(() => 999); if (n >= 1 && n <= 3) tFiltered = performance.now() - t0; else await new Promise((r) => setTimeout(r, 25)) }
   await nav
   await new Promise((r) => setTimeout(r, 3000))
   const end = await p.evaluate((i, s) => ({ value: document.querySelector(i)?.value ?? null, cards: document.querySelectorAll(s).length }), INPUT, CARD).catch(() => ({}))

@@ -1,0 +1,287 @@
+{
+ "label": "exact",
+ "url": "http://127.0.0.1:8765/",
+ "reps": 5,
+ "all": [
+  {
+   "scrollBefore": 2400,
+   "afterClick": {
+    "navType": "navigate",
+    "pageshow": [
+     false
+    ],
+    "marker": false,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "clientRouting": false,
+   "afterBack": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 2400,
+    "notRestored": null,
+    "cards": 151,
+    "input": ""
+   },
+   "scrollRestored": true,
+   "searchAfterBack": {
+    "input": "char",
+    "cards": 3,
+    "info": {
+     "navType": "navigate",
+     "pageshow": [
+      false,
+      true
+     ],
+     "marker": true,
+     "scrollY": 0,
+     "notRestored": null
+    }
+   },
+   "forwardMs": 21,
+   "afterForward": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "reload": {
+    "scrollBefore": 0,
+    "scrollAfter": 0,
+    "input": ""
+   }
+  },
+  {
+   "scrollBefore": 2400,
+   "afterClick": {
+    "navType": "navigate",
+    "pageshow": [
+     false
+    ],
+    "marker": false,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "clientRouting": false,
+   "afterBack": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 2400,
+    "notRestored": null,
+    "cards": 151,
+    "input": ""
+   },
+   "scrollRestored": true,
+   "searchAfterBack": {
+    "input": "char",
+    "cards": 3,
+    "info": {
+     "navType": "navigate",
+     "pageshow": [
+      false,
+      true
+     ],
+     "marker": true,
+     "scrollY": 0,
+     "notRestored": null
+    }
+   },
+   "forwardMs": 26,
+   "afterForward": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "reload": {
+    "scrollBefore": 0,
+    "scrollAfter": 0,
+    "input": ""
+   }
+  },
+  {
+   "scrollBefore": 2400,
+   "afterClick": {
+    "navType": "navigate",
+    "pageshow": [
+     false
+    ],
+    "marker": false,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "clientRouting": false,
+   "afterBack": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 2400,
+    "notRestored": null,
+    "cards": 151,
+    "input": ""
+   },
+   "scrollRestored": true,
+   "searchAfterBack": {
+    "input": "char",
+    "cards": 3,
+    "info": {
+     "navType": "navigate",
+     "pageshow": [
+      false,
+      true
+     ],
+     "marker": true,
+     "scrollY": 0,
+     "notRestored": null
+    }
+   },
+   "forwardMs": 22,
+   "afterForward": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "reload": {
+    "scrollBefore": 0,
+    "scrollAfter": 0,
+    "input": ""
+   }
+  },
+  {
+   "scrollBefore": 2400,
+   "afterClick": {
+    "navType": "navigate",
+    "pageshow": [
+     false
+    ],
+    "marker": false,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "clientRouting": false,
+   "afterBack": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 2400,
+    "notRestored": null,
+    "cards": 151,
+    "input": ""
+   },
+   "scrollRestored": true,
+   "searchAfterBack": {
+    "input": "char",
+    "cards": 3,
+    "info": {
+     "navType": "navigate",
+     "pageshow": [
+      false,
+      true
+     ],
+     "marker": true,
+     "scrollY": 0,
+     "notRestored": null
+    }
+   },
+   "forwardMs": 21,
+   "afterForward": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "reload": {
+    "scrollBefore": 0,
+    "scrollAfter": 0,
+    "input": ""
+   }
+  },
+  {
+   "scrollBefore": 2400,
+   "afterClick": {
+    "navType": "navigate",
+    "pageshow": [
+     false
+    ],
+    "marker": false,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "clientRouting": false,
+   "afterBack": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 2400,
+    "notRestored": null,
+    "cards": 151,
+    "input": ""
+   },
+   "scrollRestored": true,
+   "searchAfterBack": {
+    "input": "char",
+    "cards": 3,
+    "info": {
+     "navType": "navigate",
+     "pageshow": [
+      false,
+      true
+     ],
+     "marker": true,
+     "scrollY": 0,
+     "notRestored": null
+    }
+   },
+   "forwardMs": 20,
+   "afterForward": {
+    "navType": "navigate",
+    "pageshow": [
+     false,
+     true
+    ],
+    "marker": true,
+    "scrollY": 0,
+    "notRestored": null
+   },
+   "reload": {
+    "scrollBefore": 0,
+    "scrollAfter": 0,
+    "input": ""
+   }
+  }
+ ]
+}
