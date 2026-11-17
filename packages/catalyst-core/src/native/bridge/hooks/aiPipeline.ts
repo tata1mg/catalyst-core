@@ -326,6 +326,8 @@ export function imageStage(options: {
     cost?: (result: { images?: any[]; usage?: unknown }) => number | undefined
     /** Extra arguments for requestImage (provider, size, model, ...). */
     requestOptions?: Record<string, unknown>
+    /** Input images (data URLs or { mimeType, data }) derived from the stage input; makes the request an edit/transform. Omitted when empty. */
+    images?: (json: any) => any[] | undefined | Promise<any[] | undefined>
 }): Stage<any, any> {
     return {
         name: options.name ?? "image",
@@ -334,7 +336,8 @@ export function imageStage(options: {
         cloud: options.cloud ?? true,
         run: async (json, ctx) => {
             const prompt = await options.prompt(json)
-            const result = await options.requestImage({ ...options.requestOptions, prompt, signal: ctx.signal })
+            const images = options.images ? await options.images(json) : undefined
+            const result = await options.requestImage({ ...options.requestOptions, prompt, ...(images?.length ? { images } : {}), signal: ctx.signal })
             const cost = options.cost?.(result)
             if (cost) ctx.addCost(cost)
             const first = result?.images?.[0]

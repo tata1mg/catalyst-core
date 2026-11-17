@@ -221,6 +221,8 @@ function mapAnthropicMessages(messages) {
 
 module.exports = {
     DEFAULT_LIMITS,
+    BASE64,
+    decodedBytes,
     usesParts,
     hasMedia,
     textOf,
