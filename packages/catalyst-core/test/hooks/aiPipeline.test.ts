@@ -141,6 +141,14 @@ describe("imageStage", () => {
         expect(requestImage).toHaveBeenCalledWith(expect.objectContaining({ prompt: "draw cat", size: "1024x1024", signal: expect.any(AbortSignal) }))
         expect(res.spentUsd).toBeCloseTo(0.04)
     })
+    it("forwards input images derived from the stage input, and omits the key when none", async () => {
+        const requestImage = vi.fn(async () => ({ images: [{ url: "u" }] }))
+        const stage = imageStage({ requestImage, prompt: () => "edit", images: (j: any) => j.src })
+        await runPipeline([stage], { src: ["data:image/png;base64,AAA"] })
+        expect(requestImage).toHaveBeenLastCalledWith(expect.objectContaining({ images: ["data:image/png;base64,AAA"] }))
+        await runPipeline([stage], { src: [] })
+        expect(requestImage.mock.calls[1][0]).not.toHaveProperty("images")
+    })
     it("errors when no image comes back", async () => {
         const res = await runPipeline([imageStage({ requestImage: async () => ({ images: [] }), prompt: () => "p" })], {}, { cloudPolicy: "allow" })
         expect(res.error?.message).toMatch(/no images/)
