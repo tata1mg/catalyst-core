@@ -1,0 +1,41 @@
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_86d86931dd4995::t_6d9f0da81b1155 49-55,69
+packages/catalyst-ai/test/route.live.test.ts
+  s_86d86931dd4995::t_644cfaec30a7eb 1-83
+packages/catalyst-ai/test/liveTranscribe.test.ts
+  s_86d86931dd4995::t_b4350e84756c79 1-118
+packages/catalyst-ai/src/route.js
+  s_86d86931dd4995::t_3bdfe69ef40102 886-888
+  s_86d86931dd4995::t_39527f7f0dea6f 4,857-885,890
+  s_86d86931dd4995::t_fa4c2b65d8aa84 889,891-892
+packages/catalyst-ai/src/liveTranscribe.js
+  s_86d86931dd4995::t_2f0d3474b3ce67 1-9,11-204,207-292
+  s_86d86931dd4995::t_b4350e84756c79 10,205-206
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_86d86931dd4995::t_ad835e5781342f 4,74-84,97,120,124-126,148-172,206
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_86d86931dd4995::t_6d9f0da81b1155 6
+packages/catalyst-ai/src/liveGen.js
+  s_86d86931dd4995::t_39527f7f0dea6f 1-23,26-38
+  s_86d86931dd4995::t_3bdfe69ef40102 24-25
+packages/catalyst-core/test/hooks/aiGeneration.test.ts
+  s_86d86931dd4995::t_6d9f0da81b1155 22-30
+packages/catalyst-ai/src/index.js
+  s_86d86931dd4995::t_2f0d3474b3ce67 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c12ff6f2a389ebef9b298126c74d6a2c04a9d185",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
