@@ -211,6 +211,100 @@ function makeProjectHelpers(root) {
     return { fileExists, readJson, readText, grepSrc }
 }
 
+/**
+ * The catalyst-core version installed for the project at `root`: the copy in
+ * its node_modules (hoisted installs included), then the declared range in
+ * its package.json. Null when neither says.
+ */
+function installedCatalystVersion(root) {
+    try {
+        const pkgPath = require.resolve("catalyst-core/package.json", { paths: [root] })
+        const version = JSON.parse(fs.readFileSync(pkgPath, "utf8")).version
+        if (version) return version
+    } catch {
+        /* not installed relative to root */
+    }
+    try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
+        if (pkg.name === "catalyst-core") return pkg.version || null
+        const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+        return deps["catalyst-core"] || null
+    } catch {
+        return null
+    }
+}
+
+// From catalyst-core 1.2.0 both builds use public/icon.png as the app icon
+// when the platform has no sized icons. Mirrors src/native/appIcon.js.
+const SINGLE_APP_ICON_MIN_VERSION = "1.2.0"
+const MIN_APP_ICON_SIZE = 1024
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+/**
+ * Width, height and alpha from a PNG's header: colour type 4 or 6, or a tRNS
+ * chunk before the image data. Null when the bytes are not a PNG. Same rules
+ * as readPngInfo in src/native/appIcon.js.
+ */
+function readPngInfo(buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 33) return null
+    if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return null
+    if (buffer.toString("ascii", 12, 16) !== "IHDR") return null
+    const width = buffer.readUInt32BE(16)
+    const height = buffer.readUInt32BE(20)
+    const colorType = buffer[25]
+    let hasTransparencyChunk = false
+    let offset = 8
+    while (offset + 8 <= buffer.length) {
+        const length = buffer.readUInt32BE(offset)
+        const type = buffer.toString("ascii", offset + 4, offset + 8)
+        if (type === "tRNS") {
+            hasTransparencyChunk = true
+            break
+        }
+        if (type === "IDAT" || type === "IEND") break
+        offset += 12 + length
+    }
+    return { width, height, colorType, hasAlpha: colorType === 4 || colorType === 6 || hasTransparencyChunk }
+}
+
+/**
+ * What the builds would say about public/icon.png: null when it is missing,
+ * else { info, problem } where problem is why the build rejects it
+ * (ANDROID-010 / IOS-005) or null. Alpha is reported through info.hasAlpha.
+ */
+function checkSingleAppIcon(root) {
+    const file = path.join(root, "public", "icon.png")
+    if (!fs.existsSync(file)) return null
+    let info = null
+    try {
+        info = readPngInfo(fs.readFileSync(file))
+    } catch {
+        info = null
+    }
+    if (!info) return { info: null, problem: "is not a PNG file" }
+    if (info.width !== info.height)
+        return { info, problem: `is ${info.width}x${info.height}; it must be square` }
+    if (info.width < MIN_APP_ICON_SIZE)
+        return {
+            info,
+            problem: `is ${info.width}x${info.height}; it must be at least ${MIN_APP_ICON_SIZE}x${MIN_APP_ICON_SIZE}`,
+        }
+    return { info, problem: null }
+}
+
+/** True when public/android/appIcons has an icon-<density> file, which the Android build prefers over icon.png. */
+function hasAndroidSizedIcons(root) {
+    const dir = path.join(root, "public", "android", "appIcons")
+    return ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].some((density) =>
+        ["png", "jpg", "jpeg"].some((ext) => fs.existsSync(path.join(dir, `icon-${density}.${ext}`)))
+    )
+}
+
+/** True when public/ios/appIcons exists: the iOS build then uses it instead of icon.png. */
+function hasIosSizedIcons(root) {
+    return fs.existsSync(path.join(root, "public", "ios", "appIcons"))
+}
+
 module.exports = {
     findCatalystRoot,
     makeProjectHelpers,
@@ -218,4 +312,11 @@ module.exports = {
     parseVersion,
     catalystGeneration,
     VITE_RUNTIME_VERSION,
+    installedCatalystVersion,
+    SINGLE_APP_ICON_MIN_VERSION,
+    MIN_APP_ICON_SIZE,
+    readPngInfo,
+    checkSingleAppIcon,
+    hasAndroidSizedIcons,
+    hasIosSizedIcons,
 }

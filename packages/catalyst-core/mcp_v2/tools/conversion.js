@@ -6,6 +6,10 @@ const {
     versionOlderThan,
     catalystGeneration,
     VITE_RUNTIME_VERSION,
+    SINGLE_APP_ICON_MIN_VERSION,
+    checkSingleAppIcon,
+    hasAndroidSizedIcons,
+    hasIosSizedIcons,
 } = require("../lib/helpers")
 
 // Tasks that require a minimum catalyst-core version.
@@ -103,6 +107,73 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
     // ── Per-task detectors (3-step model) ─────────────────────────────────────
     //
+    /** T13/T14 on 1.2.0+: public/icon.png, unless the platform's sized icons replace it. Null before 1.2.0. */
+    function singleIconStatus(p) {
+        if (installedVersion && versionOlderThan(installedVersion, SINGLE_APP_ICON_MIN_VERSION)) return null
+        const sized = p === "android" ? hasAndroidSizedIcons(root) : hasIosSizedIcons(root)
+        if (sized) return null
+        const single = checkSingleAppIcon(root)
+        const code = p === "android" ? "ANDROID-010" : "IOS-005"
+        if (!single)
+            return {
+                status: "gap",
+                native_risk: `No app icon, so the ${p === "android" ? "Android" : "iOS"} build uses the Catalyst placeholder.`,
+                reason: "public/icon.png not found. Add a square PNG of at least 1024x1024 pixels with no transparency; both platforms build their icons from it.",
+            }
+        if (single.problem)
+            return {
+                status: "gap",
+                native_risk: `public/icon.png ${single.problem}, so the build fails with ${code}.`,
+                reason: `public/icon.png ${single.problem}`,
+            }
+        if (p === "ios" && single.info.hasAlpha)
+            return {
+                status: "gap",
+                native_risk:
+                    "public/icon.png has an alpha channel. Debug builds only warn, but an iOS release fails with IOS-006 (the App Store rejects transparent icons).",
+                reason: "public/icon.png has transparency; flatten it onto a solid background",
+            }
+        return { status: "completed" }
+    }
+
+    function legacyAndroidIconStatus() {
+        const required = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].map(
+            (d) => `public/android/appIcons/icon-${d}.png`
+        )
+        const missing = required.filter((f) => !fileExists(f))
+        if (missing.length)
+            return {
+                status: "gap",
+                native_risk:
+                    "Missing Android icon densities — build will fall back to bundled catalyst icon. Expected naming: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png inside public/android/appIcons/. On catalyst-core 1.2.0+ one public/icon.png is enough.",
+                reason: `Missing Android icons: ${missing.join(", ")}`,
+            }
+        return { status: "completed" }
+    }
+
+    function legacyIosIconStatus() {
+        const required = [
+            "icon-20x20-2x",
+            "icon-20x20-3x",
+            "icon-29x29-2x",
+            "icon-29x29-3x",
+            "icon-40x40-2x",
+            "icon-40x40-3x",
+            "icon-60x60-2x",
+            "icon-60x60-3x",
+            "icon-1024x1024-1x",
+        ].map((name) => `public/ios/appIcons/${name}.png`)
+        const missing = required.filter((f) => !fileExists(f))
+        if (missing.length)
+            return {
+                status: "gap",
+                native_risk:
+                    "Missing iOS icon sizes — Xcode build may fail or App Store submission will be rejected. Expected naming: icon-{WxH}-{scale}.png e.g. icon-60x60-3x.png inside public/ios/appIcons/. On catalyst-core 1.2.0+ one public/icon.png is enough.",
+                reason: `Missing iOS icons: ${missing.join(", ")}`,
+            }
+        return { status: "completed" }
+    }
+
     // Each detector returns one of:
     //   { status: 'completed', note? }
     //   { status: 'gap',            native_risk, reason, files? }
@@ -499,43 +570,12 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
             return { status: "completed" }
         },
 
-        T13_ANDROID_ICONS: () => {
-            const required = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].map(
-                (d) => `public/android/appIcons/icon-${d}.png`
-            )
-            const missing = required.filter((f) => !fileExists(f))
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Missing Android icon densities — build will fall back to bundled catalyst icon. Expected naming: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png inside public/android/appIcons/.",
-                    reason: `Missing Android icons: ${missing.join(", ")}`,
-                }
-            return { status: "completed" }
-        },
+        // From 1.2.0 public/icon.png is the app icon on both platforms; the sized
+        // sets in public/<platform>/appIcons are optional overrides. Before
+        // 1.2.0 only the sized sets count.
+        T13_ANDROID_ICONS: () => singleIconStatus("android") || legacyAndroidIconStatus(),
 
-        T14_IOS_ICONS: () => {
-            const required = [
-                "icon-20x20-2x",
-                "icon-20x20-3x",
-                "icon-29x29-2x",
-                "icon-29x29-3x",
-                "icon-40x40-2x",
-                "icon-40x40-3x",
-                "icon-60x60-2x",
-                "icon-60x60-3x",
-                "icon-1024x1024-1x",
-            ].map((name) => `public/ios/appIcons/${name}.png`)
-            const missing = required.filter((f) => !fileExists(f))
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Missing iOS icon sizes — Xcode build may fail or App Store submission will be rejected. Expected naming: icon-{WxH}-{scale}.png e.g. icon-60x60-3x.png inside public/ios/appIcons/.",
-                    reason: `Missing iOS icons: ${missing.join(", ")}`,
-                }
-            return { status: "completed" }
-        },
+        T14_IOS_ICONS: () => singleIconStatus("ios") || legacyIosIconStatus(),
 
         T15_OFFLINE_HTML: () => {
             if (!fileExists("public/offline.html"))
