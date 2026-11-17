@@ -1,0 +1,19 @@
+src/server/renderer/handler.jsx
+  s_a7699bea22436f::t_1be1c2b18f97f7 403-413,421-422,454-483,485,488-508,511,577-579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34f8c2000b1224ee24f714c507fc68969662986a",
+  "prompts": {},
+  "sessions": {
+    "s_a7699bea22436f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b89c20d2-65c5-46f7-bab8-adeefa02fcda",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

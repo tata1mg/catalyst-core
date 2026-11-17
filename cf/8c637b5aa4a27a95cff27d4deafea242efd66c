@@ -1,0 +1,19 @@
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_815f812c6324b6::t_67075c3c55f5f3 49-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cf8c637b5aa4a27a95cff27d4deafea242efd66c",
+  "prompts": {},
+  "sessions": {
+    "s_815f812c6324b6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "204501dd-cda6-49c5-8ea0-208477f6b6cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

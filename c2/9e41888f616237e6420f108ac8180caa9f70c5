@@ -1,0 +1,32 @@
+src/server/renderer/ppr.js
+  s_d931432877f59e::t_a9cc538c1ffe8b 61-65
+  s_d931432877f59e::t_7c5bcc1b7033f3 20-21,37-42,59-60,70-75,80,84-85,88
+README.md
+  s_d931432877f59e::t_27581ab1af17f5 183-184
+test/ppr.test.mjs
+  s_d931432877f59e::t_27581ab1af17f5 157-181
+  s_d931432877f59e::t_debe433278801d 182
+ppr-documentation.md
+  s_d931432877f59e::t_c43c8e8886e0d0 52-54,60-68,77,101-103
+  s_d931432877f59e::t_368aa9d3ab17b7 51,55-59,75
+src/server/renderer/handler.jsx
+  s_d931432877f59e::t_c43c8e8886e0d0 161
+  s_d931432877f59e::t_7c5bcc1b7033f3 158-160,162-165,437,484-485,487-494,737-738,798,804-812,849,1005-1016
+  s_d931432877f59e::t_39b91d7b47b39e 1017
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c29e41888f616237e6420f108ac8180caa9f70c5",
+  "prompts": {},
+  "sessions": {
+    "s_d931432877f59e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "55b1034b-f219-47ff-b999-ce333a7d32b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
