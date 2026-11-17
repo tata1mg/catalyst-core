@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_86d86931dd4995::t_40e8a4bfd9c8fb 6
+packages/catalyst-core/test/hooks/aiGeneration.test.ts
+  s_86d86931dd4995::t_40e8a4bfd9c8fb 1-33
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_86d86931dd4995::t_40e8a4bfd9c8fb 1-61
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_86d86931dd4995::t_d00c422b1b4825 3,7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec869f6379e65f29b019ee90188a73665dd40f92",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
