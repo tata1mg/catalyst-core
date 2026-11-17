@@ -19,6 +19,15 @@ describe("aiGeneration wrappers", () => {
         expect(pkg.useImageGen).toHaveBeenCalledWith({ provider: "gemini" })
     })
 
+    it("forwards useLiveTranscribe, and reports a clear error when catalyst-ai lacks it", () => {
+        const pkg = { useLiveTranscribe: vi.fn().mockReturnValue("live") }
+        expect(createGenerationApi(() => pkg).useLiveTranscribe({ model: "m" })).toBe("live")
+        expect(pkg.useLiveTranscribe).toHaveBeenCalledWith({ model: "m" })
+        const idle = createGenerationApi(() => null).useLiveTranscribe()
+        expect(idle.listening).toBe(false)
+        expect(idle.error).toMatch(/useLiveTranscribe needs/)
+    })
+
     it("fails clearly when catalyst-ai is missing or too old", async () => {
         const api = createGenerationApi(() => null)
         await expect(api.requestImage({ prompt: "a" })).rejects.toThrow(/Update catalyst-ai/)

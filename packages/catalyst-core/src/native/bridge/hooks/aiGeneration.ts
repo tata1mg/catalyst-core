@@ -46,6 +46,13 @@ export function createGenerationApi(getPkg: () => any) {
             // Stable for the life of the page (the package either loaded or did not), so hook order never changes.
             return pkg?.useImageGen ? pkg.useImageGen(options) : { ...idle("useImageGen", { images: [] }), images: [] }
         },
+        /** Live speech-to-text over the Gemini Live API: { start, stop, cancel, state, listening, partial, text, level, seconds, error }. */
+        useLiveTranscribe(options: Record<string, unknown> = {}): any {
+            const pkg = getPkg()
+            return pkg?.useLiveTranscribe
+                ? pkg.useLiveTranscribe(options)
+                : { ...idle("useLiveTranscribe", {}), state: "idle", listening: false, partial: "", text: "", level: 0, seconds: 0, error: missing("useLiveTranscribe").message, start: async () => {}, stop: async () => "" }
+        },
         /** { speak(text, overrides), audio, url, loading, error, usage, cancel, reset }. */
         useSpeech(options: Record<string, unknown> = {}): any {
             const pkg = getPkg()
@@ -59,3 +66,4 @@ export const requestImage = api.requestImage
 export const requestSpeech = api.requestSpeech
 export const useImageGen = api.useImageGen
 export const useSpeech = api.useSpeech
+export const useLiveTranscribe = api.useLiveTranscribe
