@@ -223,37 +223,29 @@
     {
         "id": "T13_ANDROID_ICONS",
         "tier": 2,
-        "title": "Android app icons — 5 density files in public/android/appIcons/",
+        "title": "Android app icon: public/icon.png (1.2.0+) or the sized set in public/android/appIcons/",
         "detect_pattern": "file_exists",
         "how_to_check": [
-            "file: public/android/appIcons/mdpi.png must exist",
-            "file: public/android/appIcons/hdpi.png must exist",
-            "file: public/android/appIcons/xhdpi.png must exist",
-            "file: public/android/appIcons/xxhdpi.png must exist",
-            "file: public/android/appIcons/xxxhdpi.png must exist"
+            "catalyst-core 1.2.0+: file public/icon.png exists, is a PNG, square and at least 1024x1024 pixels (else ANDROID-010)",
+            "public/android/appIcons/icon-{density}.{png|jpg|jpeg} files, when present, replace public/icon.png on Android",
+            "Before 1.2.0: public/android/appIcons/icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png and icon-xxxhdpi.png must exist"
         ],
-        "fix_guide": "Place PNG app icons at public/android/appIcons/ with these exact filenames and sizes: mdpi.png (48x48), hdpi.png (72x72), xhdpi.png (96x96), xxhdpi.png (144x144), xxxhdpi.png (192x192). All must be square with transparent background.",
-        "verify_hint": "After `npm run buildApp:android`, install the APK on a device. Check the home screen / app drawer — your app icon should appear (not the default catalyst placeholder icon). If you still see the placeholder, the filenames are wrong — they must be exactly mdpi.png, hdpi.png etc. (not icon-mdpi.png).",
+        "fix_guide": "On catalyst-core 1.2.0+, put one square PNG of at least 1024x1024 pixels at public/icon.png. New apps from create-catalyst-app ship a placeholder there; replace it. Both platforms build their icons from it. To control each Android density yourself, add public/android/appIcons/icon-mdpi.png (48x48), icon-hdpi.png (72x72), icon-xhdpi.png (96x96), icon-xxhdpi.png (144x144) and icon-xxxhdpi.png (192x192); they win over icon.png. Before 1.2.0 only the sized set is read. No config key is needed.",
+        "verify_hint": "Run `npm run android` (or `npm run buildApp:android` on older apps) and check the launcher. The build prints 'Applied the Android launcher icon from public/icon.png.' when it used the single icon. If you still see the Catalyst placeholder, the file is missing, or the sized set uses the wrong names (they must be icon-mdpi.png and so on).",
         "depends_on": ["T9_WEBVIEW_ANDROID"]
     },
     {
         "id": "T14_IOS_ICONS",
         "tier": 2,
-        "title": "iOS app icons — 9 size files in public/ios/appIcons/",
+        "title": "iOS app icon: public/icon.png (1.2.0+) or the sized set in public/ios/appIcons/",
         "detect_pattern": "file_exists",
         "how_to_check": [
-            "file: public/ios/appIcons/20.png must exist",
-            "file: public/ios/appIcons/29.png must exist",
-            "file: public/ios/appIcons/40.png must exist",
-            "file: public/ios/appIcons/58.png must exist",
-            "file: public/ios/appIcons/60.png must exist",
-            "file: public/ios/appIcons/80.png must exist",
-            "file: public/ios/appIcons/87.png must exist",
-            "file: public/ios/appIcons/120.png must exist",
-            "file: public/ios/appIcons/1024.png must exist"
+            "catalyst-core 1.2.0+: file public/icon.png exists, is a PNG, square and at least 1024x1024 pixels (else IOS-005), with no alpha channel (an iOS release fails with IOS-006)",
+            "A public/ios/appIcons folder, when present, replaces public/icon.png on iOS",
+            "Before 1.2.0: public/ios/appIcons/icon-20x20-2x.png, icon-20x20-3x.png, icon-29x29-2x.png, icon-29x29-3x.png, icon-40x40-2x.png, icon-40x40-3x.png, icon-60x60-2x.png, icon-60x60-3x.png and icon-1024x1024-1x.png must exist"
         ],
-        "fix_guide": "Place PNG app icons at public/ios/appIcons/ named by their pixel size (e.g. 120.png = 120x120px). Required sizes: 20, 29, 40, 58, 60, 80, 87, 120, 1024. No alpha/transparency — iOS rejects icons with transparency. Use solid background.",
-        "verify_hint": "After `npm run buildApp:ios`, install on simulator. Check home screen — your icon should appear. If Xcode build fails with 'Icon files are missing' or 'PNG file is corrupt', the images have transparency (iOS forbids it) or filenames are wrong. Run `xcrun simctl install booted <app.app>` to install manually if needed.",
+        "fix_guide": "On catalyst-core 1.2.0+, put one square PNG of at least 1024x1024 pixels with no transparency at public/icon.png; the build turns it into a single 1024 universal AppIcon. To supply each size yourself, add public/ios/appIcons/ with files named icon-{WxH}-{scale}.png (icon-60x60-3x.png, icon-1024x1024-1x.png and so on); the folder wins over icon.png. Before 1.2.0 only the sized set is read. Icons must have no alpha channel.",
+        "verify_hint": "Run `npm run ios` (or `npm run buildApp:ios` on older apps) and check the home screen. The build prints 'Applied the app icon from public/icon.png' when it used the single icon. An iOS release stops with IOS-006 if the icon has transparency, and with IOS-005 if it is not a square PNG of at least 1024px.",
         "depends_on": ["T10_WEBVIEW_IOS"]
     },
     {
