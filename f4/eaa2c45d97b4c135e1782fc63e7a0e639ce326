@@ -1,0 +1,21 @@
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_59b1a927e8e518::t_5e156b4bd73a11 60
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_59b1a927e8e518::t_5e156b4bd73a11 74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4eaa2c45d97b4c135e1782fc63e7a0e639ce326",
+  "prompts": {},
+  "sessions": {
+    "s_59b1a927e8e518": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "77c2acac-cda5-4562-b200-a06c6fe98761",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
