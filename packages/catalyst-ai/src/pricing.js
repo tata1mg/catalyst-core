@@ -31,6 +31,8 @@ function getPricing(model) {
 //   "pricing": { "<model id>": { "input": 2, "output": 10, "cachedInput": 0.2, "audioInput": null } }
 // USD per 1M tokens. `catalyst-ai pricing` builds it by asking. cachedInput defaults to the input price (no discount
 // assumed), audioInput to null (audio cost reported as unknown rather than priced as text).
+// perImage (optional): USD per generated image, for image.generate models. There is no built-in per-image price; it is
+// developer-set only. A perImage-only entry ({ "perImage": 0.04 }) leaves token rates null (unknown).
 
 const num = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
 
@@ -41,11 +43,16 @@ function normalizePricing(raw) {
     if (raw === undefined || raw === null) return { pricing, errors }
     if (typeof raw !== "object" || Array.isArray(raw)) return { pricing, errors: ["pricing must be an object keyed by model id"] }
     for (const [model, p] of Object.entries(raw)) {
-        if (!p || typeof p !== "object" || Array.isArray(p)) { errors.push(`${model}: needs { input, output }`); continue }
-        if (!num(p.input) || !num(p.output)) { errors.push(`${model}: input and output must be non-negative numbers (USD per 1M tokens)`); continue }
+        if (!p || typeof p !== "object" || Array.isArray(p)) { errors.push(`${model}: needs { input, output } or { perImage }`); continue }
+        if (p.perImage !== undefined && !num(p.perImage)) { errors.push(`${model}: perImage must be a non-negative number (USD per image)`); continue }
+        // A model priced per image alone (no token rates) is allowed; token cost is then reported as unknown.
+        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+        if (!perImageOnly && (!num(p.input) || !num(p.output))) { errors.push(`${model}: input and output must be non-negative numbers (USD per 1M tokens)`); continue }
         if (p.cachedInput !== undefined && !num(p.cachedInput)) { errors.push(`${model}: cachedInput must be a non-negative number`); continue }
         if (p.audioInput !== undefined && p.audioInput !== null && !num(p.audioInput)) { errors.push(`${model}: audioInput must be a number or null`); continue }
-        pricing[model] = { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null }
+        pricing[model] = perImageOnly
+            ? { input: null, cachedInput: null, output: null, audioInput: p.audioInput ?? null, perImage: p.perImage }
+            : { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null, ...(p.perImage !== undefined && { perImage: p.perImage }) }
     }
     return { pricing, errors }
 }
@@ -61,4 +68,24 @@ function lookupPricing(model, configured = {}) {
     return priceSource(model, configured) === "configured" ? configured[model] : PRICING[model]
 }
 
-module.exports = { PRICING, getPricing, normalizePricing, priceSource, lookupPricing }
+/**
+ * Cost of an image.generate result. `usage` is the /image response `usage` ({ images, promptTokens, completionTokens }),
+ * `price` a lookupPricing() result. Returns { cost, partial }: cost is null when nothing could be priced (no price, or
+ * neither a perImage rate nor token rates); partial is true when some billed part (images or tokens) had no rate.
+ * Never invents a price. Keep in sync with imageCost in metrics.js.
+ */
+function imageCost(usage, price) {
+    if (!usage || !price) return { cost: null, partial: false }
+    const images = usage.images ?? 0
+    const tokens = (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0)
+    const perImageKnown = typeof price.perImage === "number"
+    const tokensKnown = typeof price.input === "number" && typeof price.output === "number"
+    if (!perImageKnown && !tokensKnown) return { cost: null, partial: false }
+    const cost =
+        (perImageKnown ? images * price.perImage : 0) +
+        (tokensKnown ? ((usage.promptTokens ?? 0) / 1e6) * price.input + ((usage.completionTokens ?? 0) / 1e6) * price.output : 0)
+    const partial = (images > 0 && !perImageKnown) || (tokens > 0 && !tokensKnown)
+    return { cost, partial }
+}
+
+module.exports = { PRICING, getPricing, normalizePricing, priceSource, lookupPricing, imageCost }

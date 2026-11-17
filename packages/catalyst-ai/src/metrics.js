@@ -29,10 +29,15 @@ export function setPricingOverrides(raw) {
     const next = {}
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         for (const [model, p] of Object.entries(raw)) {
-            if (!p || typeof p !== "object" || !validPrice(p.input) || !validPrice(p.output)) continue
+            if (!p || typeof p !== "object" || Array.isArray(p)) continue
+            if (p.perImage !== undefined && !validPrice(p.perImage)) continue
+            const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+            if (!perImageOnly && (!validPrice(p.input) || !validPrice(p.output))) continue
             if (p.cachedInput !== undefined && !validPrice(p.cachedInput)) continue
             if (p.audioInput !== undefined && p.audioInput !== null && !validPrice(p.audioInput)) continue
-            next[model] = { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null }
+            next[model] = perImageOnly
+                ? { input: null, cachedInput: null, output: null, audioInput: p.audioInput ?? null, perImage: p.perImage }
+                : { input: p.input, cachedInput: p.cachedInput ?? p.input, output: p.output, audioInput: p.audioInput ?? null, ...(p.perImage !== undefined && { perImage: p.perImage }) }
         }
     }
     configuredPricing = next
@@ -41,6 +46,25 @@ export function setPricingOverrides(raw) {
 /** The price for a model (developer-set first, then the built-in table), or undefined when none is known. */
 export function lookupPricing(model) {
     return Object.prototype.hasOwnProperty.call(configuredPricing, model) ? configuredPricing[model] : PRICING[model]
+}
+
+/**
+ * Cost of an image.generate result (mirrors imageCost in pricing.js). usage = { model?, images, promptTokens, completionTokens };
+ * returns { cost, partial }: cost null when no rate is known, partial when some billed part had none. Never invents a price.
+ */
+export function imageCost(usage, model = usage?.model) {
+    const price = lookupPricing(model)
+    if (!usage || !price) return { cost: null, partial: false }
+    const images = usage.images ?? 0
+    const tokens = (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0)
+    const perImageKnown = typeof price.perImage === "number"
+    const tokensKnown = typeof price.input === "number" && typeof price.output === "number"
+    if (!perImageKnown && !tokensKnown) return { cost: null, partial: false }
+    const cost =
+        (perImageKnown ? images * price.perImage : 0) +
+        (tokensKnown ? ((usage.promptTokens ?? 0) / 1e6) * price.input + ((usage.completionTokens ?? 0) / 1e6) * price.output : 0)
+    const partial = (images > 0 && !perImageKnown) || (tokens > 0 && !tokensKnown)
+    return { cost, partial }
 }
 
 const DEFAULT_PRICING = { input: 0, cachedInput: 0, output: 0, audioInput: null }

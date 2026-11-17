@@ -1,4 +1,5 @@
 import { requestImage } from "../src/useImageGen.js"
+import { setPricingOverrides } from "../src/metrics.js"
 
 const ok = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
 
@@ -28,5 +29,16 @@ describe("requestImage", () => {
         await expect(requestImage({ prompt: "a" })).rejects.toThrow("no imageModel")
         vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("<html>", { status: 502 })))
         await expect(requestImage({ prompt: "a" })).rejects.toThrow("Image request failed (502)")
+    })
+
+    it("prices the result from developer-set perImage, and reports null when no price is set", async () => {
+        const body = { images: [{ mimeType: "image/png", data: "A" }, { mimeType: "image/png", data: "B" }], usage: { model: "img-x", images: 2, promptTokens: 0, completionTokens: 0 }, model: "img-x" }
+        vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => ok(body)))
+        setPricingOverrides({})
+        expect((await requestImage({ prompt: "a" })).cost).toBeNull()
+        setPricingOverrides({ "img-x": { perImage: 0.04 } })
+        const priced = await requestImage({ prompt: "a" })
+        expect(priced.cost).toBeCloseTo(0.08)
+        setPricingOverrides({})
     })
 })

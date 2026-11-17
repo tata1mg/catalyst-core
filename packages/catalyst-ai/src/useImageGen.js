@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback } from "react"
+import { imageCost } from "./metrics.js"
 
 const REQUEST_TIMEOUT_MS = 180_000
 
 /**
  * image.generate against the cloud route (POST {basePath}/{provider}/image). Pure, so pipelines can call it without React.
- * Resolves { images: [{ mimeType, data, url }], usage, model } where `url` is a data: URL ready for <img src>.
+ * Resolves { images: [{ mimeType, data, url }], usage, model, cost, costPartial } where `url` is a data: URL ready for <img src>.
+ * `cost` is USD from AI_CONFIG.pricing (perImage and/or token prices), or null when no price is set; never guessed.
  * Rejects with Error (message from the server's `error` field); aborts via `signal`.
  */
 export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, signal } = {}) {
@@ -25,7 +27,9 @@ export async function requestImage({ basePath = "/ai", provider = "openai", prom
     }
     if (!response.ok) throw new Error(data?.error || `Image request failed (${response.status})`)
     const images = (data?.images ?? []).map((img) => ({ ...img, url: `data:${img.mimeType};base64,${img.data}` }))
-    return { images, usage: data?.usage ?? null, model: data?.model ?? model ?? null }
+    const usage = data?.usage ?? null
+    const { cost, partial } = imageCost(usage, data?.model ?? model)
+    return { images, usage, model: data?.model ?? model ?? null, cost, costPartial: partial }
 }
 
 /** React wrapper: { generate, images, loading, error, usage, cancel, reset }. Cloud only for now (#611). */
