@@ -1,6 +1,7 @@
 const express = require("express")
 const media = require("./cloudMedia")
 const imageGen = require("./imageGen")
+const speechGen = require("./speechGen")
 
 const router = express.Router()
 
@@ -618,6 +619,9 @@ const PROVIDERS = {
 // image.generate: providers that can return an image. Anthropic cannot, so it is absent (404-style "unsupported").
 const IMAGE_ADAPTERS = imageGen.createImageAdapters({ throwProviderError, createError: (message) => new Error(message) })
 
+// speech.synthesize: providers that can return audio. Anthropic cannot, so it is absent.
+const SPEECH_ADAPTERS = speechGen.createSpeechAdapters({ throwProviderError, createError: (message) => new Error(message) })
+
 // ─── routes ───────────────────────────────────────────────────────────────────
 
 // Additive `code` field alongside the existing `{ error }` shape — does not
@@ -801,6 +805,54 @@ router.post("/:provider/image", async (req, res) => {
     }
 })
 
+// POST /ai/:provider/speech — speech.synthesize. Body: { text, voice?, format?, model? }. The model defaults to the
+// provider's `speechModel` in AI_CONFIG (never the chat `defaultModel`). Returns { audio: { mimeType, data(base64) }, usage, model }.
+router.post("/:provider/speech", async (req, res) => {
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
+    const { provider } = req.params
+    if (!PROVIDERS[provider]) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
+    const adapter = SPEECH_ADAPTERS[provider]
+    if (!adapter) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, `unsupported: provider "${provider}" does not synthesize speech`)
+        return
+    }
+
+    const cfg = getProviderConfig(provider)
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, `Provider "${provider}" not configured`)
+        return
+    }
+
+    const bodyError = speechGen.validateSpeechRequest(req.body)
+    const model = req.body?.model || cfg.speechModel
+    const modelError = !model
+        ? "no model specified and provider has no speechModel configured"
+        : typeof model !== "string" || !MODEL_NAME_RE.test(model)
+          ? "model contains invalid characters"
+          : null
+    if (bodyError || modelError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, bodyError || modelError)
+        return
+    }
+
+    const { text, voice, format } = req.body
+    try {
+        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format })
+        res.json({ ...result, model })
+    } catch (err) {
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] %s speech error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
+        res.status(500).json({ error: err.message, code })
+    }
+})
+
 module.exports = router
 
 // Testable internals, attached to the router (an Express router is a plain
@@ -825,4 +877,5 @@ router._internal = {
     anthropicBody,
     throwProviderError,
     imageGen,
+    speechGen,
 }
