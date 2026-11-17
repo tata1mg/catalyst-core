@@ -651,10 +651,10 @@
     {
         "section": "native_hooks",
         "title": "useIntent \u2014 return shape",
-        "content": "useIntent() returns: { data: { result, success }, loading, progress, error, isWeb, isNative, execute, clear, clearError, openFile (=execute), isLoading, processingState, success, reset (=clear) }. Call execute(fileUrl, mimeType)/openFile(fileUrl, mimeType) to open a file with an external native app. Use for opening PDFs, docs in native viewers.",
+        "content": "useIntent() returns: { data: { result, success }, loading, progress, error, isWeb, isNative, execute, clear, clearError, openFile (=execute), openInBrowser, isLoading, processingState, success, reset (=clear) }. Call execute(fileUrl, mimeType)/openFile(fileUrl, mimeType) to open a file with an external native app. Use for opening PDFs, docs in native viewers. openInBrowser(url) (1.2.1+) opens an http or https URL outside the WebView: the system's default browser, or the app that owns the link when one is installed (Android app link, iOS universal link). Any other scheme (tel:, sms:, file:, javascript:, custom deep links) is refused natively and sets error; uppercase HTTPS:// is accepted. On the web it is a no-op, so render a plain <a href> when isNative is false.",
         "layer": "Runtime",
         "source": "static",
-        "tags": ["native-hooks", "useIntent", "return-shape"]
+        "tags": ["native-hooks", "useIntent", "return-shape", "openInBrowser", "browser", "external-link"]
     },
     {
         "section": "native_hooks",
@@ -737,10 +737,10 @@
     {
         "section": "webview_config",
         "title": "appInfo Key \u2014 Build Identifier String",
-        "content": "WEBVIEW_CONFIG.appInfo is a REQUIRED string (despite being named optional in older docs). Missing appInfo = iOS build breaks at compile time. Format convention: {platform}-{date}-v{version}, e.g. android-5Feb2026-v2.1.0. Place at WEBVIEW_CONFIG top level (not inside android/ios blocks). Both android and ios builds read this field.",
+        "content": "WEBVIEW_CONFIG.appInfo is an optional free-form string, such as a build label; format convention {platform}-{date}-v{version}, e.g. android-5Feb2026-v2.1.0. Place it at WEBVIEW_CONFIG top level (not inside android/ios blocks). When it is missing, the iOS build writes appInfo = \"\" into ConfigConstants, so the build does not fail (older docs called it required). useDeviceInfo()/getDeviceInfo() report it as appInfo. From 1.2.1 the native apps also send a non-empty value in the X-App-Info request header, next to X-Safe-Area-* and X-Catalyst-Native-WebView, and leave the header out when appInfo is empty. iOS adds it to every main-frame page load; Android sends it on loads the app starts (the first page, offline snapshots), not on link navigations inside the WebView. Keep it plain ASCII on one line because it is sent as an HTTP header. Catalyst's server does not read it; apps read req.headers['x-app-info'] themselves.",
         "layer": "Config",
         "source": "extracted:config/config.json+changelog",
-        "tags": ["config", "appInfo", "required", "ios", "build"]
+        "tags": ["config", "appInfo", "ios", "build", "X-App-Info", "headers", "optional"]
     },
     {
         "section": "build_system",
@@ -1598,6 +1598,33 @@
             "NATIVE-001",
             "NATIVE-003",
             "NATIVE-010",
+            "latest"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/12-Migration/02-Version-Upgrades.md"
+        ]
+    },
+    {
+        "section": "version_migration",
+        "title": "Upgrading catalyst-core 1.2.0 to 1.2.1",
+        "content": "1.2.1 is a patch release on top of 1.2.0. Read the installed catalyst-core version from package.json first.\n\n1. DEPENDENCIES: set catalyst-core to 1.2.1 and reinstall. Web-only apps need nothing else.\n\n2. iOS EDGE-TO-EDGE (behaviour change): with WEBVIEW_CONFIG.edgeToEdge.enabled, the iOS WebView no longer adds the safe-area padding itself (scrollView.contentInsetAdjustmentBehavior = .never), matching Android. Pages that do not pad with useSafeArea() now draw under the status bar and home indicator on iOS; pad them with the insets from useSafeArea(). Pages that already pad with useSafeArea() lay out the same as on Android.\n\n3. NEW, NON-BREAKING: useIntent() adds openInBrowser(url) for http/https links (see 'useIntent — return shape'). The native apps send WEBVIEW_CONFIG.appInfo in an X-App-Info request header when it is non-empty (see 'appInfo Key — Build Identifier String').\n\nFull guide: docs/content/12-Migration/02-Version-Upgrades.md.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": [
+            "migration",
+            "upgrade",
+            "update",
+            "bump",
+            "1.2.1",
+            "1.2.0",
+            "patch",
+            "edge-to-edge",
+            "edgeToEdge",
+            "ios",
+            "safe-area",
+            "openInBrowser",
+            "X-App-Info",
             "latest"
         ],
         "github_files": [

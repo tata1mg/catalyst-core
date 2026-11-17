@@ -376,13 +376,16 @@ function FeedbackButton() {
 
 ### `useIntent`
 
-Open a file or URL with an external native app.
+Open a file with an external native app, or open a web link outside the app.
 
 #### Returns
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `execute` | `function` | Open the target URL with the provided MIME type |
+| `openFile` | `function` | Open a file URL with an external app, with an optional MIME type |
+| `execute` | `function` | Alias of `openFile` |
+| `openInBrowser` | `function` | Open an `http` or `https` URL outside the WebView |
+| `success` | `boolean \| null` | `true` once the last call opened its target |
 | `loading` | `boolean` | Intent flow in progress |
 | `error` | `object \| null` | Standardized error object |
 | `isNative` | `boolean` | Running inside the native shell |
@@ -400,6 +403,17 @@ function OpenInvoiceButton({ url }) {
       Open Invoice
     </button>
   );
+}
+```
+
+`openInBrowser(url)` hands the link to the system, which opens it in the default browser, or in the app that owns the link when one is installed (an Android app link or an iOS universal link). Only `http` and `https` URLs are accepted. Any other scheme, such as `tel:` or `file:`, does nothing and sets `error`. On the web it does nothing; use a normal link there.
+
+```javascript
+function TermsLink() {
+  const { openInBrowser, isNative } = useIntent();
+
+  if (!isNative) return <a href="https://example.com/terms">Terms</a>;
+  return <button onClick={() => openInBrowser("https://example.com/terms")}>Terms</button>;
 }
 ```
 
