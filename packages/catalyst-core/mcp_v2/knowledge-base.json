@@ -580,10 +580,27 @@
     {
         "section": "server_structure",
         "title": "server/index.js Lifecycle Hooks",
-        "content": "server/index.js exports lifecycle hooks: { preServerInit, onRouteMatch, onServerError }. preServerInit runs before Express starts (DB connections, config loading). onRouteMatch runs on each request (auth checks, redirects). onServerError handles uncaught errors. Minimum: export default {} (empty object) is valid.",
+        "content": "server/index.js exports lifecycle hooks by name, and every one is optional. The create-catalyst-app template (1.2.0+) exports an empty stub for each: preServerInit (once, before the server starts; awaited), onRouteMatch ({ req, res, matches, store }, each page request after route matching), onAppServerSideSuccess ({ req, res, store }) and onAppServerSideError ({ req, res, store, error }) around App.serverSideFunction, onFetcherSuccess ({ req, res, store }) and onFetcherError ({ req, res, store, error }) around the matched route's serverFetcher, onRenderError ({ req, res, store, error }) when React fails to render on the server, and onRequestError ({ req, res, error }) for anything else in the request. Request hooks are not awaited: keep them synchronous, and read the path from req.originalUrl (req.path is always / inside them). A hook that sends a response (res.redirect, res.status().send) ends the request. onServerError is also read but is never called in practice (Express 4 never passes an error to the listen callback). Catalyst reads the hooks by name, so hooks placed inside export default { ... } are never called. Since 1.2.0 startup prints a warning naming each hook it finds there; move each to its own export (export const onRouteMatch = ...). A file with no exports, or no server/index.js, is valid. A throwing hook is logged and Catalyst carries on: PROCESS-001 for preServerInit, PROCESS-002 for a request hook.",
         "layer": "Build",
         "source": "static",
-        "tags": ["server", "lifecycle", "hooks"]
+        "tags": [
+            "server",
+            "lifecycle",
+            "hooks",
+            "onRequestError",
+            "onRouteMatch",
+            "1.2.0",
+            "onAppServerSideError",
+            "export-default",
+            "onAppServerSideSuccess",
+            "preServerInit",
+            "onFetcherError",
+            "onRenderError"
+        ],
+        "github_files": [
+            "packages/create-catalyst-app/templates/common/server/index.js",
+            "packages/catalyst-core/src/scripts/preServerInit.js"
+        ]
     },
     {
         "section": "server_structure",
@@ -920,7 +937,7 @@
     },
     {
         "title": "App Icon File Placement (No Config Required)",
-        "content": "App icons are FILESYSTEM ONLY \u2014 do NOT add any appIcons key to config.json or WEBVIEW_CONFIG. The build auto-discovers icons by hardcoded path and filename pattern. No configuration needed. \n\nANDROID \u2014 place files at public/android/appIcons/ with naming icon-{density}.{ext}: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png. Extensions: png, jpg, jpeg. Build copies each to androidProject/app/src/main/res/mipmap-{density}/icon.{ext} and sets android:icon='@mipmap/icon' in AndroidManifest. If no custom icons found \u2192 falls back to bundled catalyst icon (xxxhdpi only). \n\nIOS \u2014 place files at public/ios/appIcons/ with naming icon-{WxH}-{scale}.{ext}: icon-20x20-2x.png, icon-20x20-3x.png, icon-29x29-2x.png, icon-29x29-3x.png, icon-40x40-2x.png, icon-40x40-3x.png, icon-60x60-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png. Partial sets are fine \u2014 only provided sizes get updated in Assets.xcassets/AppIcon.appiconset/Contents.json. \n\nSPLASH SCREEN ASSETS (also filesystem, no config path field): Android \u2192 public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}. iOS \u2192 public/ios/splashscreen.{png|jpg|jpeg}. WEBVIEW_CONFIG.splashScreen controls appearance only (backgroundColor, duration, imageWidth, imageHeight, cornerRadius) \u2014 NOT the asset path. \n\nNOTIFICATION ICONS (both platforms, filesystem only): public/notification-icon.{ext} (small), public/notification-large.{ext} (large). Android \u2192 drawable/ic_notification. iOS \u2192 Assets.xcassets/NotificationIcon.imageset.",
+        "content": "App icons are FILESYSTEM ONLY: do NOT add any appIcons key to config.json or WEBVIEW_CONFIG. The build finds icons by fixed path and file name. \n\nPRIMARY ICON (catalyst-core 1.2.0+): public/icon.png, one square PNG of at least 1024x1024 pixels, used by both platforms. New apps from create-catalyst-app ship a placeholder there; replace it. Android puts it in mipmap-xxxhdpi and logs 'Applied the Android launcher icon from public/icon.png.'; iOS turns it into a single 1024 universal AppIcon. A file that is not a PNG, not square or under 1024px fails the build with ANDROID-010 or IOS-005. An alpha channel is a warning on debug builds and fails an iOS release with IOS-006 (the App Store rejects transparent icons, ITMS-90717), so flatten it onto a solid background. Before 1.2.0 public/icon.png is ignored. \n\nORDER, first match wins. Android: public/android/appIcons/icon-{density}.{png|jpg|jpeg}, then public/icon.png, then the bundled Catalyst placeholder (xxxhdpi only). iOS: the public/ios/appIcons folder, then public/icon.png, then the template's icon. \n\nANDROID SIZED SET (optional override): public/android/appIcons/ with icon-mdpi, icon-hdpi, icon-xhdpi, icon-xxhdpi, icon-xxxhdpi (png, jpg or jpeg). Each is copied to androidProject/app/src/main/res/mipmap-{density}/icon.{ext} and android:icon is set to @mipmap/icon. \n\nIOS SIZED SET (optional override): public/ios/appIcons/ with icon-{WxH}-{scale}.png: icon-20x20-2x.png, icon-20x20-3x.png, icon-29x29-2x.png, icon-29x29-3x.png, icon-40x40-2x.png, icon-40x40-3x.png, icon-60x60-2x.png, icon-60x60-3x.png, icon-1024x1024-1x.png. Partial sets are fine: only the sizes provided are updated in Assets.xcassets/AppIcon.appiconset/Contents.json. \n\nSPLASH SCREEN ASSETS (also filesystem, no config path field): Android public/android/splashscreen.{png|jpg|jpeg|gif|bmp|webp}, iOS public/ios/splashscreen.{png|jpg|jpeg}, and the optional HTML splash public/splashscreen.html for both. WEBVIEW_CONFIG.splashScreen controls appearance only (backgroundColor, duration, minDuration, imageWidth, imageHeight, cornerRadius), not the asset path. \n\nNOTIFICATION ICONS (both platforms, filesystem only): public/notification-icon.{ext} (small), public/notification-large.{ext} (large). Android: drawable/ic_notification. iOS: Assets.xcassets/NotificationIcon.imageset.",
         "tags": [
             "app-icon",
             "icon",
@@ -933,11 +950,22 @@
             "native",
             "public",
             "filesystem",
-            "no-config"
+            "no-config",
+            "icon.png",
+            "1024",
+            "ANDROID-010",
+            "IOS-005",
+            "IOS-006",
+            "1.2.0"
         ],
         "section": "native_assets",
         "layer": "Assets",
-        "source": "static"
+        "source": "static",
+        "github_files": [
+            "packages/catalyst-core/src/native/appIcon.js",
+            "packages/catalyst-core/src/native/buildAndroid/assets.js",
+            "packages/catalyst-core/src/native/buildIos/assets.js"
+        ]
     },
     {
         "section": "observability",
@@ -1259,10 +1287,21 @@
     {
         "section": "framework_identity",
         "title": "Catalyst Runtime Generations",
-        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Catalyst 1.0.0 is the API freeze (there is no 0.4.0 release); see 'Upgrading catalyst-core 0.3.x to 1.0.0'. Do not combine instructions from different generations. If no version can be detected, ask which version the project targets. Patch releases after 1.0.0 (1.0.1, 1.0.2) keep the frozen API; see 'Upgrading catalyst-core 1.0.x to 1.0.2'.",
+        "content": "Always determine the installed catalyst-core version before giving web runtime guidance. Catalyst 0.2.x is the legacy webpack generation and uses @tata1mg/router plus @loadable/component. Catalyst 0.3.x, beginning with 0.3.0-beta.1, is the Vite/ESM generation: router APIs are exported by catalyst-core and split()/hydrationReady() replace loadable APIs. Catalyst 1.0.0 is the API freeze (there is no 0.4.0 release); see 'Upgrading catalyst-core 0.3.x to 1.0.0'. Do not combine instructions from different generations. If no version can be detected, ask which version the project targets. Releases after 1.0.0 keep the frozen web API. 1.0.1 and 1.0.2 are patches (see 'Upgrading catalyst-core 1.0.x to 1.0.2'); 1.1.0 is 1.0.2 plus a WebMcpProvider fix. 1.2.0 builds, runs and releases the Android and iOS apps from the CLI (npm run android, npm run ios, npm run android:release, npm run ios:release; signing files in credentials/<platform>/, outputs in build-output/) with no breaking web changes, but its native breaking changes include NATIVE-003 for a placeholder app id, NATIVE-001 for a release pointing at a private host, NATIVE-010 for an iOS bundle id with an underscore, a one-time LAN-address rewrite of config/config.json on the first debug build, and debug builds no longer picking a connected phone by default; see 'Upgrading catalyst-core 1.1.x to 1.2.0'. Native guidance differs before and after 1.2.0, so check the installed version for native work too.",
         "layer": "Framework",
         "source": "static",
-        "tags": ["versions", "0.2.x", "0.3.x", "1.0.0", "migration", "webpack", "vite"],
+        "tags": [
+            "versions",
+            "0.2.x",
+            "0.3.x",
+            "1.0.0",
+            "migration",
+            "webpack",
+            "vite",
+            "1.1.0",
+            "1.2.0",
+            "native"
+        ],
         "github_files": ["packages/catalyst-core/package.json", "packages/catalyst-core/src/index.tsx"]
     },
     {
@@ -1424,6 +1463,105 @@
         "layer": "Runtime",
         "source": "static",
         "tags": ["1.0.0", "node", "22.12", "ERR_REQUIRE_ESM", "error", "hooks", "WebBridge"]
+    },
+    {
+        "section": "known_errors",
+        "title": "NATIVE-003 release refuses a placeholder app id (1.2.0)",
+        "content": "Symptom: a release build fails with NATIVE-003 Release build uses a placeholder app id, or a terminal run asks for an app id. Cause: since catalyst-core 1 2 0 a release refuses a placeholder id, meaning any com example id or a template id like io yourname androidproject, com catalyst framework app or com debug webview, from appId or the platform key that wins over it. Fix: set WEBVIEW_CONFIG.appId in config/config.json to your own reverse-DNS id such as com.acme.shop. android.packageName and ios.bundleIdentifier (then ios.appBundleId) win over appId, so fix or remove a placeholder there too. Run in a terminal, the release asks once and saves the answer; in CI it fails instead. The id cannot change after the first store upload. Debug builds still accept placeholders.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "1.2.0",
+            "NATIVE-003",
+            "release",
+            "appId",
+            "placeholder",
+            "com.example",
+            "packageName",
+            "bundleIdentifier",
+            "breaking-change",
+            "android",
+            "ios"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "NATIVE-001 release points at a local or private host (1.2.0)",
+        "content": "Symptom: a release build fails with NATIVE-001 Release build points at a local or private host, or a terminal run asks for the website. Cause: since catalyst-core 1 2 0 the start URL of a release, WEBVIEW_CONFIG url or LOCAL_IP with port and useHttps when url is not set, may not be localhost, a private or link-local address, a local name or this machine. Fix: set WEBVIEW_CONFIG.url to the deployed https:// origin, or pass --url. For an internal app on a private network, set WEBVIEW_CONFIG.allowPrivateHost to true. Run in a terminal, the release asks for the website once and saves it to config/config.json. Debug builds load the dev server and ignore url.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "1.2.0",
+            "NATIVE-001",
+            "release",
+            "url",
+            "LOCAL_IP",
+            "allowPrivateHost",
+            "private",
+            "localhost",
+            "breaking-change",
+            "android",
+            "ios"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "NATIVE-010 iOS bundle id with an underscore (1.2.0)",
+        "content": "Symptom: every iOS build fails with NATIVE-010 Invalid app id, while Android builds the same appId fine. Cause: an iOS bundle id may use only letters, digits and hyphens between dots, and Android allows underscores, so an appId such as com acme my_shop is valid on Android only; since catalyst-core 1 2 0 the build checks the id first instead of handing it to Xcode. Fix: set WEBVIEW_CONFIG.ios.bundleIdentifier to an id without the underscore, such as com.acme.myshop. It wins over appId on iOS, and Android keeps appId. Do not change an id that is already on the App Store or Google Play. check_config reports this as an error for platform ios.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "1.2.0",
+            "NATIVE-010",
+            "ios",
+            "bundle-id",
+            "bundleIdentifier",
+            "underscore",
+            "appId",
+            "invalid",
+            "breaking-change"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "config.json LOCAL_IP rewritten to localhost on the first debug build (1.2.0)",
+        "content": "Symptom: after the first npm run android or npm run ios on 1.2.0, config/config.json changed: LOCAL_IP or another value that held this machine's LAN address now says localhost. Cause: the first debug build per checkout runs a one-time migration recorded in the catalyst local state file: a value equal to this machine's LAN address, and a private LOCAL_IP that NODE_SERVER_HOSTNAME also holds, go back to localhost because 1.2.0 debug builds reach the dev server through adb reverse, the simulator or the Mac's local name. Fix: keep the change: each rewrite is printed, and the app still reaches the dev server. It never runs for a release, in CI or with WEBVIEW_CONFIG.allowPrivateHost true. A LOCAL_IP that is a real host (a staging server, not this machine) is left alone, and a debug build loads it instead of the dev server. To run the migration again, remove its record from .catalyst/local.json.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "1.2.0",
+            "LOCAL_IP",
+            "LAN",
+            "localhost",
+            "config.json",
+            "rewrite",
+            "migration",
+            "debug",
+            "NODE_SERVER_HOSTNAME",
+            "allowPrivateHost",
+            "breaking-change"
+        ]
+    },
+    {
+        "section": "known_errors",
+        "title": "Debug build no longer installs on the connected phone (1.2.0)",
+        "content": "Symptom: npm run android or npm run ios opens the emulator or simulator even though a phone is plugged in. Cause: since catalyst-core 1 2 0 a debug build no longer picks a connected phone by itself; a terminal run asks once where to run the app and remembers the answer in the catalyst local state file, and without a terminal the emulator or simulator is used. Fix: pass --device to use the phone (npm run android -- --device, npm run ios -- --device). ANDROID_SERIAL or WEBVIEW_CONFIG.ios.deviceUDID pick one without a terminal. To be asked again, remove the remembered choice from .catalyst/local.json. With --device and no phone, Android fails with ANDROID-011. An iPhone also needs ios.developmentTeam and an Apple account signed in to Xcode.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "1.2.0",
+            "device",
+            "phone",
+            "iPhone",
+            "emulator",
+            "simulator",
+            "--device",
+            "ANDROID-011",
+            "debug",
+            "breaking-change",
+            "android",
+            "ios"
+        ]
     },
     {
         "section": "native_hooks",

@@ -8,6 +8,8 @@ id: ssr-lifecycle
 
 Catalyst calls lifecycle hooks that you export from `server/index.js`. Each hook is a named export, and every one is optional. New apps from `create-catalyst-app` start with all of them as empty functions, so you can fill in the ones you need and delete the rest.
 
+Catalyst reads the hooks by name, so a hook placed inside `export default { ... }` is never called. Since 1.2.0, startup prints a warning that names each hook it found there. Move each one to its own export, such as `export const onRouteMatch = ...`.
+
 ## Server Hooks
 
 The hooks are listed in the order Catalyst calls them.
