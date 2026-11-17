@@ -163,6 +163,19 @@ const _renderMarkUp = async (
     const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
     const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js", nonce, integrityManifest)
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
+    // Chunks the entry imports directly (e.g. the shared app chunk) get a modulepreload in <head>,
+    // so the browser starts them with the entry instead of after it.
+    if (chunkExtractor) {
+        const deferredSet = new Set(deferredPreloadUrls)
+        const entryImportUrls = chunkExtractor
+            .getEntryStaticImportUrls()
+            .filter((url) => !deferredSet.has(url))
+        // No integrity on purpose: these chunks are loaded today by a static import without SRI,
+        // and a preload with SRI that fails would make that import fail too.
+        criticalPreloadLinks.push(
+            ...generateModulePreloadLinkElements(entryImportUrls, "entry-import-js", nonce, {})
+        )
+    }
     const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js", nonce, integrityManifest)
 
     // Build Head props
