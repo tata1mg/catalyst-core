@@ -225,6 +225,7 @@ function installedCatalystVersion(root) {
         /* not installed relative to root */
     }
     try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project being checked; "package.json" is a fixed literal.
         const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
         if (pkg.name === "catalyst-core") return pkg.version || null
         const deps = { ...pkg.dependencies, ...pkg.devDependencies }
@@ -273,6 +274,7 @@ function readPngInfo(buffer) {
  * (ANDROID-010 / IOS-005) or null. Alpha is reported through info.hasAlpha.
  */
 function checkSingleAppIcon(root) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project being checked; the rest are fixed literals.
     const file = path.join(root, "public", "icon.png")
     if (!fs.existsSync(file)) return null
     let info = null
@@ -294,14 +296,17 @@ function checkSingleAppIcon(root) {
 
 /** True when public/android/appIcons has an icon-<density> file, which the Android build prefers over icon.png. */
 function hasAndroidSizedIcons(root) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project being checked; the rest are fixed literals.
     const dir = path.join(root, "public", "android", "appIcons")
     return ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].some((density) =>
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - dir is derived from the project root; density and ext come from fixed lists.
         ["png", "jpg", "jpeg"].some((ext) => fs.existsSync(path.join(dir, `icon-${density}.${ext}`)))
     )
 }
 
 /** True when public/ios/appIcons exists: the iOS build then uses it instead of icon.png. */
 function hasIosSizedIcons(root) {
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project being checked; the rest are fixed literals.
     return fs.existsSync(path.join(root, "public", "ios", "appIcons"))
 }
 
