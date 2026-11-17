@@ -1,0 +1,99 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  s_511387137e0ef6::t_956aa359e2e454 168-183
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_511387137e0ef6::t_956aa359e2e454 214-312,320-326
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_511387137e0ef6::t_956aa359e2e454 100-108,136-139
+.release-meta.json
+  s_511387137e0ef6::t_956aa359e2e454 2,4-5
+"docs/content/11-API Reference/01-Hooks.md"
+  s_511387137e0ef6::t_956aa359e2e454 379,385-388,409-416
+  s_511387137e0ef6::t_376ba66a259695 417-419
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_511387137e0ef6::t_956aa359e2e454 183-187
+packages/create-catalyst-app/templates/none-js/package.json
+  s_511387137e0ef6::t_956aa359e2e454 30
+packages/create-catalyst-app/templates/none-ts/package.json
+  s_511387137e0ef6::t_956aa359e2e454 31
+packages/create-catalyst-app/templates/redux-js/package.json
+  s_511387137e0ef6::t_956aa359e2e454 33
+docs/release-stories/1.2.1.mdx
+  s_511387137e0ef6::t_956aa359e2e454 1-104
+docs/content/12-Migration/02-Version-Upgrades.md
+  s_511387137e0ef6::t_956aa359e2e454 9-18
+packages/create-catalyst-app/templates/rtk-js/package.json
+  s_511387137e0ef6::t_956aa359e2e454 33
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_511387137e0ef6::t_956aa359e2e454 11-12
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_511387137e0ef6::t_956aa359e2e454 307-309
+packages/create-catalyst-app/templates/rtk-ts/package.json
+  s_511387137e0ef6::t_956aa359e2e454 34
+packages/catalyst-core/changelog.md
+  s_511387137e0ef6::t_956aa359e2e454 3-8
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_511387137e0ef6::t_956aa359e2e454 221-227,396-397
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_511387137e0ef6::t_956aa359e2e454 67
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_511387137e0ef6::t_956aa359e2e454 449-485
+packages/create-catalyst-app/templates/redux-ts/package.json
+  s_511387137e0ef6::t_956aa359e2e454 34
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.mdx"
+  s_511387137e0ef6::t_956aa359e2e454 185-193,334
+  s_511387137e0ef6::t_3fa15f4e5a9617 335
+packages/catalyst-core/context.md
+  s_511387137e0ef6::t_956aa359e2e454 4,49-51,53-54,56-60,74,83-87,111-114,117,168-176,179-182,327-335,371-372,384-387,393-394,396-398,441-448
+  s_511387137e0ef6::t_05c63828e62968 449
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/CatalystConstants.swift
+  s_511387137e0ef6::t_956aa359e2e454 101-102
+docs/release-pages.json
+  s_511387137e0ef6::t_956aa359e2e454 2-21
+packages/catalyst-core/src/native/bridge/hooks/useIntent.ts
+  s_511387137e0ef6::t_956aa359e2e454 16-17,59,111-123,137
+packages/catalyst-core/mcp_v2/test/app-icon.test.ts
+  s_511387137e0ef6::t_956aa359e2e454 1-289
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_511387137e0ef6::t_956aa359e2e454 5-14,74-78,461-463,465-470,481-482,485,571-617,619
+  s_511387137e0ef6::t_842be568cf8c48 618,620-621
+packages/catalyst-core/src/native/bridge/utils/NativeBridge.ts
+  s_511387137e0ef6::t_956aa359e2e454 265-270
+packages/catalyst-core/mcp_v2/tools/build.js
+  s_511387137e0ef6::t_956aa359e2e454 7,114-119,144-145,181,187,204-341,736-737,753-754,787-789,791,797-798,811,813,819-820,825-829,850-855,870-872,989-995
+packages/catalyst-core/src/native/bridge/constants/NativeInterfaces.ts
+  s_511387137e0ef6::t_956aa359e2e454 21,161
+packages/catalyst-core/mcp_v2/conversion-tasks.json
+  s_511387137e0ef6::t_956aa359e2e454 226,229-231,233-234,240,243-245,247-248
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/03-Project-Structure.md"
+  s_511387137e0ef6::t_956aa359e2e454 23-27,56-58
+packages/catalyst-core/package.json
+  s_511387137e0ef6::t_956aa359e2e454 3
+packages/create-catalyst-app/package.json
+  s_511387137e0ef6::t_956aa359e2e454 4
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_511387137e0ef6::t_956aa359e2e454 488-513
+  s_511387137e0ef6::t_df245f456db396 487
+packages/catalyst-core/mcp_v2/tools/conversion.js
+  s_511387137e0ef6::t_956aa359e2e454 9-12,110-176,573-576,578
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_511387137e0ef6::t_956aa359e2e454 583,586-603,671,674,757,760,940,953-959,963-968,1290,1293-1304,1467-1565,1745-1765,1767-1768,1771
+  s_511387137e0ef6::t_3d768141eee045 1766,1769-1770
+package-lock.json
+  s_511387137e0ef6::t_f115cb193368a5 13511,14113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "506f0ffa9cdb4b9affea7e4b139c6f14aa5a0949",
+  "prompts": {},
+  "sessions": {
+    "s_511387137e0ef6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3f42ea8c-d8bc-4c6b-996f-7bb6a60ed021",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
