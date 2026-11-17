@@ -14,11 +14,14 @@
     "providers": {
       "openai": {
         "apiKey": "",
-        "defaultModel": "gpt-4o-mini"
+        "defaultModel": "gpt-4o-mini",
+        "imageModel": "",
+        "speechModel": ""
       },
       "gemini": {
         "apiKey": "",
-        "defaultModel": "gemini-3.5-flash"
+        "defaultModel": "gemini-3.5-flash",
+        "imageModel": ""
       }
     },
     "browser": {

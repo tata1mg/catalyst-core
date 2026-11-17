@@ -4,6 +4,7 @@ import AIPlayground from "@containers/AIPlayground/AIPlayground"
 import TicTacToe from "@containers/TicTacToe/TicTacToe"
 import Chess from "@containers/Chess/Chess"
 import Multimodal from "@containers/Multimodal/Multimodal"
+import PipelineLab from "@containers/PipelineLab/PipelineLab"
 
 const routes = [
     {
@@ -21,6 +22,10 @@ const routes = [
     {
         path: "/multimodal",
         component: Multimodal,
+    },
+    {
+        path: "/pipeline-lab",
+        component: PipelineLab,
     },
     {
         path: "/ai-test",
