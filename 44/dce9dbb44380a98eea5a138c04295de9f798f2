@@ -1,0 +1,27 @@
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_86d86931dd4995::t_eab4597c184fba 1-350
+packages/catalyst-core/src/native/bridge/hooks/usePipeline.ts
+  s_86d86931dd4995::t_0275e5b91c6d64 1-94
+packages/catalyst-core/test/hooks/aiPipeline.test.ts
+  s_86d86931dd4995::t_26e82dd353d56c 1-244
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_86d86931dd4995::t_1a143b08ab9892 6-7
+packages/catalyst-core/test/hooks/usePipeline.test.ts
+  s_86d86931dd4995::t_0a32e6921b9bb4 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "44dce9dbb44380a98eea5a138c04295de9f798f2",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
