@@ -1,7 +1,7 @@
 import React from "react"
 import "./styles"
 import { hydrateRoot } from "react-dom/client"
-import { hydrationReady } from "catalyst-core"
+import { hydrationReady, PPRHydrationBoundary } from "catalyst-core"
 import { RouterProvider } from "react-router/dom"
 import clientRouter from "catalyst-core/router/ClientRouter"
 
@@ -12,9 +12,11 @@ window.addEventListener("load", () => {
         const router = clientRouter({ routerInitialState: routerInitialData })
 
         const Application = (
-            <React.StrictMode>
-                <RouterProvider router={router} />
-            </React.StrictMode>
+            <PPRHydrationBoundary>
+                <React.StrictMode>
+                    <RouterProvider router={router} />
+                </React.StrictMode>
+            </PPRHydrationBoundary>
         )
 
         const container = document.getElementById("app")

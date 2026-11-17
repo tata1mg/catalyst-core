@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- Partial prerendering (`Component.renderMode = "ppr"`, behind `PPR_ENABLE`) and a static full-page cache (`renderMode = "static"`). See Rendering Modes.
+- `react` and `react-dom` are now peer dependencies (`^19.0.0`) instead of exact dependencies, so an app's own React is the only copy. PPR needs React 19.2 or newer: on an older React, PPR routes render on the streaming path and the server logs one error saying so. New apps are created with React 19.2.9.
+- New apps wrap the hydrated root in `<PPRHydrationBoundary>`. On a PPR response without it, the browser console shows an error naming the fix.
+
 ## [1.2.1] - 2026-11-17
 
 - `useIntent()` adds `openInBrowser(url)`, which opens a link outside the WebView: in the default browser, or in the app that owns the link when one is installed. Only `http` and `https` URLs are accepted; any other scheme fails with an error.

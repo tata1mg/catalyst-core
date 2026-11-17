@@ -50,9 +50,9 @@ A PPR response is written in three parts:
 
 1. **Shell**, prerendered once per `pathname | getPPRShellKey()` with `prerenderToNodeStream` and replayed from an in-memory LRU: the document (`<head>`, inlined CSS, preloads) and `pprFallback`. It is written as soon as `App.serverSideFunction` has run, before route data is fetched.
 2. **App**, the postponed hole: resumed with `resumeToPipeableStream` when this request's `serverFetcher` data is ready, so existing fetchers work unchanged.
-3. **Trailer**: this request's `__INITIAL_STATE__`, router data, rendered `split()` keys, deferred CSS/JS, and any cookies/redirects set after the headers went out (replayed client-side).
+3. **Trailer**: this request's `__INITIAL_STATE__`, router data, rendered `split()` keys, deferred CSS/JS, and any cookies/redirects set after the headers went out (replayed client-side; a late redirect is replayed only to a relative or `http(s)` URL, and any other is logged and dropped).
 
-The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`. As a safety net, a shell that contains one of the request's cookie values (or a `|`, `:` or `.` separated part of one) of 12 or more characters is not cached. Shorter values are not checked, because short strings such as `1`, `true` or `en` also occur in ordinary markup and would stop every page from caching; keeping per-request values out of the shell is the app's job. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server.
+The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`. As a safety net, a shell that contains one of the request's cookie values (or a `|`, `:` or `.` separated part of one) of 12 or more characters is not cached. Shorter values are not checked, because short strings such as `1`, `true` or `en` also occur in ordinary markup and would stop every page from caching; keeping per-request values out of the shell is the app's job. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server (apps created from the current templates already do). Without it hydration fails and the page re-renders on the client; on a PPR response the browser console then shows an error naming the fix.
 
 ```jsx
 // server/document.js (custom Document): per-request markup stays out of the shared shell
@@ -82,7 +82,7 @@ Optional app hooks (`server/index.js`):
 
 Config (`config.json`): `PPR_ENABLE` (default `false`), `PPR_SHELL_CACHE_MAX` (50), `PPR_SHELL_BUILDS_MAX` (8 shell prerenders at a time; a miss beyond that takes the streaming path), `PPR_RESUME_TIMEOUT_MS` (15000; on timeout the rest renders on the client), `PPR_PRERENDER_SETTLE_MS` (50), `PPR_PROGRESSIVE_CHUNK_SIZE`, `PPR_LEARN_PRELOADS` (default on), `PPR_REVEAL_THROTTLE` (default off: resumed content is revealed without React 19.2's 300 ms batching).
 
-Bots, requests with native safe-area headers (`X-Safe-Area-*`), `getPPRShellKey` returning `null`, a shell that could not be built (retried after 60 s) and `PPR_ENABLE=false` all take the streaming path. Requires React 19.2 (`resume` APIs).
+Bots, requests with native safe-area headers (`X-Safe-Area-*`), `getPPRShellKey` returning `null`, a shell that could not be built (retried after 60 s) and `PPR_ENABLE=false` all take the streaming path. Requires React 19.2 (`resume` APIs): on an older React, PPR routes take the streaming path and the server logs one error.
 
 **Behaviour changes on PPR responses:** the status line goes out with the shell, so it is 200 even when `serverFetcher` fails (the app renders its error state; `window.__STATUS_CODE__` has the real code); meta tags that depend on fetcher data arrive in the body.
 

@@ -139,7 +139,9 @@ function makeReqRes(url: string, { cookies = {}, userAgent = "Mozilla/5.0 test" 
         originalUrl: url,
         url,
         method: "GET",
-        query: {},
+        // Like Express: req.query is parsed from the URL, so it can't disagree with the
+        // originalUrl the router and the route-data keys use.
+        query: Object.fromEntries(new URLSearchParams(url.split("?")[1] || "")),
         cookies,
         headers: { "user-agent": userAgent },
         get(name: string) {
@@ -149,12 +151,11 @@ function makeReqRes(url: string, { cookies = {}, userAgent = "Mozilla/5.0 test" 
     return { req, res }
 }
 
-async function load(query: Record<string, string> = {}) {
+async function load() {
     const handlerModule: any = await import("../../src/server/renderer/handler.jsx")
     const handler = handlerModule.default
     const get = async (url: string, opts: any = {}) => {
         const { req, res } = makeReqRes(url, opts)
-        req.query = { ...query, ...(opts.query || {}) }
         if (opts.nonce) res.locals.cspNonce = opts.nonce
         await handler(req, res)
         await res.waitForEnd()
@@ -283,7 +284,8 @@ describe("SSR handler — PPR request handling", () => {
 
     it("replays a cookie set after the shell went out with document.cookie", async () => {
         const get = await load()
-        const page = await get("/ppr", { cookies: USER_A, query: { late: "" } })
+        const page = await get("/ppr?late=", { cookies: USER_A })
+        expect(page.html).toContain("user:<!-- -->user-aaaaaaaaaaaa")
         expect(page.html).toContain("document.cookie=")
         expect(page.html).toContain("late=1")
     })
@@ -320,8 +322,7 @@ describe("SSR handler — PPR request handling", () => {
 
     it("stops resuming when the client disconnects", async () => {
         const handler = (await load()).handlerModule.default
-        const { req, res } = makeReqRes("/ppr", { cookies: USER_A })
-        req.query = { slow: "" } // route data takes 100 ms
+        const { req, res } = makeReqRes("/ppr?slow=", { cookies: USER_A }) // route data takes 100 ms
         const handled = handler(req, res)
         await vi.waitFor(() => expect(res.getHtml()).toContain("skeleton"))
         res.destroy()
@@ -401,9 +402,10 @@ describe("SSR handler — PPR request handling", () => {
     it("hands the rest to the client when the resume times out", async () => {
         ;(process.env as any).PPR_RESUME_TIMEOUT_MS = 1
         const get = await load()
-        const page = await get("/ppr", { cookies: USER_A, query: { slow: "" } })
+        const page = await get("/ppr?slow=", { cookies: USER_A })
         expect(page.mode).toBe("ppr-miss")
         expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("timed out"))
+        expect(page.html).not.toContain("user:<!-- -->user-aaaaaaaaaaaa")
     })
 
     it("calls beforePPRFlush and keeps serving when getPPRPreloadKey throws", async () => {
@@ -452,10 +454,74 @@ describe("SSR handler — PPR request handling", () => {
         mockHooks({ getPPRShellKey: ({ req }: any) => req.query.k })
         const get = await load()
         const [a, b] = await Promise.all([
-            get("/ppr", { cookies: USER_A, query: { k: "one" } }),
-            get("/ppr", { cookies: USER_B, query: { k: "two" } }),
+            get("/ppr?k=one", { cookies: USER_A }),
+            get("/ppr?k=two", { cookies: USER_B }),
         ])
         expect([a.mode, b.mode].sort()).toEqual(["ppr-miss", undefined].sort())
+    })
+
+    it("keeps overlapping requests apart: each response has only its own user and split() widgets", async () => {
+        const { userWidgetKey } = await import("./fixtures/template/src/js/routes/index.jsx")
+        const get = await load()
+        // Warm the shell so every overlapping request below resumes from the cache.
+        expect((await get("/ppr-split", { cookies: { user: "user-warmup-000000" } })).mode).toBe("ppr-miss")
+
+        const users = ["user-cccccccccccc", "user-dddddddddddd", "user-eeeeeeeeeeee", "user-ffffffffffff"]
+        // Half the requests wait 100 ms for their data, so their resumes interleave with the others.
+        const pages = await Promise.all(
+            users.map((user, i) => get(i % 2 ? "/ppr-split?slow=" : "/ppr-split", { cookies: { user } }))
+        )
+
+        pages.forEach((page, i) => {
+            const own = users[i]
+            expect(page.mode).toBe("ppr-hit")
+            expect(page.html).toContain(`user:<!-- -->${own}`)
+            expect(page.html).toContain(`widget:<!-- -->${own}`)
+            const rendered = page.html.match(/__SSR_RENDERED_COMPONENTS__=new Set\((.*?)\);/)
+            expect(JSON.parse(rendered![1])).toEqual([userWidgetKey(own)])
+            for (const other of users.filter((u) => u !== own)) {
+                expect(page.html).not.toContain(other)
+            }
+        })
+    })
+})
+
+describe("SSR handler — React without the PPR resume APIs", () => {
+    it("renders PPR routes on the classic path and logs one error (React < 19.2)", async () => {
+        ;(process.env as any).PPR_ENABLE = true
+        vi.doMock("react-dom/server", async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            resumeToPipeableStream: undefined,
+        }))
+        const get = await load()
+        const first = await get("/ppr", { cookies: USER_A })
+        const second = await get("/ppr", { cookies: USER_B })
+        expect(first.mode).toBeUndefined()
+        expect(first.html).toContain("user:<!-- -->user-aaaaaaaaaaaa")
+        expect(second.html).toContain("user:<!-- -->user-bbbbbbbbbbbb")
+        const logged = (console.error as any).mock.calls.filter((c: any[]) =>
+            String(c[0]).includes("needs React 19.2")
+        )
+        expect(logged).toHaveLength(1)
+        vi.doUnmock("react-dom/server")
+    })
+})
+
+describe("SSR handler — request paths that are not valid URLs", () => {
+    // Express accepts these; scanners send them often. They must render like any other path.
+    it.each(["//", "//[x", "//[x?y=1"])("renders %s without reporting an error", async (url) => {
+        ;(process.env as any).PPR_ENABLE = true
+        const onFetcherError = vi.fn()
+        const onAppServerSideError = vi.fn()
+        const onRequestError = vi.fn()
+        mockHooks({ onFetcherError, onAppServerSideError, onRequestError })
+        const get = await load()
+        const page = await get(url)
+        expect(page.res.statusCode).not.toBe(500)
+        expect(page.html).toContain("</html>")
+        expect(onFetcherError).not.toHaveBeenCalled()
+        expect(onAppServerSideError).not.toHaveBeenCalled()
+        expect(onRequestError).not.toHaveBeenCalled()
     })
 })
 

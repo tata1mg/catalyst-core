@@ -91,9 +91,28 @@ export function PPRRouteBoundary({
  * boundary (see PPRRouteBoundary), so the client tree needs one at the same position or
  * hydration mismatches. On a classic response it renders children as they are.
  */
+let hydrationBoundaryRendered = false
+
 export function PPRHydrationBoundary({ children }: { children?: any }) {
+    hydrationBoundaryRendered = true
     if (typeof window !== "undefined" && (window as any).__CATALYST_PPR__ === true) {
         return <Suspense fallback={null}>{children}</Suspense>
     }
     return children
+}
+
+/**
+ * Client: on a PPR response, logs one error if the hydrated root never rendered
+ * <PPRHydrationBoundary>. Without it the client tree has no Suspense boundary where the
+ * server put one, so hydration fails and React re-renders the whole page on the client.
+ * Called by clientRouter(); the check runs after hydrateRoot has had time to render the root.
+ */
+export function warnIfPPRHydrationBoundaryMissing(delayMs = 3000) {
+    if (typeof window === "undefined" || (window as any).__CATALYST_PPR__ !== true) return
+    setTimeout(() => {
+        if (hydrationBoundaryRendered) return
+        console.error(
+            "[PPR] This page was served with partial prerendering, but the hydrated root is not wrapped in <PPRHydrationBoundary> (from catalyst-core). Wrap the element passed to hydrateRoot in client/index.js, or hydration will fail and the page re-renders on the client."
+        )
+    }, delayMs)
 }

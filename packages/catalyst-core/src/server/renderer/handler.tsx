@@ -7,7 +7,9 @@ import { Head } from "./document/Head.jsx"
 
 import { StaticRouter, matchRoutes as NestedMatchRoutes } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
-import { renderToPipeableStream, resumeToPipeableStream } from "react-dom/server"
+// Namespace import: resumeToPipeableStream only exists from React 19.2, and a named import of a
+// missing export would fail at module load on an app still on React 19.0/19.1.
+import * as ReactDOMServer from "react-dom/server"
 import { prerenderToNodeStream } from "react-dom/static"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { serverDataFetcher } from "../../web-router/components/RouterDataProvider.jsx"
@@ -273,6 +275,24 @@ const onRequestError = traceHook(_onRequestError, "onRequestError")
 
 const getLogger = (): any => (globalThis as any).logger || console
 
+const { renderToPipeableStream } = ReactDOMServer
+const resumeToPipeableStream: any = (ReactDOMServer as any).resumeToPipeableStream
+
+// PPR needs React >= 19.2 (prerender `postponed` state + resumeToPipeableStream). On an older
+// React, PPR routes use the classic path and we say why once, instead of failing silently.
+let pprUnsupportedLogged = false
+const isPPRAvailable = () => {
+    if (!isPPREnabled()) return false
+    if (typeof resumeToPipeableStream === "function") return true
+    if (!pprUnsupportedLogged) {
+        pprUnsupportedLogged = true
+        getLogger().error?.(
+            `[PPR] PPR_ENABLE is on but react-dom ${(ReactDOMServer as any).version || "(unknown)"} has no resumeToPipeableStream; PPR needs React 19.2 or newer. PPR routes are rendered with the classic path.`
+        )
+    }
+    return false
+}
+
 // renderMode ("ppr" | "static" | undefined) lives on the leaf-matched route's component,
 // next to serverFetcher/clientFetcher. matchRoutes orders matches root-first, so the last
 // entry is the page being rendered. Unset means the classic (streaming) path.
@@ -292,10 +312,22 @@ const isBotRequest = (req: any) => {
     return !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
 }
 
-const getPathname = (req: any) => new URL(req.originalUrl, "http://localhost").pathname
+// Never throws: Express accepts paths that are not valid URLs (`//`, `//[x`), and this runs on
+// every route. A path is put after a fixed origin rather than resolved against it, so `//host/x`
+// keeps its own key instead of becoming `/x`.
+const parseRequestUrl = (req: any): URL | null => {
+    const raw = String(req.originalUrl ?? req.url ?? "/")
+    try {
+        return new URL(raw.startsWith("/") ? `http://localhost${raw}` : raw, "http://localhost")
+    } catch {
+        return null
+    }
+}
+const getPathname = (req: any): string => parseRequestUrl(req)?.pathname ?? (req.path || "/")
 // Static pages: route fetchers read req.query, so the (sorted) query is part of the key.
 const getStaticCacheKey = (req: any) => {
-    const url = new URL(req.originalUrl, "http://localhost")
+    const url = parseRequestUrl(req)
+    if (!url) return getPathname(req)
     url.searchParams.delete("__refresh_static_cache") // dev bypass refreshes the plain entry
     url.searchParams.sort()
     const query = url.searchParams.toString()
@@ -1197,7 +1229,7 @@ async function _handler(req: any, res: any) {
                 }
             }
 
-            if (renderMode === "ppr" && isPPREnabled() && !isBotRequest(req) && !hasSafeArea) {
+            if (renderMode === "ppr" && isPPRAvailable() && !isBotRequest(req) && !hasSafeArea) {
                 let served = false
                 try {
                     served = await tracedRenderMarkUpPPR({ req, res, store, allMatches, cachedRoutes })

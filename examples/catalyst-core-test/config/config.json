@@ -6,5 +6,6 @@
     "PUBLIC_STATIC_ASSET_URL": "http://localhost:3005",
     "API_URL": "random_api_url",
     "CUSTOM_VAR": "custom",
+    "PPR_ENABLE": true,
     "CLIENT_ENV_VARIABLES": ["API_URL", "CUSTOM_VAR"]
 }

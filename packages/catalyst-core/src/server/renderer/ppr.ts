@@ -218,6 +218,19 @@ const serializeCookie = (name: string, value: any, options: any = {}) => {
  * cannot be, so they are logged), and a late redirect becomes a client-side location.replace.
  * Returns { scripts(), restore() }.
  */
+// A late redirect is replayed as location.replace(url), which runs a `javascript:` URL where a
+// Location header would not. Only relative and http(s) URLs are replayed. The WHATWG parser
+// strips tabs, newlines and leading control characters the same way browsers do.
+export const isReplayableRedirect = (url: unknown): url is string => {
+    if (typeof url !== "string" || url === "") return false
+    try {
+        const { protocol } = new URL(url, "http://localhost")
+        return protocol === "http:" || protocol === "https:"
+    } catch {
+        return false
+    }
+}
+
 export const guardLateResponseCalls = (res: any, logger: any = console) => {
     const names = ["cookie", "clearCookie", "redirect", "setHeader"]
     const original = Object.fromEntries(names.map((n) => [n, res[n]]))
@@ -243,7 +256,12 @@ export const guardLateResponseCalls = (res: any, logger: any = console) => {
     res.redirect = function (this: any, ...args: any[]) {
         if (!res.headersSent) return original.redirect.apply(this, args)
         const [statusOrUrl, maybeUrl] = args
-        redirectTo = typeof statusOrUrl === "number" ? maybeUrl : statusOrUrl
+        const url = typeof statusOrUrl === "number" ? maybeUrl : statusOrUrl
+        if (isReplayableRedirect(url)) redirectTo = url
+        else
+            warn(
+                `redirect after the shell was sent to a non-http(s) URL was dropped: ${String(url).slice(0, 80)}`
+            )
         return this
     }
     res.setHeader = function (this: any, name: string, value: any) {

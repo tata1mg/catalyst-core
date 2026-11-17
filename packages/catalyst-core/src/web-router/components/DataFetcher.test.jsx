@@ -15,6 +15,16 @@ function Reader({ fetcher }) {
     return <p data-testid="data">{data.value}</p>
 }
 
+class Boundary extends React.Component {
+    state = { error: null }
+    static getDerivedStateFromError(error) {
+        return { error }
+    }
+    render() {
+        return this.state.error ? <p data-testid="error">{this.state.error.message}</p> : this.props.children
+    }
+}
+
 const renderReader = async (fetcher, wrap = (el) => el) => {
     await act(async () => {
         render(wrap(<Suspense fallback={<p>loading</p>}>{<Reader fetcher={fetcher} />}</Suspense>))
@@ -51,6 +61,36 @@ describe("usePPRRouteData (client)", () => {
         clearPPRCache()
         await renderReader(fetcher)
         expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it("does not cache a failed fetch: the next render fetches again", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+        const fetcher = vi
+            .fn()
+            .mockRejectedValueOnce(new Error("network down"))
+            .mockResolvedValue({ value: "fetched" })
+
+        await renderReader(fetcher, (el) => <Boundary>{el}</Boundary>)
+        expect(await screen.findByTestId("error")).toHaveTextContent("network down")
+        expect(fetcher).toHaveBeenCalledTimes(1)
+
+        // A render right away still gets the failure; one after FAILED_FETCH_KEEP_MS fetches again.
+        const now = Date.now()
+        vi.spyOn(Date, "now").mockReturnValue(now + 2500)
+        await renderReader(fetcher, (el) => <Boundary>{el}</Boundary>)
+        expect(await screen.findByTestId("data")).toHaveTextContent("fetched")
+        expect(fetcher).toHaveBeenCalledTimes(2)
+    })
+
+    it("does not refetch in a loop when the fetcher always fails", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
+        const fetcher = vi.fn(async () => {
+            throw new Error("always down")
+        })
+        await renderReader(fetcher, (el) => <Boundary>{el}</Boundary>)
+        expect(await screen.findByTestId("error")).toHaveTextContent("always down")
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(fetcher).toHaveBeenCalledTimes(1)
     })
 
     it("keeps at most 100 paths in the client cache, dropping the oldest", async () => {

@@ -2,6 +2,7 @@ import React from "react"
 import { useCurrentRouteData } from "catalyst-core"
 // From source, so the hook shares the PPR data context with the handler under test.
 import { usePPRRouteData } from "../../../../../../../src/web-router/components/DataFetcher.jsx"
+import { split } from "../../../../../../../src/web-router/components/Split.jsx"
 
 // Fixture route table for the SSR handler tests (#348). Concrete routes
 // plus a catch-all so tests can exercise the 200 / 404 / fetcher-error
@@ -93,6 +94,41 @@ const PPRLoadable = loadable({
     }),
 })
 
+// PPR route that renders a split() widget picked by the request's user, so concurrent tests can
+// check that each response lists only its own widget in __SSR_RENDERED_COMPONENTS__.
+export const userWidgetKey = (user) => `src/js/components/UserWidget-${user}`
+const userWidgets = new Map()
+const userWidget = (user) => {
+    if (!userWidgets.has(user)) {
+        userWidgets.set(
+            user,
+            split(
+                () => Promise.resolve({ default: () => <i data-testid="user-widget">widget:{user}</i> }),
+                { ssr: true },
+                userWidgetKey(user)
+            )
+        )
+    }
+    return userWidgets.get(user)
+}
+function PPRSplitPage() {
+    const { data } = useCurrentRouteData()
+    const Widget = userWidget(data?.user)
+    return (
+        <div>
+            <p data-testid="ppr-user">user:{data?.user}</p>
+            <Widget />
+        </div>
+    )
+}
+const PPRSplitLoadable = loadable({
+    default: Object.assign(PPRSplitPage, {
+        renderMode: "ppr",
+        pprFallback: <p data-testid="ppr-skeleton">skeleton</p>,
+        serverFetcher: PPRLoadable.serverFetcher,
+    }),
+})
+
 // PPR route whose serverFetcher fails: the status line is already out, so the code reaches
 // the client as window.__STATUS_CODE__.
 function PPRErrorPage() {
@@ -134,6 +170,7 @@ StaticPage.renderMode = "static"
 const routes = [
     { path: "/", component: HomePage },
     { path: "/ppr", component: PPRLoadable },
+    { path: "/ppr-split", component: PPRSplitLoadable },
     { path: "/ppr-error", component: PPRErrorLoadable },
     { path: "/ppr-hook", component: PPRHookPage },
     { path: "/static-error", component: StaticErrorPage },

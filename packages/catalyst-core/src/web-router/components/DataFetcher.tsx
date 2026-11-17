@@ -32,6 +32,8 @@ const createRequestCache = (): RequestCache => ({ promises: new Map(), data: new
 // Client-side cache only (one user per page). Bounded so long sessions don't grow it.
 const CLIENT_CACHE_MAX = 100
 const clientCache = createRequestCache()
+// How long a failed client fetch keeps being returned before the next render retries it.
+const FAILED_FETCH_KEEP_MS = 2000
 const remember = (map: Map<string, any>, key: string, value: any) => {
     map.delete(key)
     map.set(key, value)
@@ -40,7 +42,16 @@ const remember = (map: Map<string, any>, key: string, value: any) => {
 
 function getSuspensePromise(cache: RequestCache, fetcher: () => any, cacheKey: string) {
     const existing = cache.promises.get(cacheKey)
-    if (existing) return existing
+    if (existing) {
+        // A failed fetch is kept for a short while, then dropped so the next render or visit of
+        // this path fetches again instead of getting the same rejection for the rest of the
+        // session. Dropping it at once would loop: React's retry renders after a rejection have
+        // no memoized promise, so each would start a new fetch that fails again.
+        if (existing.status !== "rejected" || Date.now() - existing.failedAt < FAILED_FETCH_KEEP_MS) {
+            return existing
+        }
+        cache.promises.delete(cacheKey)
+    }
 
     const w: any = typeof window !== "undefined" ? window : null
     if (w && w.cachedData && w.cachedData[cacheKey] !== undefined) {
@@ -55,12 +66,21 @@ function getSuspensePromise(cache: RequestCache, fetcher: () => any, cacheKey: s
         return resolved
     }
 
-    const promise = Promise.resolve()
+    const promise: any = Promise.resolve()
         .then(fetcher)
-        .then((value) => {
-            remember(cache.data, cacheKey, value)
-            return value
-        })
+        .then(
+            (value) => {
+                remember(cache.data, cacheKey, value)
+                return value
+            },
+            (error) => {
+                // Same fields React sets on a thenable it tracks, so use() throws at once.
+                promise.status = "rejected"
+                promise.reason = error
+                promise.failedAt = Date.now()
+                throw error
+            }
+        )
     remember(cache.promises, cacheKey, promise)
     return promise
 }

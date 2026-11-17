@@ -8,6 +8,7 @@ import {
     createNoncePlaceholder,
     cssSignature,
     guardLateResponseCalls,
+    isReplayableRedirect,
     prepareReactScripts,
     serializeForScript,
 } from "../../src/server/renderer/ppr.js"
@@ -109,6 +110,39 @@ const fakeRes = () => {
     }
     return res
 }
+
+test("a late redirect is replayed only for relative and http(s) URLs", () => {
+    for (const url of [
+        "/login",
+        "login?next=/a",
+        "//cdn.example.com/x",
+        "https://example.com/",
+        "http://a.b",
+    ]) {
+        assert.ok(isReplayableRedirect(url), url)
+    }
+    for (const url of [
+        "javascript:alert(1)",
+        " JavaScript:alert(1)",
+        "java\tscript:alert(1)",
+        "\u0001javascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "vbscript:x",
+        "",
+        undefined,
+    ]) {
+        assert.ok(!isReplayableRedirect(url), String(url))
+    }
+
+    const res = fakeRes()
+    const logs = []
+    const guard = guardLateResponseCalls(res, { warn: (m) => logs.push(m) })
+    res.headersSent = true
+    res.redirect(302, "javascript:alert(document.cookie)")
+    assert.equal(guard.redirectTo, null)
+    assert.equal(guard.scripts(), "")
+    assert.match(logs[0], /non-http\(s\) URL was dropped/)
+})
 
 test("late cookie/redirect/header calls after the shell is sent are replayed, not thrown", () => {
     const res = fakeRes()

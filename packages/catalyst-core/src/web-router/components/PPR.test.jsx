@@ -1,5 +1,5 @@
 import React, { Suspense } from "react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, render, screen } from "@testing-library/react"
 import {
     PPRDynamic,
@@ -116,5 +116,47 @@ describe("PPRHydrationBoundary", () => {
         expect(element.type).toBe(Suspense)
         render(element)
         expect(screen.getByText("root")).toBeInTheDocument()
+    })
+})
+
+describe("warnIfPPRHydrationBoundaryMissing", () => {
+    // The "boundary rendered" flag is module state, so each case loads a fresh copy of PPR.jsx.
+    const freshPPR = async () => {
+        vi.resetModules()
+        return import("./PPR.jsx")
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers()
+        vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+    afterEach(() => {
+        vi.useRealTimers()
+        vi.restoreAllMocks()
+    })
+
+    it("logs once on a PPR response whose root has no PPRHydrationBoundary", async () => {
+        window.__CATALYST_PPR__ = true
+        const { warnIfPPRHydrationBoundaryMissing } = await freshPPR()
+        warnIfPPRHydrationBoundaryMissing(10)
+        vi.advanceTimersByTime(10)
+        expect(console.error).toHaveBeenCalledTimes(1)
+        expect(console.error.mock.calls[0][0]).toContain("<PPRHydrationBoundary>")
+    })
+
+    it("stays quiet when the root rendered PPRHydrationBoundary", async () => {
+        window.__CATALYST_PPR__ = true
+        const PPR = await freshPPR()
+        PPR.warnIfPPRHydrationBoundaryMissing(10)
+        PPR.PPRHydrationBoundary({ children: null })
+        vi.advanceTimersByTime(10)
+        expect(console.error).not.toHaveBeenCalled()
+    })
+
+    it("does nothing on a classic response", async () => {
+        const { warnIfPPRHydrationBoundaryMissing } = await freshPPR()
+        warnIfPPRHydrationBoundaryMissing(10)
+        vi.advanceTimersByTime(10)
+        expect(console.error).not.toHaveBeenCalled()
     })
 })

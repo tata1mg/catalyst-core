@@ -47,6 +47,31 @@ test("Environment variables on client", async ({ page }) => {
     expect(serverText).toBe("")
 })
 
+// The PPR route's server tree has a Suspense boundary first inside #app; the client root
+// matches it with <PPRHydrationBoundary>. A mismatch shows as a React hydration error (#418)
+// in the console and the page re-rendering on the client.
+test("PPR route hydrates without console errors", async ({ page }) => {
+    const errors = []
+    page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text())
+    })
+    page.on("pageerror", (error) => errors.push(error.message))
+
+    // First request builds the shell (ppr-miss), the second replays it (ppr-hit).
+    for (const expectedMode of ["ppr-miss", "ppr-hit"]) {
+        const response = await page.goto("http://localhost:3005/ppr")
+        expect(response.headers()["x-rendering-mode"]).toBe(expectedMode)
+        await expect(page.getByTestId("ppr-data")).toHaveText("ppr data")
+        // Clicking only changes the text once React has hydrated the page.
+        await expect(async () => {
+            await page.getByTestId("ppr-counter").click()
+            await expect(page.getByTestId("ppr-counter")).not.toHaveText("clicked 0", { timeout: 500 })
+        }).toPass()
+    }
+
+    expect(errors).toEqual([])
+})
+
 // Currently breaking - needs to be fixed in catalyst.
 // Re-verified 2026-08-19: title clears to "" on CSR navigation instead of
 // updating (not stale — empty). Tracked as https://github.com/tata1mg/catalyst-core/issues/421.
