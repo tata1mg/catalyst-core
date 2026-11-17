@@ -181,6 +181,20 @@ const EARLY_HINTS_MAX_DEFERRED_LINKS = (() => {
 const capDeferredHints = (urls) =>
     EARLY_HINTS_MAX_DEFERRED_LINKS < 0 ? urls : urls.slice(0, EARLY_HINTS_MAX_DEFERRED_LINKS)
 
+// Config-driven (config.json → EARLY_HINTS_MAX_SCRIPT_LINKS): how many of the route's own script
+// entries (entry scripts first, then their static imports) are hinted. 1 hints only the main
+// entry, which leaves bandwidth to what the page needs first (images) and room for preconnects.
+// Default -1 (no cap); 0 hints no scripts.
+const EARLY_HINTS_MAX_SCRIPT_LINKS = (() => {
+    const parsed = Number(process.env.EARLY_HINTS_MAX_SCRIPT_LINKS ?? -1)
+    return Number.isFinite(parsed) ? parsed : -1
+})()
+const capScriptLinks = (rootLinks, depLinks) => {
+    if (EARLY_HINTS_MAX_SCRIPT_LINKS < 0) return { rootLinks, depLinks }
+    const keep = new Set([...rootLinks, ...depLinks].slice(0, EARLY_HINTS_MAX_SCRIPT_LINKS))
+    return { rootLinks: rootLinks.filter((l) => keep.has(l)), depLinks: depLinks.filter((l) => keep.has(l)) }
+}
+
 // Config-driven (config.json → EARLY_HINTS_MAX_LINK_BYTES): byte budget for the hint list sent as
 // the 200's `Link` header. A route's static-import closure can run to dozens of chunks, and
 // proxies/CDNs reject or drop oversized response headers. Entries are kept in priority order
@@ -299,14 +313,15 @@ const getCriticalHintLinks = (allMatches) => {
 
 const getEarlyHintLinks = (req, res, allMatches) => {
     const critical = getCriticalHintLinks(allMatches)
+    const { rootLinks, depLinks } = capScriptLinks(critical.rootLinks, critical.depLinks)
     const deferredJs = getDeferredPreloadScriptUrls(getDeferredRouteKey(req, allMatches), critical.js)
     const appLinks = safeCall(_getEarlyHintLinks, { req, res, matches: allMatches })
     return fitLinkBudget([
         ...new Set([
-            ...critical.rootLinks,
+            ...rootLinks,
             ...staticHintLinks,
             ...generateCustomLinkHeader(Array.isArray(appLinks) ? appLinks : []),
-            ...critical.depLinks,
+            ...depLinks,
             ...generateLinkHeader(capDeferredHints(deferredJs), "low", getIntegrityManifest() || {}),
         ]),
     ])
