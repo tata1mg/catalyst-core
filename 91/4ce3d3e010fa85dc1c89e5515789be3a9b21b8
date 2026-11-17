@@ -1,0 +1,29 @@
+packages/catalyst-ai/src/route.js
+  s_86d86931dd4995::t_0c5936b3689dbd 3,618-620,756-803,827
+packages/catalyst-ai/src/index.js
+  s_86d86931dd4995::t_36969576c8c688 8
+packages/catalyst-ai/test/useImageGen.test.ts
+  s_86d86931dd4995::t_36969576c8c688 1-32
+packages/catalyst-ai/src/useImageGen.js
+  s_86d86931dd4995::t_36969576c8c688 1-67
+packages/catalyst-ai/src/imageGen.js
+  s_86d86931dd4995::t_1a86f6912a9db7 1-89
+packages/catalyst-ai/test/route.image.test.ts
+  s_86d86931dd4995::t_970a1b8016ade8 1-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "914ce3d3e010fa85dc1c89e5515789be3a9b21b8",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
