@@ -1,5 +1,18 @@
 [
     {
+        "version": "1.2.0",
+        "date": "2026-11-13",
+        "headline": "Native builds that just work.",
+        "summary": "Build, run and release the Android and iOS apps from the CLI, without opening Android Studio or Xcode, with signing files kept out of git and one CI secret per platform.",
+        "tag": "catalyst-core@1.2.0",
+        "video": "https://github.com/tata1mg/catalyst-core/releases/download/catalyst-core%401.2.0/catalyst-core-1.2.0.mp4",
+        "poster": "/img/releases/1.2.0.jpg",
+        "notes": [
+            "`npm run android` and `npm run ios`. The toolchain sets itself up after asking.",
+            "`npm run android:release` writes a signed AAB and APK. iOS writes a signed IPA."
+        ]
+    },
+    {
         "version": "1.1.0",
         "date": "2026-10-22",
         "headline": "Splash screens, animated. Your app, ready for agents.",

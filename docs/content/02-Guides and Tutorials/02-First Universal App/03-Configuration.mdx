@@ -182,6 +182,15 @@ The file has a few rules:
 - The page has no access to the native bridge.
 - Prefer CSS `transform` and `opacity` animations. The splash runs while the app is loading, so heavy JavaScript competes with it.
 
+The native build tells the page which colour the native splash uses. Both platforms add a script at the start of `<head>` that sets `window.__CATALYST_SPLASH__` to `{ backgroundColor: "#rrggbb" }`, taken from `splashScreen.backgroundColor`, or white when that is not set. Paint the page with it so the native layer and the page read as one surface. The value is only set for a six-digit hex colour. For any other value, and when you open the file in a browser, `window.__CATALYST_SPLASH__` is undefined, so keep a fallback colour in your CSS.
+
+```js
+var cfg = window.__CATALYST_SPLASH__
+if (cfg && cfg.backgroundColor) {
+  document.documentElement.style.background = cfg.backgroundColor
+}
+```
+
 ```html title="public/splashscreen.html"
 <!doctype html>
 <html>
