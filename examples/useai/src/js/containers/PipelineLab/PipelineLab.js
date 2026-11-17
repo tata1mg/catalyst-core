@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
+import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
 import { useAI, usePipeline, transcribeStage, jsonStage, imageStage, requestImage } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
@@ -68,13 +69,23 @@ export default function PipelineLab() {
 
     const textPipe = usePipeline(stages.fromText, { cloudPolicy: "ask" })
     const audioPipe = usePipeline(stages.fromAudio, { cloudPolicy: "ask" })
-    const pipe = mode === "audio" ? audioPipe : textPipe
-    const input = mode === "audio" ? audio?.data : typed
+    const fromAudio = mode === "audio" || mode === "voice"
+    const pipe = fromAudio ? audioPipe : textPipe
+    const input = fromAudio ? audio?.data : typed
+    const [voiceConsent, setVoiceConsent] = useState(false)
+    const recorder = useVoiceRecorder({
+        onRecorded: (data, { seconds }) => {
+            setAudio({ name: `live recording (${seconds}s)`, data })
+            setPickError(null)
+            audioPipe.run(data, voiceConsent ? { cloudPolicy: "allow" } : undefined)
+        },
+    })
+    const heard = audioPipe.steps.find((s) => s.type === "end" && s.stage === "transcribe")?.preview
     const running = pipe.status === "running"
 
     const run = (overrides) => {
         if (!input) {
-            setPickError(mode === "audio" ? "Pick an audio clip first" : "Type a description first")
+            setPickError(fromAudio ? (mode === "voice" ? "Click the microphone and speak first" : "Pick an audio clip first") : "Type a description first")
             return
         }
         setPickError(null)
@@ -97,13 +108,13 @@ export default function PipelineLab() {
             <Link to="/" className="font-mono text-[11px] uppercase text-[var(--text-2)] no-underline">← Back</Link>
             <h1 className="text-3xl font-semibold text-white mt-4 mb-2">Pipeline lab</h1>
             <p className="mb-5 text-[14px]">
-                {mode === "audio" ? "audio → transcript → JSON scene → image" : "text → JSON scene → image"}. Each arrow is a typed stage; the run stops for your consent before any cloud call.
+                {fromAudio ? "audio → transcript → JSON scene → image" : "text → JSON scene → image"}. Each arrow is a typed stage; the run stops for your consent before any cloud call.
             </p>
 
             <div className="flex gap-2 mb-4">
-                {["text", "audio"].map((m) => (
-                    <button key={m} data-testid={`mode-${m}`} onClick={() => setMode(m)} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
-                        Start from {m}
+                {["text", "audio", "voice"].map((m) => (
+                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
+                        {m === "voice" ? "Speak (live mic)" : `Start from ${m}`}
                     </button>
                 ))}
             </div>
@@ -125,6 +136,30 @@ export default function PipelineLab() {
 
             {mode === "text" ? (
                 <textarea data-testid="typed" value={typed} onChange={(e) => setTyped(e.target.value)} rows={3} disabled={running} className="w-full mb-3 px-3 py-2 rounded-lg border border-[var(--border)] bg-neutral-900 text-white text-[13px]" />
+            ) : mode === "voice" ? (
+                <div className="mb-3 text-[13px]">
+                    <button
+                        data-testid="mic"
+                        onClick={recorder.listening ? recorder.stop : recorder.start}
+                        disabled={running}
+                        className={`${chip} text-[14px] px-5 py-3 ${recorder.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"}`}
+                    >
+                        {recorder.listening ? `● Listening… ${recorder.seconds}s / ${MAX_SECONDS}s (click to stop)` : "🎙 Click and speak"}
+                    </button>
+                    {recorder.listening && (
+                        <div className="mt-2 h-2 w-full rounded bg-neutral-800 overflow-hidden">
+                            <div data-testid="level" className="h-full bg-green-400" style={{ width: `${Math.round(recorder.level * 100)}%` }} />
+                        </div>
+                    )}
+                    <p className="mt-2 text-[12px]">It stops by itself when you pause for two seconds, or at {MAX_SECONDS}s (longer audio is trimmed before sending). Then the pipeline runs on its own.</p>
+                    {textProvider !== "gemini" && <p className="mt-1 text-[12px] text-yellow-400">Voice needs a model that takes audio: set Text model to Gemini.</p>}
+                    <label className="mt-2 flex items-center gap-2 text-[12px]">
+                        <input type="checkbox" data-testid="voice-consent" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} />
+                        Send my voice to {textProvider} without asking each time
+                    </label>
+                    {recorder.error && <p className="mt-2 text-[12px] text-red-400">{recorder.error}</p>}
+                    {heard && <p data-testid="heard" className="mt-2 text-[13px] text-white">You said: {heard.replace(/^"|"$/g, "")}</p>}
+                </div>
             ) : (
                 <div className="mb-3 text-[13px]">
                     <input data-testid="audio-file" type="file" accept="audio/*" onChange={onFile} disabled={running} />
@@ -140,7 +175,7 @@ export default function PipelineLab() {
 
             {needsConsent && (
                 <div data-testid="consent" className="mb-5 p-3 rounded-lg border border-yellow-500/40 text-[13px]">
-                    A stage wants to send {mode === "audio" ? "your voice and its transcript" : "your text"} to {textProvider}/{imageProvider}.{" "}
+                    A stage wants to send {fromAudio ? "your voice and its transcript" : "your text"} to {textProvider}/{imageProvider}.{" "}
                     <button data-testid="allow" onClick={() => run({ cloudPolicy: "allow" })} className={`${chip} ml-2`}>Allow and run</button>
                 </div>
             )}
