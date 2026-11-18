@@ -43,6 +43,19 @@ describe("hoistImportsPlugin", () => {
         )
     })
 
+    it("records the hoisted chunks in chunk.imports", () => {
+        const bundle = run([
+            chunk("client/assets/main-a.js", ["client/assets/app-b.js"], { isEntry: true }),
+            chunk("client/assets/app-b.js", ["client/assets/vendor-network-c.js"]),
+            chunk("client/assets/vendor-network-c.js", []),
+        ])
+        expect(bundle["client/assets/main-a.js"].imports).toEqual([
+            "client/assets/app-b.js",
+            "client/assets/vendor-network-c.js",
+        ])
+        expect(bundle["client/assets/app-b.js"].imports).toEqual(["client/assets/vendor-network-c.js"])
+    })
+
     it("does the same for dynamic entries and keeps the sourcemap comment last", () => {
         const bundle = run([
             chunk("client/assets/Page-d.js", ["client/assets/app-b.js"], {

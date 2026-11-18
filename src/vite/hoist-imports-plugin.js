@@ -14,6 +14,10 @@ import path from "path"
  * chunk whose closure contains itself (a chunk cycle) is left alone, so module
  * evaluation order cannot change.
  *
+ * The hoisted chunks are also added to `chunk.imports`, as Rollup did, so the
+ * Vite manifest and asset-categories.json see them. Without that, a vendor
+ * reached only through `app` (e.g. vendor-network) drops out of the head.
+ *
  * It runs in generateBundle, after file names are hashed. A change to this
  * plugin therefore changes file contents without changing their names: ship
  * any such change together with something that rehashes the output, or cached
@@ -46,6 +50,8 @@ export function hoistImportsPlugin() {
                 const direct = new Set(chunk.imports)
                 const missing = [...closure].filter((fileName) => !direct.has(fileName))
                 if (!missing.length) continue
+
+                chunk.imports.push(...missing)
 
                 const dir = path.posix.dirname(chunk.fileName)
                 const statements = missing
