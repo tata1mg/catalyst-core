@@ -1,0 +1,21 @@
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_b51c9b0dcf5264::t_031432916a48e7 68-81,85,236-243
+examples/useai/src/js/containers/Home/Home.js
+  s_b51c9b0dcf5264::t_95bf8dd7e0c7b5 151-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d9d547a9b02c0d7e95e9285cc60920a5460bcf6",
+  "prompts": {},
+  "sessions": {
+    "s_b51c9b0dcf5264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14779470-e579-476b-994f-ca5f906d20c2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
