@@ -55,10 +55,12 @@ final class SpeechRecognitionManager {
             supportsOnDevice: recognizer?.supportsOnDeviceRecognition ?? false,
             authorization: Self.authorization()
         )
+        // `installed` is left out on purpose: supportsOnDeviceRecognition says the language CAN run on the device, not
+        // that its model files are there (the iOS Simulator has none). Whether it works is only known by starting;
+        // a failed start comes back as ON_DEVICE_UNAVAILABLE and the page then stops offering it.
         send("SPEECH_RECOGNITION_SUPPORT", SpeechRecognitionPolicy.supportPayload(
             available: reason == nil,
             language: language,
-            installed: recognizer?.supportsOnDeviceRecognition ?? false,
             reason: reason
         ))
     }
@@ -147,10 +149,16 @@ final class SpeechRecognitionManager {
                 finish(with: lastText)
                 return
             }
-            let code = SpeechRecognitionPolicy.errorCode(domain: error.domain, code: error.code)
+            let description = error.localizedDescription
+            let code = SpeechRecognitionPolicy.errorCode(domain: error.domain, code: error.code, message: description)
             finished = true
             teardown()
-            fail(code, error.localizedDescription)
+            let message = SpeechRecognitionPolicy.errorMessage(
+                domain: error.domain,
+                code: error.code,
+                description: description
+            )
+            fail(code, message)
             send("SPEECH_RECOGNITION_STATE", SpeechRecognitionPolicy.statePayload("idle"))
         }
     }

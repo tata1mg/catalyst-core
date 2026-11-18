@@ -131,6 +131,12 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             setState("idle")
             setPartial("")
             if (code === "CANCELLED") return
+            // The support check cannot see everything (the iOS Simulator reports en-US as available but has no model files),
+            // so a failed start is the truth: stop offering it, the same as if the support check had said no.
+            if (code === "ON_DEVICE_UNAVAILABLE" || code === "LANGUAGE_UNAVAILABLE") {
+                setSupported(false)
+                setSupport({ available: false, onDevice: false, language: languageRef.current, reason: code })
+            }
             setError((ERROR_TEXT[code] ?? (() => String(message || "Speech recognition failed.")))(languageRef.current))
         })
 

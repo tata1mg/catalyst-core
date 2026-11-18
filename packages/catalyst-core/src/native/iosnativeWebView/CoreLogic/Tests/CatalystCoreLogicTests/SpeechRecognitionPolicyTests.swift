@@ -52,6 +52,27 @@ final class SpeechRecognitionPolicyTests: XCTestCase {
         XCTAssertEqual(Policy.errorCode(domain: "SomethingElse", code: 301), "UNKNOWN")
     }
 
+    func testAMissingOnDeviceModelIsOnDeviceUnavailableNotUnknown() {
+        func code(_ domain: String, _ number: Int, _ message: String) -> String {
+            Policy.errorCode(domain: domain, code: number, message: message)
+        }
+        let domain = "kAFAssistantErrorDomain"
+        let missing = "Failed to initialize recognizer"
+        XCTAssertEqual(code(domain, 1, missing), "ON_DEVICE_UNAVAILABLE")
+        XCTAssertEqual(code("x", 2, "Failed to access assets"), "ON_DEVICE_UNAVAILABLE")
+        XCTAssertEqual(code("x", 3, "FAILED TO CREATE RECOGNIZER"), "ON_DEVICE_UNAVAILABLE")
+        // known domain and code still win over the text, and an unrelated message stays UNKNOWN
+        XCTAssertEqual(code(domain, 1110, missing), "NO_SPEECH")
+        XCTAssertEqual(code("x", 4, "something else"), "UNKNOWN")
+    }
+
+    func testErrorMessagePutsTheDomainAndCodeInFront() {
+        XCTAssertEqual(
+            Policy.errorMessage(domain: "kAFAssistantErrorDomain", code: 1101, description: "boom"),
+            "kAFAssistantErrorDomain 1101: boom"
+        )
+    }
+
     func testTheSharedCodesAreTheStringsTheAndroidShellSends() {
         XCTAssertEqual(
             [Policy.Code.onDeviceUnavailable, Policy.Code.languageUnavailable, Policy.Code.permissionDenied,

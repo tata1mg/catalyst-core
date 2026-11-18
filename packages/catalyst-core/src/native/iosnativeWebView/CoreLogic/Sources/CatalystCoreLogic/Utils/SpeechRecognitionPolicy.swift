@@ -54,15 +54,31 @@ public enum SpeechRecognitionPolicy {
 
     /// A recognition task's error to a shared code. These domain and code values were seen from the Speech framework
     /// and are not documented; anything unlisted is UNKNOWN.
-    public static func errorCode(domain: String, code: Int) -> String {
+    ///
+    /// A recognizer that cannot be created because its on-device model is missing is reported by message only. The
+    /// iOS Simulator does this: `supportsOnDeviceRecognition` is true for en-US, yet the model files are not there and
+    /// the task fails with "Failed to initialize recognizer". That is ON_DEVICE_UNAVAILABLE, never a reason to fall
+    /// back to a server.
+    public static func errorCode(domain: String, code: Int, message: String = "") -> String {
         switch (domain, code) {
         case ("kLSRErrorDomain", 301), ("kAFAssistantErrorDomain", 216), ("kAFAssistantErrorDomain", 1101):
             return Code.cancelled
         case ("kAFAssistantErrorDomain", 1110), ("kLSRErrorDomain", 1110):
             return Code.noSpeech
         default:
+            let text = message.lowercased()
+            if text.contains("initialize recognizer") || text.contains("access assets")
+                || text.contains("failed to create recognizer") {
+                return Code.onDeviceUnavailable
+            }
             return Code.unknown
         }
+    }
+
+    /// The message the page gets with an error: Apple's text with the domain and code in front, so an unfamiliar
+    /// failure can be looked up.
+    public static func errorMessage(domain: String, code: Int, description: String) -> String {
+        "\(domain) \(code): \(description)"
     }
 
     // MARK: Payloads (the same keys the Android shell sends)

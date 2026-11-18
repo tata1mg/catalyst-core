@@ -151,6 +151,29 @@ describe("useSpeechRecognition", () => {
         expect(result.current.state).toBe("idle")
     })
 
+    it("a start that fails because the on-device model is missing makes the hook unsupported from then on", async () => {
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        expect(result.current.supported).toBe(true)
+        await act(async () => { await result.current.start() })
+        emit("SPEECH_RECOGNITION_ERROR", { code: "ON_DEVICE_UNAVAILABLE", message: "kAFAssistantErrorDomain 1: Failed to initialize recognizer" })
+        expect(result.current.supported).toBe(false)
+        expect(result.current.support).toMatchObject({ available: false, reason: "ON_DEVICE_UNAVAILABLE" })
+        expect(result.current.error).toBe("On-device speech recognition is not available on this device.")
+
+        // and it no longer starts, so the shell is not asked again
+        bridge.speech.start.mockClear()
+        await act(async () => { await result.current.start() })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
+    it("an error that says nothing about availability (no speech heard) keeps support as it was", async () => {
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        emit("SPEECH_RECOGNITION_ERROR", { code: "NO_SPEECH", message: "x" })
+        expect(result.current.supported).toBe(true)
+    })
+
     it("stop() ends the session; cancel() ends it and drops the final text", async () => {
         const onFinal = vi.fn()
         const { result } = renderHook(() => useSpeechRecognition({ onFinal }))
