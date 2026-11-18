@@ -145,6 +145,7 @@ class NativeBridge(
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private lateinit var microphonePermissionLauncher: ActivityResultLauncher<String>
+    private var speechRecognitionManager: SpeechRecognitionManager? = null
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
     private val isGoogleSignInInProgress = AtomicBoolean(false)
@@ -429,6 +430,32 @@ class NativeBridge(
                     microphonePermissionLauncher.launch(MicrophoneUtils.MICROPHONE_PERMISSION)
                 }
             }
+        }
+    }
+
+    private fun speechManager(): SpeechRecognitionManager =
+        speechRecognitionManager ?: SpeechRecognitionManager(mainActivity, webView).also { speechRecognitionManager = it }
+
+    /** Is on-device speech recognition possible here, and is the language installed? Answers SPEECH_RECOGNITION_SUPPORT. */
+    @JavascriptInterface
+    fun getSpeechRecognitionSupport(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR, "get speech recognition support") {
+            mainActivity.runOnUiThread { speechManager().getSupport(SpeechRecognitionUtils.parseLanguage(config)) }
+        }
+    }
+
+    /** Starts listening with the on-device recognizer; partial and final text arrive as SPEECH_RECOGNITION_* events. */
+    @JavascriptInterface
+    fun startSpeechRecognition(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR, "start speech recognition") {
+            mainActivity.runOnUiThread { speechManager().start(SpeechRecognitionUtils.parseLanguage(config)) }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopSpeechRecognition(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR, "stop speech recognition") {
+            mainActivity.runOnUiThread { speechRecognitionManager?.stop() }
         }
     }
 
@@ -1430,6 +1457,10 @@ class NativeBridge(
             // Stop video stream
             nativeCameraManager?.cleanup()
             nativeCameraManager = null
+
+            // Stop speech recognition
+            speechRecognitionManager?.cleanup()
+            speechRecognitionManager = null
 
             // Stop network monitoring
             networkMonitor?.stop()

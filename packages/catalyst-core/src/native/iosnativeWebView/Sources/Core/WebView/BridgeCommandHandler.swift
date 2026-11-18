@@ -220,6 +220,24 @@ class BridgeCommandHandler {
         }
     }
 
+    // MARK: Speech recognition (the platform recognizer, on-device only)
+
+    private lazy var speechRecognition = SpeechRecognitionManager { [weak self] event, payload in
+        self?.delegate?.sendJSONCallback(eventName: event, data: payload)
+    }
+
+    func getSpeechRecognitionSupport(config: String? = nil) {
+        speechRecognition.getSupport(language: SpeechRecognitionPolicy.parseLanguage(config))
+    }
+
+    func startSpeechRecognition(config: String? = nil) {
+        speechRecognition.start(language: SpeechRecognitionPolicy.parseLanguage(config))
+    }
+
+    func stopSpeechRecognition() {
+        speechRecognition.stop()
+    }
+
     /// Asks for the microphone so the page can record with getUserMedia({ audio }). Answers on
     /// MICROPHONE_PERMISSION_STATUS with "GRANTED" or "DENIED", the same plain string the Android shell sends.
     func requestMicrophonePermission(config: String? = nil) {

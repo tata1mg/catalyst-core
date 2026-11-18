@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
-import { useAI, useTranscribe, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
+import { useAI, useTranscribe, useSpeechRecognition, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
 // Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
@@ -155,6 +155,16 @@ export default function PipelineLab() {
             activeText.run(finalText, { cloudPolicy: "allow" }) // the checkbox is the consent for this run
         },
     })
+    // Inside the app the phone's own recognizer can do this step: on-device only, so no consent is needed and nothing is sent anywhere.
+    const speech = useSpeechRecognition({
+        onFinal: (finalText) => {
+            setLiveText(finalText)
+            setPickError(null)
+            activeText.run(finalText, deviceOverrides)
+        },
+    })
+    const nativeSpeech = onDevice && speech.supported === true
+    const liveSrc = nativeSpeech ? speech : live
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -202,7 +212,7 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-2">
                 {[["cloud", "☁️ Cloud models"], ["device", "📱 On-device models"]].map(([key, label]) => (
-                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); if (key === "device" && mode === "live") setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
+                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); speech.cancel(); if (key === "device" && mode === "live" && !speech.supported) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
                         {label}
                     </button>
                 ))}
@@ -230,9 +240,9 @@ export default function PipelineLab() {
             )}
 
             <div className="flex gap-2 mb-4">
-                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live")).map((m) => (
-                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
-                        {m === "live" ? "Speak live (streaming)" : m === "voice" ? "Record, then send" : `Start from ${m}`}
+                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !speech.supported)).map((m) => (
+                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); speech.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
+                        {m === "live" ? (onDevice ? "Speak live (on this phone)" : "Speak live (streaming)") : m === "voice" ? "Record, then send" : `Start from ${m}`}
                     </button>
                 ))}
             </div>
@@ -268,26 +278,28 @@ export default function PipelineLab() {
                 <div className="mb-3 text-[13px]">
                     <button
                         data-testid="live-mic"
-                        onClick={live.listening ? live.stop : live.start}
-                        disabled={running || live.state === "connecting" || live.state === "finishing" || (!live.listening && !voiceConsent)}
-                        className={`${chip} text-[14px] px-5 py-3 ${live.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
+                        onClick={liveSrc.listening ? liveSrc.stop : liveSrc.start}
+                        disabled={running || liveSrc.state === "connecting" || liveSrc.state === "starting" || liveSrc.state === "finishing" || (!liveSrc.listening && !nativeSpeech && !voiceConsent)}
+                        className={`${chip} text-[14px] px-5 py-3 ${liveSrc.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
                     >
-                        {live.state === "connecting" ? "Connecting…" : live.state === "finishing" ? "Finishing…" : live.listening ? `● Live ${live.seconds}s (click to finish)` : "🎙 Start live"}
+                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? `● Live ${liveSrc.seconds}s (click to finish)` : "🎙 Start live"}
                     </button>
-                    {live.listening && (
+                    {liveSrc.listening && !nativeSpeech && (
                         <div className="mt-2 h-2 w-full rounded bg-neutral-800 overflow-hidden">
                             <div data-testid="live-level" className="h-full bg-green-400" style={{ width: `${Math.round(live.level * 100)}%` }} />
                         </div>
                     )}
-                    <label className="mt-2 flex items-start gap-2 text-[12px]">
+                    {!nativeSpeech && <label className="mt-2 flex items-start gap-2 text-[12px]">
                         <input type="checkbox" data-testid="voice-consent" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} className="mt-0.5" />
                         <span>I agree my voice is streamed to Gemini while I speak, and the text goes on to {textProvider} and {imageProvider} to make the picture.</span>
-                    </label>
+                    </label>}
                     <p data-testid="live-text" className="mt-3 min-h-[3rem] text-[15px] text-white">
-                        {[live.text, live.partial].filter(Boolean).join(" ") || (liveText ? liveText : <span className="text-[12px] text-[var(--text-2)]">Your words appear here as you speak.</span>)}
+                        {[liveSrc.text, liveSrc.partial].filter(Boolean).join(" ") || (liveText ? liveText : <span className="text-[12px] text-[var(--text-2)]">Your words appear here as you speak.</span>)}
                     </p>
-                    <p className="mt-1 text-[12px]">Click to finish when you are done. Nothing is recorded to a file; audio streams straight to Gemini over a short-lived key from the server.</p>
-                    {live.error && <p className="mt-2 text-[12px] text-red-400">{live.error}</p>}
+                    <p className="mt-1 text-[12px]">{nativeSpeech
+                        ? "Your voice is turned into text by this phone's own recognizer, on the device, and never leaves it. It stops by itself when you pause; the text then goes to the on-device model."
+                        : "Click to finish when you are done. Nothing is recorded to a file; audio streams straight to Gemini over a short-lived key from the server."}</p>
+                    {liveSrc.error && <p className="mt-2 text-[12px] text-red-400">{liveSrc.error}</p>}
                 </div>
             ) : mode === "voice" ? (
                 <div className="mb-3 text-[13px]">
