@@ -116,3 +116,61 @@ describe("prepareAudioParts fallback", () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "cannot decode" }))
     })
 })
+
+describe("splitAudio / prepareAudioChunks", () => {
+    const RATE = 16000
+    // `seconds` of a 220 Hz tone with a silent gap [gapAt, gapAt+0.3) so the splitter has somewhere to cut.
+    const tone = (seconds: number, gaps: number[] = []) => {
+        const out = new Float32Array(Math.floor(seconds * RATE))
+        for (let i = 0; i < out.length; i++) {
+            const t = i / RATE
+            out[i] = gaps.some((g) => t >= g && t < g + 0.3) ? 0 : 0.3 * Math.sin(2 * Math.PI * 220 * t)
+        }
+        return out
+    }
+
+    it("returns a clip that fits as a single chunk", async () => {
+        const { splitAudio } = await mod
+        const chunks = splitAudio(tone(10))
+        expect(chunks).toHaveLength(1)
+        expect(chunks[0]).toMatchObject({ startSec: 0, endSec: 10, silent: false })
+    })
+
+    it("cuts a long clip in the quiet gap before the limit, every chunk within the limit, no overlap, nothing lost", async () => {
+        const { splitAudio, CHUNK_SECONDS } = await mod
+        const samples = tone(70, [25.5, 52.4])
+        const chunks = splitAudio(samples)
+        expect(chunks.length).toBeGreaterThanOrEqual(3)
+        for (const c of chunks) expect(c.endSec - c.startSec).toBeLessThanOrEqual(CHUNK_SECONDS + 1e-6)
+        expect(chunks[0].endSec).toBeGreaterThanOrEqual(25.5)
+        expect(chunks[0].endSec).toBeLessThanOrEqual(25.8) // inside the gap
+        for (let i = 1; i < chunks.length; i++) expect(chunks[i].startSec).toBe(chunks[i - 1].endSec)
+        expect(chunks.reduce((n, c) => n + c.samples.length, 0)).toBe(samples.length)
+    })
+
+    it("flags near-silent chunks so a caller can skip them", async () => {
+        const { splitAudio } = await mod
+        const chunks = splitAudio(new Float32Array(RATE * 5))
+        expect(chunks[0].silent).toBe(true)
+    })
+
+    it("prepareAudioChunks decodes once and returns WAV data URLs; over the maximum it says truncated", async () => {
+        const { prepareAudioChunks } = await mod
+        const decode = vi.fn(async () => ({ channels: [tone(150)], sampleRate: RATE }))
+        const out = await prepareAudioChunks("data:audio/webm;codecs=opus;base64,AAAA", { decode })
+        expect(decode).toHaveBeenCalledTimes(1)
+        expect(out.truncated).toBe(true)
+        expect(out.durationSec).toBe(120)
+        expect(out.chunks.length).toBeGreaterThanOrEqual(5)
+        expect(out.chunks.every((c: any) => c.data.startsWith("data:audio/wav;base64,"))).toBe(true)
+        const short = await prepareAudioChunks("data:audio/wav;base64,AAAA", { decode: async () => ({ channels: [tone(40)], sampleRate: RATE }) })
+        expect(short.truncated).toBe(false)
+        expect(short.chunks).toHaveLength(2)
+    })
+
+    it("rejects input that is not a data URL, and surfaces a decode failure", async () => {
+        const { prepareAudioChunks } = await mod
+        await expect(prepareAudioChunks("not a url")).rejects.toThrow(/data URL/)
+        await expect(prepareAudioChunks("data:audio/webm;base64,AAAA", { decode: async () => { throw new Error("cannot decode") } })).rejects.toThrow("cannot decode")
+    })
+})
