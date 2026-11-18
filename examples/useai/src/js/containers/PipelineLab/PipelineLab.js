@@ -65,10 +65,24 @@ export default function PipelineLab() {
         deviceImageSupport().then(setDeviceImage, (e) => setDeviceImage({ available: false, reason: String(e?.message || e) }))
     }, [])
 
+    // The app's on-device model (a LiteRT-LM registry key). Gemma needs about 2.6 GB of storage and several GB of RAM; Qwen3 0.6B
+    // is a quarter of that, for small emulators and low-end phones. It writes the scene JSON; it cannot hear audio.
+    const NATIVE_MODELS = [
+        ["gemma-4-E2B", "Gemma 4 E2B (2.6 GB, text and audio)"],
+        ["qwen3-0.6B", "Qwen3 0.6B (0.5 GB, text only: small emulators)"],
+    ]
+    const [nativeModel, setNativeModel] = useState(() => {
+        try { return localStorage.getItem("lab.nativeModel") || "gemma-4-E2B" } catch { return "gemma-4-E2B" }
+    })
+    const chooseNativeModel = (key) => {
+        setNativeModel(key)
+        try { localStorage.setItem("lab.nativeModel", key) } catch { /* the choice just is not remembered */ }
+    }
+
     // On-device hooks. Instantiating them loads nothing; a model only downloads when a device run first calls generate().
     const device = useAI({
         provider: nativeAvailable ? "native" : "transformers",
-        ...(!nativeAvailable && { model: GEMMA_WEB }),
+        ...(nativeAvailable ? { model: nativeModel } : { model: GEMMA_WEB }),
         sessionMode: "stateless",
         genConfig: { stream: true },
     })
@@ -219,6 +233,14 @@ export default function PipelineLab() {
             </div>
             {onDevice && (
                 <div data-testid="device-note" className="mb-4 text-[12px]">
+                    {nativeAvailable && (
+                        <label className="mb-2 block">
+                            <span className="mr-2">On-device model</span>
+                            <select data-testid="native-model" value={nativeModel} onChange={(e) => chooseNativeModel(e.target.value)} disabled={running} className="px-2 py-1 rounded-lg border border-[var(--border)] bg-neutral-900 text-white">
+                                {NATIVE_MODELS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                        </label>
+                    )}
                     <p>
                         {nativeAvailable
                             ? "Speech and text run on this phone's own model. "
