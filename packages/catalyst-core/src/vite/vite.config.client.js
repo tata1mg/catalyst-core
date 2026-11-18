@@ -12,9 +12,11 @@ import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 // captured module's dependencies into the same group, and a higher-priority
 // group claims a module first. `app` (catalyst-core) must stay last: it
 // imports the app's routes (router/ClientRouter), so ranked any higher it
-// would pull these vendors in with them.
+// would pull these vendors in with them. prop-types sits in vendor-react
+// because vendor-ads (react-dfp, react-google-recaptcha) depends on it: left
+// to that group, every page that uses prop-types would load the ads vendor.
 const chunkGroups = [
-    ["vendor-react", /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/],
+    ["vendor-react", /[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types)[\\/]/],
     ["vendor-router", /[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history)[\\/]/],
     ["vendor-network", /[\\/]node_modules[\\/]axios[\\/]/],
     ["vendor-lottie", /[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/],
