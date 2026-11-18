@@ -33,6 +33,9 @@ object BridgeUtils {
         ON_CAMERA_CAPTURE("ON_CAMERA_CAPTURE"),
         ON_CAMERA_ERROR("ON_CAMERA_ERROR"),
         CAMERA_PERMISSION_STATUS("CAMERA_PERMISSION_STATUS"),
+
+        // Microphone events
+        MICROPHONE_PERMISSION_STATUS("MICROPHONE_PERMISSION_STATUS"),
         
         // Haptic feedback events
         HAPTIC_FEEDBACK("HAPTIC_FEEDBACK"),

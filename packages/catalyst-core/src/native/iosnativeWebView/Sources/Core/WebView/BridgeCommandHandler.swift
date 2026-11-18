@@ -220,6 +220,17 @@ class BridgeCommandHandler {
         }
     }
 
+    /// Asks for the microphone so the page can record with getUserMedia({ audio }). Answers on
+    /// MICROPHONE_PERMISSION_STATUS with "GRANTED" or "DENIED", the same plain string the Android shell sends.
+    func requestMicrophonePermission(config: String? = nil) {
+        commandLogger.debug("Microphone permission requested")
+        MicrophonePermission.request { [weak self] granted in
+            let status = MediaPermissionPolicy.statusString(granted: granted)
+            commandLogger.debug("Microphone permission status: \(status)")
+            self?.delegate?.sendStringCallback(eventName: "MICROPHONE_PERMISSION_STATUS", data: status)
+        }
+    }
+
     // Request haptic feedback
     func requestHapticFeedback(feedbackType: String = "VIRTUAL_KEY") {
         commandLogger.debug("requestHapticFeedback called with type: \(feedbackType)")

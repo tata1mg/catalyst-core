@@ -227,6 +227,17 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Microphone-specific methods
+     */
+    microphone = {
+        /**
+         * Request microphone (RECORD_AUDIO) permission so the page can record with getUserMedia
+         * @param {string} config - JSON string of permission config
+         */
+        requestPermission: (config = null) => this.call(NATIVE_COMMANDS.REQUEST_MICROPHONE_PERMISSION, config),
+    }
+
+    /**
      * File-specific methods for easier usage
      */
     file = {

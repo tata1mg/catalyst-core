@@ -23,6 +23,8 @@ import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
+import io.yourname.androidproject.utils.MicrophoneUtils
+import io.yourname.androidproject.utils.WebPermissionPolicy
 import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.PerfEventBuffer
 import io.yourname.androidproject.utils.ProfilerNavigationState
@@ -1284,25 +1286,21 @@ class CustomWebView(
                     Log.d(TAG, "Permission request from web content: ${request.resources?.joinToString()}")
                 }
 
-                // Check if camera permission is being requested
-                val cameraRequested = request.resources?.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE) == true
-
-                if (cameraRequested) {
-                    // Check if native app has camera permission
-                    if (CameraUtils.hasCameraPermission(context as android.app.Activity)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Granting camera permission to WebView - native permission available")
-                        }
-                        request.grant(request.resources)
-                    } else {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Denying camera permission to WebView - native permission not granted")
-                        }
-                        request.deny()
+                // Grant only what the app itself holds permission for (camera, microphone); deny the rest.
+                val activity = context as android.app.Activity
+                val granted = WebPermissionPolicy.grantable(
+                    request.resources,
+                    hasCamera = CameraUtils.hasCameraPermission(activity),
+                    hasMicrophone = MicrophoneUtils.hasMicrophonePermission(activity)
+                )
+                if (granted.isNotEmpty()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Granting to WebView: ${granted.joinToString()}")
                     }
+                    request.grant(granted)
                 } else {
                     if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Denying non-camera permission request: ${request.resources?.joinToString()}")
+                        Log.d(TAG, "Denying permission request: ${request.resources?.joinToString()}")
                     }
                     request.deny()
                 }

@@ -4,6 +4,7 @@ export type { UseVisionOptions, UseVisionResult, VisionStatus, VisionConsent, Vi
 export { useTranscribe, TranscribeError } from "./useTranscribe.js"
 export type { UseTranscribeOptions, UseTranscribeResult, TranscribeStatus, TranscribeConsent, TranscribeResult, TranscribeProgress, AudioSource } from "./useTranscribe.js"
 export { useMicrophone } from "./useMicrophone.js"
+export { requestMicrophonePermission } from "./microphonePermission.js"
 export type { UseMicrophoneOptions, UseMicrophoneResult } from "./useMicrophone.js"
 export { useAgent } from "./useAgent.js"
 export type { UseAgentOptions, UseAgentResult, UseAgentStatus, AgentTool, AgentStep, AgentLimits, AgentResult, AgentStatus, AgentConfirmRequest } from "./useAgent.js"

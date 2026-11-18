@@ -15,6 +15,8 @@
     <string>Debug web content in Safari Web Inspector</string>
     <key>NSCameraUsageDescription</key>
     <string>This app requires camera access to capture images</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app requires microphone access to record audio</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app requires photo library access to select images from your gallery</string>
 </dict>

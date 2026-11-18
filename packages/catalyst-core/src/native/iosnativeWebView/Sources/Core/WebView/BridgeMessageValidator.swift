@@ -70,6 +70,11 @@ class BridgeMessageValidator {
             ],
             "additionalProperties": false
         ],
+        "requestMicrophonePermission": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
         "pickFile": [
             "type": "object",
             "properties": [
@@ -369,6 +374,7 @@ class BridgeMessageValidator {
         let flexibleCommands = [
             "openCamera",
             "requestCameraPermission",
+            "requestMicrophonePermission",
             "pickFile",
             "requestHapticFeedback",
             "openFileWithIntent",

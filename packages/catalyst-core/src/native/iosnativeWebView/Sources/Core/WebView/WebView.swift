@@ -81,6 +81,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         ])
 
         webView.navigationDelegate = navigationDelegate
+        webView.uiDelegate = navigationDelegate
         #if DEBUG
         if ConfigConstants.Profiler.enabled {
             webView.scrollView.delegate = context.coordinator
