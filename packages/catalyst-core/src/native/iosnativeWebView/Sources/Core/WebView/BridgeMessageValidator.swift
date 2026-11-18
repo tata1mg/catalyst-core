@@ -75,6 +75,21 @@ class BridgeMessageValidator {
             "properties": [:],
             "additionalProperties": false
         ],
+        "getSpeechRecognitionSupport": [
+            "type": "object",
+            "properties": ["language": ["type": "string"]],
+            "additionalProperties": false
+        ],
+        "startSpeechRecognition": [
+            "type": "object",
+            "properties": ["language": ["type": "string"]],
+            "additionalProperties": false
+        ],
+        "stopSpeechRecognition": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
         "pickFile": [
             "type": "object",
             "properties": [
@@ -375,6 +390,9 @@ class BridgeMessageValidator {
             "openCamera",
             "requestCameraPermission",
             "requestMicrophonePermission",
+            "getSpeechRecognitionSupport",
+            "startSpeechRecognition",
+            "stopSpeechRecognition",
             "pickFile",
             "requestHapticFeedback",
             "openFileWithIntent",

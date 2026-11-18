@@ -17,6 +17,8 @@
     <string>This app requires camera access to capture images</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app requires microphone access to record audio</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>This app uses speech recognition to turn what you say into text on your device</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app requires photo library access to select images from your gallery</string>
 </dict>
