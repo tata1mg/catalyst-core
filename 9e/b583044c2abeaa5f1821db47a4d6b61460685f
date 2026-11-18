@@ -1,0 +1,42 @@
+packages/catalyst-core/src/vite/manifest-categorization-plugin.js
+  e4f5607a08215049 414-418,420
+packages/catalyst-core/test/vite/hoistImportsPlugin.test.ts
+  e4f5607a08215049 46-58
+packages/catalyst-core/src/vite/vite.config.client.js
+  e4f5607a08215049 15-17,19
+packages/catalyst-core/src/vite/hoist-imports-plugin.js
+  e4f5607a08215049 17-20,54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "9eb583044c2abeaa5f1821db47a4d6b61460685f",
+  "prompts": {
+    "729a8352b0b6fb5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a95845f-6fe7-44a0-bec4-47478193629b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 354,
+      "total_deletions": 195,
+      "accepted_lines": 159,
+      "overriden_lines": 0
+    },
+    "e4f5607a08215049": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c936df1f-6f65-4d1a-b8b1-e78a16897729",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 4,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}
