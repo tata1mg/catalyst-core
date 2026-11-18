@@ -106,6 +106,12 @@ export interface Signals {
 export interface Consent {
     cloud?: boolean
     download?: boolean
+    /**
+     * Candidate id to stay on. Routing normally re-ranks on every call (observed speed, which model is loaded), so a job
+     * made of several calls, such as the chunks of one recording, pins the id its first call chose. The privacy policy
+     * still applies to the pinned candidate. Ignored when the id is unknown.
+     */
+    pin?: string
 }
 
 export interface Estimate {

@@ -59,6 +59,12 @@ export function createGenerationApi(getPkg: () => any) {
         async unloadDeviceImage(): Promise<void> {
             await getPkg()?.unloadDeviceImage?.()
         },
+        /** Decodes one recorded clip and returns it as 16 kHz mono WAV chunks that each fit an on-device encoder: { chunks: [{ data, startSec, endSec, silent }], durationSec, truncated }. */
+        async prepareAudioChunks(dataUrl: string, options: { chunkSeconds?: number; maxSeconds?: number } = {}): Promise<{ chunks: { data: string; startSec: number; endSec: number; silent: boolean }[]; durationSec: number; truncated: boolean }> {
+            const pkg = getPkg()
+            if (!pkg?.prepareAudioChunks) throw missing("prepareAudioChunks")
+            return pkg.prepareAudioChunks(dataUrl, options)
+        },
         /** Live speech-to-text over the Gemini Live API: { start, stop, cancel, state, listening, partial, text, level, seconds, error }. */
         useLiveTranscribe(options: Record<string, unknown> = {}): any {
             const pkg = getPkg()
@@ -83,3 +89,4 @@ export const useLiveTranscribe = api.useLiveTranscribe
 export const registerDeviceImageEngine = api.registerDeviceImageEngine
 export const deviceImageSupport = api.deviceImageSupport
 export const unloadDeviceImage = api.unloadDeviceImage
+export const prepareAudioChunks = api.prepareAudioChunks

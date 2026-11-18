@@ -7,6 +7,11 @@
 export const TARGET_RATE = 16000
 // Gemma-family audio encoders take short clips; longer input is truncated rather than rejected.
 export const MAX_AUDIO_SECONDS = 30
+// A clip longer than that is split into chunks that each fit the encoder. The margin keeps resampling and rounding from
+// pushing a chunk past the truncation in toMono16k.
+export const CHUNK_SECONDS = MAX_AUDIO_SECONDS - 2
+// The longest clip one transcription takes. Longer input is refused with `truncated: true`, never cut silently.
+export const MAX_CLIP_SECONDS = 120
 
 /** Float samples in [-1, 1] -> 16-bit mono PCM WAV bytes (values outside the range are clamped). */
 export function encodeWav(samples, sampleRate = TARGET_RATE) {
@@ -123,4 +128,63 @@ export function normalizeAudioParts(messages) {
         if (!Array.isArray(message.content)) return message
         return { ...message, content: message.content.map((part) => (part?.type === "audio" ? { ...part, data: normalizeAudioMime(part.data) } : part)) }
     })
+}
+
+const FRAME = 320 // 20 ms at 16 kHz
+const SILENT_RMS = 0.004 // a chunk quieter than this has no speech; Whisper tends to invent text on silence
+
+const rmsOf = (samples, from, to) => {
+    let sum = 0
+    for (let i = from; i < to; i++) sum += samples[i] * samples[i]
+    return to > from ? Math.sqrt(sum / (to - from)) : 0
+}
+
+/**
+ * Splits 16 kHz mono samples into chunks of at most `chunkSeconds`, cutting at the quietest 20 ms frame in the last
+ * `searchSeconds` before each limit so a word is rarely cut in half. Chunks do not overlap (a speech model has no way
+ * to merge two overlapping transcripts, so overlap would repeat words). Pure; no decoding.
+ * -> [{ samples, startSec, endSec, silent }]
+ */
+export function splitAudio(samples, { chunkSeconds = CHUNK_SECONDS, searchSeconds = 4 } = {}) {
+    const limit = Math.floor(chunkSeconds * TARGET_RATE)
+    const search = Math.min(Math.floor(searchSeconds * TARGET_RATE), Math.floor(limit / 2))
+    const chunks = []
+    let start = 0
+    const push = (end) => {
+        const part = samples.subarray(start, end)
+        chunks.push({ samples: part, startSec: start / TARGET_RATE, endSec: end / TARGET_RATE, silent: rmsOf(part, 0, part.length) < SILENT_RMS })
+        start = end
+    }
+    while (samples.length - start > limit) {
+        let cut = start + limit
+        let quietest = Infinity
+        for (let at = start + limit - search; at + FRAME <= start + limit; at += FRAME) {
+            const energy = rmsOf(samples, at, at + FRAME)
+            if (energy < quietest) {
+                quietest = energy
+                cut = at + Math.floor(FRAME / 2)
+            }
+        }
+        push(cut)
+    }
+    if (samples.length > start) push(samples.length)
+    return chunks
+}
+
+/**
+ * Decodes one clip (any format the platform can decode) and returns it as 16 kHz mono WAV chunks, each short enough for
+ * the on-device encoders. -> { chunks: [{ data: "data:audio/wav;base64,...", startSec, endSec, silent }], durationSec,
+ * truncated }. Input longer than `maxSeconds` is cut there and `truncated` is true: the caller must say so.
+ * Throws when the clip cannot be decoded (the caller decides what to do; nothing is swallowed here).
+ */
+export async function prepareAudioChunks(dataUrl, { chunkSeconds = CHUNK_SECONDS, maxSeconds = MAX_CLIP_SECONDS, decode = browserDecode } = {}) {
+    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) throw new Error("Audio must be a base64 data URL")
+    const { channels, sampleRate } = await decode(base64ToBytes(dataUrl.slice(dataUrl.indexOf(",") + 1)))
+    const fullSeconds = channels[0].length / sampleRate
+    const samples = toMono16k(channels, sampleRate, { maxSeconds })
+    const chunks = splitAudio(samples, { chunkSeconds }).map(({ samples: part, ...rest }) => ({
+        ...rest,
+        data: `data:audio/wav;base64,${bytesToBase64(encodeWav(part))}`,
+    }))
+    return { chunks, durationSec: Math.min(fullSeconds, maxSeconds), truncated: fullSeconds > maxSeconds }
 }
