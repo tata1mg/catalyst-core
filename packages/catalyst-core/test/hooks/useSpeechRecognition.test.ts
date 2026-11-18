@@ -11,6 +11,7 @@ const permission = vi.hoisted(() => vi.fn<() => Promise<string | null>>())
 vi.mock("../../src/native/bridge/hooks/microphonePermission.js", () => ({ requestMicrophonePermission: () => permission() }))
 
 import { useSpeechRecognition } from "../../src/native/bridge/hooks/useSpeechRecognition"
+import { resetSpeechBus } from "../../src/native/bridge/hooks/speechBus"
 
 let handlers: Record<string, (data: unknown) => void> = {}
 const webBridge = {
@@ -20,6 +21,7 @@ const webBridge = {
 const emit = (name: string, data: unknown) => act(() => { handlers[name](data) })
 
 beforeEach(() => {
+    resetSpeechBus()
     handlers = {}
     webBridge.register.mockClear()
     webBridge.unregister.mockClear()
@@ -32,6 +34,7 @@ beforeEach(() => {
 })
 afterEach(() => {
     cleanup() // no vitest globals here, so no automatic cleanup
+    resetSpeechBus()
     delete (window as any).WebBridge
     vi.useRealTimers()
 })
@@ -128,27 +131,36 @@ describe("useSpeechRecognition", () => {
         expect(result.current.state).toBe("idle")
     })
 
-    it("accepts events sent as JSON strings, and ignores an empty final", () => {
+    it("accepts events sent as JSON strings, and ignores an empty final", async () => {
         const onFinal = vi.fn()
         const { result } = renderHook(() => useSpeechRecognition({ onFinal }))
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await result.current.start() })
         emit("SPEECH_RECOGNITION_PARTIAL", JSON.stringify({ text: "hello" }))
         expect(result.current.partial).toBe("hello")
         emit("SPEECH_RECOGNITION_FINAL", JSON.stringify({ text: "" }))
         expect(onFinal).not.toHaveBeenCalled()
     })
 
-    it("turns error codes into messages, and stays quiet for a cancel", () => {
+    it("turns error codes into messages and gives the code, and stays quiet for a cancel", async () => {
         const { result } = renderHook(() => useSpeechRecognition({ language: "en-US" }))
-        emit("SPEECH_RECOGNITION_ERROR", { code: "NO_SPEECH", message: "x" })
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        const failWith = async (code: string, message = "x") => {
+            await act(async () => { await result.current.start() }) // an error ends the session, so each one needs its own
+            emit("SPEECH_RECOGNITION_ERROR", { code, message })
+        }
+        await failWith("NO_SPEECH")
         expect(result.current.error).toBe("No speech was heard.")
-        emit("SPEECH_RECOGNITION_ERROR", { code: "LANGUAGE_UNAVAILABLE", message: "x" })
-        expect(result.current.error).toBe("On-device speech recognition is not available for en-US.")
-        emit("SPEECH_RECOGNITION_ERROR", { code: "SOMETHING_NEW", message: "the shell says so" })
+        expect(result.current.errorCode).toBe("NO_SPEECH")
+        await failWith("SOMETHING_NEW", "the shell says so")
         expect(result.current.error).toBe("the shell says so")
+        await act(async () => { await result.current.start() })
         const before = result.current.error
         emit("SPEECH_RECOGNITION_ERROR", { code: "CANCELLED", message: "x" })
         expect(result.current.error).toBe(before)
         expect(result.current.state).toBe("idle")
+        await failWith("LANGUAGE_UNAVAILABLE")
+        expect(result.current.error).toBe("On-device speech recognition is not available for en-US.")
     })
 
     it("a start that fails because the on-device model is missing makes the hook unsupported from then on", async () => {
@@ -193,11 +205,88 @@ describe("useSpeechRecognition", () => {
         expect(onFinal).toHaveBeenCalledWith("fresh words")
     })
 
-    it("unregisters every callback and stops when the page unmounts", () => {
-        const { unmount } = renderHook(() => useSpeechRecognition())
+    it("unregisters every callback when the last user unmounts, and stops the session only if it owned it", async () => {
+        const { result, unmount } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
         expect(Object.keys(handlers)).toHaveLength(5)
+        await act(async () => { await result.current.start() })
         unmount()
         expect(Object.keys(handlers)).toHaveLength(0)
-        expect(bridge.speech.stop).toHaveBeenCalled()
+        expect(bridge.speech.stop).toHaveBeenCalledTimes(1)
+    })
+
+    it("an unmount with no session running does not stop the shell", () => {
+        const { unmount } = renderHook(() => useSpeechRecognition())
+        unmount()
+        expect(bridge.speech.stop).not.toHaveBeenCalled()
+    })
+})
+
+describe("two components using speech recognition at once", () => {
+    it("share one subscription: the shell is asked once and registered once", () => {
+        renderHook(() => useSpeechRecognition())
+        renderHook(() => useSpeechRecognition())
+        expect(webBridge.register).toHaveBeenCalledTimes(5)
+        expect(bridge.speech.getSupport).toHaveBeenCalledTimes(1)
+    })
+
+    it("a support reply reaches both, and a second one mounting later gets the answer without asking again", () => {
+        const first = renderHook(() => useSpeechRecognition())
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        expect(first.result.current.supported).toBe(true)
+        expect(second.result.current.supported).toBe(true)
+        const third = renderHook(() => useSpeechRecognition())
+        expect(third.result.current.supported).toBe(true)
+        expect(bridge.speech.getSupport).toHaveBeenCalledTimes(1)
+    })
+
+    it("session events go only to the one that started it", async () => {
+        const first = renderHook(() => useSpeechRecognition())
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await first.result.current.start() })
+        emit("SPEECH_RECOGNITION_PARTIAL", { text: "only for the first" })
+        emit("SPEECH_RECOGNITION_FINAL", { text: "only for the first, done" })
+        expect(first.result.current.text).toBe("only for the first, done")
+        expect(second.result.current.partial).toBe("")
+        expect(second.result.current.text).toBe("")
+    })
+
+    it("a second one cannot start while the first has a session (BUSY), and the first is not disturbed", async () => {
+        const first = renderHook(() => useSpeechRecognition())
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await first.result.current.start() })
+        bridge.speech.start.mockClear()
+        await act(async () => { await second.result.current.start() })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+        expect(second.result.current.errorCode).toBe("BUSY")
+        emit("SPEECH_RECOGNITION_PARTIAL", { text: "still the first" })
+        expect(first.result.current.partial).toBe("still the first")
+    })
+
+    it("one unmounting does not unregister the callbacks or stop the other's session", async () => {
+        const first = renderHook(() => useSpeechRecognition())
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await first.result.current.start() })
+        second.unmount()
+        expect(Object.keys(handlers)).toHaveLength(5)
+        expect(bridge.speech.stop).not.toHaveBeenCalled()
+        emit("SPEECH_RECOGNITION_FINAL", { text: "still delivered" })
+        expect(first.result.current.text).toBe("still delivered")
+    })
+
+    it("once the session ends (idle), another component may start its own", async () => {
+        const first = renderHook(() => useSpeechRecognition())
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await first.result.current.start() })
+        emit("SPEECH_RECOGNITION_FINAL", { text: "done" })
+        emit("SPEECH_RECOGNITION_STATE", { state: "idle" })
+        await act(async () => { await second.result.current.start() })
+        expect(second.result.current.errorCode).toBeNull()
+        expect(bridge.speech.start).toHaveBeenCalledTimes(2)
     })
 })

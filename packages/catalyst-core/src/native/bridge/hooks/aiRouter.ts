@@ -30,6 +30,12 @@ export function tasksFromModalities(modalities: Modality[]): Task[] {
 /** Chrome's built-in model (Prompt API), as reported by LanguageModel.availability(). */
 export type PromptApiState = "unavailable" | "downloadable" | "downloading" | "available"
 export const PROMPT_API = "prompt-api"
+/**
+ * The phone's own speech recogniser (Android SpeechRecognizer, iOS SFSpeechRecognizer). It listens to the live microphone,
+ * so it can only serve speech.transcribe for a caller that is listening (useTranscribe.listen), never a call that hands
+ * over a recorded clip. generate() leaves it out; see withoutLiveEngines.
+ */
+export const PLATFORM_SPEECH = "platform-speech"
 export type CloudPolicy = "allow" | "ask" | "deny"
 export type Objective = "balanced" | "cost" | "latency" | "speed" | "order"
 
@@ -51,7 +57,7 @@ export interface Candidate {
     id: string
     target: Target
     mode: "native" | "local" | "cloud"
-    /** On-device: native engine ("litert" | "foundation-models"); in a browser "prompt-api" (Chrome's built-in model) or omitted (Transformers.js). */
+    /** On-device: native engine ("litert" | "foundation-models" | "platform-speech"); in a browser "prompt-api" (Chrome's built-in model) or omitted (Transformers.js). */
     engine?: string
     model?: string
     modelPath?: string
@@ -99,6 +105,11 @@ export interface Signals {
     loadedId?: string | null
     /** Chrome Prompt API availability (desktop Chrome). Undefined = not checked, treated as unavailable. */
     promptApi?: PromptApiState
+    /**
+     * The shell can recognise speech on the device (the support reply of the platform recogniser). Undefined = not known,
+     * treated as unavailable. This is separate from nativeAvailable, which is about the native AI plugin.
+     */
+    platformSpeech?: boolean
     /** Providers the server has keys for. Undefined = unknown, assume all configured. */
     cloudProviders?: string[]
 }
@@ -155,6 +166,41 @@ const DEFAULT_TTFT_MS = 1500
 const DEFAULT_TPS = 15
 const DEFAULT_LOAD_MS = 8000
 
+/** The recogniser loads no model and answers as you speak, so it is quick and has nothing to download or switch to. */
+const PLATFORM_SPEECH_PRIORS = { ttftMs: 300, tps: 100 }
+
+export const isLiveEngine = (c: Pick<Candidate, "engine">) => c.engine === PLATFORM_SPEECH
+
+/** generate() hands a model a recorded clip; an engine that only listens live cannot take one, so it is never a choice there. */
+export const withoutLiveEngines = (candidates: Candidate[]): Candidate[] => candidates.filter((c) => !isLiveEngine(c))
+
+/**
+ * The candidates for a caller that is listening live (useTranscribe.listen): the configured ones, plus the platform
+ * recogniser first on iOS and Android unless the config lists its own entry (to place it) or turns it off with
+ * `routing.platformSpeech: false`. It is never added in a browser. Opt out is one line, because it keeps voice on the phone.
+ */
+export function withPlatformSpeech(candidates: Candidate[], platform: Platform, raw: any = null): Candidate[] {
+    if (isWebPlatform(platform) || raw?.platformSpeech === false) return candidates
+    if (candidates.some(isLiveEngine)) return candidates
+    return [
+        {
+            id: PLATFORM_SPEECH, target: "onDevice", mode: "native", engine: PLATFORM_SPEECH, modalities: ["audio"],
+            tasks: ["speech.transcribe"], priors: { ...PLATFORM_SPEECH_PRIORS, loadMs: 0 },
+        },
+        ...candidates,
+    ]
+}
+
+/**
+ * Policy and candidates for one call. `live` is a caller that listens to the microphone itself (it may get the platform
+ * recogniser); any other call, which hands a model a recorded clip, never sees a live-only engine, even if the config
+ * lists one first.
+ */
+export function routingFor(raw: any, platform: Platform, override: any, live: boolean, warn?: (m: string) => void) {
+    const normalized = normalizeRouting(raw, platform, override, warn)
+    return { policy: normalized.policy, candidates: live ? withPlatformSpeech(normalized.candidates, platform, raw) : withoutLiveEngines(normalized.candidates) }
+}
+
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined)
 
 function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m: string) => void): Candidate | null {
@@ -189,6 +235,17 @@ function normalizeCandidate(raw: any, target: Target, platform: string, warn: (m
         return { id: raw.id, target, mode: "cloud", provider: raw.provider, model: raw.model, modalities, tasks, priors, price }
     }
     const web = isWebPlatform(platform)
+    // The phone's recogniser exists only inside an app, and only for transcribing: whatever the entry lists is overridden.
+    if (raw.engine === PLATFORM_SPEECH) {
+        if (web) {
+            warn(`routing: "${raw.id}" uses the platform speech recogniser, which only exists in the iOS and Android apps; dropped from ${platform}`)
+            return null
+        }
+        return {
+            id: raw.id, target, mode: "native", engine: PLATFORM_SPEECH, modalities: ["audio"], tasks: ["speech.transcribe"],
+            priors: { ttftMs: priors.ttftMs ?? PLATFORM_SPEECH_PRIORS.ttftMs, tps: priors.tps ?? PLATFORM_SPEECH_PRIORS.tps, loadMs: 0 },
+        }
+    }
     // Chrome's built-in model is a desktop-only candidate: phones and tablets do not get it.
     if (web && raw.engine === PROMPT_API && platform === "web-mobile") {
         warn(`routing: "${raw.id}" uses the Chrome Prompt API, which is desktop-only; dropped from web-mobile`)
@@ -280,7 +337,7 @@ export function estimate(c: Candidate, policy: Policy, observed: Observed | unde
     let ttft = blend(c.priors.ttftMs, observed?.ttftMs, DEFAULT_TTFT_MS)
     const tps = Math.max(0.1, blend(c.priors.tps, observed?.tps, DEFAULT_TPS))
     // Switching on-device models re-initialises the engine, so a model that is not loaded pays its load time.
-    if (c.target === "onDevice" && loadedId !== c.id) ttft += c.priors.loadMs ?? DEFAULT_LOAD_MS
+    if (c.target === "onDevice" && loadedId !== c.id) ttft += c.priors.loadMs ?? (isLiveEngine(c) ? 0 : DEFAULT_LOAD_MS)
     const latencyMs = ttft + (policy.expectedOutputTokens / tps) * 1000
     const costUsd = c.price
         ? (policy.expectedInputTokens / 1e6) * c.price.input + (policy.expectedOutputTokens / 1e6) * c.price.output
@@ -328,7 +385,7 @@ export function rankCandidates(candidates: Candidate[], order: string[]): Map<st
 
 /** The load time estimate() adds for this candidate (0 when it is the model already loaded). */
 function loadMsOf(c: Candidate, signals: Signals): number {
-    return c.target === "onDevice" && signals.loadedId !== c.id ? (c.priors.loadMs ?? DEFAULT_LOAD_MS) : 0
+    return c.target === "onDevice" && signals.loadedId !== c.id ? (c.priors.loadMs ?? (isLiveEngine(c) ? 0 : DEFAULT_LOAD_MS)) : 0
 }
 
 export function chooseCandidate(
@@ -351,7 +408,10 @@ export function chooseCandidate(
         if (!c.tasks.includes(task)) { skipped.push({ id: c.id, why: `does not do ${task}` }); continue }
         const miss = modalities.find((m) => !c.modalities.includes(m))
         if (miss) { skipped.push({ id: c.id, why: `no ${miss} support` }); continue }
-        if (c.mode === "native" && !signals.nativeAvailable) { skipped.push({ id: c.id, why: "native bridge unavailable" }); continue }
+        if (isLiveEngine(c)) {
+            // Its own availability: the shell's speech support reply, not the native AI plugin (nativeAvailable).
+            if (signals.platformSpeech !== true) { skipped.push({ id: c.id, why: "platform speech recognition unavailable" }); continue }
+        } else if (c.mode === "native" && !signals.nativeAvailable) { skipped.push({ id: c.id, why: "native bridge unavailable" }); continue }
         if (c.mode === "local" && c.engine === PROMPT_API) {
             // Chrome owns the model and its download; there is no WebGPU requirement.
             const state = signals.promptApi ?? "unavailable"

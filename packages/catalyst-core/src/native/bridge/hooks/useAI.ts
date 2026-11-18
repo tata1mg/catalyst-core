@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolveRoutingPlatform } from "./aiProviders.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
-import { chooseCandidate, DEFAULT_TASK, isTask, normalizeRouting, recordObserved } from "./aiRouter.js"
+import { chooseCandidate, DEFAULT_TASK, isTask, recordObserved, routingFor } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
 function getBrowserConfig() {
@@ -194,10 +194,14 @@ export function useAI(options: any = {}) {
     }
 
     if (auto) {
-        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
-        const generate = async (args: any, consent: Consent = {}) => {
+        // The routing decision for one call: availability, privacy, preference. `live` is for a caller that listens to the
+        // microphone itself (useTranscribe.listen): it may be given the phone's speech recogniser, which cannot take a
+        // recorded clip, so generate() never sees it. `extra` lets that caller report what only it knows (the shell's speech
+        // support), because this hook must not subscribe to the shell itself.
+        const decideFor = async (args: any, consent: Consent, live: boolean, extra: Partial<Signals> = {}): Promise<RouteDecision> => {
             const platform = detectPlatform()
-            const { policy, candidates } = normalizeRouting(getRoutingConfig(), platform, options.routing)
+            const rawRouting = getRoutingConfig()
+            const { policy, candidates } = routingFor(rawRouting, platform, options.routing, live)
             const priceOf = (model: string) => _pkg.lookupPricing?.(model) ?? _pkg.PRICING?.[model]
             const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && priceOf(c.model) ? { ...c, price: priceOf(c.model) } : c))
             const signals: Signals = {
@@ -208,10 +212,19 @@ export function useAI(options: any = {}) {
                 webModelLoaded: !!webResult.modelReady,
                 promptApi: priced.some((c) => c.engine === "prompt-api") ? await _pkg.getPromptApiAvailability?.() : undefined,
                 loadedId: loadedId.current,
+                ...extra,
             }
             observed.current = observed.current || loadObserved()
             const pool = consent.pin ? priced.filter((c) => c.id === consent.pin) : priced
-            const decision = chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
+            return chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
+        }
+
+        // Which engine would serve this call, without running it. Reads and writes nothing (no route state, no switch).
+        const decide = (args: any, consent: Consent = {}, extra: Partial<Signals> = {}) => decideFor(args, consent, true, extra)
+
+        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
+        const generate = async (args: any, consent: Consent = {}) => {
+            const decision = await decideFor(args, consent, false)
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
@@ -231,7 +244,7 @@ export function useAI(options: any = {}) {
                 setSelected(chosen)
             })
         }
-        return { ...active, unload: active.unload ?? (() => {}), generate, route, generateWithConsent: generate }
+        return { ...active, unload: active.unload ?? (() => {}), decide, generate, route, generateWithConsent: generate }
     }
 
     // unload() frees an in-browser model from GPU/RAM; the other engines hold nothing in the page, so it is a no-op there.

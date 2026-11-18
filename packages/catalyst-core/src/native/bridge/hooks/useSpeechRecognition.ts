@@ -1,35 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import nativeBridge from "../utils/NativeBridge.js"
-import { NATIVE_CALLBACKS } from "../constants/NativeInterfaces.js"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { requestMicrophonePermission } from "./microphonePermission.js"
+import { inApp, requestSupport, startSession, stopSession, subscribe } from "./speechBus.js"
+import type { SpeechListener, SpeechSupportReply } from "./speechBus.js"
 
 // Speech to text by the phone's own recognizer (Android SpeechRecognizer, iOS SFSpeechRecognizer), inside the app only.
 // Recognition is on-device: when a language has no on-device model the shell refuses with ON_DEVICE_UNAVAILABLE and
 // nothing is sent to a server. The result has the same shape as useLiveTranscribe, so a page can use either.
+//
+// Any number of components may use this hook at once: they share one subscription to the shell (see speechBus), and the
+// session's events go only to the one that started it.
 
 export type SpeechState = "idle" | "starting" | "listening"
 
 /** What the shell reports for a language: can it recognise it without leaving the device. */
-export interface SpeechSupport {
-    available: boolean
-    onDevice: boolean
-    language: string
-    /** Whether the language's model is on the device now. */
-    installed?: boolean
-    /** Why it is not available: ON_DEVICE_UNAVAILABLE, LANGUAGE_UNAVAILABLE, PERMISSION_DENIED, ANDROID_VERSION or NO_RESPONSE. */
-    reason?: string
-}
+export type SpeechSupport = SpeechSupportReply
 
 export interface UseSpeechRecognitionOptions {
     /** BCP 47 tag, default "en-US". */
     language?: string
     /** Called with the final text when a session ends. */
     onFinal?: (text: string) => void
+    /** Called with the shell's error code (NO_SPEECH, ON_DEVICE_UNAVAILABLE, PERMISSION_DENIED, ...) when a session fails. */
+    onError?: (code: string) => void
+    /** Called with each partial text while listening (before onFinal). */
+    onPartial?: (text: string) => void
+    /** Called when a session ends with its final text, which is empty when nothing was recognised (onFinal skips that). */
+    onEnd?: (text: string) => void
+}
+
+/** What start() reports: the request went to the shell, or why it could not (the same codes as `errorCode`). */
+export interface SpeechStartResult {
+    started: boolean
+    code?: string
 }
 
 export interface UseSpeechRecognitionResult {
     /** Starts listening. Asks for the microphone first; the recognizer ends by itself after a pause. */
-    start: () => Promise<void>
+    start: () => Promise<SpeechStartResult>
     /** Ends the session; the final text for what was heard then arrives. */
     stop: () => void
     /** Ends the session and drops what was heard. */
@@ -44,6 +51,8 @@ export interface UseSpeechRecognitionResult {
     level: number
     seconds: number
     error: string | null
+    /** The shell's code for `error` (e.g. NO_SPEECH), or null. */
+    errorCode: string | null
     /** null until the shell has answered; false in a browser, in an app without the command, or when the language cannot be recognised on the device. */
     supported: boolean | null
     support: SpeechSupport | null
@@ -51,7 +60,7 @@ export interface UseSpeechRecognitionResult {
 
 const SUPPORT_WAIT_MS = 5000
 
-const ERROR_TEXT: Record<string, (language: string) => string> = {
+export const SPEECH_ERROR_TEXT: Record<string, (language: string) => string> = {
     PERMISSION_DENIED: () => "Microphone or speech recognition permission was denied.",
     ON_DEVICE_UNAVAILABLE: () => "On-device speech recognition is not available on this device.",
     LANGUAGE_UNAVAILABLE: (language) => `On-device speech recognition is not available for ${language}.`,
@@ -60,17 +69,6 @@ const ERROR_TEXT: Record<string, (language: string) => string> = {
     AUDIO: () => "The microphone could not be used.",
 }
 
-const parse = (data: unknown): any => {
-    if (typeof data !== "string") return data ?? {}
-    try {
-        return JSON.parse(data)
-    } catch {
-        return {}
-    }
-}
-
-const inApp = () => typeof window !== "undefined" && !!(window as any).WebBridge && nativeBridge.isAvailable()
-
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}): UseSpeechRecognitionResult {
     const { language = "en-US" } = options
     const [state, setState] = useState<SpeechState>("idle")
@@ -78,87 +76,95 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
     const [text, setText] = useState("")
     const [seconds, setSeconds] = useState(0)
     const [error, setError] = useState<string | null>(null)
+    const [errorCode, setErrorCode] = useState<string | null>(null)
     const [support, setSupport] = useState<SpeechSupport | null>(null)
     const [supported, setSupported] = useState<boolean | null>(null)
     const onFinal = useRef(options.onFinal)
     onFinal.current = options.onFinal
+    const onError = useRef(options.onError)
+    onError.current = options.onError
+    const onPartial = useRef(options.onPartial)
+    onPartial.current = options.onPartial
+    const onEnd = useRef(options.onEnd)
+    onEnd.current = options.onEnd
     const discard = useRef(false)
     const languageRef = useRef(language)
     languageRef.current = language
+    const supportedRef = useRef<boolean | null>(null)
+    const supportRef = useRef<SpeechSupport | null>(null)
+    const supportTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+    const markSupport = useCallback((reply: SpeechSupport) => {
+        supportRef.current = reply
+        supportedRef.current = !!reply.available
+        setSupport(reply)
+        setSupported(!!reply.available)
+    }, [])
+
+    // This hook's side of the shared subscription: only what is addressed to it arrives here.
+    const listener = useMemo<SpeechListener>(
+        () => ({
+            language: () => languageRef.current,
+            onSupport: (reply) => {
+                // A reply (now, or cached from another subscriber) ends the wait for one.
+                clearTimeout(supportTimer.current)
+                markSupport(reply)
+            },
+            onState: (next) => {
+                if (next === "listening") setState("listening")
+                if (next === "idle") setState("idle")
+            },
+            onPartial: (partialText) => {
+                if (discard.current) return
+                setPartial(partialText)
+                onPartial.current?.(partialText)
+            },
+            onFinal: (finalText) => {
+                setPartial("")
+                if (discard.current) {
+                    discard.current = false
+                    return
+                }
+                setText(finalText)
+                if (finalText) onFinal.current?.(finalText)
+                onEnd.current?.(finalText)
+            },
+            onError: (code, message) => {
+                setState("idle")
+                setPartial("")
+                if (code === "CANCELLED") return
+                // The support check cannot see everything (the iOS Simulator reports en-US as available but has no model
+                // files), so a failed start is the truth: stop offering it, the same as if the support check had said no.
+                if (code === "ON_DEVICE_UNAVAILABLE" || code === "LANGUAGE_UNAVAILABLE") {
+                    markSupport({ available: false, onDevice: false, language: languageRef.current, reason: code })
+                }
+                setErrorCode(code)
+                setError((SPEECH_ERROR_TEXT[code] ?? (() => String(message || "Speech recognition failed.")))(languageRef.current))
+                onError.current?.(code)
+            },
+        }),
+        [markSupport]
+    )
 
     useEffect(() => {
         if (!inApp()) {
             setSupported(false)
             return
         }
-        const bridge = (window as any).WebBridge
-        let answered = false
-        const timer = setTimeout(() => {
-            if (!answered) {
-                // A shell built before the command existed (iOS stays silent) never answers.
-                setSupport({ available: false, onDevice: false, language, reason: "NO_RESPONSE" })
-                setSupported(false)
-            }
+        const unsubscribe = subscribe(listener)
+        // A shell built before the command existed (iOS stays silent) never answers.
+        supportTimer.current = setTimeout(() => {
+            markSupport({ available: false, onDevice: false, language, reason: "NO_RESPONSE" })
         }, SUPPORT_WAIT_MS)
-
-        bridge.register(NATIVE_CALLBACKS.SPEECH_RECOGNITION_SUPPORT, (data: unknown) => {
-            answered = true
-            clearTimeout(timer)
-            const reply = parse(data) as SpeechSupport
-            setSupport(reply)
-            setSupported(!!reply.available)
-        })
-        bridge.register(NATIVE_CALLBACKS.SPEECH_RECOGNITION_STATE, (data: unknown) => {
-            const next = parse(data).state
-            if (next === "listening") setState("listening")
-            if (next === "idle") setState("idle")
-        })
-        bridge.register(NATIVE_CALLBACKS.SPEECH_RECOGNITION_PARTIAL, (data: unknown) => {
-            if (!discard.current) setPartial(String(parse(data).text ?? ""))
-        })
-        bridge.register(NATIVE_CALLBACKS.SPEECH_RECOGNITION_FINAL, (data: unknown) => {
-            setPartial("")
-            if (discard.current) {
-                discard.current = false
-                return
-            }
-            const finalText = String(parse(data).text ?? "")
-            setText(finalText)
-            if (finalText) onFinal.current?.(finalText)
-        })
-        bridge.register(NATIVE_CALLBACKS.SPEECH_RECOGNITION_ERROR, (data: unknown) => {
-            const { code, message } = parse(data)
-            setState("idle")
-            setPartial("")
-            if (code === "CANCELLED") return
-            // The support check cannot see everything (the iOS Simulator reports en-US as available but has no model files),
-            // so a failed start is the truth: stop offering it, the same as if the support check had said no.
-            if (code === "ON_DEVICE_UNAVAILABLE" || code === "LANGUAGE_UNAVAILABLE") {
-                setSupported(false)
-                setSupport({ available: false, onDevice: false, language: languageRef.current, reason: code })
-            }
-            setError((ERROR_TEXT[code] ?? (() => String(message || "Speech recognition failed.")))(languageRef.current))
-        })
-
-        try {
-            nativeBridge.speech.getSupport(JSON.stringify({ language }))
-        } catch {
-            clearTimeout(timer)
+        if (!requestSupport(listener)) {
+            clearTimeout(supportTimer.current)
             setSupported(false)
         }
         return () => {
-            clearTimeout(timer)
-            for (const name of [
-                NATIVE_CALLBACKS.SPEECH_RECOGNITION_SUPPORT,
-                NATIVE_CALLBACKS.SPEECH_RECOGNITION_STATE,
-                NATIVE_CALLBACKS.SPEECH_RECOGNITION_PARTIAL,
-                NATIVE_CALLBACKS.SPEECH_RECOGNITION_FINAL,
-                NATIVE_CALLBACKS.SPEECH_RECOGNITION_ERROR,
-            ]) {
-                bridge.unregister?.(name)
-            }
+            clearTimeout(supportTimer.current)
+            unsubscribe()
         }
-    }, [language])
+    }, [language, listener, markSupport])
 
     // Whole seconds of the session, for a "● 12s" label.
     useEffect(() => {
@@ -169,16 +175,23 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         return () => clearInterval(timer)
     }, [state])
 
-    const start = useCallback(async () => {
-        if (!inApp()) {
-            setError("Speech recognition by the phone is only available inside the app.")
-            return
+    const start = useCallback(async (): Promise<SpeechStartResult> => {
+        const refuse = (code: string, message: string): SpeechStartResult => {
+            setState("idle")
+            setErrorCode(code)
+            setError(message)
+            return { started: false, code }
         }
-        if (supported === false) {
-            setError(ERROR_TEXT[support?.reason ?? ""]?.(languageRef.current) ?? "This device cannot recognise speech on the device.")
-            return
+        if (!inApp()) return refuse("UNSUPPORTED", "Speech recognition by the phone is only available inside the app.")
+        if (supportedRef.current === false) {
+            const reason = supportRef.current?.reason ?? ""
+            return refuse(
+                reason || "ON_DEVICE_UNAVAILABLE",
+                SPEECH_ERROR_TEXT[reason]?.(languageRef.current) ?? "This device cannot recognise speech on the device."
+            )
         }
         setError(null)
+        setErrorCode(null)
         setText("")
         setPartial("")
         discard.current = false
@@ -186,35 +199,42 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         try {
             await requestMicrophonePermission()
         } catch {
-            setState("idle")
-            setError(ERROR_TEXT.PERMISSION_DENIED(languageRef.current))
-            return
+            return refuse("PERMISSION_DENIED", SPEECH_ERROR_TEXT.PERMISSION_DENIED(languageRef.current))
         }
         try {
+            const started = startSession(listener)
+            if (started === "busy") return refuse("BUSY", SPEECH_ERROR_TEXT.BUSY(languageRef.current))
             // false = the shell has no such method (an app built before the command existed).
-            if (nativeBridge.speech.start(JSON.stringify({ language: languageRef.current })) === false) {
-                setState("idle")
-                setError("This version of the app cannot recognise speech yet.")
-            }
+            if (started === false) return refuse("UNSUPPORTED", "This version of the app cannot recognise speech yet.")
+            return { started: true }
         } catch (err) {
-            setState("idle")
-            setError(String((err as Error)?.message || err))
+            return refuse("UNKNOWN", String((err as Error)?.message || err))
         }
-    }, [supported, support])
+    }, [listener])
 
     const stop = useCallback(() => {
-        if (inApp()) nativeBridge.speech.stop()
-    }, [])
+        if (inApp()) stopSession(listener)
+    }, [listener])
 
     const cancel = useCallback(() => {
         discard.current = true
         setPartial("")
-        if (inApp()) nativeBridge.speech.stop()
-    }, [])
+        if (inApp()) stopSession(listener)
+    }, [listener])
 
-    useEffect(() => () => {
-        if (inApp()) nativeBridge.speech.stop()
-    }, [])
-
-    return { start, stop, cancel, state, listening: state === "listening", partial, text, level: 0, seconds, error, supported, support }
+    return {
+        start,
+        stop,
+        cancel,
+        state,
+        listening: state === "listening",
+        partial,
+        text,
+        level: 0,
+        seconds,
+        error,
+        errorCode,
+        supported,
+        support,
+    }
 }
