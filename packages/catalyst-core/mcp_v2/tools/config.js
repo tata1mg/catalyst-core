@@ -608,6 +608,9 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
         return err("AI_CONFIG.routing", "AI_CONFIG.routing must be an object with policy, onDevice and cloud.")
     }
     const before = issues.length
+    if (routing.platformSpeech !== undefined && typeof routing.platformSpeech !== "boolean") {
+        err("AI_CONFIG.routing.platformSpeech", "platformSpeech must be true or false. Set it to false to stop useTranscribe().listen() using the phone's own speech recogniser.")
+    }
     const policy = routing.policy || {}
     if (policy.objective !== undefined && !ROUTING_OBJECTIVES.includes(policy.objective)) {
         err("AI_CONFIG.routing.policy.objective", `Unknown objective "${policy.objective}". Use ${ROUTING_OBJECTIVES.join(", ")}.`)
@@ -649,17 +652,26 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
                 else if (!providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
             } else if (platformKey && platformKey.startsWith("web")) {
                 // In a browser: Transformers.js (default) or Chrome's built-in model.
-                if (m.engine !== undefined && !["transformers", "prompt-api"].includes(m.engine)) {
+                if (m.engine === "platform-speech") {
+                    warn(`${at}.engine`, "platform-speech is the phone's own speech recogniser and only exists in the iOS and Android apps; this browser entry is dropped and will never run.")
+                } else if (m.engine !== undefined && !["transformers", "prompt-api"].includes(m.engine)) {
                     err(`${at}.engine`, `Unknown web engine "${m.engine}". Use prompt-api (Chrome's built-in model) or transformers.`)
                 } else if (m.engine === "prompt-api" && platformKey === "web-mobile") {
                     warn(`${at}.engine`, "prompt-api is desktop-only; this web-mobile entry is dropped and will never run.")
                 } else if (m.engine === "prompt-api" && Array.isArray(m.modalities) && m.modalities.some((x) => x !== "text")) {
                     warn(`${at}.modalities`, "Chrome's built-in model takes text only here; image/audio calls will not be routed to it correctly.")
                 }
-            } else if (m.engine !== undefined && !["auto", "litert", "foundation-models"].includes(m.engine)) {
-                err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert or foundation-models.`)
+            } else if (m.engine !== undefined && !["auto", "litert", "foundation-models", "platform-speech"].includes(m.engine)) {
+                err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert, foundation-models or platform-speech (the phone's own speech recogniser).`)
             } else if (m.engine === "foundation-models" && platformKey === "android") {
                 warn(`${at}.engine`, "foundation-models is iOS-only; this Android entry will never run.")
+            } else if (m.engine === "platform-speech") {
+                // It listens to the live microphone and only transcribes: whatever the entry lists is replaced.
+                const onlyAudio = !Array.isArray(m.modalities) || (m.modalities.length === 1 && m.modalities[0] === "audio")
+                const onlyTranscribe = !Array.isArray(m.tasks) || (m.tasks.length === 1 && m.tasks[0] === "speech.transcribe")
+                if (!onlyAudio || !onlyTranscribe) {
+                    warn(`${at}`, "platform-speech always means audio in and speech.transcribe only; the modalities and tasks listed here are ignored. It is only used by useTranscribe().listen(), never by generate().")
+                }
             }
             candidates.push({ id: m.id, group, where: at })
         })

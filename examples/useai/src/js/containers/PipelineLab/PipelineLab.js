@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
-import { useAI, useTranscribe, useSpeechRecognition, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
+import { useAI, useTranscribe, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
 // Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
@@ -169,16 +169,33 @@ export default function PipelineLab() {
             activeText.run(finalText, { cloudPolicy: "allow" }) // the checkbox is the consent for this run
         },
     })
-    // Inside the app the phone's own recognizer can do this step: on-device only, so no consent is needed and nothing is sent anywhere.
-    const speech = useSpeechRecognition({
-        onFinal: (finalText) => {
-            setLiveText(finalText)
-            setPickError(null)
-            activeText.run(finalText, deviceOverrides)
-        },
-    })
-    const nativeSpeech = onDevice && speech.supported === true
-    const liveSrc = nativeSpeech ? speech : live
+    // On the device, voice goes through useTranscribe().listen(): the router picks the engine. Inside the app that is the phone's
+    // own recogniser (on-device, partial text as you talk, no model to load); if it cannot run, a recording goes to the
+    // on-device model instead. The cloud is denied outright, so a voice never leaves the phone from here.
+    const voice = useTranscribe({ routing: { cloud: "deny", cloudMedia: "deny" } })
+    const nativeSpeech = onDevice && voice.platformSpeech === true
+    const listenAndRun = async () => {
+        const heardIt = await voice.listen()
+        if (!heardIt) return
+        setLiveText(heardIt.text)
+        setPickError(null)
+        activeText.run(heardIt.text, deviceOverrides)
+    }
+    const liveSrc = nativeSpeech
+        ? {
+              listening: voice.listening,
+              state: voice.status === "running" ? "starting" : voice.listening ? "listening" : "idle",
+              text: voice.text,
+              partial: voice.partial,
+              error:
+                  voice.error?.message ??
+                  (voice.status === "denied" || voice.status === "needs-consent"
+                      ? "Nothing on this phone can take your voice here, and the cloud is turned off for it."
+                      : null),
+              start: listenAndRun,
+              stop: voice.stopListening,
+          }
+        : live
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -226,7 +243,7 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-2">
                 {[["cloud", "☁️ Cloud models"], ["device", "📱 On-device models"]].map(([key, label]) => (
-                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); speech.cancel(); if (key === "device" && mode === "live" && !speech.supported) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
+                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); voice.cancel(); if (key === "device" && mode === "live" && !voice.platformSpeech) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
                         {label}
                     </button>
                 ))}
@@ -262,8 +279,8 @@ export default function PipelineLab() {
             )}
 
             <div className="flex gap-2 mb-4">
-                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !speech.supported)).map((m) => (
-                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); speech.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
+                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !voice.platformSpeech)).map((m) => (
+                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); voice.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
                         {m === "live" ? (onDevice ? "Speak live (on this phone)" : "Speak live (streaming)") : m === "voice" ? "Record, then send" : `Start from ${m}`}
                     </button>
                 ))}
@@ -304,7 +321,7 @@ export default function PipelineLab() {
                         disabled={running || liveSrc.state === "connecting" || liveSrc.state === "starting" || liveSrc.state === "finishing" || (!liveSrc.listening && !nativeSpeech && !voiceConsent)}
                         className={`${chip} text-[14px] px-5 py-3 ${liveSrc.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
                     >
-                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? `● Live ${liveSrc.seconds}s (click to finish)` : "🎙 Start live"}
+                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? (nativeSpeech ? "● Listening… (click to finish)" : `● Live ${liveSrc.seconds}s (click to finish)`) : "🎙 Start live"}
                     </button>
                     {liveSrc.listening && !nativeSpeech && (
                         <div className="mt-2 h-2 w-full rounded bg-neutral-800 overflow-hidden">
