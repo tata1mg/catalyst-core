@@ -144,6 +144,7 @@ class NativeBridge(
 
     private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
+    private lateinit var microphonePermissionLauncher: ActivityResultLauncher<String>
     private lateinit var filePickerLauncher: ActivityResultLauncher<Intent>
     private var currentFilePickerOptions: FilePickerOptions = FilePickerOptions()
     private val isGoogleSignInInProgress = AtomicBoolean(false)
@@ -282,6 +283,7 @@ class NativeBridge(
 
             initializeCameraLauncher()
             initializePermissionLauncher()
+            initializeMicrophonePermissionLauncher()
             initializeFilePickerLauncher()
 
             // Initialize FrameworkServer for large file handling
@@ -409,6 +411,23 @@ class NativeBridge(
         BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.CAMERA_PERMISSION_STATUS, "request camera permission") {
             mainActivity.runOnUiThread {
                 requestCameraPermissionAndLaunch(false)
+            }
+        }
+    }
+
+    /**
+     * Asks for RECORD_AUDIO so the page can record with getUserMedia({ audio }). Answers through
+     * MICROPHONE_PERMISSION_STATUS ("GRANTED" / "DENIED"), at once when the permission is already held.
+     */
+    @JavascriptInterface
+    fun requestMicrophonePermission(config: String?) {
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.MICROPHONE_PERMISSION_STATUS, "request microphone permission") {
+            mainActivity.runOnUiThread {
+                if (MicrophoneUtils.hasMicrophonePermission(mainActivity)) {
+                    MicrophoneUtils.handlePermissionResult(webView, true)
+                } else {
+                    microphonePermissionLauncher.launch(MicrophoneUtils.MICROPHONE_PERMISSION)
+                }
             }
         }
     }
@@ -799,6 +818,14 @@ class NativeBridge(
             } else null
             
             CameraUtils.handlePermissionResult(webView, isGranted, onPermissionGranted)
+        }
+    }
+
+    private fun initializeMicrophonePermissionLauncher() {
+        microphonePermissionLauncher = mainActivity.registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            MicrophoneUtils.handlePermissionResult(webView, isGranted)
         }
     }
 

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+const permission = vi.fn<() => Promise<string | null>>()
+vi.mock("../../src/native/bridge/hooks/microphonePermission.js", () => ({ requestMicrophonePermission: () => permission() }))
+
 import { useMicrophone } from "../../src/native/bridge/hooks/useMicrophone"
 
 afterEach(() => {
@@ -25,6 +28,7 @@ const stream = { getTracks: () => [track] }
 
 beforeEach(() => {
     track.stop.mockReset()
+    permission.mockReset().mockResolvedValue(null)
     vi.stubGlobal("MediaRecorder", FakeRecorder)
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn().mockResolvedValue(stream) } })
 })
@@ -86,5 +90,23 @@ describe("useMicrophone", () => {
         await act(async () => { await result.current.start() })
         unmount()
         expect(track.stop).toHaveBeenCalled()
+    })
+
+    it("asks the native shell for the microphone before it opens it, and does not open it when refused", async () => {
+        permission.mockRejectedValueOnce(new Error("Microphone permission denied"))
+        const { result } = renderHook(() => useMicrophone())
+        await act(async () => { await result.current.start() })
+        expect(permission).toHaveBeenCalledTimes(1)
+        expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+        expect(result.current.error).toBe("Microphone permission was denied.")
+        expect(result.current.listening).toBe(false)
+    })
+
+    it("opens the microphone once the shell has granted it", async () => {
+        permission.mockResolvedValueOnce("GRANTED")
+        const { result } = renderHook(() => useMicrophone())
+        await act(async () => { await result.current.start() })
+        expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
+        expect(result.current.listening).toBe(true)
     })
 })
