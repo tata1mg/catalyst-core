@@ -1,9 +1,13 @@
-import React, { useContext, useLayoutEffect } from "react"
+import React, { useContext, useEffect, useLayoutEffect, useReducer } from "react"
+import { useLocation } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
 import { useRouterData } from "./RouterDataProvider.jsx"
 import { getMetaData } from "../utils/metaDataUtils.jsx"
 
-const DocumentTitle = ({ value }) => {
+// <title>{name} | 1mg</title> has an array for children; String(array) would join with commas.
+const getTitleText = (children: React.ReactNode): string => React.Children.toArray(children).join("")
+
+const DocumentTitle = ({ value }: { value: string }) => {
     useLayoutEffect(() => {
         document.title = value
 
@@ -20,6 +24,30 @@ const DocumentTitle = ({ value }) => {
 export const MetaTag = () => {
     const { matchedRoutes } = useContext(OneMgRouterContext)
     const routeData = useRouterData()
+    const location = useLocation()
+    const [, rerender] = useReducer((count: number) => count + 1, 0)
+
+    // A split() route only gains setMetaData once its chunk has loaded, and nothing guarantees
+    // that before this component renders (a client navigation can reach a route whose chunk is
+    // not loaded yet). load() copies the statics onto the route component and is cached once
+    // resolved, so re-render when it settles to pick setMetaData up.
+    useEffect(() => {
+        let current = true
+        const loads = (matchedRoutes || [])
+            .map((match: any) => match?.route?.component)
+            .filter((component: any) => typeof component?.load === "function")
+            .map((component: any) => component.load())
+        if (loads.length) {
+            Promise.allSettled(loads).then(() => {
+                if (current) rerender()
+            })
+        }
+        return () => {
+            current = false
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location])
+
     const metaTags = getMetaData(matchedRoutes, routeData)
 
     const titleTag = metaTags.find((tag) => tag.type === "title")
@@ -29,7 +57,7 @@ export const MetaTag = () => {
     // Update the browser's canonical title instead of rendering another hoisted <title> element.
     return (
         <>
-            {titleTag && <DocumentTitle value={titleTag.props.children} />}
+            {titleTag && <DocumentTitle value={getTitleText(titleTag.props.children)} />}
             {nonTitleMetaTags}
         </>
     )
