@@ -15,7 +15,7 @@ final class PluginBridgeTests: XCTestCase {
         super.setUp()
         mockWebView = PluginMockWKWebView()
         mockViewController = UIViewController()
-        bridge = PluginBridge(webView: mockWebView, viewController: mockViewController)
+        bridge = PluginBridge(webView: mockWebView, viewController: mockViewController, trustedOrigin: PluginMockScriptMessage.appURL)
         bridge.register()
     }
 
@@ -72,6 +72,95 @@ final class PluginBridgeTests: XCTestCase {
         bridge.handleMessage(message)
 
         await fulfillment(of: [testExpectation], timeout: 2.0)
+    }
+
+    // MARK: - Origin check (#521)
+
+    /// A valid command from `sourceURL`/`isMainFrame`; returns whether the bridge answered at all.
+    @MainActor
+    private func bridgeAnswers(sourceURL: URL?, isMainFrame: Bool = true, trusted: URL? = PluginMockScriptMessage.appURL) async -> Bool {
+        let local = PluginBridge(webView: mockWebView, viewController: mockViewController, trustedOrigin: trusted)
+        mockWebView.evaluatedScripts.removeAll()
+        // An unknown plugin is the cheapest observable reply: trusted senders get PLUGIN_NOT_FOUND back.
+        local.handleMessage(PluginMockScriptMessage(
+            name: "PluginBridge",
+            body: ["pluginId": "missing-plugin", "command": "ping"],
+            isMainFrame: isMainFrame,
+            sourceURL: sourceURL
+        ))
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        return mockWebView.evaluatedScripts.contains { $0.contains("PLUGIN_NOT_FOUND") }
+    }
+
+    @MainActor
+    func testOrigin_AppMainFrame_IsServed() async {
+        let answered = await bridgeAnswers(sourceURL: URL(string: "https://app.example.com/some/page"))
+        XCTAssertTrue(answered)
+    }
+
+    @MainActor
+    func testOrigin_OtherSite_IsDroppedSilently() async {
+        let answered = await bridgeAnswers(sourceURL: URL(string: "https://evil.example.net/"))
+        XCTAssertFalse(answered, "an untrusted page must get no reply, not even an error")
+    }
+
+    @MainActor
+    func testOrigin_SameOriginSubframe_IsDropped() async {
+        let answered = await bridgeAnswers(sourceURL: PluginMockScriptMessage.appURL, isMainFrame: false)
+        XCTAssertFalse(answered)
+    }
+
+    @MainActor
+    func testOrigin_MissingSourceOrTrustedOrigin_FailsClosed() async {
+        let noSource = await bridgeAnswers(sourceURL: nil)
+        XCTAssertFalse(noSource)
+        let noTrusted = await bridgeAnswers(sourceURL: PluginMockScriptMessage.appURL, trusted: nil)
+        XCTAssertFalse(noTrusted)
+    }
+
+
+    // MARK: - Origin check against a real WKWebView
+
+    /// Loads `html` as if served from `baseURL` in a real WKWebView wired to a real PluginBridge, and reports whether
+    /// the bridge replied to the page's postMessage (the page forwards any PluginBridgeWeb.dispatch to a probe handler).
+    @MainActor
+    private func realPageGetsReply(baseURL: String, subframe: Bool) async -> Bool {
+        let probe = ProbeHandler()
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(probe, name: "probe")
+        let webView = WKWebView(frame: .zero, configuration: config)
+        let realBridge = PluginBridge(webView: webView, viewController: UIViewController(), trustedOrigin: PluginMockScriptMessage.appURL)
+        realBridge.register()
+        defer { realBridge.unregister(); config.userContentController.removeScriptMessageHandler(forName: "probe") }
+
+        let post = "window.webkit.messageHandlers.PluginBridge.postMessage({pluginId:'missing-plugin',command:'ping'})"
+        let inner = subframe ? "<iframe srcdoc=\"<script>\(post)</script>\"></iframe>" : "<script>\(post)</script>"
+        let html = "<html><body><script>window.PluginBridgeWeb={dispatch:function(e){window.webkit.messageHandlers.probe.postMessage(e)}}</script>\(inner)</body></html>"
+        webView.loadHTMLString(html, baseURL: URL(string: baseURL))
+
+        for _ in 0..<30 {
+            if probe.received { return true }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return false
+    }
+
+    @MainActor
+    func testRealWebView_AppOriginMainFrame_GetsReply() async {
+        let replied = await realPageGetsReply(baseURL: "https://app.example.com/", subframe: false)
+        XCTAssertTrue(replied)
+    }
+
+    @MainActor
+    func testRealWebView_OtherOrigin_GetsNoReply() async {
+        let replied = await realPageGetsReply(baseURL: "https://evil.example.net/", subframe: false)
+        XCTAssertFalse(replied)
+    }
+
+    @MainActor
+    func testRealWebView_SameOriginIframe_GetsNoReply() async {
+        let replied = await realPageGetsReply(baseURL: "https://app.example.com/", subframe: true)
+        XCTAssertFalse(replied)
     }
 
     @MainActor
@@ -178,6 +267,17 @@ private final class PluginMockWKWebView: WKWebView {
 }
 
 private struct PluginMockScriptMessage: PluginBridgeMessage {
+    static let appURL = URL(string: "https://app.example.com/")!
+
     let name: String
     let body: Any
+    var isMainFrame = true
+    var sourceURL: URL? = PluginMockScriptMessage.appURL
+}
+
+private final class ProbeHandler: NSObject, WKScriptMessageHandler {
+    private(set) var received = false
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        received = true
+    }
 }

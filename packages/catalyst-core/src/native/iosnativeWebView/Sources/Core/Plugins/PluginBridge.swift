@@ -25,13 +25,32 @@ private struct PluginRequest {
 protocol PluginBridgeMessage {
     var name: String { get }
     var body: Any { get }
+    /// Whether the message came from the page's main frame rather than an iframe.
+    var isMainFrame: Bool { get }
+    /// Origin (scheme, host, port) of the frame that sent the message; nil when it is not an http(s) origin.
+    var sourceURL: URL? { get }
 }
 
-extension WKScriptMessage: PluginBridgeMessage {}
+extension WKScriptMessage: PluginBridgeMessage {
+    var isMainFrame: Bool { frameInfo.isMainFrame }
+
+    var sourceURL: URL? {
+        let origin = frameInfo.securityOrigin
+        var components = URLComponents()
+        components.scheme = origin.protocol
+        components.host = origin.host
+        components.port = origin.port == 0 ? nil : origin.port
+        guard let url = components.url else { return nil }
+        // Pages served from the offline cache run under a private scheme; judge them by the origin they stand in for.
+        return OfflineCacheService.shared.originalURL(forOfflineURL: url) ?? url
+    }
+}
 
 final class PluginBridge: NSObject {
     private weak var webView: WKWebView?
     private weak var viewController: UIViewController?
+    /// The app's own origin (the URL the WebView was loaded with). Only its main frame may drive plugins.
+    private let trustedOrigin: URL?
     private var messageHandlerProxy: WeakScriptMessageHandler?
     private var isRegistered = false
 
@@ -42,9 +61,11 @@ final class PluginBridge: NSObject {
     private let errorEvent = "PLUGIN_BRIDGE_ERROR"
     private let systemPluginId = "__bridge__"
 
-    init(webView: WKWebView, viewController: UIViewController) {
+    /// A nil `trustedOrigin` rejects every message (fail closed).
+    init(webView: WKWebView, viewController: UIViewController, trustedOrigin: URL?) {
         self.webView = webView
         self.viewController = viewController
+        self.trustedOrigin = trustedOrigin
         super.init()
     }
 
@@ -155,6 +176,19 @@ final class PluginBridge: NSObject {
     }
 
     func handleMessage(_ message: PluginBridgeMessage) {
+        // Verify the sender before parsing anything. A rejected message gets no reply: the page is not one we
+        // trust, so it learns nothing about which plugins or commands exist.
+        guard PluginBridgeOriginPolicy.isAllowed(
+            isMainFrame: message.isMainFrame,
+            sourceURL: message.sourceURL,
+            trustedURL: trustedOrigin
+        ) else {
+            pluginBridgeLogger.warning(
+                "Rejected plugin message from untrusted origin \(message.sourceURL?.absoluteString ?? "unknown", privacy: .public) (mainFrame: \(message.isMainFrame)); trusted origin is \(self.trustedOrigin?.absoluteString ?? "none", privacy: .public)"
+            )
+            return
+        }
+
         var request: PluginRequest?
 
         do {
