@@ -5,9 +5,9 @@ import { useRouterData } from "./RouterDataProvider.jsx"
 import { getMetaData } from "../utils/metaDataUtils.jsx"
 
 // <title>{name} | 1mg</title> has an array for children; String(array) would join with commas.
-const getTitleText = (children: React.ReactNode): string => React.Children.toArray(children).join("")
+const getTitleText = (children) => React.Children.toArray(children).join("")
 
-const DocumentTitle = ({ value }: { value: string }) => {
+const DocumentTitle = ({ value }) => {
     useLayoutEffect(() => {
         document.title = value
 
@@ -25,7 +25,7 @@ export const MetaTag = () => {
     const { matchedRoutes } = useContext(OneMgRouterContext)
     const routeData = useRouterData()
     const location = useLocation()
-    const [, rerender] = useReducer((count: number) => count + 1, 0)
+    const [, rerender] = useReducer((count) => count + 1, 0)
 
     // A split() route only gains setMetaData once its chunk has loaded, and nothing guarantees
     // that before this component renders (a client navigation can reach a route whose chunk is
@@ -34,9 +34,9 @@ export const MetaTag = () => {
     useEffect(() => {
         let current = true
         const loads = (matchedRoutes || [])
-            .map((match: any) => match?.route?.component)
-            .filter((component: any) => typeof component?.load === "function")
-            .map((component: any) => component.load())
+            .map((match) => match?.route?.component)
+            .filter((component) => typeof component?.load === "function")
+            .map((component) => component.load())
         if (loads.length) {
             Promise.allSettled(loads).then(() => {
                 if (current) rerender()
