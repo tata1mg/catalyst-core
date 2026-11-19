@@ -2,6 +2,16 @@
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
+const {
+    versionOlderThan,
+    installedCatalystVersion,
+    checkSingleAppIcon,
+    hasAndroidSizedIcons,
+    hasIosSizedIcons,
+} = require("../lib/helpers")
+
+// The release that added appId/url, NATIVE-010 and public/icon.png.
+const NATIVE_120 = "1.2.0"
 
 let _projectInfo
 
@@ -61,6 +71,11 @@ const STALE_LAN_ADDRESS_MESSAGE = (ip) =>
 function handle_check_config({ project_path, platform = "both" } = {}) {
     const root = project_path || _projectInfo.dir
     const configPath = path.join(root, "config", "config.json")
+    const catalystVersion =
+        (_projectInfo && root === _projectInfo.dir && _projectInfo.installedVersion) ||
+        installedCatalystVersion(root)
+    // Unknown counts as current: the checks then describe the latest builds.
+    const before120 = Boolean(catalystVersion) && versionOlderThan(catalystVersion, NATIVE_120)
     const issues = []
     const warnings = []
     const passed = []
@@ -443,10 +458,16 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         if (iosKey) {
             const iosId = String(ios[iosKey])
             if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*){1,}$/i.test(iosId)) {
-                warnings.push({
+                // From 1.2.0 the build checks the id first and stops with NATIVE-010;
+                // before, it reached Xcode unchecked.
+                const finding = {
                     field: `WEBVIEW_CONFIG.ios.${iosKey}`,
-                    message: `${iosKey} "${iosId}" may not be valid; expected reverse-DNS format like "com.company.app". It wins over WEBVIEW_CONFIG.appId.`,
-                })
+                    message: before120
+                        ? `${iosKey} "${iosId}" is not a valid iOS bundle id: use letters, digits, "-" and "." only, like "com.company.app". It wins over WEBVIEW_CONFIG.appId. From catalyst-core 1.2.0 every iOS build fails on it with NATIVE-010.`
+                        : `${iosKey} "${iosId}" is not a valid iOS bundle id, so every iOS build fails with NATIVE-010 (catalyst-core 1.2.0+). Use letters, digits, "-" and "." only, like "${iosId.replace(/_/g, "")}". It wins over WEBVIEW_CONFIG.appId.`,
+                }
+                if (platform === "ios" && !before120) issues.push({ ...finding, severity: "error" })
+                else warnings.push(finding)
             } else if (isPlaceholderId(iosId)) {
                 warnings.push({
                     field: `WEBVIEW_CONFIG.ios.${iosKey}`,
@@ -457,10 +478,11 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             }
         } else if (appId && appId.includes("_")) {
             // Valid on Android, but an iOS bundle id allows only letters,
-            // digits, "-" and ".": every iOS build fails with NATIVE-010.
+            // digits, "-" and ".". A breaking change in 1.2.0: every iOS build
+            // now stops with NATIVE-010 instead of passing the id to Xcode.
             const finding = {
                 field: "WEBVIEW_CONFIG.appId",
-                message: `appId "${appId}" has an underscore, which an iOS bundle id cannot contain, so iOS builds fail with NATIVE-010. Set WEBVIEW_CONFIG.ios.bundleIdentifier to an id without one (e.g. "${appId.replace(/_/g, "")}"); it wins over appId on iOS.`,
+                message: `appId "${appId}" has an underscore, which an iOS bundle id cannot contain. Since catalyst-core 1.2.0 every iOS build fails on it with NATIVE-010 (1.1.x and earlier passed it to Xcode unchecked). Set WEBVIEW_CONFIG.ios.bundleIdentifier to an id without one (e.g. "${appId.replace(/_/g, "")}"); it wins over appId on iOS, and Android keeps appId.`,
             }
             if (platform === "ios") issues.push({ ...finding, severity: "error" })
             else warnings.push(finding)
@@ -542,6 +564,57 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             passed.push({
                 field: "public/splashscreen.html",
                 note: `HTML splash on (catalyst-core 1.0.2+): shown after the native image until the first page loads, for at least minDuration (${minDuration || 0} ms), at most 10 s; duration is ignored`,
+            })
+        }
+    }
+
+    // ── App icon (public/icon.png, catalyst-core 1.2.0+) ──────────────────────
+    // Each build prefers its sized icons (public/android/appIcons icon-<density>,
+    // public/ios/appIcons), then public/icon.png, then a placeholder. Same
+    // checks as src/native/appIcon.js: a PNG, square, at least 1024px
+    // (ANDROID-010 / IOS-005); alpha fails an iOS release (IOS-006).
+    {
+        const platforms = platform === "both" ? ["android", "ios"] : [platform]
+        const usesSingle = {
+            android: !hasAndroidSizedIcons(root),
+            ios: !hasIosSizedIcons(root),
+        }
+        const single = checkSingleAppIcon(root)
+        const users = platforms.filter((p) => usesSingle[p])
+        if (single && before120) {
+            if (users.length)
+                warnings.push({
+                    field: "public/icon.png",
+                    message: `public/icon.png is used as the app icon from catalyst-core 1.2.0; ${catalystVersion} ignores it, so ${users.join(" and ")} builds use ${users.length > 1 ? "their" : "its"} placeholder icon. Upgrade, or add sized icons in public/<platform>/appIcons.`,
+                })
+        } else if (single && users.length) {
+            if (single.problem) {
+                for (const p of users) {
+                    issues.push({
+                        field: "public/icon.png",
+                        severity: "error",
+                        message: `public/icon.png ${single.problem}, so ${p === "android" ? "Android" : "iOS"} builds fail with ${p === "android" ? "ANDROID-010" : "IOS-005"}. Replace it with a square PNG of at least 1024x1024 pixels, or add sized icons in public/${p}/appIcons.`,
+                    })
+                }
+            } else if (single.info.hasAlpha && users.includes("ios")) {
+                const finding = {
+                    field: "public/icon.png",
+                    message:
+                        "public/icon.png has an alpha channel. Debug builds only warn, but an iOS release fails with IOS-006 because the App Store rejects icons with transparency. Flatten it onto a solid background.",
+                }
+                if (String((wc.ios || {}).buildType || "").toLowerCase() === "release")
+                    issues.push({ ...finding, severity: "error" })
+                else warnings.push(finding)
+            } else {
+                passed.push({
+                    field: "public/icon.png",
+                    note: `${single.info.width}x${single.info.height} PNG, the app icon for ${users.join(" and ")}`,
+                })
+            }
+        } else if (!single && !before120 && users.length) {
+            warnings.push({
+                field: "public/icon.png",
+                message: `No app icon for ${users.join(" and ")}, so the build uses the Catalyst placeholder. Add public/icon.png: a square PNG of at least 1024x1024 pixels with no transparency, used by both platforms.`,
             })
         }
     }

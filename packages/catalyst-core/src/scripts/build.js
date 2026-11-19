@@ -97,7 +97,8 @@ function runBuildStep(args, options, label = "Build step") {
                 )
             }
         })
-        child.on("error", reject)
+        // A spawn failure still names its bundle and keeps what it printed.
+        child.on("error", (error) => reject(Object.assign(error, { label, output })))
     })
 }
 
@@ -123,7 +124,7 @@ function fencedTail(output, lines = 8) {
         : ""
 }
 
-function reportBundleFailures(failures, cwd) {
+function reportBundleFailures(failures, cwd, mode = "default") {
     // Every bundle failure is the registry's upstream wrapper: its code and
     // docs head each block, as they did before the extracted-error view.
     const code = ERROR_CODES.BUNDLE_UPSTREAM_ERROR
@@ -155,6 +156,8 @@ function reportBundleFailures(failures, cwd) {
                     message: `The ${failure.label || "production"} bundle failed`,
                     code,
                     scope: "production build",
+                    // The tail is only the end; --verbose already prints the rest.
+                    hint: mode === "default" ? "Run with --verbose for the full bundler output." : undefined,
                     docs,
                     cwd,
                 }) + fencedTail(failure.output)
@@ -168,6 +171,7 @@ function reportBundleFailures(failures, cwd) {
         .map((cause) =>
             diagnostic({
                 message: shortenPaths(cause.message, cwd),
+                details: cause.details ? shortenPaths(cause.details, cwd) : undefined,
                 code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
                 // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cause.file is a build-tool diagnostic path, only used to display a location.
@@ -327,7 +331,7 @@ async function build() {
 
     if (failures.length > 0) {
         bundling.stop("fail", "Build failed")
-        process.stderr.write(reportBundleFailures(failures, process.env.PWD))
+        process.stderr.write(reportBundleFailures(failures, process.env.PWD, outputMode))
         // --verbose/--debug add the registry code and the bundler's full
         // output under the extracted errors.
         if (outputMode !== "default") {
