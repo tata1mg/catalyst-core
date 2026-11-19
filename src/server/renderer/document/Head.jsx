@@ -32,7 +32,10 @@ export function Head(props) {
             {!isBot && criticalPreloadLinks}
             {/* Warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
             {!isBot && deferredPreloadLinks}
-            {metaTags && metaTags}
+            {/* Only the title is owned here. Non-title tags are rendered by <MetaTag /> inside the app tree,
+                which React 19 hoists into <head>; rendering them here too would duplicate them and leave
+                stale copies after client navigation (the client only hydrates #app). */}
+            {Array.isArray(metaTags) && metaTags.filter((tag) => tag?.type === "title")}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
             {inlineCss && <style dangerouslySetInnerHTML={{ __html: inlineCss }} />}

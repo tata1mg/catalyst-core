@@ -161,9 +161,7 @@ const browserOptimizeDeps = [
     "redux",
     "redux-thunk",
     "axios",
-    "react-helmet-async",
     "react-google-recaptcha",
-    "react-fast-compare",
     "@tata1mg/router",
     "history",
     "lottie-web",
@@ -191,7 +189,6 @@ const browserOptimizeDeps = [
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
-    "react-side-effect",
     "react-async-script",
     "normalize.css",
     "sanitize-html",
