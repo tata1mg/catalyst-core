@@ -4,10 +4,31 @@ import expressStaticGzip from 'express-static-gzip'
 
 // Server middlewares are added here.
 
-// No Content-Security-Policy on purpose: the SSR shell ships inline bootstrap
-// scripts and styles, so a policy would need 'unsafe-inline' and protect
-// almost nothing, while still being flagged by scanners. A real fix is
-// nonce-based inline scripts in the catalyst renderer, tracked separately.
+// The SSR shell ships inline bootstrap scripts and styles, so script-src and
+// style-src need 'unsafe-inline' until the catalyst renderer supports nonces.
+// The policy still blocks scripts from other origins, plugins, <base>
+// hijacking, form posts and fetches to other origins, and framing by other
+// sites. Every origin below is one the site loads today:
+//   onemg.gumlet.io                 landing and social images
+//   img.youtube.com, placehold.co   video thumbnails (VideoLinkGrid)
+//   raw.githubusercontent.com       error catalogue (data/errorsSource.js)
+//   *cloudflareinsights.com         Cloudflare Web Analytics, injected at the edge
+// Production only: the dev build loads assets and hot updates from the
+// webpack dev server on another port.
+const CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://onemg.gumlet.io https://img.youtube.com https://placehold.co",
+    "media-src 'self'",
+    "font-src 'self' data:",
+    "connect-src 'self' https://raw.githubusercontent.com https://cloudflareinsights.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+].join('; ')
+
 const PERMISSIONS_POLICY = [
     'accelerometer=()',
     'camera=()',
@@ -36,6 +57,9 @@ export function securityHeaders(req, res, next) {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN')
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
     res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+    }
     next()
 }
 
