@@ -10,7 +10,7 @@ import {
 } from "react-router"
 import type { Location, NavigateFunction, Params, RouteMatch, RouteObject } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
-// import sanitizeHtml from "sanitize-html"
+import sanitizeHtml from "sanitize-html"
 
 /**
  * Data a route fetcher produced, as exposed by useCurrentRouteData / useRouterData.
@@ -196,8 +196,10 @@ const getMatchedRoutes = ({ matches, outlet }: any): any[] => {
  */
 const generateRouteKey = (match: RouteMatch, searchParamsString = ""): string => {
     const { pathname, route } = match
-    const sanitizedPathname = pathname
-    const sanitizedParams = searchParamsString
+    // The key ends up JSON-serialized into an inline SSR <script> (fetcherData),
+    // so strip markup from the request-controlled pathname and query string.
+    const sanitizedPathname = sanitizeHtml(pathname)
+    const sanitizedParams = sanitizeHtml(searchParamsString)
     if (route.children) {
         return `index${sanitizedPathname}${sanitizedParams}`
     }
