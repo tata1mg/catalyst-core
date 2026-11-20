@@ -5,8 +5,7 @@ import expressStaticGzip from 'express-static-gzip'
 // Server middlewares are added here.
 
 // The SSR shell ships inline bootstrap scripts and styles, so script-src and
-// style-src need 'unsafe-inline' until the catalyst renderer supports nonces.
-// The policy still blocks scripts from other origins, plugins, <base>
+// style-src need 'unsafe-inline'. The policy still blocks scripts from other origins, plugins, <base>
 // hijacking, form posts and fetches to other origins, and framing by other
 // sites. Every origin below is one the site loads today:
 //   onemg.gumlet.io                 landing and social images
