@@ -1,0 +1,101 @@
+{
+ "runs": 5,
+ "typing": [
+  {
+   "visibleAt": 659.0999999046326,
+   "typedAt": 674.4000000953674,
+   "hydrated": 1848.2999999523163,
+   "value": "",
+   "cards": 151,
+   "kept": false
+  },
+  {
+   "visibleAt": 654.2000000476837,
+   "typedAt": 671.4000000953674,
+   "hydrated": 1846.0999999046326,
+   "value": "",
+   "cards": 151,
+   "kept": false
+  },
+  {
+   "visibleAt": 657.5,
+   "typedAt": 676,
+   "hydrated": 1835.1999998092651,
+   "value": "",
+   "cards": 151,
+   "kept": false
+  },
+  {
+   "visibleAt": 654.0999999046326,
+   "typedAt": 672.2999999523163,
+   "hydrated": 1835,
+   "value": "",
+   "cards": 151,
+   "kept": false
+  },
+  {
+   "visibleAt": 662.7000000476837,
+   "typedAt": 682.0999999046326,
+   "hydrated": 1840.2999999523163,
+   "value": "",
+   "cards": 151,
+   "kept": false
+  }
+ ],
+ "click": [
+  {
+   "clickedAt": 667.1999998092651,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 656.4000000953674,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 654.1000001430511,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 656.6999998092651,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 656.0999999046326,
+   "reached": true,
+   "fullPageLoad": true
+  }
+ ],
+ "summary": {
+  "typedAt": {
+   "n": 5,
+   "median": 674.4000000953674,
+   "p75": 676,
+   "p95": 682.0999999046326,
+   "min": 671.4000000953674,
+   "max": 682.0999999046326
+  },
+  "hydrated": {
+   "n": 5,
+   "median": 1840.2999999523163,
+   "p75": 1846.0999999046326,
+   "p95": 1848.2999999523163,
+   "min": 1835,
+   "max": 1848.2999999523163
+  },
+  "textKept": 0,
+  "clickedAt": {
+   "n": 5,
+   "median": 656.4000000953674,
+   "p75": 656.6999998092651,
+   "p95": 667.1999998092651,
+   "min": 654.1000001430511,
+   "max": 667.1999998092651
+  },
+  "clickReached": 5,
+  "clickFullPageLoad": 5
+ }
+}

@@ -1,0 +1,17 @@
+{
+    "name": "catalyst-bench-harness",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "bench": "node run.mjs",
+        "lighthouse": "node lighthouse.mjs",
+        "navigation": "node navigation.mjs",
+        "record": "node record.mjs",
+        "summary": "node summary.mjs"
+    },
+    "dependencies": {
+        "chrome-launcher": "1.2.3",
+        "lighthouse": "13.6.0",
+        "puppeteer-core": "25.16.0"
+    }
+}
