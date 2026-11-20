@@ -220,7 +220,7 @@ describe("SSR handler — critical asset collection", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)
@@ -260,7 +260,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const deferredStyleIdx = html.indexOf("<style>.widget{color:blue}</style>")
         expect(deferredStyleIdx).toBeGreaterThan(htmlEnd)
         expect(html).toContain(
-            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>',
+            '<script type="module" src="http://localhost/assets/widget.def456.js"></script>'
         )
         expect(html.indexOf('src="http://localhost/assets/widget.def456.js"')).toBeGreaterThan(htmlEnd)
     })
@@ -277,7 +277,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         await first.res.waitForEnd()
         const firstHtml = first.res.getHtml()
         expect(firstHtml.indexOf("<style>.widget{color:blue}</style>")).toBeGreaterThan(
-            firstHtml.indexOf("</html>"),
+            firstHtml.indexOf("</html>")
         )
 
         // Second visit — same route key. getCachedDeferredCssPathsForRoute
@@ -300,7 +300,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         // Warm-cache modulepreload for the deferred JS learned last visit
         // (getDeferredPreloadScriptUrls -> deferredPreloadLinks, Head.jsx:33).
         const preloadIdx = secondHtml.indexOf(
-            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"',
+            '<link rel="modulepreload" href="http://localhost/assets/widget.def456.js"'
         )
         expect(preloadIdx).toBeGreaterThan(-1)
         expect(preloadIdx).toBeLessThan(headEnd)
@@ -313,7 +313,7 @@ describe("SSR handler — deferred assets discovered during render", () => {
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")
         const { req, res } = makeReqRes(
             "/widget",
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
 
         await handler(req, res)
@@ -364,7 +364,7 @@ describe("SSR handler — CSP nonce (CSP_NONCE_ENABLE)", () => {
         const nonce = res.locals.cspNonce
         expect(nonce).toMatch(/^[A-Za-z0-9+/]+=*$/)
 
-        const scripts = html.match(/<script\b[^>]*>/g) || []
+        const scripts = html.match(/<script\b[^>]*>/gi) || []
         expect(scripts.length).toBeGreaterThan(0)
         for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`)
 
@@ -385,9 +385,19 @@ describe("SSR handler — CSP nonce (CSP_NONCE_ENABLE)", () => {
         expect(tail).toContain('<script nonce="app-nonce-123">window.__CATALYST_IS_BOT__=false;</script>')
         expect(tail).toContain('<script nonce="app-nonce-123">window.__SSR_RENDERED_COMPONENTS__=')
         expect(tail).toContain(
-            '<script type="module" nonce="app-nonce-123" src="http://localhost/assets/widget.def456.js"></script>',
+            '<script type="module" nonce="app-nonce-123" src="http://localhost/assets/widget.def456.js"></script>'
         )
         expect(tail).toContain("<style>.widget{color:blue}</style>")
+    })
+
+    it("replaces an app-supplied nonce that could break out of the attribute", async () => {
+        const { html, res } = await renderWithNonce("/widget", 'x"><script>alert(1)</script>')
+
+        expect(res.locals.cspNonce).toMatch(/^[A-Za-z0-9+/]+=*$/)
+        expect(html).not.toContain("alert(1)")
+        expect(html).toContain(
+            `<script nonce="${res.locals.cspNonce}">window.__CATALYST_IS_BOT__=false;</script>`
+        )
     })
 
     it("renders no nonce attributes when the flag is off", async () => {

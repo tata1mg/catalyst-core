@@ -223,6 +223,11 @@ const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-
 // Same boolean contract as OTEL_ENABLE above.
 const CSP_NONCE_ENABLE = (process.env.CSP_NONCE_ENABLE as any) === true
 const generateNonce = () => crypto.randomBytes(16).toString("base64")
+// An app-supplied nonce goes into raw HTML strings as well as React props, so
+// only the base64 alphabet a CSP nonce may use is accepted; anything else is
+// replaced with a generated one.
+const isValidNonce = (value: unknown): value is string =>
+    typeof value === "string" && /^[A-Za-z0-9+/_-]+={0,2}$/.test(value)
 
 const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -522,7 +527,11 @@ async function _handler(req: any, res: any) {
         // If app-level middleware already generated a nonce for its CSP header
         // (res.locals.cspNonce), reuse it so the header and the script tags match.
         // Otherwise generate one here and expose it the same way.
-        const nonce = CSP_NONCE_ENABLE ? res.locals.cspNonce || generateNonce() : undefined
+        const nonce = CSP_NONCE_ENABLE
+            ? isValidNonce(res.locals.cspNonce)
+                ? res.locals.cspNonce
+                : generateNonce()
+            : undefined
         if (nonce) res.locals.cspNonce = nonce
 
         const cachedRoutes = getCachedRoutes()

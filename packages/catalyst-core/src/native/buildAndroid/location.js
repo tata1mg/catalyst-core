@@ -26,15 +26,24 @@ async function processLocation({ pwd, progress }, WEBVIEW_CONFIG) {
             const permissionsXml = LOCATION_PERMISSIONS.map(
                 (permission) => `    <uses-permission android:name="${permission}" />`
             ).join("\n")
-            manifestContent = manifestContent.replace(
+            const withPermissions = manifestContent.replace(
                 /(<uses-permission[^>]*>[\s\S]*?)(\s*<uses-feature)/,
                 `$1\n${permissionsXml}$2`
             )
+            if (withPermissions === manifestContent) {
+                throw new Error("no <uses-permission> block before <uses-feature> to insert them after")
+            }
+            manifestContent = withPermissions
             progress.log("Added location permissions to AndroidManifest.xml", "success")
         }
 
         fs.writeFileSync(manifestPath, manifestContent)
     } catch (error) {
+        // With location on, an app built without the permissions fails only when
+        // geolocation is used, so stop the build. With it off this is cleanup.
+        if (WEBVIEW_CONFIG.location?.enabled) {
+            throw new Error(`Could not add location permissions to AndroidManifest.xml: ${error.message}`)
+        }
         progress.log(`Warning: Error processing location permissions: ${error.message}`, "warning")
     }
 }

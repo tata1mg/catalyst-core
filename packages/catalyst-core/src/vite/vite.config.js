@@ -219,6 +219,9 @@ export const getClientEnvVariables = () => {
     const envVarDefinitions = { ...offlineSnapshotsDefinition }
 
     allowedVars.forEach((varName) => {
+        // Reserved: defined above as a real boolean. The raw value can be the
+        // string "false", which the service worker registration would not match.
+        if (varName === "OFFLINE_SNAPSHOTS_ENABLE") return
         if (process.env[varName] !== undefined) {
             // Define as process.env.VARIABLE_NAME for client-side usage
             envVarDefinitions[`process.env.${varName}`] = JSON.stringify(process.env[varName])

@@ -27,7 +27,7 @@ function fakeAndroidProject() {
     const processLocation = (config: object) =>
         processLocationIn({ pwd, progress: { log: () => {} } }, config)
     const readManifest = () => fs.readFileSync(manifestPath, "utf8")
-    return { processLocation, readManifest }
+    return { processLocation, readManifest, manifestPath }
 }
 
 test("the template manifest declares no location permissions", () => {
@@ -53,4 +53,21 @@ test("location off (or missing) removes permissions a previous build added", asy
     await processLocation({})
 
     expect(readManifest().match(LOCATION_LINES) || []).toHaveLength(0)
+})
+
+test("location.enabled fails the build when the permissions cannot be added", async () => {
+    const { processLocation, manifestPath } = fakeAndroidProject()
+    // No <uses-permission> block ahead of <uses-feature>: nowhere to insert.
+    fs.writeFileSync(manifestPath, "<manifest><application /></manifest>")
+
+    await expect(processLocation({ location: { enabled: true } })).rejects.toThrow(
+        /Could not add location permissions to AndroidManifest\.xml/
+    )
+})
+
+test("location off only warns when the manifest cannot be read", async () => {
+    const { processLocation, manifestPath } = fakeAndroidProject()
+    fs.rmSync(manifestPath)
+
+    await expect(processLocation({})).resolves.toBeUndefined()
 })
