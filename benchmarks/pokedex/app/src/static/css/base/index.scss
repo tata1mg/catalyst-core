@@ -1,0 +1,10 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#fafafa;color:#222}
+header.site{padding:12px 20px;border-bottom:1px solid #ddd;background:#fff}header.site a{color:#c33;font-weight:700;text-decoration:none}
+.container{max-width:75rem;margin:0 auto;padding:20px}h1{font-size:28px;margin:0 0 16px}
+.controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}.controls input,.controls select{padding:8px 10px;font-size:16px;border:1px solid #bbb;border-radius:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:16px;list-style:none;margin:0;padding:0}
+.card{display:block;background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center;text-decoration:none;color:inherit}
+.card img{width:96px;height:96px;image-rendering:pixelated}.card .num{color:#777;font-size:13px}.card .name{font-size:18px;font-weight:600;text-transform:capitalize}
+.badge{display:inline-block;margin:4px 3px 0;padding:2px 8px;border-radius:10px;background:#e6e6e6;font-size:12px;text-transform:capitalize}
+.back{display:inline-block;margin-bottom:12px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}.chips{display:flex;flex-wrap:wrap;gap:6px;padding:0;list-style:none}
+.chips li{background:#eee;border-radius:10px;padding:2px 10px;font-size:13px}

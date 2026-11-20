@@ -1,0 +1,4 @@
+/data/
+# Screenshots of the app show Pokémon artwork: generated locally by harness/run.mjs, never committed.
+results/gifs/*.gif
+results/lighthouse/
