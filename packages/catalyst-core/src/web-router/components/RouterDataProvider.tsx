@@ -176,6 +176,10 @@ const fetchRouteData = async (
     return routeData
 }
 
+const routeComponent = (route: any) => route.component || route.Component || route.element
+
+const fetcherVersion = (route: any): number => routeComponent(route)?.__fetcherVersion || 0
+
 /**
  *
  * @param routeContext route context object
@@ -233,14 +237,34 @@ export const RouterDataProvider = ({
     const [searchParams] = useSearchParams()
 
     const isHydrated = useRef(false)
+    // Latest request per route key, so an older in-flight fetch can't overwrite a newer one.
+    const requestIds = useRef<Record<string, number>>({})
+    // Dev HMR: the page's __fetcherVersion each route key was last fetched with.
+    const fetchedVersions = useRef<Record<string, number>>({})
+    const startRequest = (route: any, routeKey: string) => {
+        const id = (requestIds.current[routeKey] || 0) + 1
+        requestIds.current[routeKey] = id
+        fetchedVersions.current[routeKey] = fetcherVersion(route)
+        return () => requestIds.current[routeKey] === id
+    }
     const routeContext = useContext(UNSAFE_RouteContext)
     const matchedRoutes = useMemo(() => getMatchedRoutes(routeContext), [routeContext])
+    // Dev HMR: route keys whose data came from SSR, with their page component.
+    const ssrRoutes = useRef<Record<string, any> | null>(null)
+    if (ssrRoutes.current === null) {
+        ssrRoutes.current = {}
+        matchedRoutes.forEach((match: RouteMatch) => {
+            const routeKey = generateRouteKey(match, location.search)
+            if (initialState?.[routeKey]) ssrRoutes.current![routeKey] = routeComponent(match.route)
+        })
+    }
 
     /**
      * @description HOF which returns a function to refetch the route data
      */
     const refetchData = (route: RouteObject, routeKey: string) => {
         return async (args?: { [x: string]: any }) => {
+            const isLatest = startRequest(route, routeKey)
             setRouteData((prevData) => ({
                 ...prevData,
                 [routeKey]: { ...INITIAL_DATA_STATE, isFetching: true },
@@ -250,6 +274,7 @@ export const RouterDataProvider = ({
                 fetcherArgs,
                 args
             )
+            if (!isLatest()) return
             setRouteData((prevData) => ({
                 ...prevData,
                 [routeKey]: { ...routerDataRes, fetcherNotAvailable: false },
@@ -293,7 +318,9 @@ export const RouterDataProvider = ({
         matchedRoutes.forEach(async (match: RouteMatch) => {
             const route = match.route
             const routeKey = generateRouteKey(match, location.search)
-            if (routeData[routeKey]?.isFetched && !shouldFetch(route)) return
+            const fetcherEdited = (fetchedVersions.current[routeKey] ?? 0) !== fetcherVersion(route)
+            if (routeData[routeKey]?.isFetched && !shouldFetch(route) && !fetcherEdited) return
+            const isLatest = startRequest(route, routeKey)
             setRouteData((prevData) => ({
                 ...(prevData || {}),
                 [routeKey]: { ...INITIAL_DATA_STATE, isFetching: true },
@@ -302,9 +329,51 @@ export const RouterDataProvider = ({
                 { route, location, params, searchParams, navigate },
                 fetcherArgs
             )
+            if (!isLatest()) return
             setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...routerDataRes } }))
         })
     }, [match.pathname, match.params])
+
+    // Dev HMR: a page module was hot-updated (see routeFetcherHmrPlugin).
+    // Component-only edits are left to Fast Refresh. The handler is refreshed
+    // after every render so it sees current routes; the listener is added once.
+    // The event only fires in development.
+    const onModuleUpdated = useRef<((detail: any) => void) | null>(null)
+    useEffect(() => {
+        onModuleUpdated.current = (detail: any) => {
+            const onScreen = matchedRoutes.filter((match: RouteMatch) =>
+                detail.splits.includes(routeComponent(match.route))
+            )
+            if (detail.serverFetcherChanged) {
+                // Only the server can rerun a serverFetcher. Data it produced that's still
+                // shown needs a reload; if it's only cached, drop it so the next visit
+                // fetches on the client, like any client-side navigation.
+                const onScreenKeys = onScreen.map((match: RouteMatch) => generateRouteKey(match, location.search))
+                for (const [routeKey, component] of Object.entries(ssrRoutes.current!)) {
+                    if (!detail.splits.includes(component) || routeKey in fetchedVersions.current) continue
+                    if (onScreenKeys.includes(routeKey)) {
+                        detail.reload = true
+                        return
+                    }
+                    delete ssrRoutes.current![routeKey]
+                    setRouteData((prevData) => {
+                        const { [routeKey]: _dropped, ...rest } = prevData || {}
+                        return rest
+                    })
+                }
+            }
+            // Routes not on screen refetch on their next visit (see fetchedVersions).
+            if (!detail.fetcherChanged) return
+            onScreen.forEach((match: RouteMatch) => {
+                refetchData(match.route, generateRouteKey(match, location.search))()
+            })
+        }
+    })
+    useEffect(() => {
+        const listener = (event: any) => onModuleUpdated.current?.(event.detail)
+        window.addEventListener("catalyst:route-module-updated", listener)
+        return () => window.removeEventListener("catalyst:route-module-updated", listener)
+    }, [])
 
     return (
         <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear, location, params, navigate }}>

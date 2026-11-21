@@ -165,3 +165,109 @@ describe("split()", () => {
         await waitFor(() => expect(screen.getByText("bot content")).toBeInTheDocument())
     })
 })
+
+// Mimics routeFetcherHmrPlugin's footer: record the replacement, update the
+// registered splits, then announce it.
+const hotUpdate = (prev, next, fetcherChanged = true) => {
+    window.__CATALYST_HMR__.replaced.set(prev, next)
+    const detail = { prev, next, fetcherChanged, serverFetcherChanged: false, splits: [], reload: false }
+    window.__CATALYST_HMR__.splits.forEach((onUpdate) => onUpdate(detail))
+    window.dispatchEvent(new CustomEvent("catalyst:route-module-updated", { detail }))
+    return detail
+}
+
+describe("split() dev HMR updates", () => {
+    const pageModule = (statics) => ({ default: Object.assign(() => <span>page</span>, statics) })
+
+    beforeEach(() => {
+        // The footer creates this in dev; splits only register when it exists.
+        window.__CATALYST_HMR__ ||= { replaced: new WeakMap(), splits: new Set() }
+    })
+
+    it("swaps load() and the statics to the hot-updated module", async () => {
+        const v1 = pageModule({ clientFetcher: () => "v1" })
+        const v2 = pageModule({ clientFetcher: () => "v2" })
+        const Page = split(() => Promise.resolve(v1), {})
+        await Page.load()
+        const detail = hotUpdate(v1, v2)
+        expect(await Page.load()).toBe(v2)
+        expect(Page.clientFetcher).toBe(v2.default.clientFetcher)
+        expect(Page.__fetcherVersion).toBe(1)
+        expect(detail.splits).toEqual([Page])
+    })
+
+    it("does not bump the fetcher version for a component-only edit", async () => {
+        const v1 = pageModule({ clientFetcher: () => "v1" })
+        const v2 = pageModule({ clientFetcher: v1.default.clientFetcher })
+        const Page = split(() => Promise.resolve(v1), {})
+        await Page.load()
+        hotUpdate(v1, v2, false)
+        expect(await Page.load()).toBe(v2)
+        expect(Page.__fetcherVersion).toBeUndefined()
+    })
+
+    it("follows updates of a module whose default export keeps its identity", async () => {
+        // e.g. a page that imports its component, sets the fetcher on it and re-exports it.
+        const Component = () => <span>page</span>
+        const v1 = { default: Component }
+        const v2 = { default: Component }
+        const v3 = { default: Component }
+        const Page = split(() => Promise.resolve(v1), {})
+        await Page.load()
+        hotUpdate(v1, v2)
+        hotUpdate(v2, v3)
+        expect(await Page.load()).toBe(v3)
+        const Later = split(() => Promise.resolve(v1), {})
+        expect(await Later.load()).toBe(v3)
+        // An update to some other module sharing that component is not this page's update.
+        const unrelated = { default: Component }
+        const detail = hotUpdate(unrelated, { default: Component })
+        expect(detail.splits).toEqual([])
+        expect(await Page.load()).toBe(v3)
+    })
+
+    it("ignores updates to modules a split has not loaded", async () => {
+        const loaded = pageModule({ clientFetcher: () => "loaded" })
+        const notLoaded = pageModule({ clientFetcher: () => "not loaded" })
+        const Loaded = split(() => Promise.resolve(loaded), {})
+        const NotLoaded = split(() => Promise.resolve(notLoaded), {})
+        await Loaded.load()
+        const detail = hotUpdate({}, { helper: true })
+        expect(detail.splits).toEqual([])
+        expect(await Loaded.load()).toBe(loaded)
+        expect(await NotLoaded.load()).toBe(notLoaded)
+    })
+
+    it("loads the newest version when the module was hot-updated before this split loaded it", async () => {
+        const v1 = pageModule({ clientFetcher: () => "v1" })
+        const v2 = pageModule({ clientFetcher: () => "v2" })
+        const v3 = pageModule({ clientFetcher: () => "v3" })
+        hotUpdate(v1, v2)
+        hotUpdate(v2, v3)
+        const Page = split(() => Promise.resolve(v1), {})
+        expect(await Page.load()).toBe(v3)
+        expect(Page.clientFetcher).toBe(v3.default.clientFetcher)
+    })
+
+    it("removes statics the hot-updated module no longer defines", async () => {
+        const v1 = pageModule({ clientFetcher: () => "v1", setMetaData: () => ({}) })
+        const v2 = pageModule({ setMetaData: v1.default.setMetaData })
+        const Page = split(() => Promise.resolve(v1), {})
+        await Page.load()
+        hotUpdate(v1, v2)
+        expect(Page.clientFetcher).toBeUndefined()
+        expect(Page.setMetaData).toBe(v1.default.setMetaData)
+    })
+
+    it("does not listen for updates when the dev footer never ran (production)", async () => {
+        const hmr = window.__CATALYST_HMR__
+        delete window.__CATALYST_HMR__
+        const v1 = pageModule({ clientFetcher: () => "v1" })
+        const Page = split(() => Promise.resolve(v1), {})
+        await Page.load()
+        window.__CATALYST_HMR__ = hmr
+        const detail = hotUpdate(v1, pageModule({ clientFetcher: () => "v2" }))
+        expect(detail.splits).toEqual([])
+        expect(await Page.load()).toBe(v1)
+    })
+})

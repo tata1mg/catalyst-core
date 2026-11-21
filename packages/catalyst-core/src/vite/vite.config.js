@@ -2,6 +2,7 @@ import { defineConfig, transformWithEsbuild } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
+import { routeFetcherHmrPlugin } from "./routeFetcherHmrPlugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 import { resolveDevBase, buildDevServer } from "./resolveDevServerConfig.js"
 import { getModuleAliases } from "./moduleAliases.js"
@@ -426,6 +427,7 @@ export const sharedViteConfig = {
         // `include` extends the default regex so Fast Refresh also wraps .js
         // files (their JSX has already been transformed by jsxInJsPlugin above).
         react({ include: /\.(mdx|js|jsx|ts|tsx)$/ }),
+        routeFetcherHmrPlugin(),
         // Default: SVG → React component. Use `*.svg?url` (or `?raw`) for asset URL / raw source.
         // Keep `*.svg?react` so explicit imports still work. Exclude node_modules so deps keep normal asset handling.
         svgr({
