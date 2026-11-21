@@ -111,6 +111,65 @@ afterEach(() => {
 })
 
 describe("catalyst build failure output", () => {
+    it("classifies extracted bundle causes", async () => {
+        steps.client = { output: "unknown failure", code: 1 }
+        await runBuild()
+        const { bundleCodeFor } = await import("../../src/scripts/build.js")
+        expect(bundleCodeFor('"Link" is not exported by "core"')).toBe("BUNDLE-001")
+        for (const message of [
+            'Could not resolve "./missing"',
+            'Failed to resolve import "@api/client" from "src/App.js"',
+            'Failed to resolve entry for package "lodash"',
+        ]) {
+            expect(bundleCodeFor(message)).toBe("BUNDLE-002")
+        }
+        // A plugin's ENOENT on a non-import file also reads "Could not load".
+        expect(bundleCodeFor("Could not load /app/module.js")).toBe("BUNDLE-000")
+        expect(bundleCodeFor("Unexpected token")).toBe("BUNDLE-000")
+        expect(bundleCodeFor('"x" is fine')).toBe("BUNDLE-000")
+    })
+
+    it("shows a missing export's code, docs, location, frame and registry hint once", async () => {
+        mkdirSync(path.join(appDir, "src"))
+        writeFileSync(path.join(appDir, "src", "Header.js"), 'import { Link } from "core"\n')
+        const output = '../../src/Header.js (1:9): "Link" is not exported by "core", imported by "../../src/Header.js".'
+        steps.server = { output, code: 1 }
+        steps.client = { output, code: 1 }
+
+        expect(await runBuild()).toBe(1)
+        const text = plain(stderr)
+        expect(text).toContain("error BUNDLE-001  server + client bundle")
+        expect(text).toContain("errors/BUNDLE/BUNDLE-001.md")
+        expect(text).toContain('"Link" is not exported by "core"')
+        expect(text).toContain("at src/Header.js:1:10")
+        expect(text).toMatch(/>\s+1 │ import \{ Link \}/)
+        expect(text).toContain("^")
+        expect(text).toContain("Check the module's exports")
+        expect(text.match(/error BUNDLE-001/g)).toHaveLength(1)
+        expect(text).not.toContain("BUNDLE-000")
+    })
+
+    it("shows an unresolved import's code, docs and registry hint", async () => {
+        steps.client = {
+            output: 'Could not resolve "./missing" from "../../src/App.js"',
+            code: 1,
+        }
+        expect(await runBuild()).toBe(1)
+        const text = plain(stderr)
+        expect(text).toContain("error BUNDLE-002")
+        expect(text).toContain("errors/BUNDLE/BUNDLE-002.md")
+        expect(text).toContain("at src/App.js")
+        expect(text).toContain("Check the import path and package.json _moduleAliases")
+        expect(text).not.toContain("BUNDLE-000")
+    })
+
+    it("prefers the specific import hint to the registry fallback", async () => {
+        steps.client = { output: 'Failed to resolve import "@api/client" from "src/App.js"', code: 1 }
+        expect(await runBuild()).toBe(1)
+        expect(plain(stderr)).toContain("The alias @api is not defined")
+        expect(plain(stderr)).toContain("errors/BUNDLE/BUNDLE-002.md")
+    })
+
     it("reports both bundles when only one bundle's error is recognised", async () => {
         steps.server = { output: "src/js/App.js:3:10: ERROR: Expected ';' but found 'x'\n", code: 1 }
         steps.client = { output: "something the patterns do not know\n", code: 1 }
@@ -120,6 +179,7 @@ describe("catalyst build failure output", () => {
         expect(text).toMatch(/Expected ';' but found 'x'/)
         expect(text).toMatch(/The client bundle failed/)
         expect(text).toMatch(/something the patterns do not know/)
+        expect(text.match(/error BUNDLE-000/g)).toHaveLength(2)
     })
 
     it("shows the tail of a failed offline manifest step", async () => {

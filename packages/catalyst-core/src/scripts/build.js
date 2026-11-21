@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, existsSync, rmSync } from "fs"
 import { gzipSync } from "zlib"
 import { createRequire } from "module"
 import { getDocUrl, ERROR_CODES } from "../errors/index.js"
+import { getDefinition } from "../errors/registry.js"
 import { runStaticPreflightOrExit, writeBuildInfo } from "./preflight.js"
 
 // Fail fast on a misconfigured app (missing/invalid config.json, package.json,
@@ -123,9 +124,17 @@ function fencedTail(output, lines = 8) {
         : ""
 }
 
+export function bundleCodeFor(message) {
+    if (/^"[^"]+" is not exported by "[^"]+"/.test(message)) {
+        return ERROR_CODES.BUNDLE_MISSING_EXPORT
+    }
+    if (/^(?:Could not resolve\b|Failed to resolve (?:import|entry)\b)/i.test(message)) {
+        return ERROR_CODES.BUNDLE_UNRESOLVED_IMPORT
+    }
+    return ERROR_CODES.BUNDLE_UPSTREAM_ERROR
+}
+
 function reportBundleFailures(failures, cwd) {
-    // Every bundle failure is the registry's upstream wrapper: its code and
-    // docs head each block, as they did before the extracted-error view.
     const code = ERROR_CODES.BUNDLE_UPSTREAM_ERROR
     const docs = getDocUrl(code)
     const byCause = new Map()
@@ -165,8 +174,9 @@ function reportBundleFailures(failures, cwd) {
     // uses: message, location, the source around it, and a hint when the
     // cause is one we understand.
     const recognisedReport = [...byCause.values()]
-        .map((cause) =>
-            diagnostic({
+        .map((cause) => {
+            const code = bundleCodeFor(cause.message)
+            return diagnostic({
                 message: shortenPaths(cause.message, cwd),
                 code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
@@ -175,11 +185,11 @@ function reportBundleFailures(failures, cwd) {
                 line: cause.line,
                 // esbuild reports columns 0-based; the frame's caret is 1-based.
                 column: cause.column != null ? cause.column + 1 : undefined,
-                hint: hintFor(cause.message)?.hint,
-                docs,
+                hint: hintFor(cause.message)?.hint || getDefinition(code).suggestedAction,
+                docs: getDocUrl(code),
                 cwd,
             })
-        )
+        })
         .join("")
 
     return recognisedReport + unrecognisedReport
