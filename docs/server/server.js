@@ -9,18 +9,28 @@ import expressStaticGzip from 'express-static-gzip'
 // origins, plugins, <base> hijacking, form posts and fetches to other
 // origins, and framing by other sites. Every origin below is one the site
 // loads today:
-//   onemg.gumlet.io                 landing and social images
-//   img.youtube.com, placehold.co   video thumbnails (VideoLinkGrid)
-//   raw.githubusercontent.com       error catalogue (data/errorsSource.js)
-//   *cloudflareinsights.com         Cloudflare Web Analytics, injected at the edge
+//   img-src     onemg.gumlet.io                  landing and social images
+//               img.youtube.com, placehold.co    video thumbnails (VideoLinkGrid)
+//               github.com, avatars.githubusercontent.com
+//                                                contributor avatars on release
+//                                                pages (github.com/<login>.png
+//                                                redirects to avatars.*)
+//   media-src   github.com, release-assets.githubusercontent.com
+//                                                release films (release-pages.json;
+//                                                /releases/download redirects to
+//                                                release-assets.*)
+//   connect-src raw.githubusercontent.com        error catalogue (data/errorsSource.js)
+//               cloudflareinsights.com           Cloudflare Web Analytics beacon
+//   script-src  static.cloudflareinsights.com    Cloudflare Web Analytics script,
+//                                                injected at the edge
 // Production only: the dev build loads assets and hot updates from the
 // webpack dev server on another port.
 const CONTENT_SECURITY_POLICY = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://onemg.gumlet.io https://img.youtube.com https://placehold.co",
-    "media-src 'self'",
+    "img-src 'self' data: https://onemg.gumlet.io https://img.youtube.com https://placehold.co https://github.com https://avatars.githubusercontent.com",
+    "media-src 'self' https://github.com https://release-assets.githubusercontent.com",
     "font-src 'self' data:",
     "connect-src 'self' https://raw.githubusercontent.com https://cloudflareinsights.com",
     "object-src 'none'",
