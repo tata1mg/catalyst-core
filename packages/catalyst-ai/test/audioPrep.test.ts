@@ -174,3 +174,19 @@ describe("splitAudio / prepareAudioChunks", () => {
         await expect(prepareAudioChunks("data:audio/webm;base64,AAAA", { decode: async () => { throw new Error("cannot decode") } })).rejects.toThrow("cannot decode")
     })
 })
+
+describe("splitAudio refuses a chunk size that cannot make progress", () => {
+    it("rejects zero, negative, non-finite and sub-sample sizes instead of looping forever", async () => {
+        const { splitAudio } = await import("../src/audioPrep.js")
+        const samples = new Float32Array(16000 * 3).fill(0.1)
+        for (const chunkSeconds of [0, -5, NaN, Infinity, -Infinity, 1e-9, "10" as any, null as any]) {
+            expect(() => splitAudio(samples, { chunkSeconds }), String(chunkSeconds)).toThrow(RangeError)
+        }
+    })
+
+    it("still splits with a valid size", async () => {
+        const { splitAudio } = await import("../src/audioPrep.js")
+        const chunks = splitAudio(new Float32Array(16000 * 3).fill(0.1), { chunkSeconds: 1 })
+        expect(chunks.length).toBeGreaterThanOrEqual(3)
+    })
+})

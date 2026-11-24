@@ -146,6 +146,10 @@ const rmsOf = (samples, from, to) => {
  * -> [{ samples, startSec, endSec, silent }]
  */
 export function splitAudio(samples, { chunkSeconds = CHUNK_SECONDS, searchSeconds = 4 } = {}) {
+    // A size that cannot hold even one sample makes no progress: the loop below would never end (0), or walk backwards (negative).
+    if (typeof chunkSeconds !== "number" || !Number.isFinite(chunkSeconds) || Math.floor(chunkSeconds * TARGET_RATE) < 1) {
+        throw new RangeError("chunkSeconds must be a finite positive number of seconds")
+    }
     const limit = Math.floor(chunkSeconds * TARGET_RATE)
     const search = Math.min(Math.floor(searchSeconds * TARGET_RATE), Math.floor(limit / 2))
     const chunks = []

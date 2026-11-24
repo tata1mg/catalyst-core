@@ -138,6 +138,12 @@ export async function startLiveTranscription({ basePath = "/ai", model, onPartia
         clearTimeout(finishTimer)
         clearTimeout(hardTimer)
         const text = (finals.join(" ").trim() || partial).trim()
+        // However the session ends (stop, an unexpected close, an error), the microphone is released here, once.
+        if (closeMic) {
+            const release = closeMic
+            closeMic = null
+            try { release() } catch { /* already stopped */ }
+        }
         try {
             ws.close()
         } catch {
@@ -236,6 +242,10 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
     const [error, setError] = useState(null)
     const session = useRef(null)
     const timer = useRef(null)
+    // One number per start(). cancel() and unmount move it on, so a startup that is still connecting (token, socket, microphone)
+    // can tell, when it finishes, that nobody wants it any more and shut it down instead of leaving a live microphone running.
+    const startId = useRef(0)
+    const mounted = useRef(true)
     const onFinishedRef = useRef(onFinished)
     onFinishedRef.current = onFinished
 
@@ -253,6 +263,7 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
         setText("")
         setSeconds(0)
         session.current = { starting: true }
+        const mine = ++startId.current
         try {
             const s = await startLiveTranscription({
                 basePath,
@@ -263,13 +274,28 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
                     setPartial("")
                 },
                 onLevel: setLevel,
-                onStatus: (st) => st !== "closed" && setState(st),
+                onStatus: (st) => {
+                    if (mine !== startId.current) return
+                    // "closed" is how an unexpected close (the provider hung up) reaches us: stop the clock and go idle, keeping the error.
+                    if (st === "closed") {
+                        clearInterval(timer.current)
+                        session.current = null
+                        setLevel(0)
+                        setState("idle")
+                    } else setState(st)
+                },
                 onError: (e) => setError(e.message || String(e)),
             })
+            if (mine !== startId.current || !mounted.current) {
+                // cancelled, replaced or unmounted while connecting: do not install it, and do not leave it running
+                s.cancel()
+                return
+            }
             session.current = s
             const startedAt = Date.now()
             timer.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt) / 1000)), 500)
         } catch (err) {
+            if (mine !== startId.current || !mounted.current) return // abandoned: nothing to report
             setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : err?.message || String(err))
             clear()
         }
@@ -287,11 +313,19 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
     }, [clear])
 
     const cancel = useCallback(() => {
+        startId.current++
         session.current?.cancel?.()
         clear()
     }, [clear])
 
-    useEffect(() => () => session.current?.cancel?.(), [])
+    useEffect(() => {
+        mounted.current = true
+        return () => {
+            mounted.current = false
+            startId.current++
+            session.current?.cancel?.()
+        }
+    }, [])
 
     return { start, stop, cancel, state, listening: state === "listening", partial, text, level, seconds, error }
 }

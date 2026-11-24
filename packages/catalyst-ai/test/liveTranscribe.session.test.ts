@@ -309,4 +309,45 @@ describe("useLiveTranscribe", () => {
         hook.unmount()
         expect(FakeSocket.last.closed).toBe(true)
     })
+
+    it("cancel() while it is still connecting: when the setup finishes the session is shut down, not left recording", async () => {
+        const audio = stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let started: Promise<void> = Promise.resolve()
+        act(() => { started = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        act(() => hook.result.current.cancel()) // the user switched away while it was connecting
+        await act(async () => { await FakeSocket.last.serve({ setupComplete: {} }); await started })
+        expect(audio.stopTrack).toHaveBeenCalled() // the microphone that was opened is released
+        expect(FakeSocket.last.closed).toBe(true)
+        expect(hook.result.current.state).toBe("idle")
+        expect(hook.result.current.error).toBeNull()
+    })
+
+    it("unmounting while it is still connecting also shuts the late session down", async () => {
+        const audio = stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let started: Promise<void> = Promise.resolve()
+        act(() => { started = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        hook.unmount()
+        await act(async () => { await FakeSocket.last.serve({ setupComplete: {} }); await started })
+        expect(audio.stopTrack).toHaveBeenCalled()
+        expect(FakeSocket.last.closed).toBe(true)
+    })
+
+    it("the provider hanging up releases the microphone, stops the clock and goes idle, keeping the error", async () => {
+        const audio = stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let started: Promise<void> = Promise.resolve()
+        act(() => { started = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        await act(async () => { await FakeSocket.last.serve({ setupComplete: {} }); await started })
+        expect(hook.result.current.state).toBe("listening")
+        act(() => { FakeSocket.last.onclose() }) // a close nobody asked for
+        expect(audio.stopTrack).toHaveBeenCalled()
+        expect(hook.result.current.state).toBe("idle")
+        expect(hook.result.current.listening).toBe(false)
+        expect(hook.result.current.error).toMatch(/closed unexpectedly/)
+    })
 })
