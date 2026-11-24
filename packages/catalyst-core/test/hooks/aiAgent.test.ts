@@ -176,3 +176,56 @@ describe("runAgent: routing and cancellation", () => {
         expect(run).not.toHaveBeenCalled()
     })
 })
+
+describe("runAgent: failures, cancellation and arguments", () => {
+    const final = { output: '{"final":"done"}', route: { action: "run" } }
+
+    it("a rejected generation ends the run as an error result instead of escaping as an exception", async () => {
+        const generate = vi.fn(async () => { throw new Error("native engine crashed") })
+        const r = await runAgent({ goal: "g", tools: [], generate })
+        expect(r.status).toBe("error")
+        expect(r.error?.message).toBe("native engine crashed")
+    })
+
+    it("a generation that rejects after the run was cancelled is a cancel, not an error", async () => {
+        const controller = new AbortController()
+        const generate = vi.fn(async () => { controller.abort(); throw new Error("aborted underneath") })
+        const r = await runAgent({ goal: "g", tools: [], generate, signal: controller.signal })
+        expect(r.status).toBe("cancelled")
+    })
+
+    it("a non-Error rejection is wrapped", async () => {
+        const r = await runAgent({ goal: "g", tools: [], generate: async () => { throw "plain string" } })
+        expect(r.status).toBe("error")
+        expect(r.error?.message).toBe("plain string")
+    })
+
+    it("an approved side-effecting tool does not run if the run was cancelled while the approval was open", async () => {
+        const controller = new AbortController()
+        const run = vi.fn(async () => "sent")
+        const tool: AgentTool = { name: "send", description: "Send", sideEffect: true, run }
+        const generate = vi.fn().mockResolvedValueOnce({ output: '{"tool":"send"}', route: { action: "run" } }).mockResolvedValue(final)
+        const confirm = vi.fn(async () => { controller.abort(); return true }) // the user says yes, but the run is cancelled first
+        const r = await runAgent({ goal: "g", tools: [tool], generate, confirm, signal: controller.signal })
+        expect(run).not.toHaveBeenCalled()
+        expect(r.status).toBe("cancelled")
+    })
+
+    it("a tool with no parameters takes no arguments: omitted or {}, nothing else", async () => {
+        const run = vi.fn(async () => "ok")
+        const tool: AgentTool = { name: "ping", description: "No arguments", run }
+        for (const args of ['"args":null', '"args":5', '"args":"x"', '"args":[1]', '"args":{"x":1}']) {
+            run.mockClear()
+            const generate = vi.fn().mockResolvedValueOnce({ output: `{"tool":"ping",${args}}`, route: { action: "run" } }).mockResolvedValue(final)
+            const r = await runAgent({ goal: "g", tools: [tool], generate })
+            expect(run, args).not.toHaveBeenCalled()
+            expect(r.steps.some((s) => s.type === "invalid"), args).toBe(true)
+        }
+        for (const body of ['{"tool":"ping"}', '{"tool":"ping","args":{}}']) {
+            run.mockClear()
+            const generate = vi.fn().mockResolvedValueOnce({ output: body, route: { action: "run" } }).mockResolvedValue(final)
+            await runAgent({ goal: "g", tools: [tool], generate })
+            expect(run, body).toHaveBeenCalledTimes(1)
+        }
+    })
+})

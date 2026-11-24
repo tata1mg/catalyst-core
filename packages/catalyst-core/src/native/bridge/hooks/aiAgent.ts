@@ -134,7 +134,14 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
         if (cancelled()) return finish("cancelled")
         if (limits.maxSpendUsd !== undefined && spentUsd >= limits.maxSpendUsd) return finish("max-spend")
 
-        const result = await generate(messages)
+        let result: Awaited<ReturnType<typeof generate>>
+        try {
+            result = await generate(messages)
+        } catch (cause) {
+            // A provider or native rejection must end the run as a normal result, not escape as an exception that leaves the hook "running".
+            if (cancelled()) return finish("cancelled")
+            return finish("error", { error: cause instanceof Error ? cause : new Error(String(cause)) })
+        }
         if (cancelled()) return finish("cancelled")
         if (!result) return finish("error", { error: new Error("The AI engine is not available (is catalyst-ai installed?)") })
         const route = result.route
@@ -160,7 +167,9 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
                 problems = [typeof action.tool === "string" ? `unknown tool "${action.tool}" (available: ${[...byName.keys()].join(", ") || "none"})` : 'the object needs "tool" or "final"']
             } else {
                 const args = action.args === undefined ? {} : action.args
-                problems = tool.parameters ? validate(tool.parameters, args) : []
+                // No `parameters` means the tool takes no arguments: omitted or an empty object, nothing else (not null, a number, an array or extra keys).
+                const takesNone = action.args === undefined || (action.args !== null && typeof action.args === "object" && !Array.isArray(action.args) && Object.keys(action.args).length === 0)
+                problems = tool.parameters ? validate(tool.parameters, args) : takesNone ? [] : [`${tool.name} takes no arguments: omit "args" or send {}`]
                 if (!problems.length) {
                     invalidInARow = 0
                     const entry = await executeTool(tool, args, { confirm, signal, maxResultChars: limits.maxResultChars })
@@ -199,6 +208,10 @@ async function executeTool(
                 message: "The user declined this action, so it was not done. Do not try it again; continue without it or give a final answer.",
             }
         }
+    }
+    // Cancelled while the approval was open, or between it and now: an approved action still must not run after a cancel.
+    if (ctx.signal?.aborted) {
+        return { step: { outcome: "declined" }, message: "The run was cancelled before this action ran, so it was not done." }
     }
     try {
         const value = await tool.run(args, { signal: ctx.signal ?? new AbortController().signal })

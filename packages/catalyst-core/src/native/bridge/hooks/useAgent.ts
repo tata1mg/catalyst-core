@@ -119,7 +119,22 @@ export function useAgent(options: UseAgentOptions): UseAgentResult {
                 instructions: config.current.instructions,
                 limits: config.current.limits,
                 signal: controller.signal,
-                generate: async (messages) => aiRef.current.generate({ messages }, consent),
+                // Ties the model call to this run's signal: replacing the run, cancel() or unmount settle it at once and stop the underlying
+                // generation, instead of the agent staying blocked until the model eventually answers.
+                generate: (messages) =>
+                    new Promise((resolve, reject) => {
+                        const signal = controller.signal
+                        const onAbort = () => {
+                            aiRef.current.cancel?.()
+                            resolve(null)
+                        }
+                        if (signal.aborted) return onAbort()
+                        signal.addEventListener("abort", onAbort, { once: true })
+                        Promise.resolve(aiRef.current.generate({ messages }, consent)).then(
+                            (value) => { signal.removeEventListener("abort", onAbort); resolve(value) },
+                            (error) => { signal.removeEventListener("abort", onAbort); reject(error) }
+                        )
+                    }),
                 confirm: (request) =>
                     new Promise<boolean>((resolve) => {
                         if (!live()) return resolve(false)
