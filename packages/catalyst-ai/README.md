@@ -60,6 +60,12 @@ const ai = useAI({ provider: "litert", model: "gemma-4-E2B" })      // pin LiteR
 const ai = useAI({ provider: "foundation-models" })                  // pin Apple Foundation Models
 ```
 
+With `auto`, LiteRT-LM is the preferred engine and Apple Foundation Models is its fallback: if LiteRT-LM cannot load its
+model, or fails before it has produced any text, the same request is answered by Foundation Models (no download needed)
+and the app stays on it until the next `initAI`. This applies to `auto` only; pinning `litert` fails as asked. A failure
+after text has started streaming is reported, not retried. The conversation continues under the same id, but only the
+current message is replayed to the fallback, so its first answer lacks earlier turns.
+
 The provider names `native` (auto), `litert` and `foundation-models` can also be set app-wide in the AI
 config, so components don't have to choose:
 

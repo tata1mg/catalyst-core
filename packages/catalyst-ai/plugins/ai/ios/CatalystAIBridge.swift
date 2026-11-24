@@ -103,31 +103,42 @@ final class CatalystAIBridge: AIBridge {
         }
         log("Native AI engine: \(kind.rawValue)")
 
-        guard let engine = engine(for: kind) else {
+        guard let native = engine(for: kind) else {
             emit { $0.onError("Failed to load native AI model: engine \(kind.rawValue) is not supported on this OS", code: NativeAIErrorCode.requestFailed) }
             return
         }
 
+        // auto prefers LiteRT-LM; if it cannot load or fails before answering, Apple's system model (no download) takes over.
+        let served: NativeAIEngine = (kind == .liteRT && options.engine == .auto)
+            ? FallbackEngine(
+                primary: native,
+                requested: options.engine,
+                fallbackAvailable: { FoundationModelsSupport.isAvailable },
+                makeFallback: { self.engine(for: .foundationModels) },
+                onLog: log
+            )
+            : native
+
         do {
-            try await engine.prepare(options: options)
+            try await served.prepare(options: options)
         } catch {
             let code = (error as? NativeAIError)?.code ?? NativeAIErrorCode.requestFailed
             emit { $0.onError("Failed to load native AI model: \(error.localizedDescription)", code: code) }
             return
         }
 
-        lock.withLock { activeEngine = engine }
+        lock.withLock { activeEngine = served }
         guard let cb = currentCallbacks() else { return }
         cb.setNativeAiSupplier { prompt, genConfig, conversationId in
-            try await engine.supply(prompt: prompt, genConfig: genConfig, conversationId: conversationId)
+            try await served.supply(prompt: prompt, genConfig: genConfig, conversationId: conversationId)
         }
-        cb.setNativeSystemPrompt(engine.serverSystemPrompt)
+        cb.setNativeSystemPrompt(served.serverSystemPrompt)
 
         guard let streamUrl = cb.getNativeAIStreamURL() else {
             cb.onError("FrameworkServer stopped before the AI stream was ready", code: NativeAIErrorCode.streamNotReady)
             return
         }
-        cb.onReady(streamUrl: streamUrl, port: cb.getFrameworkServerPort(), sessionId: cb.getFrameworkServerSessionId(), engine: kind.rawValue)
+        cb.onReady(streamUrl: streamUrl, port: cb.getFrameworkServerPort(), sessionId: cb.getFrameworkServerSessionId(), engine: served.kind.rawValue)
     }
 
     /// Engines are kept warm per kind so a second initAI reuses a loaded model. Their log/progress sinks
