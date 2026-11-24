@@ -29,6 +29,8 @@ const VALID_BASE_PATH = /^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/
 export function resolveAIBasePath(raw: unknown): string {
     if (typeof raw !== "string") return DEFAULT_BASE_PATH
     const trimmed = raw.trim().replace(/\/+$/, "")
+    // "." and ".." segments are paths that climb or loop, never a mount point
+    if (trimmed.split("/").some((segment) => segment === "." || segment === "..")) return DEFAULT_BASE_PATH
     return VALID_BASE_PATH.test(trimmed) ? trimmed : DEFAULT_BASE_PATH
 }
 
