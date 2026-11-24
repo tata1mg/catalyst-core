@@ -757,8 +757,8 @@ router.post("/:provider/generate", async (req, res) => {
     }
 })
 
-// POST /ai/:provider/image — image.generate. Body: { prompt, n?, size?, model? }. The model defaults to the provider's
-// `imageModel` in AI_CONFIG (never to the chat `defaultModel`). Returns { images: [{ mimeType, data(base64) }], usage, model }.
+// POST /ai/:provider/image — image.generate. Body: { prompt, n?, size?, model?, images? }. `images` (max 4 of { mimeType, data }) makes it an edit.
+// The model defaults to the provider's `imageModel` in AI_CONFIG (never to the chat `defaultModel`). Returns { images: [{ mimeType, data(base64) }], usage, model }.
 router.post("/:provider/image", async (req, res) => {
     const { ERROR_CODES } = await loadErrors()
     if (!isAIEnabled()) {
@@ -791,9 +791,9 @@ router.post("/:provider/image", async (req, res) => {
         return
     }
 
-    const { prompt, n, size } = req.body
+    const { prompt, n, size, images } = req.body
     try {
-        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size })
+        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images })
         res.json({ ...result, model })
     } catch (err) {
         const { CatalystError } = await loadErrors()
