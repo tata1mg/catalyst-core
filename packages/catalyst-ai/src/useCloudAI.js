@@ -40,6 +40,7 @@ async function readErrorBody(response) {
     }
 }
 
+/** @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults. */
 export function useCloudAI({
     basePath = "/ai",
     provider: providerProp = "openai",

@@ -153,7 +153,7 @@ describe("useNativeAI generate", () => {
     })
 
     it("streams tokens, rewrites attachment tags, and records metrics on done", async () => {
-        const fetchMock = vi.fn(async () => streamResponse(sse(
+        const fetchMock: any = vi.fn(async () => streamResponse(sse(
             { token: "Hello " },
             "data: {not json\n",
             "ignored line\n",
@@ -209,7 +209,7 @@ describe("useNativeAI generate", () => {
     })
 
     it("non-streaming: posts to /ai/generate, sets output and metrics, and reuses the conversation id when stateful", async () => {
-        const fetchMock = vi.fn(async () => jsonResponse({ output: "done", tokenCount: 4, conversationId: "c1" }))
+        const fetchMock: any = vi.fn(async () => jsonResponse({ output: "done", tokenCount: 4, conversationId: "c1" }))
         vi.stubGlobal("fetch", fetchMock)
         const { result } = renderHook(() => useNativeAI({ sessionMode: "stateful" }))
         await ready(result)
