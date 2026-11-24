@@ -505,6 +505,19 @@ describe("check_config: AI_CONFIG.routing", () => {
         const a = run({ providers, routing: { onDevice: { android: [{ id: "fm", engine: "foundation-models" }] } } })
         expect(a.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.android[0].engine")).toBe(true)
     })
+    it("accepts the platform-speech engine on iOS and Android, warns when its modalities or tasks are overridden, and flags it in a browser", () => {
+        const ok = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech" }], android: [{ id: "android-speech", engine: "platform-speech", modalities: ["audio"], tasks: ["speech.transcribe"] }] } } })
+        expect(routingFields(ok).filter((f) => !f.field.endsWith("routing.onDevice"))).toEqual([])
+        const changed = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech", modalities: ["text", "audio"] }] } } })
+        expect(changed.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.ios[0]" && /ignored/.test(x.message))).toBe(true)
+        const web = run({ providers, routing: { onDevice: { web: [{ id: "w", engine: "platform-speech" }] } } })
+        expect(web.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine" && /only exists in the iOS and Android apps/.test(x.message))).toBe(true)
+        expect(web.issues.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine")).toBe(false)
+    })
+    it("platformSpeech must be a boolean", () => {
+        expect(run({ providers, routing: { platformSpeech: false } }).issues.some((x) => x.field === "AI_CONFIG.routing.platformSpeech")).toBe(false)
+        expect(run({ providers, routing: { platformSpeech: "no" } }).issues.some((x) => x.field === "AI_CONFIG.routing.platformSpeech")).toBe(true)
+    })
     it("accepts the four on-device targets and tasks", () => {
         const r = run({
             providers,

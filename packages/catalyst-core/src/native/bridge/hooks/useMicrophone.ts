@@ -17,6 +17,14 @@ export interface UseMicrophoneOptions {
     silenceMs?: number
     /** Longest recording, in seconds. Default 120 (what useTranscribe accepts in one go). */
     maxSeconds?: number
+    /** Called with the reason when a recording fails or ends with no speech (the same text as `error`). */
+    onError?: (message: string) => void
+}
+
+/** What start() reports: recording began, or why it could not (the same text as `error`). */
+export interface MicrophoneStartResult {
+    started: boolean
+    error?: string
 }
 
 export interface UseMicrophoneResult {
@@ -28,7 +36,7 @@ export interface UseMicrophoneResult {
     error: string | null
     /** False where the page cannot record (no MediaRecorder or getUserMedia, e.g. a non-secure page). */
     supported: boolean
-    start: () => Promise<void>
+    start: () => Promise<MicrophoneStartResult>
     /** Ends the recording and delivers the clip to onRecorded. */
     stop: () => void
     /** Ends the recording and drops it. */
@@ -78,6 +86,12 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
     const live = useRef<Session | null>(null)
     const onRecorded = useRef(options.onRecorded)
     onRecorded.current = options.onRecorded
+    const onError = useRef(options.onError)
+    onError.current = options.onError
+    const fail = useCallback((message: string) => {
+        setError(message)
+        onError.current?.(message)
+    }, [])
     const mounted = useRef(true)
 
     const release = useCallback(() => {
@@ -104,28 +118,29 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         release()
     }, [stop, release])
 
-    const start = useCallback(async () => {
-        if (live.current) return
+    const start = useCallback(async (): Promise<MicrophoneStartResult> => {
+        if (live.current) return { started: false, error: "Already recording." }
         setError(null)
         setSeconds(0)
+        const refuse = (message: string): MicrophoneStartResult => {
+            fail(message)
+            return { started: false, error: message }
+        }
         if (!canRecord()) {
-            setError("This page cannot record audio here (it needs a secure page such as localhost or https, and a browser that supports recording).")
-            return
+            return refuse("This page cannot record audio here (it needs a secure page such as localhost or https, and a browser that supports recording).")
         }
         // In the apps the shell must hold the microphone before the web view lets getUserMedia through. In a plain browser
         // this resolves at once and the browser's own prompt does the asking.
         try {
             await requestMicrophonePermission()
         } catch {
-            setError("Microphone permission was denied.")
-            return
+            return refuse("Microphone permission was denied.")
         }
         let stream: MediaStream
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
         } catch (err: any) {
-            setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
-            return
+            return refuse(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
         }
         const mimeType = MIME_TYPES.find((t) => MediaRecorder.isTypeSupported?.(t))
         const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
@@ -151,14 +166,14 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
             release()
             if (discard || !mounted.current) return
             if (!heardSpeech && analyser) {
-                setError("No speech was heard. Check the microphone and try again.")
+                fail("No speech was heard. Check the microphone and try again.")
                 return
             }
             try {
                 const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
                 onRecorded.current?.(await readAsDataUrl(blob), { seconds: secs })
             } catch (err: any) {
-                setError(`Could not read the recording: ${err?.message || err}`)
+                fail(`Could not read the recording: ${err?.message || err}`)
             }
         }
 
@@ -181,7 +196,8 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
 
         recorder.start(250)
         setState("listening")
-    }, [autoStop, silenceMs, maxSeconds, release, stop])
+        return { started: true }
+    }, [autoStop, silenceMs, maxSeconds, release, stop, fail])
 
     useEffect(() => {
         mounted.current = true

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { chooseCandidate, normalizeRouting, recordObserved, type Signals } from "../../src/native/bridge/hooks/aiRouter"
+import { chooseCandidate, normalizeRouting, recordObserved, withPlatformSpeech, withoutLiveEngines, routingFor, PLATFORM_SPEECH, type Signals } from "../../src/native/bridge/hooks/aiRouter"
 
 const config = {
     policy: { objective: "balanced" },
@@ -369,5 +369,97 @@ describe("Chrome Prompt API: no consent request for a model the limits would rej
         const d = run(5)
         expect(d.action).toBe("deny")
         expect(d.skipped.find((s) => s.id === "chrome-ai")?.why).toMatch(/^latency ~\d+ms over limit/)
+    })
+})
+
+describe("platform speech recogniser (live, on-device only)", () => {
+    const withSpeech = { ...config, onDevice: { ...config.onDevice, ios: [{ id: "ios-speech", engine: "platform-speech", modalities: ["text"], tasks: ["text.generate"] }, ...config.onDevice.ios] } }
+    const transcribe = (s: Signals, o: any = null, c: any = config) => {
+        const r = setup(s.platform, o, c)
+        const candidates = withPlatformSpeech(r.candidates, s.platform, c)
+        return chooseCandidate(["audio"], candidates, s, r.policy, {}, {}, "speech.transcribe")
+    }
+
+    it("a config may list it: whatever the entry says, it is audio in, speech.transcribe only, and loads no model", () => {
+        const speech = setup("ios", null, withSpeech).candidates.find((c) => c.id === "ios-speech")!
+        expect(speech).toMatchObject({ engine: PLATFORM_SPEECH, mode: "native", target: "onDevice", modalities: ["audio"], tasks: ["speech.transcribe"] })
+        expect(speech.priors.loadMs).toBe(0)
+    })
+
+    it("it only exists in the apps: dropped from a browser list with a warning", () => {
+        const warnings: string[] = []
+        const r = normalizeRouting({ onDevice: { web: [{ id: "x", engine: "platform-speech" }, { id: "ok", model: "m", modalities: ["text"] }] } }, "web-desktop", null, (m) => warnings.push(m))
+        expect(r.candidates.map((c) => c.id)).toEqual(["ok"])
+        expect(warnings.join()).toMatch(/only exists in the iOS and Android apps/)
+    })
+
+    it("withPlatformSpeech adds it first on iOS and Android, never in a browser", () => {
+        for (const platform of ["ios", "android"] as const) {
+            const ids = withPlatformSpeech(setup(platform).candidates, platform, config).map((c) => c.id)
+            expect(ids[0]).toBe("platform-speech")
+            expect(ids.slice(1)).toEqual(setup(platform).candidates.map((c) => c.id))
+        }
+        for (const platform of ["web", "web-desktop", "web-mobile"] as const) {
+            expect(withPlatformSpeech(setup(platform).candidates, platform, config).some((c) => c.engine === PLATFORM_SPEECH)).toBe(false)
+        }
+    })
+
+    it("routing.platformSpeech: false turns it off, and a listed entry is used instead of a second one", () => {
+        const off = withPlatformSpeech(setup("ios").candidates, "ios", { ...config, platformSpeech: false })
+        expect(off.some((c) => c.engine === PLATFORM_SPEECH)).toBe(false)
+        const listed = withPlatformSpeech(setup("ios", null, withSpeech).candidates, "ios", withSpeech)
+        expect(listed.filter((c) => c.engine === PLATFORM_SPEECH).map((c) => c.id)).toEqual(["ios-speech"])
+    })
+
+    it("withoutLiveEngines removes only that engine, so generate() never routes a clip to it", () => {
+        const all = withPlatformSpeech(setup("ios").candidates, "ios", config)
+        const kept = withoutLiveEngines(all)
+        expect(kept.map((c) => c.id)).toEqual(setup("ios").candidates.map((c) => c.id))
+    })
+
+    it("transcribing: chosen first when the shell can recognise speech, with no model-load penalty in its estimate", () => {
+        const d = transcribe(sig({ platformSpeech: true }))
+        expect(d.action).toBe("run")
+        expect(d.candidate?.id).toBe("platform-speech")
+        expect(d.estimate!.latencyMs).toBeLessThan(5000) // the 8 s default load for an unloaded on-device model is not charged
+    })
+
+    it("transcribing: skipped when the shell cannot (or has not said), and the next engine serves it", () => {
+        for (const platformSpeech of [false, undefined]) {
+            const d = transcribe(sig({ platformSpeech }))
+            expect(d.skipped.find((x) => x.id === "platform-speech")?.why).toBe("platform speech recognition unavailable")
+            expect(d.candidate?.id).toBe("gemma-e2b")
+        }
+    })
+
+    it("it needs the shell's speech support, not the native AI plugin: skipped or chosen independently of nativeAvailable", () => {
+        expect(transcribe(sig({ platformSpeech: true, nativeAvailable: false })).candidate?.id).toBe("platform-speech")
+        expect(transcribe(sig({ platformSpeech: false, nativeAvailable: true })).candidate?.id).not.toBe("platform-speech")
+    })
+
+    it("it is not a choice for other tasks, even when it is the only candidate that is available", () => {
+        const candidates = withPlatformSpeech(setup("ios").candidates, "ios", config)
+        const r = setup("ios")
+        for (const task of ["text.generate", "vision.read"] as const) {
+            const d = chooseCandidate(task === "vision.read" ? ["image"] : ["text"], candidates, sig({ platformSpeech: true }), r.policy, {}, {}, task)
+            expect(d.candidate?.id).not.toBe("platform-speech")
+            expect(d.skipped.find((x) => x.id === "platform-speech")?.why).toBe(`does not do ${task}`)
+        }
+    })
+
+    it("voice never leaves the phone through it: with the cloud denied, it still runs; nothing is asked", () => {
+        const d = transcribe(sig({ platformSpeech: true }), { cloud: "deny", cloudMedia: "deny" })
+        expect(d.action).toBe("run")
+        expect(d.candidate?.id).toBe("platform-speech")
+    })
+
+    it("a clip handed to generate() never goes to it, even when the config lists it first and the shell supports it", () => {
+        const listedFirst = { ...config, onDevice: { ...config.onDevice, ios: [{ id: "ios-speech", engine: "platform-speech" }, ...config.onDevice.ios] } }
+        const clip = routingFor(listedFirst, "ios", null, false)
+        expect(clip.candidates.some((c) => c.engine === PLATFORM_SPEECH)).toBe(false)
+        const d = chooseCandidate(["audio"], clip.candidates, sig({ platformSpeech: true }), clip.policy, {}, {}, "speech.transcribe")
+        expect(d.candidate?.id).toBe("gemma-e2b") // Gemma hears the clip; the live recogniser cannot
+        const live = routingFor(listedFirst, "ios", null, true)
+        expect(chooseCandidate(["audio"], live.candidates, sig({ platformSpeech: true }), live.policy, {}, {}, "speech.transcribe").candidate?.id).toBe("ios-speech")
     })
 })
