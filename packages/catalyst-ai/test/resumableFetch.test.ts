@@ -289,6 +289,54 @@ describe("resuming after a reload", () => {
     })
 })
 
+describe("a 416 is only trusted for the same file", () => {
+    const partialOf = async (first: ReturnType<typeof setup>) => {
+        const r1 = (await first.rf.fetch(URL_)).body!.getReader()
+        await r1.read(); await r1.cancel()
+        const key = [...first.storage.parts.keys()][0]
+        first.storage.parts.set(key, first.server.body.slice()) // as if every byte of the old file was stored
+        return key
+    }
+
+    it("a replacement file of the same length restarts instead of replaying the old bytes", async () => {
+        const first = setup()
+        await partialOf(first)
+        const v2 = makeServer({ body: makeBody(9), etag: '"v2"' })
+        const again = createResumableFetch({ fetch: v2.fetch, storage: first.storage, policy: fastPolicy, online: true })
+        expect(same(await bytes(await again.fetch(URL_)), v2.body)).toBe(true)
+    })
+
+    it("a 416 with no ETag cannot be verified and restarts", async () => {
+        const first = setup()
+        await partialOf(first)
+        const noEtag = (input: any, init: any) => first.server.fetch(input, init).then((res: Response) => {
+            if (res.status !== 416) return res
+            const headers = new Headers(res.headers); headers.delete("etag")
+            return new Response(null, { status: 416, headers })
+        })
+        const again = createResumableFetch({ fetch: noEtag, storage: first.storage, policy: fastPolicy, online: true })
+        expect(same(await bytes(await again.fetch(URL_)), first.server.body)).toBe(true)
+    })
+})
+
+describe("a server that keeps answering 5xx", () => {
+    it("is given up on after maxIdleRetries: the caller gets the 503, the partial is kept", async () => {
+        const first = setup()
+        const r1 = (await first.rf.fetch(URL_)).body!.getReader()
+        await r1.read(); await r1.cancel()
+        const key = [...first.storage.parts.keys()][0]
+        const kept = first.storage.parts.get(key)!.length
+        expect(kept).toBeGreaterThan(0)
+        let calls = 0
+        const down = () => { calls++; return Promise.resolve(new Response("unavailable", { status: 503 })) }
+        const again = createResumableFetch({ fetch: down as any, storage: first.storage, policy: { ...fastPolicy, maxIdleRetries: 3 }, online: true })
+        const res = await again.fetch(URL_)
+        expect(res.status).toBe(503)
+        expect(calls).toBe(4) // the first try plus three retries, not forever
+        expect(first.storage.parts.get(key)!.length).toBe(kept)
+    })
+})
+
 describe("concurrent files and cancellation", () => {
     it("pauses every file when the page goes offline and resumes them all", async () => {
         const { server, rf } = setup(undefined, { heldRetrySec: 30 })

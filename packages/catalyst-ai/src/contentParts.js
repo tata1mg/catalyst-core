@@ -29,6 +29,14 @@ function decodedBytes(base64) {
     return Math.floor((base64.length * 3) / 4) - padding
 }
 
+/** true for base64 that can really decode to at least one byte ("A" and "=" match the alphabet but cannot decode). */
+function isValidBase64(value) {
+    if (typeof value !== "string" || value.length === 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) return false
+    if (value.length % 4 === 1) return false
+    if (value.includes("=") && value.length % 4 !== 0) return false
+    return decodedBytes(value) > 0
+}
+
 function normalizePart(part, limits) {
     if (!part || typeof part !== "object") throw inputError("invalid-part", "Each content part must be an object")
     if (part.type === "text") {
@@ -44,6 +52,7 @@ function normalizePart(part, limits) {
     if (!mimeType.startsWith(`${part.type}/`)) {
         throw inputError("invalid-part", `A ${part.type} part cannot carry ${mimeType}`)
     }
+    if (!isValidBase64(base64)) throw inputError("invalid-part", `A ${part.type} part's \`data\` is not valid base64`)
     const cap = part.type === "image" ? limits.imageBytes : limits.audioBytes
     if (decodedBytes(base64) > cap) {
         throw inputError("too-large", `${part.type} is too large (limit ${cap} bytes)`, { modality: part.type, limit: cap })

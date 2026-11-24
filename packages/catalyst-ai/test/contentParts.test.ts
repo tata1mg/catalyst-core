@@ -39,6 +39,23 @@ describe("normalizeMessages", () => {
         expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: "http://x/y.png" }] }])).toThrow()
     })
 
+    it("rejects base64 that cannot decode, before the size limit and before it crosses the bridge", async () => {
+        const { normalizeMessages } = await mod
+        for (const data of ["***", "A", "=", "AA=A", "A===", "!!!!"]) {
+            let error: any
+            try { normalizeMessages([{ role: "user", content: [{ type: "image", data: `data:image/png;base64,${data}` }] }]) } catch (e) { error = e }
+            expect(error?.reason, data).toBe("invalid-part")
+            expect(error?.message, data).toMatch(/not valid base64/)
+        }
+    })
+
+    it("still accepts real base64, padded or not", async () => {
+        const { normalizeMessages } = await mod
+        for (const data of ["iVBORw0KGgo=", "AAAA", "QQ==", "QUI"]) {
+            expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: `data:image/png;base64,${data}` }] }]), data).not.toThrow()
+        }
+    })
+
     it("rejects empty content", async () => {
         const { normalizeMessages } = await mod
         expect(() => normalizeMessages([{ role: "user", content: [] }])).toThrow()

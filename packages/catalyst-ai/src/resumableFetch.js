@@ -91,7 +91,12 @@ export function createResumableFetch(options = {}) {
             return { kind: "append", total: range.total }
         }
         if (res.status === 200) return { kind: "full", total: toInt(res.headers.get("content-length")) }
-        if (res.status === 416) return offset > 0 && range && range.total === offset ? { kind: "complete", total: offset } : { kind: "restart" }
+        // 416 on a stored partial means "you already have all of it", but only if it is the SAME file: a replacement of the
+        // same length would otherwise be served from the old bytes. No validator, or a different one, restarts the download.
+        if (res.status === 416) {
+            const sameFile = !!expectedETag && (etag || "").trim() === expectedETag
+            return offset > 0 && range && range.total === offset && sameFile ? { kind: "complete", total: offset } : { kind: "restart" }
+        }
         return { kind: "fail" }
     }
 
@@ -179,7 +184,7 @@ export function createResumableFetch(options = {}) {
         }
     }
 
-    async function resumableFetch(input, init = {}) {
+    async function resumableFetch(input, init = {}, httpRetries = 0) {
         const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
         const method = String(init.method || (typeof input === "object" && input.method) || "GET").toUpperCase()
         const callerHeaders = new Headers(init.headers || (typeof input === "object" && input.headers) || {})
@@ -229,11 +234,14 @@ export function createResumableFetch(options = {}) {
         if (outcome.kind === "fail") {
             finish()
             if (have > 0 && res.status >= 500) {
-                // A transient server error with a partial on disk: keep it and try again rather than failing the load.
-                const delay = backoff(1)
+                // A transient server error with a partial on disk: keep it and try again rather than failing the load. The count
+                // is carried through the retries (and the delay grows with it), so a server that keeps answering 5xx is given up on
+                // after maxIdleRetries tries, with the last response handed back and the partial kept for the next attempt.
+                if (httpRetries >= policy.maxIdleRetries) return res
+                const delay = backoff(httpRetries + 1)
                 onStatus({ file: label, state: "paused", reason: "error", retryInSec: Math.ceil(delay), loaded: have })
                 await nap(delay)
-                return resumableFetch(input, init)
+                return resumableFetch(input, init, httpRetries + 1)
             }
             if (res.status >= 400 && res.status < 500) await safeRemove(key)
             return res

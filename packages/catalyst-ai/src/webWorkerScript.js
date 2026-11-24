@@ -276,13 +276,19 @@ async function generateWithMedia(model, messages, genConfig, media) {
             }
         },
     });
-    const { maxTokens, temperature, topP, repetitionPenalty } = genConfig;
+    const { maxTokens, temperature, topP, repetitionPenalty, noRepeatNgramSize, earlyStop, ...rest } = genConfig;
+    // Options this path cannot honour are reported, not dropped without a word: the same request behaves differently here
+    // than on the text path, and the caller should be able to see which settings did not apply.
+    const ignored = Object.keys(rest).filter((k) => k !== "stream" && k !== "language" && k !== "responseConstraint" && rest[k] !== undefined);
+    if (ignored.length) self.postMessage({ type: "log", msg: "[worker] media generation ignores: " + ignored.join(", ") });
     await net.generate({
         ...inputs,
         max_new_tokens: maxTokens ?? 512,
         do_sample: temperature > 0,
         ...(temperature > 0 && { temperature, top_p: topP }),
         ...(repetitionPenalty && { repetition_penalty: repetitionPenalty }),
+        ...(noRepeatNgramSize !== undefined && { no_repeat_ngram_size: noRepeatNgramSize }),
+        ...(earlyStop !== undefined && { early_stopping: earlyStop }),
         ...(stopper && { stopping_criteria: stopper }),
         streamer,
     });
@@ -310,7 +316,10 @@ self.onmessage = async (e) => {
     try {
         if (media) {
             if (ASR_RE.test(model)) await generateSpeech(model, media, genConfig);
-            else await generateWithMedia(model, messages, genConfig, media);
+            else {
+                if (formatPrompt) self.postMessage({ type: "log", msg: "[worker] media generation uses the model's own chat template: formatPrompt is ignored" });
+                await generateWithMedia(model, messages, genConfig, media);
+            }
             return;
         }
         await loadPipeline(model);

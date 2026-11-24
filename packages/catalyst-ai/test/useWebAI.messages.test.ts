@@ -3,6 +3,17 @@
 // and the network relay. The worker is a fake the test drives by hand.
 import { renderHook, act } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+const prep = vi.hoisted(() => ({ gate: null as null | Promise<void> }))
+vi.mock("../src/imagePrep.js", () => ({
+    MAX_IMAGE_SIDE: 1536,
+    RECODE_ABOVE_BYTES: 1024 * 1024,
+    fitWithin: (w: number, h: number) => ({ width: w, height: h, scaled: false }),
+    prepareImageParts: async (messages: any) => {
+        if (prep.gate) await prep.gate
+        return messages
+    },
+}))
+
 import { useWebAI } from "../src/useWebAI.js"
 
 const TEXT_MODEL = "onnx-community/Qwen2.5-0.5B-Instruct"
@@ -196,5 +207,75 @@ describe("useWebAI sessions and lifecycle", () => {
         const { pending, worker } = await start(hook)
         expect(worker.sent[0]).toMatchObject({ type: "configure", policy: { windowSec: 7 } })
         await act(async () => { finish(worker); await pending })
+    })
+})
+
+describe("useWebAI abandoned runs and stale download state", () => {
+    const withImage = [{ role: "user", content: [{ type: "text", text: "what is this?" }, { type: "image", data: "data:image/png;base64,iVBORw0KGgo=" }] }]
+    afterEach(() => { prep.gate = null })
+
+    it("cancel() while the image is still being prepared: no worker is created and no request is posted", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = hook.result.current.generate({ messages: withImage }) })
+        act(() => hook.result.current.cancel())
+        await act(async () => { open(); await pending })
+        expect(workers).toHaveLength(0)
+    })
+
+    it("a newer generate() supersedes one that is still preparing: only the newer one starts a worker", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let first: Promise<any> = Promise.resolve()
+        let second: Promise<any> = Promise.resolve()
+        act(() => { first = hook.result.current.generate({ messages: withImage }) })
+        act(() => { second = hook.result.current.generate({ messages: withImage }) })
+        await act(async () => { open(); await vi.waitFor(() => expect(workers.length).toBeGreaterThan(0)) })
+        expect(workers).toHaveLength(1)
+        const worker = workers[0]
+        await act(async () => { finish(worker); await Promise.all([first, second]) })
+    })
+
+    it("unload() and reset() while preparing also stop the run", async () => {
+        for (const stop of ["unload", "reset"] as const) {
+            let open!: () => void
+            prep.gate = new Promise<void>((resolve) => { open = resolve })
+            const before = workers.length
+            const hook = renderHook(() => useWebAI({ model: GEMMA }))
+            let pending: Promise<any> = Promise.resolve()
+            act(() => { pending = hook.result.current.generate({ messages: withImage }) })
+            act(() => (hook.result.current as any)[stop]())
+            await act(async () => { open(); await pending })
+            expect(workers).toHaveLength(before)
+            hook.unmount()
+        }
+    })
+
+    it("cancel(), reset() and a worker error clear the paused-download state that no worker is left to update", async () => {
+        const pausedThen = async (end: (h: any, w: FakeWorker) => Promise<void> | void) => {
+            const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+            const { pending, worker } = await start(hook)
+            act(() => worker.emit({ type: "download_status", file: "a.onnx", state: "paused", reason: "offline", retryInSec: 5 }))
+            expect(hook.result.current.downloadPaused).toBe(true)
+            await act(async () => { await end(hook, worker); await pending })
+            expect(hook.result.current.downloadPaused).toBe(false)
+            expect(hook.result.current.downloadPauseReason).toBeNull()
+            hook.unmount()
+        }
+        await pausedThen((h) => h.result.current.cancel())
+        await pausedThen((h) => h.result.current.reset())
+        await pausedThen((_h, w) => w.emit({ type: "error", message: "crashed" }))
+        await pausedThen((_h, w) => w.onerror?.({ message: "boom" }))
+    })
+
+    it("a late download_status from a worker that was already terminated is ignored", async () => {
+        const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+        const { pending, worker } = await start(hook)
+        await act(async () => { hook.result.current.cancel(); await pending })
+        act(() => worker.emit({ type: "download_status", file: "a.onnx", state: "paused", reason: "offline", retryInSec: 5 }))
+        expect(hook.result.current.downloadPaused).toBe(false)
     })
 })

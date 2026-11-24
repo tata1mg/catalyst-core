@@ -88,6 +88,9 @@ export function useWebAI({
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
+    // One number per generate(): cancel(), reset() and unload() move it on, so a run that was waiting for audio/image preparation
+    // can tell it was abandoned and must not create a worker or post its request when the wait ends.
+    const runToken = useRef(0)
     const historyRef = useRef([])
     const messagesRef = useRef([])
     const conversationIdRef = useRef(null)
@@ -114,6 +117,7 @@ export function useWebAI({
 
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
+            const token = ++runToken.current
             const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
             const kind = webModelKind(resolvedModel)
             // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
@@ -170,9 +174,12 @@ export function useWebAI({
                     )
                 }
             } catch (inputErr) {
-                setError(inputErr)
+                if (token === runToken.current) setError(inputErr)
                 return
             }
+            // Preparing the audio or images takes time. If cancel(), reset() or unload() ran meanwhile, or a newer call took
+            // over, this run is abandoned: it must not create a worker or post a request nobody is waiting for.
+            if (token !== runToken.current) return false
 
             // A media-capable worker holds up to ~3.4 GB of weights (speech models far less), so it is kept alive between calls (same model, idle).
             const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
@@ -227,6 +234,7 @@ export function useWebAI({
                         if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
                         break
                     case "download_status":
+                        if (workerRef.current !== worker) break // a late event from a worker that has been terminated
                         setFileStatus((prev) => ({ ...prev, [msg.file]: { state: msg.state, reason: msg.reason, retryInSec: msg.retryInSec } }))
                         break
                     case "progress":
@@ -292,6 +300,7 @@ export function useWebAI({
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, { message: msg.message }))
+                        setFileStatus({})
                         setStreaming(false)
                         setLoading(false)
                         busyRef.current = false
@@ -308,6 +317,7 @@ export function useWebAI({
                     message: e.message || "Worker crashed",
                     cause: e,
                 }))
+                setFileStatus({})
                 setStreaming(false)
                 setLoading(false)
                 busyRef.current = false
@@ -338,10 +348,13 @@ export function useWebAI({
             const outcome = { output: "", error: null }
             outcomeRef.current = outcome
             settle() // a superseded call must not hang
-            const settled = new Promise((resolve) => { settleRef.current = resolve })
+            let mine = null
+            const settled = new Promise((resolve) => { mine = resolve; settleRef.current = resolve })
             const started = await run(args)
             if (!started) {
-                settleRef.current = null // refused before any worker started: the error is already recorded
+                // Refused, or abandoned while preparing, before any worker started. Only clear the resolver if it is still this
+                // call's: a newer call may have installed its own meanwhile, and wiping that one would leave it waiting forever.
+                if (settleRef.current === mine) settleRef.current = null
                 return outcome
             }
             await settled
@@ -351,6 +364,7 @@ export function useWebAI({
     )
 
     const cancel = useCallback(() => {
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         // Only a running generation has to be killed to stop it. An idle worker holds the loaded model (~3.4 GB for
@@ -358,11 +372,13 @@ export function useWebAI({
         // terminating here made each new image reload the whole model.
         if (busyRef.current && workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         busyRef.current = false
+        setFileStatus({}) // the download that was paused is gone with its worker
         setStreaming(false)
         settle()
     }, [settle])
 
     const reset = useCallback(() => {
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         outputAccRef.current = ""
@@ -374,6 +390,7 @@ export function useWebAI({
         setMetrics(null)
         setModelReady(false)
         setDownloadProgress(null)
+        setFileStatus({})
         setStreaming(false)
         setLoading(false)
         settle()
@@ -385,6 +402,7 @@ export function useWebAI({
      * done and something else (e.g. an image model) needs the memory.
      */
     const unload = useCallback(() => {
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
@@ -392,6 +410,7 @@ export function useWebAI({
         busyRef.current = false
         setModelReady(false)
         setDownloadProgress(null)
+        setFileStatus({})
         setStreaming(false)
         setLoading(false)
         settle()

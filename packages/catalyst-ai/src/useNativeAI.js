@@ -85,6 +85,9 @@ export function useNativeAI({
     const [metrics, setMetrics] = useState(null)
 
     const abortControllerRef = useRef(null)
+    // One number per generate(). Preparing audio and images takes time, so an older call can finish after a newer one began;
+    // cancel() and reset() move it on too. A call that finds it is no longer the newest after preparing drops out.
+    const generationRef = useRef(0)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const nativeStreamUrlRef = useRef(null)
@@ -202,6 +205,11 @@ export function useNativeAI({
                 return
             }
 
+            // Take over before the first await: anything still running is superseded now, not after this call finishes preparing.
+            const generation = ++generationRef.current
+            if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+            setLoading(true)
+
             const genConfig = { ...hookGenConfig, ...callGenConfig }
             let nativeBody
             try {
@@ -214,9 +222,14 @@ export function useNativeAI({
                 )
                 nativeBody = buildNativeBody(prepared, genConfig)
             } catch (inputErr) {
-                setError(inputErr)
+                if (generation === generationRef.current) {
+                    setError(inputErr)
+                    setLoading(false)
+                }
                 return
             }
+            // A newer generate(), cancel() or reset() happened while this one was preparing: its result is stale.
+            if (generation !== generationRef.current) return
 
             if (abortControllerRef.current) abortControllerRef.current.abort()
             const controller = new AbortController()
@@ -380,12 +393,14 @@ export function useNativeAI({
     }
 
     const cancel = useCallback(() => {
+        generationRef.current++
         cancelRaf()
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)
     }, [])
 
     const reset = useCallback(() => {
+        generationRef.current++
         cancelRaf()
         outputAccRef.current = ""
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
