@@ -59,6 +59,23 @@ describe("useCloudAI streaming", () => {
         expect(hook.result.current.metrics).toMatchObject({ provider: "openai", completionTokens: 2, totalTokens: 2, cost: null })
     })
 
+    it("an error frame in the stream ends the generation with a coded error, not a short successful answer", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ token: "partial " }, { error: "Claude stream error", code: "AI-000" }))))
+        const hook = renderHook(() => useCloudAI())
+        const out = await gen(hook)
+        expect(out.error).toBeTruthy()
+        expect(out.error.message).toMatch(/Claude stream error/)
+        expect(out.error.code).toBe("AI-000")
+        expect(hook.result.current.streaming).toBe(false)
+        expect(hook.result.current.metrics).toBeNull() // no metrics for a failed generation
+    })
+
+    it("an error frame with a code the registry does not know is reported as the upstream error", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ error: "boom", code: "NOT-A-CODE" }))))
+        const hook = renderHook(() => useCloudAI())
+        expect((await gen(hook)).error.code).toBe("AI-000")
+    })
+
     it("sends and then reuses the conversation id in stateful mode", async () => {
         const fetchMock: any = vi.fn(async () => streamResponse(sse({ conversationId: "c9", token: "x" }, "data: [DONE]\n")))
         vi.stubGlobal("fetch", fetchMock)

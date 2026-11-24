@@ -2,7 +2,7 @@
 // Server-side only (CJS, loaded by route.js). Models come from config (`imageModel`), never hardcoded here, because
 // provider image model names change often. Images come back as base64 in JSON; we never fetch or proxy provider URLs.
 
-const { DEFAULT_LIMITS, BASE64, decodedBytes } = require("./cloudMedia")
+const { DEFAULT_LIMITS, isValidBase64, decodedBytes } = require("./cloudMedia")
 
 const MAX_PROMPT_CHARS = 4000
 const MAX_IMAGES = 4
@@ -26,9 +26,22 @@ function validateImageRequest(body) {
         for (const img of images) {
             if (!img || typeof img !== "object") return "each image must be { mimeType, data }"
             if (typeof img.mimeType !== "string" || !MIME_RE.test(img.mimeType)) return "image mimeType must be image/png, image/jpeg or image/webp"
-            if (typeof img.data !== "string" || img.data.length === 0 || !BASE64.test(img.data)) return "image data must be a base64 string"
+            if (!isValidBase64(img.data)) return "image data must be a base64 string"
             if (decodedBytes(img.data) > DEFAULT_LIMITS.imageBytes) return `image is too large (limit ${DEFAULT_LIMITS.imageBytes} bytes)`
         }
+    }
+    return null
+}
+
+/**
+ * Checks that depend on the provider, run by the route BEFORE any adapter is called. These are mistakes in the request,
+ * so they must come back as a 400 (AI-003), not as an internal failure from inside an adapter. -> error string or null.
+ */
+function validateProviderRequest(provider, body) {
+    if (provider === "gemini") {
+        if (body?.n !== undefined && body.n > 1) return "gemini returns one image per request: omit n or use 1"
+        // The adapter has no size setting to send, so accepting one would quietly return the default dimensions.
+        if (body?.size !== undefined && body.size !== "auto") return 'gemini image size is not configurable: omit size or use "auto"'
     }
     return null
 }
@@ -122,4 +135,4 @@ function createImageAdapters({ throwProviderError, createError }) {
     return { openai: openaiImage, gemini: geminiImage }
 }
 
-module.exports = { validateImageRequest, createImageAdapters, normalizeOpenAIImageUsage, normalizeGeminiImageUsage, MAX_PROMPT_CHARS, MAX_IMAGES }
+module.exports = { validateImageRequest, validateProviderRequest, createImageAdapters, normalizeOpenAIImageUsage, normalizeGeminiImageUsage, MAX_PROMPT_CHARS, MAX_IMAGES }

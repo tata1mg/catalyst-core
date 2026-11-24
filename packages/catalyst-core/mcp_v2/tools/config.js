@@ -830,7 +830,7 @@ function _checkPricing(config, root, issues, warnings, passed) {
         if (!p || typeof p !== "object" || Array.isArray(p)) { err(at, "needs { input, output } in USD per 1M tokens, or { perImage } in USD per image."); continue }
         if (p.perImage !== undefined && !isNum(p.perImage)) err(`${at}.perImage`, "perImage must be a non-negative number (USD per generated image).")
         // A model priced per image alone may leave the token rates out.
-        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined && p.cachedInput === undefined
         if (!perImageOnly) for (const key of ["input", "output"]) if (!isNum(p[key])) err(`${at}.${key}`, `${key} must be a non-negative number (USD per 1M tokens).`)
         if (p.cachedInput !== undefined && !isNum(p.cachedInput)) err(`${at}.cachedInput`, "cachedInput must be a non-negative number.")
         if (p.audioInput !== undefined && p.audioInput !== null && !isNum(p.audioInput)) err(`${at}.audioInput`, "audioInput must be a number or null.")

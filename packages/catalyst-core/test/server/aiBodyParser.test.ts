@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import express from "express"
 import bodyParser from "body-parser"
 import type { Server } from "node:http"
-import { resolveAIBodyConfig, mountAIBodyParser } from "../../src/server/utils/aiBodyParser.js"
+import { resolveAIBodyConfig, resolveAIBasePath, mountAIBodyParser } from "../../src/server/utils/aiBodyParser.js"
 
 // Image/audio requests to the AI route are far larger than body-parser's 100 kb default. Only the AI path gets the
 // larger limit; every other route keeps the default. These tests go through a real HTTP server because the original
@@ -68,5 +68,26 @@ describe("mountAIBodyParser (real HTTP)", () => {
     it("does not touch other routes when the base path is customised", async () => {
         const post = await start({ basePath: "/ai" })
         expect((await post("/other", 1)).status).toBe(413)
+    })
+})
+
+describe("resolveAIBasePath", () => {
+    it("keeps a plain path, without a trailing slash", () => {
+        expect(resolveAIBasePath("/ai")).toBe("/ai")
+        expect(resolveAIBasePath("/api/ai/")).toBe("/api/ai")
+        expect(resolveAIBasePath(" /v1/ai ")).toBe("/v1/ai")
+    })
+
+    it("falls back to /ai for the root, which would put the big-body parser in front of every route", () => {
+        expect(resolveAIBasePath("/")).toBe("/ai")
+        expect(resolveAIBasePath("//")).toBe("/ai")
+        expect(resolveAIBodyConfig({ basePath: "/" })?.basePath).toBe("/ai")
+    })
+
+    it("falls back to /ai for values that are not a plain path, which could make app.use() throw", () => {
+        for (const bad of [undefined, null, 5, true, {}, [], "", "ai", "/a b", "/a*", "/(x)", "/../x", "/a//b", "http://x/y"]) {
+            expect(resolveAIBasePath(bad)).toBe("/ai")
+        }
+        expect(resolveAIBodyConfig({ basePath: { not: "a path" } })?.basePath).toBe("/ai")
     })
 })

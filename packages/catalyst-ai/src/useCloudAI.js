@@ -4,6 +4,7 @@ import { prepareAudioParts, normalizeAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
+import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -244,8 +245,19 @@ export function useCloudAI({
                                 completed = true
                                 return
                             }
+                            let data
                             try {
-                                const data = JSON.parse(payload)
+                                data = JSON.parse(payload)
+                            } catch (_) {
+                                continue // a frame that is not JSON is skipped, as before
+                            }
+                            // The route reports a failure that happens mid-stream as { error, code }. That ends the generation as
+                            // an error: finishing it as a short but "successful" answer would hide the failure from the caller.
+                            if (data && data.error) {
+                                const known = Object.values(ERROR_CODES).includes(data.code) ? data.code : ERROR_CODES.AI_UPSTREAM_ERROR
+                                throw createError(known, { message: String(data.error) })
+                            }
+                            {
                                 if (sessionModeRef.current === "stateful" && data.conversationId && activeGenerationRef.current === generationId) {
                                     conversationIdRef.current = data.conversationId
                                 }
@@ -264,7 +276,7 @@ export function useCloudAI({
                                 if (data.usage) {
                                     usage = { ...data.usage, provider }
                                 }
-                            } catch (_) {}
+                            }
                         }
                     }
                 } finally {

@@ -109,6 +109,40 @@ describe("anthropic provider", () => {
         expect(frames(refused).at(-1)).toMatchObject({ error: "The model declined this request (cyber)" })
     })
 
+    it("stream: the last frame is read even without a trailing newline", async () => {
+        const raw = (text: string) => new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(text)); c.close() } }), { status: 200 })
+        fetchMock.mockResolvedValue(raw(
+            'data: {"type":"message_start","message":{"usage":{"input_tokens":4}}}\n' +
+            'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}\n' +
+            'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}\n' +
+            'data: {"type":"message_stop"}' // no newline at the end of the stream
+        ))
+        const res = await invoke(makeReq({ messages: [{ role: "user", content: "hi" }] }, "stream"))
+        const out = frames(res)
+        expect(out[0]).toEqual({ token: "hi" })
+        expect(out.some((f: any) => f && f.usage)).toBe(true)
+        expect(out.at(-1)).toBe("[DONE]")
+    })
+
+    it("stream: a frame that is not valid JSON is an error, not skipped", async () => {
+        fetchMock.mockResolvedValue(sse({ type: "message_start", message: { usage: {} } }).clone())
+        const broken = new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('data: {"type":"message_delta", oops\n\n')); c.close() } }), { status: 200 })
+        fetchMock.mockResolvedValue(broken)
+        const res = await invoke(makeReq({ messages: [{ role: "user", content: "hi" }] }, "stream"))
+        expect(frames(res).at(-1)).toMatchObject({ error: expect.stringMatching(/not valid JSON/) })
+        expect(frames(res)).not.toContain("[DONE]")
+    })
+
+    it("stream: a connection that drops before message_stop is an error, never a successful partial answer", async () => {
+        fetchMock.mockResolvedValue(sse(
+            { type: "message_start", message: { usage: { input_tokens: 3 } } },
+            { type: "content_block_delta", delta: { type: "text_delta", text: "half an ans" } }
+        ))
+        const res = await invoke(makeReq({ messages: [{ role: "user", content: "hi" }] }, "stream"))
+        expect(frames(res).at(-1)).toMatchObject({ error: expect.stringMatching(/ended before the answer was complete/) })
+        expect(frames(res)).not.toContain("[DONE]")
+    })
+
     it("generate: a refusal is an error, and an HTTP error is wrapped as a provider error", async () => {
         fetchMock.mockResolvedValue(ok({ content: [], stop_reason: "refusal", stop_details: { category: "bio" }, usage: {} }))
         const refused = await invoke(makeReq({ messages: [{ role: "user", content: "hi" }] }, "generate"))

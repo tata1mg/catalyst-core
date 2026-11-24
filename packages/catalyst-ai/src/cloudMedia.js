@@ -15,9 +15,12 @@ const DEFAULT_LIMITS = {
     audioBytes: 10 * 1024 * 1024,
     maxImages: 4,
     maxAudio: 2,
-    // The JSON body limit (20 MB, base64 inflates by a third) is the real ceiling; Anthropic itself allows 32 MB / 600 pages.
     documentBytes: 10 * 1024 * 1024,
     maxDocuments: 2,
+    // The JSON body limit (20 MB by default) is the real ceiling, and base64 inflates media by a third. Everything one
+    // request carries has to fit under it, or the body parser would refuse a request that passed every per-type limit
+    // before this validator ever ran. 14 MiB of media is about 18.7 MiB of base64, which leaves room for the JSON around it.
+    totalBytes: 14 * 1024 * 1024,
 }
 const PDF_MIME = "application/pdf"
 
@@ -32,6 +35,17 @@ function decodedBytes(base64) {
     return Math.floor((base64.length * 3) / 4) - padding
 }
 
+/**
+ * true for base64 that can really decode to at least one byte. The character class alone accepts impossible values
+ * ("A" has a length no base64 text can have, "=" is padding with nothing to pad), which would reach a provider.
+ */
+function isValidBase64(value) {
+    if (typeof value !== "string" || value.length === 0 || !BASE64.test(value)) return false
+    if (value.length % 4 === 1) return false
+    if (value.includes("=") && value.length % 4 !== 0) return false
+    return decodedBytes(value) > 0
+}
+
 function parseDataUrl(value) {
     if (typeof value !== "string" || !value.startsWith("data:")) return null
     const comma = value.indexOf(",")
@@ -40,7 +54,7 @@ function parseDataUrl(value) {
     if (!header.endsWith(";base64")) return null
     const mimeType = header.slice(0, -7)
     const base64 = value.slice(comma + 1)
-    if (!mimeType || mimeType.includes(";") || !BASE64.test(base64)) return null
+    if (!mimeType || mimeType.includes(";") || !isValidBase64(base64)) return null
     return { mimeType, base64 }
 }
 
@@ -63,6 +77,7 @@ function validateMessages(messages, limits = DEFAULT_LIMITS) {
     let images = 0
     let audios = 0
     let documents = 0
+    let total = 0
     return messages.map((message) => {
         const role = message?.role
         const raw = typeof message?.content === "string" ? [{ type: "text", text: message.content }] : message?.content
@@ -81,6 +96,8 @@ function validateMessages(messages, limits = DEFAULT_LIMITS) {
             if (!mimeOk) throw mediaError("invalid-part", `A ${part.type} part cannot carry ${parsed.mimeType}`)
             const cap = part.type === "image" ? limits.imageBytes : part.type === "audio" ? limits.audioBytes : limits.documentBytes
             if (decodedBytes(parsed.base64) > cap) throw mediaError("too-large", `${part.type} is too large (limit ${cap} bytes)`, { modality: part.type, limit: cap })
+            total += decodedBytes(parsed.base64)
+            if (total > limits.totalBytes) throw mediaError("too-large", `Images, audio and documents in one request are limited to ${limits.totalBytes} bytes in total`, { modality: part.type, limit: limits.totalBytes })
             if (part.type === "image") images++
             else if (part.type === "audio") audios++
             else documents++
@@ -172,9 +189,18 @@ function mapOpenAIChat(messages) {
 }
 
 function mapOpenAIResponses(messages) {
-    return mapMessages(messages, (part) => {
-        if (part.type === "text") return { type: "input_text", text: part.text }
-        return { type: "input_image", image_url: dataUrlOf(part) }
+    // The Responses API wants typed parts ("input_text", "input_image"), so every array-content message is normalised and
+    // mapped, text-only arrays included. Only plain-string content is passed through unchanged.
+    if (!messages.some((m) => Array.isArray(m?.content))) return messages
+    const normalized = validateMessages(messages)
+    return messages.map((message, i) => {
+        if (typeof message?.content === "string") return message
+        return {
+            ...message,
+            content: normalized[i].parts.map((part) =>
+                part.type === "text" ? { type: "input_text", text: part.text } : { type: "input_image", image_url: dataUrlOf(part) }
+            ),
+        }
     })
 }
 
@@ -226,6 +252,7 @@ function mapAnthropicMessages(messages) {
 
 module.exports = {
     DEFAULT_LIMITS,
+    isValidBase64,
     BASE64,
     decodedBytes,
     usesParts,

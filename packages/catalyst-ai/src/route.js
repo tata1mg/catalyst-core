@@ -573,6 +573,26 @@ async function anthropicStream({ apiKey, model, messages, genConfig, res, signal
     let usage = {}
     let stopReason = null
     let stopDetails = null
+    let finished = false
+
+    // One SSE line. Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data
+    // lines matter. A data line that is not JSON is an error: skipping it could drop the frame that carries the usage or the
+    // stop reason (a refusal), and the stream would then look like a normal, complete answer.
+    const handleLine = (line) => {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith("data:")) return
+        let parsed
+        try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { throw new Error("Claude sent a stream frame that is not valid JSON") }
+        if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
+        if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
+        else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+            res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
+        } else if (parsed.type === "message_delta") {
+            usage = { ...usage, ...parsed.usage }
+            stopReason = parsed.delta?.stop_reason ?? stopReason
+            stopDetails = parsed.delta?.stop_details ?? stopDetails
+        } else if (parsed.type === "message_stop") finished = true
+    }
 
     while (true) {
         const { done, value } = await reader.read()
@@ -580,26 +600,15 @@ async function anthropicStream({ apiKey, model, messages, genConfig, res, signal
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split("\n")
         buffer = lines.pop() || ""
-        for (const line of lines) {
-            const trimmed = line.trim()
-            // Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data lines matter.
-            if (!trimmed.startsWith("data:")) continue
-            let parsed
-            try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { continue }
-            if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
-            if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
-            else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-                res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
-            } else if (parsed.type === "message_delta") {
-                usage = { ...usage, ...parsed.usage }
-                stopReason = parsed.delta?.stop_reason ?? stopReason
-                stopDetails = parsed.delta?.stop_details ?? stopDetails
-            }
-        }
+        for (const line of lines) handleLine(line)
     }
-
+    // The last line may have no trailing newline, and the decoder may be holding a partial character: process both.
+    buffer += decoder.decode()
+    if (buffer.trim()) handleLine(buffer)
     const refusal = anthropicRefusal(stopReason, stopDetails)
     if (refusal) throw refusal
+    // Without message_stop the connection dropped mid-answer. Say so, rather than "[DONE]" on whatever arrived.
+    if (!finished) throw new Error("Claude stream ended before the answer was complete")
     const normalized = normalizeAnthropicUsage(usage, model)
     if (normalized) res.write(`data: ${JSON.stringify({ usage: normalized })}\n\n`)
     res.write("data: [DONE]\n\n")
@@ -791,7 +800,7 @@ router.post("/:provider/image", async (req, res) => {
         return
     }
 
-    const bodyError = imageGen.validateImageRequest(req.body)
+    const bodyError = imageGen.validateImageRequest(req.body) || imageGen.validateProviderRequest(provider, req.body)
     const model = req.body?.model || cfg.imageModel
     const modelError = !model
         ? `no model specified and provider has no imageModel configured`
@@ -839,7 +848,7 @@ router.post("/:provider/speech", async (req, res) => {
         return
     }
 
-    const bodyError = speechGen.validateSpeechRequest(req.body)
+    const bodyError = speechGen.validateSpeechRequest(req.body) || speechGen.validateProviderRequest(provider, req.body)
     const model = req.body?.model || cfg.speechModel
     const modelError = !model
         ? "no model specified and provider has no speechModel configured"

@@ -98,6 +98,12 @@ async function askPrice(ask, out, label, current) {
  * @param io     { cwd, ask, out, err, isTTY } (injectable for tests)
  * @returns exit code
  */
+/** What AI_CONFIG.pricing already holds for a model, so an update only changes the fields it sets (audioInput and perImage stay). */
+function existingPrice(aiConfig, model) {
+    const existing = aiConfig && aiConfig.pricing && aiConfig.pricing[model]
+    return existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {}
+}
+
 async function run(argv, io = {}) {
     const out = io.out || ((s) => process.stdout.write(s))
     const err = io.err || ((s) => process.stderr.write(s))
@@ -137,7 +143,7 @@ async function run(argv, io = {}) {
 
     const updates = {}
     for (const s of opts.sets) {
-        updates[s.model] = { input: s.input, output: s.output, ...(s.cachedInput !== undefined && { cachedInput: s.cachedInput }) }
+        updates[s.model] = { ...existingPrice(aiConfig, s.model), input: s.input, output: s.output, ...(s.cachedInput !== undefined && { cachedInput: s.cachedInput }) }
     }
 
     if (opts.check) {
@@ -171,7 +177,7 @@ async function run(argv, io = {}) {
                 const output = await askPrice(ask, out, "output", r.price?.output)
                 if (input === undefined || output === undefined) { out("    skipped\n"); continue }
                 const cachedInput = await askPrice(ask, out, "cached input, Enter for none", r.price && r.price.cachedInput !== r.price.input ? r.price.cachedInput : undefined)
-                updates[r.model] = { input, output, ...(cachedInput !== undefined && { cachedInput }) }
+                updates[r.model] = { ...existingPrice(aiConfig, r.model), input, output, ...(cachedInput !== undefined && { cachedInput }) }
             }
         } finally {
             if (ask.close) ask.close()

@@ -44,9 +44,21 @@ describe("aggregateSessionMetrics (cloud)", () => {
         expect(r.minTps).toBe(10)
         expect(r.maxTps).toBe(30)
         expect(r.avgCostPerGeneration).toBeCloseTo(0.04 / 3)
-        expect((r.byProvider as any).gemini).toEqual({ generationCount: 2, totalCost: 0.04, totalTokens: 400 })
+        expect((r.byProvider as any).gemini).toEqual({ generationCount: 2, totalCost: 0.04, totalTokens: 400, audioCostUnknown: false })
         expect((r.byProvider as any).unknown.generationCount).toBe(1)
     })
+    it("says so when any generation had audio with no confirmed rate, so the total cost is known to be partial", () => {
+        const r = aggregateSessionMetrics([
+            { provider: "gemini", cost: 0.01, totalTokens: 10, audioTokens: 100, audioCostUnknown: true },
+            { provider: "openai", cost: 0.02, totalTokens: 20, audioTokens: 50 },
+        ])!
+        expect(r.audioCostUnknown).toBe(true)
+        expect(r.totalAudioTokens).toBe(150)
+        expect((r.byProvider as any).gemini.audioCostUnknown).toBe(true)
+        expect((r.byProvider as any).openai.audioCostUnknown).toBe(false)
+        expect(aggregateSessionMetrics([{ provider: "openai", cost: 0, totalTokens: 1 }])!.audioCostUnknown).toBe(false)
+    })
+
     it("leaves ttft/tps null when no generation reported them", () => {
         const r = aggregateSessionMetrics([{ provider: "openai", cost: 0, totalTokens: 1 }])!
         expect(r.avgTtftMs).toBeNull()

@@ -22,6 +22,14 @@ function validateSpeechRequest(body) {
     return null
 }
 
+/** Provider-specific checks, run by the route before an adapter is called, so a client mistake is a 400 (AI-003). -> error string or null. */
+function validateProviderRequest(provider, body) {
+    if (provider === "gemini" && body?.format !== undefined && body.format !== "wav") {
+        return "gemini speech is returned as wav: omit format or use wav"
+    }
+    return null
+}
+
 /** Wraps raw 16-bit little-endian PCM in a 44-byte RIFF/WAVE header so browsers can play it. -> Buffer. */
 function pcmToWav(pcm, { sampleRate = 24000, channels = 1, bitsPerSample = 16 } = {}) {
     const byteRate = (sampleRate * channels * bitsPerSample) / 8
@@ -115,4 +123,4 @@ function createSpeechAdapters({ throwProviderError, createError }) {
     return { openai: openaiSpeech, gemini: geminiSpeech }
 }
 
-module.exports = { validateSpeechRequest, createSpeechAdapters, pcmToWav, normalizeSpeechUsage, MAX_TEXT_CHARS, FORMATS }
+module.exports = { validateSpeechRequest, validateProviderRequest, createSpeechAdapters, pcmToWav, normalizeSpeechUsage, MAX_TEXT_CHARS, FORMATS }

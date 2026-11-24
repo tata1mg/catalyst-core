@@ -131,7 +131,9 @@ describe("POST /:provider/image", () => {
         const fetchMock = vi.fn().mockResolvedValue(json({ candidates: [{ content: { parts: [{ text: "I can't draw that" }] } }] }))
         vi.stubGlobal("fetch", fetchMock)
         const many = await post("gemini", { prompt: "a cat", n: 2 })
-        expect(many.statusCode).toBe(500)
+        expect(many.statusCode).toBe(400) // a mistake in the request, not an internal failure
+        expect(many.jsonBody.code).toBe("AI-003")
+        expect(many.jsonBody.error).toMatch(/one image per request/)
         expect(fetchMock).not.toHaveBeenCalled()
         const none = await post("gemini", { prompt: "a cat" })
         expect(none.jsonBody.error).toMatch(/no image: I can't draw that/)
@@ -144,5 +146,26 @@ describe("POST /:provider/image", () => {
         const err = await post("openai", { prompt: "a cat" })
         expect(err.statusCode).toBe(500)
         expect(JSON.stringify(err.jsonBody)).not.toContain("sk-o")
+    })
+
+    it("Gemini has no size setting, so a size other than auto is refused instead of quietly returning default dimensions", async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+        const sized = await post("gemini", { prompt: "a cat", size: "1024x1024" })
+        expect(sized.statusCode).toBe(400)
+        expect(sized.jsonBody.code).toBe("AI-003")
+        expect(sized.jsonBody.error).toMatch(/size/)
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it("refuses base64 that cannot decode ('A', '=', stray padding) before any provider call", async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+        for (const data of ["A", "=", "AA=A", "A===", "", "!!!!"]) {
+            const res = await post("openai", { prompt: "edit", images: [{ mimeType: "image/png", data }] })
+            expect(res.statusCode, data).toBe(400)
+            expect(res.jsonBody.code).toBe("AI-003")
+        }
+        expect(fetchMock).not.toHaveBeenCalled()
     })
 })

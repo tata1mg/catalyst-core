@@ -12,7 +12,7 @@ import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, handleError, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
-import { mountAIBodyParser, parseAIConfig } from "./utils/aiBodyParser.js"
+import { mountAIBodyParser, parseAIConfig, resolveAIBasePath } from "./utils/aiBodyParser.js"
 
 const { header, row, glyph, t, GUTTER, duration } = cjsRequire("../../cli/theme.js")
 const { diagnostic, runtimeFailure } = cjsRequire("../../cli/diagnostic.js")
@@ -128,7 +128,7 @@ function mountAIRouter(app: any) {
             return
         }
 
-        const aiBasePath = aiConfig.basePath || "/ai"
+        const aiBasePath = resolveAIBasePath(aiConfig.basePath)
         app.use(aiBasePath, aiRouter)
     } catch (mountErr) {
         console.error("[catalyst-core/ai] Failed to mount AI router:", mountErr)
