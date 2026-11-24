@@ -125,7 +125,14 @@ export function useAI(options: any = {}) {
               allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
           })
         : emptyHook()
-    const webResult = _pkg ? _pkg.useWebAI({ ...options, ...(webSel?.model && { model: webSel.model }) }) : emptyHook()
+    const webResult = _pkg
+        ? _pkg.useWebAI({
+              ...options,
+              ...(webSel?.model && { model: webSel.model }),
+              network: { online: network.online, type: network.type },
+              ...(config?.download && { download: config.download }),
+          })
+        : emptyHook()
     const nativeResult = _pkg
         ? _pkg.useNativeAI({
               ...options,
