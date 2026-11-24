@@ -64,6 +64,8 @@ const WEB_MODELS = [
     { id: "onnx-community/whisper-large-v3-turbo", label: "Whisper large-v3-turbo (speech only, needs fp16 GPU)", size: "~570 MB", kind: "speech" },
     { id: "onnx-community/moonshine-tiny-ONNX", label: "Moonshine tiny (speech only, English)", size: "~80 MB", kind: "speech" },
     { id: "onnx-community/moonshine-base-ONNX", label: "Moonshine base (speech only, English)", size: "~155 MB", kind: "speech" },
+    // Chrome's own model (Gemini Nano) through the Prompt API: desktop Chrome only, Chrome downloads and manages it.
+    { id: "chrome-built-in", label: "Chrome built-in (Gemini Nano: text, image, audio)", size: "managed by Chrome, needs ~22 GB free disk", kind: "chrome" },
     // Two steps in two workers: a small speech model hears the clip, then Gemma 4 E2B (text only) lays the transcript out.
     { id: "pipeline:whisper-base+gemma-4-e2b", label: "Whisper base → Gemma 4 E2B (two steps)", size: "~3.6 GB (210 MB + 3.4 GB)", kind: "pipeline", asr: "onnx-community/whisper-base", structure: "onnx-community/gemma-4-E2B-it-ONNX" },
 ]
@@ -71,6 +73,12 @@ const WEB_MODELS = [
 // Step 2 of the pipeline. The model gets the exact words, so it only has to format them (the part a 2B model is good at).
 const pipelinePrompt = (transcript) =>
     `Below is the exact transcript of a spoken audio clip.\n\nTranscript:\n"""\n${transcript}\n"""\n\nRepeat the transcript exactly, then list every number in it as a table with the item and its value. Do not add anything that is not in the transcript.`
+
+// Same options for the question and for the session, as the Prompt API wants (see promptApiEngine.js).
+const chromeOptions = (extra) => ({
+    expectedInputs: [{ type: "text", languages: ["en"] }, ...extra.map((type) => ({ type }))],
+    expectedOutputs: [{ type: "text", languages: ["en"] }],
+})
 
 const TABS = {
     native: { label: "📱 Native", hint: "The platform picks its own model: Gemma 4 via LiteRT-LM on Android, the best available on iOS." },
@@ -106,7 +114,7 @@ export default function Multimodal() {
     const [cloudProvider, setCloudProvider] = useState("gemini")
     const [webModelId, setWebModelId] = useState(WEB_MODELS[0].id)
     const webModel = WEB_MODELS.find((m) => m.id === webModelId) ?? WEB_MODELS[0]
-    const provider = tab === "cloud" ? cloudProvider : nativeAvailable ? "native" : "transformers"
+    const provider = tab === "cloud" ? cloudProvider : nativeAvailable ? "native" : webModel.kind === "chrome" ? "prompt-api" : "transformers"
     const isPipeline = provider === "transformers" && webModel.kind === "pipeline"
     const ai = useAI({
         provider,
@@ -121,9 +129,48 @@ export default function Multimodal() {
     // (one worker swapping between them would reload Gemma's 3.4 GB on every call). Nothing loads until it is used.
     const speech = useAI({ provider: "transformers", model: WEB_MODELS.find((m) => m.kind === "pipeline").asr, sessionMode: "stateless", genConfig: { stream: true } })
     const [pipe, setPipe] = useState(null)
+
+    // What this browser says about Chrome's built-in model, per input kind (a device can take text but not audio).
+    const [chromeInfo, setChromeInfo] = useState(null)
+    const [chromeDownload, setChromeDownload] = useState(null)
+    const refreshChrome = async () => {
+        const api = typeof window !== "undefined" ? window.LanguageModel : undefined
+        if (!api || typeof api.availability !== "function") {
+            setChromeInfo({ missing: true })
+            return
+        }
+        const ask = async (extra) => {
+            try {
+                return await api.availability(chromeOptions(extra))
+            } catch (e) {
+                return `error: ${e.message}`
+            }
+        }
+        setChromeInfo({ text: await ask([]), image: await ask(["image"]), audio: await ask(["audio"]) })
+    }
+    useEffect(() => {
+        if (webModel.kind === "chrome" && tab === "native") refreshChrome()
+    }, [webModel.kind, tab])
+    // A model that still has to be downloaded can only be started from a click, so this is its own button.
+    const downloadChrome = async () => {
+        setChromeDownload({ percent: 0 })
+        try {
+            const session = await window.LanguageModel.create({
+                ...chromeOptions([]),
+                monitor(m) {
+                    m.addEventListener("downloadprogress", (e) => setChromeDownload({ percent: Math.round((e.loaded ?? 0) * 100) }))
+                },
+            })
+            session.destroy?.()
+            setChromeDownload({ done: true })
+        } catch (e) {
+            setChromeDownload({ error: e.message })
+        }
+        refreshChrome()
+    }
     const busy = ai.loading || ai.streaming || speech.loading || speech.streaming || pipe?.step === "transcribing" || pipe?.step === "structuring"
 
-    const engineLabel = ai.isNative ? "native model" : ai.isLocal ? "web (Transformers.js)" : "cloud"
+    const engineLabel = ai.isNative ? "native model" : ai.isLocal ? (provider === "prompt-api" ? "Chrome built-in" : "web (Transformers.js)") : "cloud"
     const percent = ai.nativeDownloadProgress?.percent ?? ai.downloadProgress?.percent ?? null
 
     // useFilePicker hands back a native handle (URL or base64 depending on transport); getFileObject() turns it
@@ -218,7 +265,9 @@ export default function Multimodal() {
               ? "ready"
               : provider === "transformers"
                 ? `not loaded yet (downloads ${webModel.size} on first Run, cached after)`
-                : "preparing model"
+                : provider === "prompt-api"
+                  ? "not started (Chrome loads its own model on the first Run)"
+                  : "preparing model"
 
     const chip = "px-3 py-1.5 rounded-lg border border-[var(--border)] text-[12px]"
 
@@ -257,6 +306,31 @@ export default function Multimodal() {
                             <option key={m.id} value={m.id}>{m.label} · {m.size}</option>
                         ))}
                     </select>
+                    {webModel.kind === "chrome" && (
+                        <div className="mt-1 text-[12px]" data-testid="chrome-availability">
+                            <p>
+                                Chrome's own on-device model through the Prompt API: nothing is downloaded by this page. Desktop Chrome only
+                                (Chrome 148 or newer, no flag), about 22 GB of free disk, a GPU with more than 4 GB of memory (or 16 GB RAM and 4+ cores);
+                                audio needs a GPU. You can attach an image or an audio clip. Replies are text.
+                            </p>
+                            <p className="mt-1 font-mono">
+                                {chromeInfo == null
+                                    ? "checking…"
+                                    : chromeInfo.missing
+                                      ? "LanguageModel is not in this browser (needs desktop Chrome 148+)"
+                                      : `availability · text: ${chromeInfo.text} · image: ${chromeInfo.image} · audio: ${chromeInfo.audio}`}
+                                <button onClick={refreshChrome} className="ml-2 underline">recheck</button>
+                            </p>
+                            {chromeInfo && !chromeInfo.missing && chromeInfo.text === "downloadable" && (
+                                <button onClick={downloadChrome} disabled={chromeDownload && chromeDownload.percent != null && !chromeDownload.done} className={`${chip} mt-2`}>
+                                    Download Chrome's model
+                                </button>
+                            )}
+                            {chromeDownload?.percent != null && !chromeDownload.done && <span className="ml-2 font-mono">download {chromeDownload.percent}%</span>}
+                            {chromeDownload?.done && <span className="ml-2 font-mono">downloaded</span>}
+                            {chromeDownload?.error && <span className="ml-2 text-red-400">{chromeDownload.error}</span>}
+                        </div>
+                    )}
                     {webModel.kind === "pipeline" && (
                         <p className="mt-1 text-[12px]">Two steps: Whisper base writes the transcript, then Gemma 4 E2B lays it out as components. Needs an audio clip; the prompt box and any image are ignored. Both models stay loaded after the first Run.</p>
                     )}

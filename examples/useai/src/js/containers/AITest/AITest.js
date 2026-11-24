@@ -17,9 +17,12 @@ export default function AITest() {
     const [useCloud, setUseCloud] = useState(true);
     const [useLocal, setUseLocal] = useState(false);
     const [useNative, setUseNative] = useState(false);
+    // Chrome's own on-device model through the Prompt API (desktop Chrome only).
+    const [useChrome, setUseChrome] = useState(false);
     const [cloudRun, setCloudRun] = useState(0);
     const [localRun, setLocalRun] = useState(0);
     const [nativeRun, setNativeRun] = useState(0);
+    const [chromeRun, setChromeRun] = useState(0);
     const [activePrompt, setActivePrompt] = useState(PROMPTS[0]);
 
     // Redesigned local inference states
@@ -46,7 +49,7 @@ export default function AITest() {
     const [nativeSessionMode, setNativeSessionMode] = useState("stateless");
     const [localSessionMode, setLocalSessionMode] = useState("stateless");
 
-    const noneSelected = !useCloud && !useLocal && !useNative;
+    const noneSelected = !useCloud && !useLocal && !useNative && !useChrome;
 
     const handleRun = (e) => {
         e.preventDefault();
@@ -55,9 +58,10 @@ export default function AITest() {
         if (useCloud) setCloudRun((n) => n + 1);
         if (useLocal) setLocalRun((n) => n + 1);
         if (useNative) setNativeRun((n) => n + 1);
+        if (useChrome) setChromeRun((n) => n + 1);
     };
 
-    const activePanelsCount = (useCloud ? 1 : 0) + (useLocal ? 1 : 0) + (useNative ? 1 : 0);
+    const activePanelsCount = (useCloud ? 1 : 0) + (useLocal ? 1 : 0) + (useNative ? 1 : 0) + (useChrome ? 1 : 0);
     const showMultiple = activePanelsCount > 1;
     const showCompare = activePanelsCount > 1;
 
@@ -98,9 +102,10 @@ export default function AITest() {
                                 setUseCloud(true);
                                 setUseLocal(false);
                                 setUseNative(false);
+                                setUseChrome(false);
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
-                                useCloud && !useLocal && !useNative
+                                useCloud && !useLocal && !useNative && !useChrome
                                     ? "bg-indigo-500 border-indigo-500 text-white shadow-sm"
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             }`}
@@ -113,9 +118,10 @@ export default function AITest() {
                                 setUseCloud(false);
                                 setUseLocal(true);
                                 setUseNative(false);
+                                setUseChrome(false);
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
-                                !useCloud && useLocal && !useNative
+                                !useCloud && useLocal && !useNative && !useChrome
                                     ? "bg-teal-500 border-teal-500 text-white shadow-sm"
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             }`}
@@ -129,14 +135,32 @@ export default function AITest() {
                                 setUseCloud(false);
                                 setUseLocal(false);
                                 setUseNative(true);
+                                setUseChrome(false);
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
-                                useNative && !useCloud && !useLocal
+                                useNative && !useCloud && !useLocal && !useChrome
                                     ? "bg-purple-500 border-purple-500 text-white shadow-sm"
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             📱 {isNativeAvailable ? "Native" : "Native (not in this build)"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setUseCloud(false);
+                                setUseLocal(false);
+                                setUseNative(false);
+                                setUseChrome(true);
+                            }}
+                            title="Chrome's own on-device model (Prompt API): desktop Chrome only"
+                            className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
+                                useChrome && !useCloud && !useLocal && !useNative
+                                    ? "bg-amber-500 border-amber-500 text-white shadow-sm"
+                                    : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
+                            }`}
+                        >
+                            🌐 Chrome built-in
                         </button>
                         
                         <div className="w-px h-4 bg-[var(--border)] mx-2" />
@@ -147,9 +171,10 @@ export default function AITest() {
                                 setUseCloud(true);
                                 setUseLocal(true);
                                 setUseNative(false);
+                                setUseChrome(false);
                             }}
                             className={`px-3 py-1.5 rounded-lg border font-semibold text-[12px] transition cursor-pointer select-none ${
-                                useCloud && useLocal && !useNative
+                                useCloud && useLocal && !useNative && !useChrome
                                     ? "bg-gradient-to-r from-indigo-500 to-teal-500 border-indigo-500 text-white shadow-sm"
                                     : "bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-2)] hover:text-white"
                             }`}
@@ -176,6 +201,7 @@ export default function AITest() {
                                  useCloud ? "Cloud Only" :
                                  useLocal ? `Local (${LOCAL_MODELS.find(m => m.id === selectedLocalModel)?.label})` :
                                  useNative ? "Native Only" :
+                                 useChrome ? "Chrome built-in" :
                                  "None Selected"}
                             </span>
                         </button>
@@ -346,7 +372,22 @@ export default function AITest() {
                         onResetSession={() => setNativeSessionMode("stateless")}
                     />
                 )}
-                {!useCloud && !useLocal && !useNative && (
+                {useChrome && (
+                    <Panel
+                        key="chrome"
+                        label="Chrome built-in · Prompt API"
+                        icon="🌐"
+                        provider="prompt-api"
+                        accentColor="text-amber-400"
+                        borderColor="border-amber-500/20"
+                        prompt={activePrompt}
+                        run={chromeRun}
+                        genConfig={genConfig}
+                        systemPrompt={systemPrompt}
+                        sessionMode="stateless"
+                    />
+                )}
+                {noneSelected && (
                     <div className="border border-dashed border-[var(--border)] rounded-2xl p-10 text-center text-[var(--text-3)] text-[13px] w-full">
                         Check a model above to see output here.
                     </div>
