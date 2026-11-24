@@ -572,9 +572,11 @@ extension WebViewNavigationDelegate {
         // The app holding the permission is not enough: only the app's own page (or an origin the access-control
         // whitelist allows) may capture. Anything else the WebView ended up on is refused outright.
         let originURL = origin.originURL
-        // Whitelist rules can be scoped to a path, so judge the requesting page by its full URL, not just its origin.
-        let pageURL = frame.request.url ?? originURL
-        let whitelisted = pageURL.map {
+        // The whitelist is looked up by origin only, never by the page's full URL: its rules can match a substring, so a
+        // hostile page could put an allowed address in its query string ("https://evil.example/?u=https://allowed.example")
+        // and be let in. A rule scoped to a path cannot be satisfied by an origin, so it does not grant capture; list the
+        // origin itself to allow it. The app's own page is trusted by origin as well.
+        let whitelisted = originURL.map {
             URLWhitelistManager.shared.isAccessControlEnabled && URLWhitelistManager.shared.isUrlAllowed($0.absoluteString)
         } ?? false
         guard MediaPermissionPolicy.isTrustedOrigin(origin: originURL, appURL: initialURL, whitelisted: whitelisted) else {
