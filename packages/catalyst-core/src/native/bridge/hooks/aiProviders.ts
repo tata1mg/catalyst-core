@@ -18,6 +18,26 @@ export function resolvePlatform(shell: { android: boolean; ios: boolean }): "ios
     return "web"
 }
 
+/** The routing targets: four on-device places a model can live. "web" in a config means both web ones. */
+export type RoutingPlatform = "ios" | "android" | "web-desktop" | "web-mobile"
+
+/**
+ * Whether a plain browser is a phone/tablet. Client Hints first (`userAgentData.mobile`, Chromium), then the user
+ * agent; iPadOS reports itself as a Mac, so a touch-capable "MacIntel" counts as mobile.
+ */
+export function isMobileWeb(env: { uaMobile?: boolean; userAgent?: string; platform?: string; maxTouchPoints?: number }): boolean {
+    if (typeof env.uaMobile === "boolean") return env.uaMobile
+    if (/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(env.userAgent || "")) return true
+    return env.platform === "MacIntel" && (env.maxTouchPoints || 0) > 1
+}
+
+/** resolvePlatform, with the browser split into desktop and mobile (they have different models to offer). */
+export function resolveRoutingPlatform(shell: { android: boolean; ios: boolean }, mobileWeb: boolean): RoutingPlatform {
+    const platform = resolvePlatform(shell)
+    if (platform !== "web") return platform
+    return mobileWeb ? "web-mobile" : "web-desktop"
+}
+
 export function resolveMode(provider: string | undefined): "local" | "native" | "cloud" {
     if (provider === "transformers") return "local"
     if (provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
