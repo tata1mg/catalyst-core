@@ -76,7 +76,8 @@ export default function PipelineLab() {
     })
     // Qwen3 0.6B cannot hear audio, so a recording must not be offered to it (live speech is fine: the phone's own
     // recogniser turns it into text first).
-    const nativeTextOnly = nativeAvailable && nativeModel === "qwen3-0.6B"
+    // Only the on-device engine uses it; the cloud engine hears audio whatever model is picked here.
+    const nativeTextOnly = nativeAvailable && engine === "device" && nativeModel === "qwen3-0.6B"
     const chooseNativeModel = (key) => {
         setNativeModel(key)
         try { localStorage.setItem("lab.nativeModel", key) } catch { /* the choice just is not remembered */ }
@@ -202,9 +203,6 @@ export default function PipelineLab() {
     // session (its text, state and stop) still belongs to `voice`, so the controls must not switch to the cloud hook.
     const voiceOwnsSession = voice.status === "running" || voice.listening
     const liveSrc = nativeSpeech || voiceOwnsSession ? voiceLiveSrc : live
-    useEffect(() => {
-        if (nativeTextOnly && (mode === "audio" || mode === "voice")) setMode("text")
-    }, [nativeTextOnly, mode])
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -214,6 +212,17 @@ export default function PipelineLab() {
             activeAudio.run(data, onDevice ? deviceOverrides : voiceConsent ? { cloudPolicy: "allow" } : undefined)
         },
     })
+    // Picking a text-only model while an audio mode is open leaves that mode. Stop whatever is recording first, the same
+    // way the mode buttons do, so no stale clip is delivered afterwards.
+    useEffect(() => {
+        if (nativeTextOnly && (mode === "audio" || mode === "voice")) {
+            recorder.cancel()
+            live.cancel()
+            voice.cancel()
+            setMode("text")
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nativeTextOnly, mode])
     const heard = activeAudio.steps.find((s) => s.type === "end" && s.stage === "transcribe")?.preview
     const running = pipe.status === "running"
 

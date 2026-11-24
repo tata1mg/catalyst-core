@@ -66,7 +66,9 @@ class CustomWebView(
     private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
-    // The app's own page: the first network URL loaded. Only this origin (plus whitelisted ones) may use camera or microphone.
+    // The app's own page. Only this origin (plus whitelisted ones) may use camera or microphone. The activity sets it from
+    // its properties on every create, so it is known even when the WebView is restored and loadUrl never runs; the first
+    // network URL loaded is only a fallback.
     private var appUrl: String? = null
     private var activeOfflineRouteOrigin: String? = null
     private var visibleOfflineSnapshotUrl: String? = null
@@ -157,6 +159,11 @@ class CustomWebView(
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .addPathHandler("/res/", WebViewAssetLoader.ResourcesPathHandler(context))
             .build()
+    }
+
+    /** The app's own URL, from the activity's properties. Camera and microphone are granted to this origin. */
+    fun setTrustedAppUrl(url: String) {
+        if (url.startsWith("http://") || url.startsWith("https://")) appUrl = url
     }
 
     fun setDefaultRequestHeaders(headers: Map<String, String>) {
