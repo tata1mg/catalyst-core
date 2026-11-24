@@ -12,6 +12,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -124,11 +125,18 @@ class NativeBridgeAI(
             mediaFiles.forEach { it.delete() }
             throw e
         }
-        val tokenFlow = conversation.sendMessageAsync(contents).map { message ->
-            message.contents.contents
-                .filterIsInstance<Content.Text>()
-                .joinToString("") { it.text }
-        }.onCompletion { mediaFiles.forEach { it.delete() } }
+        // onCompletion only exists once a Flow has been returned. If submitting the message throws, nothing will ever run it, so
+        // the temp media files are removed here before the failure goes on.
+        val tokenFlow = try {
+            conversation.sendMessageAsync(contents).map { message ->
+                message.contents.contents
+                    .filterIsInstance<Content.Text>()
+                    .joinToString("") { it.text }
+            }.onCompletion { mediaFiles.forEach { it.delete() } }
+        } catch (e: Exception) {
+            mediaFiles.forEach { it.delete() }
+            throw e
+        }
         return Pair(activeConvId, tokenFlow)
     }
 
@@ -138,8 +146,7 @@ class NativeBridgeAI(
      * ahead of the text. Temp files are removed when the response flow completes or is cancelled.
      */
     private fun buildContents(prompt: String, genConfig: JSONObject, mediaFiles: MutableList<File>): Contents {
-        val parts = genConfig.optJSONArray("inputParts")
-        if (parts == null || parts.length() == 0) return Contents.of(prompt)
+        val parts = readInputParts(genConfig) ?: return Contents.of(prompt)
 
         val dir = File(context.cacheDir, "ai_input").also { it.mkdirs() }
         val items = mutableListOf<Content>()
@@ -257,6 +264,7 @@ class NativeBridgeAI(
         var knownTotal = entry.sizeHint
         val downloader = ResumableDownloader(
             userAgent = "CatalystCore/1.0 LiteRT-LM",
+            expectedSize = entry.sizeHint,
             policy = policy,
             gate = DownloadGate.shared,
             log = { log(it) },
@@ -320,4 +328,15 @@ sealed class InitResult {
         val systemPrompt: String,
     ) : InitResult()
     data class Error(val cause: Exception) : InitResult()
+}
+
+/**
+ * genConfig.inputParts for a turn. Absent, null or an empty array means a text-only turn. Any other shape is an error:
+ * reading it as "no media" would answer a request that carried a photo or a recording as if it had not.
+ */
+internal fun readInputParts(genConfig: JSONObject): JSONArray? {
+    if (!genConfig.has("inputParts") || genConfig.isNull("inputParts")) return null
+    val raw = genConfig.get("inputParts")
+    if (raw !is JSONArray) throw IllegalArgumentException("inputParts must be an array of media parts")
+    return if (raw.length() == 0) null else raw
 }

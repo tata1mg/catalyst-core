@@ -94,8 +94,25 @@ internal object ResumeRules {
 /** [discardPartial]: true when keeping the partial cannot help (client error, corrupt size); false for network trouble and 5xx. */
 internal class DownloadException(message: String, val discardPartial: Boolean, val transient: Boolean = false) : Exception(message)
 
+/** Whether a finished download is the whole file. */
+internal object DownloadSizeCheck {
+    /**
+     * null when `size` is the complete file, otherwise why not. The total the server announced decides; with none, the registry's
+     * `expectedSize` stands in. With neither there is nothing to compare against, and a file that cannot be checked is not accepted.
+     * Short: the connection ended early, so keep it and resume. Long: it can only be wrong.
+     */
+    fun problem(size: Long, announcedTotal: Long, expectedSize: Long): DownloadException? {
+        val total = if (announcedTotal > 0) announcedTotal else expectedSize
+        if (total <= 0) return DownloadException("Cannot verify the download: the server gave no size and none is known", discardPartial = true)
+        if (size == total) return null
+        return DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total, transient = size < total)
+    }
+}
+
 internal class ResumableDownloader(
     private val userAgent: String,
+    // The size the registry says the file has. Used when the server announces none (a chunked 200), so a short file can never pass.
+    private val expectedSize: Long = 0L,
     private val connectTimeoutMs: Int = 30_000,
     // The read timeout is the idle limit: no bytes for this long fails the transfer (a stalled link delivers no chunks
     // to measure). With a policy it follows the policy's window.
@@ -143,10 +160,7 @@ internal class ResumableDownloader(
 
         val size = if (partial.exists()) partial.length() else 0L
         if (size == 0L) throw DownloadException("Downloaded file is empty", discardPartial = true)
-        // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
-        if (total > 0 && size != total) {
-            throw DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total, transient = size < total)
-        }
+        DownloadSizeCheck.problem(size, total, expectedSize)?.let { throw it }
         return size
     }
 

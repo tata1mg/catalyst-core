@@ -90,4 +90,16 @@ class SpeechRecognitionManagerTest {
         manager.cleanup()
         verify(webView, never()).evaluateJavascript(any(), any())
     }
+
+    @Test
+    fun `an exception while starting is reported to the page as an error and idle state, never thrown`() {
+        contextCompat.`when`<Int> { ContextCompat.checkSelfPermission(any(), any()) }.thenThrow(IllegalStateException("recognizer service gone"))
+        manager.start("en-US") // must not throw
+        val told = sent().joinToString()
+        assertTrue(told, told.contains("SPEECH_RECOGNITION_ERROR"))
+        assertTrue(told, told.contains("UNKNOWN"))
+        assertTrue(told, told.contains("recognizer service gone"))
+        assertTrue(told, told.contains("SPEECH_RECOGNITION_STATE"))
+        assertTrue(told, told.contains("idle"))
+    }
 }

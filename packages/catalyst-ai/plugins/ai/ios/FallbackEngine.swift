@@ -49,7 +49,7 @@ final class FallbackEngine: NativeAIEngine {
             try await primary.prepare(options: options)
             lock.withLock { serverSystemPrompt = primary.serverSystemPrompt }
         } catch {
-            guard allowsFallback(for: error, produced: false), let engine = try await activateFallback(after: error) else {
+            guard allowsFallback(for: error, produced: false), let engine = try await activateFallback(after: error, resetConversation: true) else {
                 throw error
             }
             lock.withLock { serverSystemPrompt = engine.serverSystemPrompt }
@@ -72,7 +72,19 @@ final class FallbackEngine: NativeAIEngine {
             return (exposedId, inner.tokens)
         }
 
-        let inner = try await primary.supply(prompt: prompt, genConfig: genConfig, conversationId: innerId)
+        let inner: NativeAIStream
+        do {
+            inner = try await primary.supply(prompt: prompt, genConfig: genConfig, conversationId: innerId)
+        } catch {
+            // LiteRT can fail while setting the request up (creating the conversation), before any stream exists. That is still
+            // a failure before the first token, so it falls back like one that happens later; anything else is rethrown as is.
+            guard allowsFallback(for: error, produced: false),
+                  let engine = try await activateFallback(after: error, resetConversation: false) else { throw error }
+            let recovered = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
+            // The page keeps the id it holds; only the engine behind it changes.
+            let exposed = lock.withLock { conversation.record(incoming: incomingId, returned: recovered.conversationId) }
+            return (exposed, recovered.tokens)
+        }
         let exposedId = lock.withLock { conversation.record(incoming: incomingId, returned: inner.conversationId) }
 
         let tokens = AsyncThrowingStream<String, Error> { continuation in
@@ -103,7 +115,9 @@ final class FallbackEngine: NativeAIEngine {
     }
 
     /// Prepares the fallback engine and makes it the active one. Nil if there is nothing to fall back to.
-    private func activateFallback(after error: Error) async throws -> NativeAIEngine? {
+    /// `resetConversation` is true only while preparing, when there is no conversation yet. When a live request falls back, the id
+    /// the page was already given must survive: the caller rebinds just the engine behind it.
+    private func activateFallback(after error: Error, resetConversation: Bool) async throws -> NativeAIEngine? {
         guard let options = lock.withLock({ self.options }), let engine = makeFallback() else { return nil }
         onLog("\(primary.kind.rawValue) failed (\(error.localizedDescription)); using \(engine.kind.rawValue) instead")
         do {
@@ -111,7 +125,10 @@ final class FallbackEngine: NativeAIEngine {
         } catch {
             throw NativeAIError(message: "\(primary.kind.rawValue) failed and so did \(engine.kind.rawValue): \(error.localizedDescription)")
         }
-        lock.withLock { fallback = engine; conversation.reset() }
+        lock.withLock {
+            fallback = engine
+            if resetConversation { conversation.reset() }
+        }
         return engine
     }
 
@@ -127,7 +144,7 @@ final class FallbackEngine: NativeAIEngine {
             return
         }
         do {
-            guard let engine = try await activateFallback(after: error) else {
+            guard let engine = try await activateFallback(after: error, resetConversation: false) else {
                 continuation.finish(throwing: error)
                 return
             }

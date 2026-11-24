@@ -97,6 +97,21 @@ struct DownloadInterrupted: Error, Equatable {
     let kind: Kind
 }
 
+/// Whether a finished download is the whole file.
+enum DownloadSizeCheck {
+    /// nil when `size` is the complete file, otherwise why not. The total the server announced decides; with none, the registry's
+    /// `expectedSize` stands in. With neither there is nothing to compare against, and a file that cannot be checked is not accepted.
+    /// Short: the connection ended early, so keep it and resume. Long: it can only be wrong.
+    static func problem(size: Int64, announcedTotal: Int64, expectedSize: Int64) -> ModelDownloadError? {
+        let total = announcedTotal > 0 ? announcedTotal : expectedSize
+        if total <= 0 {
+            return ModelDownloadError(message: "Cannot verify the download: the server gave no size and none is known", discardPartial: true)
+        }
+        if size == total { return nil }
+        return ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total, transient: size < total)
+    }
+}
+
 /// Streams to disk through a FileHandle, so a ~2 GB model never sits on the heap, and resumes a kept partial.
 final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private let partial: URL
@@ -131,11 +146,17 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
         return configuration
     }
 
+    /// The size the model registry says the file has. Used when the server announces none (a chunked 200), so a short file
+    /// can never be accepted as complete.
+    private let expectedSize: Int64
+
     init(partial: URL, configuration: URLSessionConfiguration? = nil,
+         expectedSize: Int64 = 0,
          policy: DownloadPolicy = .default, gate: DownloadGate? = nil,
          onLog: @escaping (String) -> Void = { _ in },
          onBytes: @escaping (_ loaded: Int64, _ total: Int64) -> Void) {
         self.partial = partial
+        self.expectedSize = expectedSize
         self.etagFile = partial.appendingPathExtension("etag")
         self.configuration = configuration ?? ModelDownloader.defaultConfiguration(policy: policy)
         self.policy = policy
@@ -185,10 +206,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
 
         let size = fileSize()
         if size == 0 { throw ModelDownloadError(message: "Downloaded file is empty", discardPartial: true) }
-        if total > 0 && size != total {
-            // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
-            throw ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total, transient: size < total)
-        }
+        if let problem = DownloadSizeCheck.problem(size: size, announcedTotal: total, expectedSize: expectedSize) { throw problem }
         return size
     }
 
@@ -248,6 +266,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             completionHandler(.allow)
         case .complete:
             alreadyComplete = true
+            total = offset // a 416 on this partial means it already is the whole file: its size is the total
             completionHandler(.cancel)
         case .restart:
             restartNeeded = true

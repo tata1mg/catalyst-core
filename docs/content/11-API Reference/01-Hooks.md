@@ -111,7 +111,7 @@ Tune it in `config/config.json`; every key is optional and out-of-range values a
 | `minBytesPerSec` | `50000` | Below this speed, sustained for `windowSec`, the link counts as weak |
 | `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
 | `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
-| `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
+| `maxIdleRetries` | `8` | Retries, after the first attempt, that may move no bytes in a row before the download gives up. The partial file is kept, so `8` means 9 attempts in all |
 | `heldRetrySec` | `30` | While the page reports offline, retry on this interval anyway (5-600), in case the page never hears the network return |
 
 Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.

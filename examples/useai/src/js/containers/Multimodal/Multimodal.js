@@ -14,6 +14,9 @@ const nativeAIAvailable = () => {
     return !!window.webkit?.messageHandlers?.PluginBridge && Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"])
 }
 
+// Largest file read into a data URL, per kind: the shared limits of catalyst-ai's content parts.
+const MEDIA_LIMIT_BYTES = { image: 8 * 1024 * 1024, audio: 20 * 1024 * 1024 }
+
 const readAsDataUrl = (file) =>
     new Promise((resolve, reject) => {
         const reader = new FileReader()
@@ -194,6 +197,13 @@ export default function Multimodal() {
                 const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null
                 if (!kind || (slot && kind !== slot)) {
                     setPickError(`Expected ${slot ?? "an image or audio"} file, got ${file.type || "an unknown type"}`)
+                    return
+                }
+                // The same caps useAI enforces later (8 MB image, 20 MB audio), checked BEFORE the file is read: reading it would
+                // build the whole file and its base64 copy in memory just to have the request refused afterwards.
+                const limit = MEDIA_LIMIT_BYTES[kind]
+                if (file.size > limit) {
+                    setPickError(`That ${kind} is ${(file.size / 1024 / 1024).toFixed(1)} MB; the limit is ${limit / 1024 / 1024} MB. Pick a smaller one.`)
                     return
                 }
                 const data = await readAsDataUrl(file)

@@ -141,6 +141,8 @@ final class AIInputPartsTests: XCTestCase {
     func testNoInputParts_IsATextTurn() throws {
         XCTAssertTrue(try AIInputParts.parse([:]).isEmpty)
         XCTAssertTrue(try AIInputParts.parse(["inputParts": []]).isEmpty)
+        XCTAssertTrue(try AIInputParts.parse(["inputParts": NSNull()]).isEmpty)
+        XCTAssertTrue(try AIInputParts.parse([:]).isEmpty)
     }
 
     func testParsesImageAndAudioInOrder() throws {
@@ -166,6 +168,14 @@ final class AIInputPartsTests: XCTestCase {
         }
         XCTAssertThrowsError(try AIInputParts.parse(["inputParts": [["type": "image", "base64": "***"]]])) {
             XCTAssertEqual($0 as? AIInputPartsError, .invalidBase64("image"))
+        }
+    }
+
+    func testAnInputPartsValueThatIsNotAnArrayOfPartsIsAnErrorNotATextOnlyTurn() {
+        for bad: Any in ["oops", 5, true, ["type": "image"], ["not a part"], [1, 2]] {
+            XCTAssertThrowsError(try AIInputParts.parse(["inputParts": bad])) {
+                XCTAssertEqual($0 as? AIInputPartsError, .malformed)
+            }
         }
     }
 }

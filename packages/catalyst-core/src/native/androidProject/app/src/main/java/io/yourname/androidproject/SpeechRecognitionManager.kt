@@ -39,6 +39,17 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
 
     /** Answers SPEECH_RECOGNITION_SUPPORT: is on-device recognition possible here, and is this language installed. */
     fun getSupport(language: String) {
+        // Runs on the UI thread after the bridge call has already returned, so the bridge's own error handling no longer applies:
+        // anything thrown here is caught here and answered like any other "not available".
+        try {
+            getSupportInternal(language)
+        } catch (e: Exception) {
+            notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_SUPPORT,
+                Speech.supportPayload(false, language, reason = Speech.Code.UNKNOWN))
+        }
+    }
+
+    private fun getSupportInternal(language: String) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_SUPPORT,
                 Speech.supportPayload(false, language, reason = "ANDROID_VERSION"))
@@ -71,6 +82,19 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
     }
 
     fun start(language: String) {
+        // Same reason as getSupport(): a failure creating or starting the recognizer must reach the page as an error event, not
+        // vanish after the bridge call has returned. Whatever was created is released first.
+        try {
+            startInternal(language)
+        } catch (e: Exception) {
+            release()
+            notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR,
+                Speech.errorPayload(Speech.Code.UNKNOWN, "Speech recognition could not start: ${e.message ?: e.javaClass.simpleName}"))
+            notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_STATE, Speech.statePayload("idle"))
+        }
+    }
+
+    private fun startInternal(language: String) {
         if (!MicrophoneUtils.hasMicrophonePermission(activity)) {
             notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR,
                 Speech.errorPayload(Speech.Code.PERMISSION_DENIED, "Microphone permission is needed"))

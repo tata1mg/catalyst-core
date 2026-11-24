@@ -76,4 +76,22 @@ final class FallbackConversationTests: XCTestCase {
         convo.reset()
         XCTAssertNil(convo.innerId(forIncoming: "fm-1"))
     }
+
+    func testAFallbackKeepsTheIdThePageHoldsAndMovesOnlyTheEngineBehindIt() {
+        var conversation = FallbackConversation()
+        let exposed = conversation.record(incoming: nil, returned: "litert-1")
+        XCTAssertEqual(exposed, "litert-1")
+        // the stream failed before its first token and the fallback took over: rebind, never reset
+        conversation.rebind(innerId: "fm-9")
+        XCTAssertEqual(conversation.exposedId, "litert-1")
+        XCTAssertEqual(conversation.innerId(forIncoming: "litert-1"), "fm-9", "the next turn carrying the page's id continues the mapped session")
+        XCTAssertEqual(conversation.record(incoming: "litert-1", returned: "fm-9"), "litert-1")
+    }
+
+    func testResettingForgetsTheIdSoItIsOnlyForPreparing() {
+        var conversation = FallbackConversation()
+        _ = conversation.record(incoming: nil, returned: "litert-1")
+        conversation.reset()
+        XCTAssertNil(conversation.innerId(forIncoming: "litert-1"))
+    }
 }

@@ -33,7 +33,7 @@ internal class DownloadPolicy(
     /** First wait before retrying after a weak link or an error; doubles each time without progress, capped. */
     var resumeDelaySec: Double = 10.0,
     var maxDelaySec: Double = 120.0,
-    /** Attempts in a row that moved no bytes before the download gives up (the partial stays on disk). */
+    /** Retries, after the first attempt, that may move no bytes in a row before the download gives up (the partial stays on disk): 8 means 9 attempts in all. */
     var maxIdleRetries: Int = 8,
     /** While the page says "offline", try again on this interval anyway, in case it never hears the network return. */
     var heldRetrySec: Double = 30.0,

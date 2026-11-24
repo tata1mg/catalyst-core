@@ -268,7 +268,7 @@ final class NativeBridgeAI: NativeAIEngine {
 
         var throttle = ProgressThrottle()
         let known = KnownTotal(entry.sizeHint)
-        let downloader = ModelDownloader(partial: partial, policy: policy, gate: .shared, onLog: onLog) { [onLog, onProgress] loaded, total in
+        let downloader = ModelDownloader(partial: partial, expectedSize: entry.sizeHint, policy: policy, gate: .shared, onLog: onLog) { [onLog, onProgress] loaded, total in
             let total = total > 0 ? total : entry.sizeHint
             known.value = total
             let percent = Int(min(100, loaded * 100 / max(total, 1)))

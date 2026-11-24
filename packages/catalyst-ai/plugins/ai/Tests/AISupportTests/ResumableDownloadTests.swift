@@ -431,4 +431,29 @@ final class ModelDownloaderTests: XCTestCase {
         XCTAssertEqual(size, 5000)
         XCTAssertEqual(FakeServer.requests.count, 1)
     }
+
+}
+
+final class DownloadSizeCheckTests: XCTestCase {
+    func testACompleteDownloadHasNoProblem() {
+        XCTAssertNil(DownloadSizeCheck.problem(size: 1000, announcedTotal: 1000, expectedSize: 5000))
+    }
+
+    func testWithoutAnAnnouncedTotalTheRegistrySizeStandsIn() {
+        XCTAssertNil(DownloadSizeCheck.problem(size: 5000, announcedTotal: -1, expectedSize: 5000))
+        let short = DownloadSizeCheck.problem(size: 3000, announcedTotal: -1, expectedSize: 5000)
+        XCTAssertNotNil(short)
+        XCTAssertEqual(short?.transient, true)
+        XCTAssertEqual(short?.discardPartial, false)
+    }
+
+    func testALongFileIsDiscarded() {
+        let long = DownloadSizeCheck.problem(size: 6000, announcedTotal: 5000, expectedSize: 0)
+        XCTAssertEqual(long?.discardPartial, true)
+        XCTAssertEqual(long?.transient, false)
+    }
+
+    func testAFileThatCannotBeCheckedIsNotAccepted() {
+        XCTAssertEqual(DownloadSizeCheck.problem(size: 4321, announcedTotal: -1, expectedSize: 0)?.discardPartial, true)
+    }
 }
