@@ -503,3 +503,30 @@ export function chooseCandidate(
     if (askDownload.length) return { action: "ask", candidate: askDownload[0], reason: askDownload[0].engine === PROMPT_API ? "Chrome's built-in model must be downloaded first" : "the in-browser model must be downloaded first", scores: [], skipped }
     return { action: "deny", candidate: null, reason: "no model can serve this call", scores: [], skipped }
 }
+
+// What the request really contains: text for string content or a text part, image and audio only for those parts. An audio-only
+// request is NOT also a text request, or a model that listens but does not read would be skipped as lacking text support.
+// A request with nothing recognisable in it is plain text.
+export function modalitiesOf(messages: any): Modality[] {
+    const set = new Set<Modality>()
+    for (const m of Array.isArray(messages) ? messages : []) {
+        if (typeof m?.content === "string") { set.add("text"); continue }
+        if (!Array.isArray(m?.content)) continue
+        for (const part of m.content) {
+            if (part?.type === "text") set.add("text")
+            else if (part?.type === "image" || part?.type === "audio") set.add(part.type)
+        }
+    }
+    return set.size ? [...set] : ["text"]
+}
+
+// What the call asks for: generate({ task }) wins over useAI({ task }); anything unrecognised is plain text generation.
+export function taskOf(args: any, options: any) {
+    // A task named on the call decides, even when it is not one we know: that is plain text generation, not the hook's own task.
+    if (args && typeof args === "object" && "task" in args) return isTask(args.task) ? args.task : DEFAULT_TASK
+    return isTask(options?.task) ? options.task : DEFAULT_TASK
+}
+
+// generate() takes messages and returns text. These tasks fit that; the rest (embeddings, images, speech out) have their own
+// calls (requestImage, requestSpeech, ...) and cannot be run by a generate() request, whichever model routing picked for them.
+export const GENERATE_TASKS = ["text.generate", "vision.read", "speech.transcribe"]

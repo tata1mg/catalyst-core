@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { modalitiesOf, taskOf } from "../../src/native/bridge/hooks/useAI"
+import { modalitiesOf, taskOf } from "../../src/native/bridge/hooks/aiRouter"
 
 describe("modalitiesOf: what the request really contains", () => {
     it("string content and text parts are text", () => {
