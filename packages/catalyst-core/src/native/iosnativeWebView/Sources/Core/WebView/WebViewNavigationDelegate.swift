@@ -569,6 +569,16 @@ extension WebViewNavigationDelegate {
         type: WKMediaCaptureType,
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
+        // The app holding the permission is not enough: only the app's own page (or an origin the access-control
+        // whitelist allows) may capture. Anything else the WebView ended up on is refused outright.
+        let originURL = origin.originURL
+        let whitelisted = originURL.map {
+            URLWhitelistManager.shared.isAccessControlEnabled && URLWhitelistManager.shared.isUrlAllowed($0.absoluteString)
+        } ?? false
+        guard MediaPermissionPolicy.isTrustedOrigin(origin: originURL, appURL: initialURL, whitelisted: whitelisted) else {
+            decisionHandler(.deny)
+            return
+        }
         let kind: MediaCaptureKind
         switch type {
         case .camera: kind = .camera

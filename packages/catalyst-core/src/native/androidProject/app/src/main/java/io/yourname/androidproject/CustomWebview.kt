@@ -66,6 +66,8 @@ class CustomWebView(
     private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
+    // The app's own page: the first network URL loaded. Only this origin (plus whitelisted ones) may use camera or microphone.
+    private var appUrl: String? = null
     private var activeOfflineRouteOrigin: String? = null
     private var visibleOfflineSnapshotUrl: String? = null
     @Volatile private var defaultRequestHeaders: Map<String, String> = emptyMap()
@@ -163,6 +165,7 @@ class CustomWebView(
 
     private fun loadUrlInternal(url: String) {
         val isNetworkUrl = url.startsWith("http://") || url.startsWith("https://")
+        if (isNetworkUrl && appUrl == null) appUrl = url
         val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
 
         if (BuildConfig.DEBUG) {
@@ -1291,7 +1294,13 @@ class CustomWebView(
                 val granted = WebPermissionPolicy.grantable(
                     request.resources,
                     hasCamera = CameraUtils.hasCameraPermission(activity),
-                    hasMicrophone = MicrophoneUtils.hasMicrophonePermission(activity)
+                    hasMicrophone = MicrophoneUtils.hasMicrophonePermission(activity),
+                    originTrusted = WebPermissionPolicy.isTrustedOrigin(
+                        origin = request.origin?.toString(),
+                        appUrl = appUrl,
+                        accessControlEnabled = URLWhitelistManager.isAccessControlEnabled(),
+                        isWhitelisted = { URLWhitelistManager.isUrlAllowed(it) }
+                    )
                 )
                 if (granted.isNotEmpty()) {
                     if (BuildConfig.DEBUG) {

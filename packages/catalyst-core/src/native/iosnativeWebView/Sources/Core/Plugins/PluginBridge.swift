@@ -31,19 +31,23 @@ protocol PluginBridgeMessage {
     var sourceURL: URL? { get }
 }
 
+extension WKSecurityOrigin {
+    /// This origin (scheme, host, port) as a URL; nil when it cannot be expressed as one. Pages served from the
+    /// offline cache run under a private scheme, so they are judged by the origin they stand in for.
+    var originURL: URL? {
+        var components = URLComponents()
+        components.scheme = `protocol`
+        components.host = host
+        components.port = port == 0 ? nil : port
+        guard let url = components.url else { return nil }
+        return OfflineCacheService.shared.originalURL(forOfflineURL: url) ?? url
+    }
+}
+
 extension WKScriptMessage: PluginBridgeMessage {
     var isMainFrame: Bool { frameInfo.isMainFrame }
 
-    var sourceURL: URL? {
-        let origin = frameInfo.securityOrigin
-        var components = URLComponents()
-        components.scheme = origin.protocol
-        components.host = origin.host
-        components.port = origin.port == 0 ? nil : origin.port
-        guard let url = components.url else { return nil }
-        // Pages served from the offline cache run under a private scheme; judge them by the origin they stand in for.
-        return OfflineCacheService.shared.originalURL(forOfflineURL: url) ?? url
-    }
+    var sourceURL: URL? { frameInfo.securityOrigin.originURL }
 }
 
 final class PluginBridge: NSObject {

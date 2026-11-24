@@ -13,6 +13,15 @@ const NO_ANSWER_MS = 30_000
  * getUserMedia decides.
  */
 export const requestMicrophonePermission = (): Promise<string | null> => {
+    // WebBridge keeps one handler per event, so two overlapping requests would replace and unregister each other's
+    // callback and leave one of them waiting for the timeout. Callers share the one request that is in flight.
+    if (!inFlight) inFlight = requestOnce().finally(() => { inFlight = null })
+    return inFlight
+}
+
+let inFlight: Promise<string | null> | null = null
+
+const requestOnce = (): Promise<string | null> => {
     if (typeof window === "undefined" || !(window as any).WebBridge) return Promise.resolve(null)
 
     return new Promise((resolve, reject) => {

@@ -463,3 +463,22 @@ describe("platform speech recogniser (live, on-device only)", () => {
         expect(chooseCandidate(["audio"], live.candidates, sig({ platformSpeech: true }), live.policy, {}, {}, "speech.transcribe").candidate?.id).toBe("ios-speech")
     })
 })
+
+describe("platformSpeech opt-out", () => {
+    const base = { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech", modalities: ["text"] }, { id: "gemma", model: "m", modalities: ["text", "audio"] }] } }
+    const ids = (raw: any, override: any = null) => routingFor(raw, "ios", override, true).candidates.map((c) => c.id)
+
+    it("platformSpeech: false removes a platform-speech entry the config lists itself, not just the default one", () => {
+        expect(ids(base)).toContain("ios-speech")
+        expect(ids({ ...base, platformSpeech: false })).toEqual(["gemma"])
+    })
+
+    it("a per-call override of false disables the default entry even when the config does not say so", () => {
+        expect(ids({ onDevice: { ios: [{ id: "gemma", model: "m", modalities: ["text", "audio"] }] } })).toContain("platform-speech")
+        expect(ids({ onDevice: { ios: [{ id: "gemma", model: "m", modalities: ["text", "audio"] }] } }, { platformSpeech: false })).toEqual(["gemma"])
+    })
+
+    it("a per-call override of true wins over a config that turned it off", () => {
+        expect(ids({ ...base, platformSpeech: false }, { platformSpeech: true })).toContain("ios-speech")
+    })
+})

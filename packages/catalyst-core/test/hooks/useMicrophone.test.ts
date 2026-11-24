@@ -74,6 +74,44 @@ describe("useMicrophone", () => {
         expect(track.stop).toHaveBeenCalled()
     })
 
+    it("cancel() before the microphone is even requested never opens it", async () => {
+        const { result } = renderHook(() => useMicrophone())
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        await act(async () => { result.current.cancel(); await pending })
+        expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+        expect(result.current.listening).toBe(false)
+    })
+
+    it("cancel() while the browser is still opening the microphone releases it as soon as it arrives", async () => {
+        let open!: (s: any) => void
+        ;(navigator.mediaDevices.getUserMedia as any).mockReturnValueOnce(new Promise((resolve) => { open = resolve }))
+        const onRecorded = vi.fn()
+        const { result } = renderHook(() => useMicrophone({ onRecorded }))
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        await vi.waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled()) // the browser is now opening it
+        await act(async () => { result.current.cancel() })
+        let started: any
+        await act(async () => { open(stream); started = await pending })
+        expect(started.started).toBe(false)
+        expect(track.stop).toHaveBeenCalled()
+        expect(result.current.listening).toBe(false)
+        expect(onRecorded).not.toHaveBeenCalled()
+    })
+
+    it("unmounting while the microphone is opening releases it and starts nothing", async () => {
+        let open!: (s: any) => void
+        ;(navigator.mediaDevices.getUserMedia as any).mockReturnValueOnce(new Promise((resolve) => { open = resolve }))
+        const { result, unmount } = renderHook(() => useMicrophone())
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        await vi.waitFor(() => expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled())
+        unmount()
+        await act(async () => { open(stream); await pending })
+        expect(track.stop).toHaveBeenCalled()
+    })
+
     it("stops by itself at maxSeconds", async () => {
         vi.useFakeTimers()
         const onRecorded = vi.fn()

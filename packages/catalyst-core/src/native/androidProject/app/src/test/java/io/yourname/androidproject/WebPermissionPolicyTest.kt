@@ -3,6 +3,8 @@ package io.yourname.androidproject
 import android.webkit.PermissionRequest
 import io.yourname.androidproject.utils.WebPermissionPolicy
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Which web permission requests the WebView may grant: only camera and microphone, and only when the app holds them. */
@@ -12,8 +14,8 @@ class WebPermissionPolicyTest {
     private val audio = PermissionRequest.RESOURCE_AUDIO_CAPTURE
     private val protectedMedia = PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID
 
-    private fun grant(requested: Array<String>?, camera: Boolean, microphone: Boolean) =
-        WebPermissionPolicy.grantable(requested, camera, microphone)
+    private fun grant(requested: Array<String>?, camera: Boolean, microphone: Boolean, trusted: Boolean = true) =
+        WebPermissionPolicy.grantable(requested, camera, microphone, originTrusted = trusted)
 
     @Test
     fun `grants the microphone when the app holds RECORD_AUDIO`() {
@@ -48,5 +50,50 @@ class WebPermissionPolicyTest {
     fun `an empty or missing request grants nothing`() {
         assertArrayEquals(emptyArray<String>(), grant(emptyArray(), camera = true, microphone = true))
         assertArrayEquals(emptyArray<String>(), grant(null, camera = true, microphone = true))
+    }
+
+    @Test
+    fun `an untrusted origin gets nothing even when the app holds every permission`() {
+        assertArrayEquals(emptyArray<String>(), grant(arrayOf(video, audio), camera = true, microphone = true, trusted = false))
+    }
+
+    private val app = "https://app.example.com/home"
+    private fun trusted(origin: String?, access: Boolean = false, allowed: Set<String> = emptySet()) =
+        WebPermissionPolicy.isTrustedOrigin(origin, app, access) { it in allowed }
+
+    @Test
+    fun `the app's own origin is trusted, whatever the path, case or default port`() {
+        assertTrue(trusted("https://app.example.com"))
+        assertTrue(trusted("https://APP.example.com:443/other/page?x=1"))
+    }
+
+    @Test
+    fun `another host, scheme or port is not trusted`() {
+        assertFalse(trusted("https://evil.example.org"))
+        assertFalse(trusted("http://app.example.com"))
+        assertFalse(trusted("https://app.example.com:8443"))
+        assertFalse(trusted("https://app.example.com.evil.org"))
+    }
+
+    @Test
+    fun `a missing or non-web origin is not trusted`() {
+        assertFalse(trusted(null))
+        assertFalse(trusted(""))
+        assertFalse(trusted("file:///android_asset/index.html"))
+        assertFalse(trusted("not a url"))
+    }
+
+    @Test
+    fun `a whitelisted origin is trusted only while access control is on`() {
+        val other = "https://partner.example.net"
+        assertTrue(trusted(other, access = true, allowed = setOf(other)))
+        assertFalse(trusted(other, access = false, allowed = setOf(other)))
+        assertFalse(trusted(other, access = true, allowed = emptySet()))
+    }
+
+    @Test
+    fun `nothing is trusted before the app url is known unless the whitelist allows it`() {
+        assertFalse(WebPermissionPolicy.isTrustedOrigin("https://app.example.com", null, false) { true })
+        assertTrue(WebPermissionPolicy.isTrustedOrigin("https://app.example.com", null, true) { true })
     }
 }

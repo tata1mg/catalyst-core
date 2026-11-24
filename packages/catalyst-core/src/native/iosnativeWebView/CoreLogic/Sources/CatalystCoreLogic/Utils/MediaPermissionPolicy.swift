@@ -50,6 +50,16 @@ public enum MediaPermissionPolicy {
         return .prompt
     }
 
+    /// Whether the page that asked may use a capture device at all. Holding the permission app-wide is not enough: the
+    /// page must be the app's own (same origin as `appURL`), or an origin the access-control whitelist allows
+    /// (`whitelisted`, which the caller computes only while access control is on). Fails closed: no origin, or a
+    /// non-http(s) one, is never trusted. Android makes the same call in WebPermissionPolicy.isTrustedOrigin.
+    public static func isTrustedOrigin(origin: URL?, appURL: URL?, whitelisted: Bool) -> Bool {
+        guard let requesting = PluginBridgeOriginPolicy.normalizedOrigin(of: origin) else { return false }
+        if let app = PluginBridgeOriginPolicy.normalizedOrigin(of: appURL), requesting == app { return true }
+        return whitelisted
+    }
+
     /// The value the page receives: "GRANTED" only when the app holds the permission.
     public static func statusString(for authorization: MediaAuthorization) -> String {
         authorization == .authorized ? "GRANTED" : "DENIED"

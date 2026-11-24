@@ -74,6 +74,9 @@ export default function PipelineLab() {
     const [nativeModel, setNativeModel] = useState(() => {
         try { return localStorage.getItem("lab.nativeModel") || "gemma-4-E2B" } catch { return "gemma-4-E2B" }
     })
+    // Qwen3 0.6B cannot hear audio, so a recording must not be offered to it (live speech is fine: the phone's own
+    // recogniser turns it into text first).
+    const nativeTextOnly = nativeAvailable && nativeModel === "qwen3-0.6B"
     const chooseNativeModel = (key) => {
         setNativeModel(key)
         try { localStorage.setItem("lab.nativeModel", key) } catch { /* the choice just is not remembered */ }
@@ -181,8 +184,7 @@ export default function PipelineLab() {
         setPickError(null)
         activeText.run(heardIt.text, deviceOverrides)
     }
-    const liveSrc = nativeSpeech
-        ? {
+    const voiceLiveSrc = {
               listening: voice.listening,
               state: voice.status === "running" ? "starting" : voice.listening ? "listening" : "idle",
               text: voice.text,
@@ -194,8 +196,15 @@ export default function PipelineLab() {
                       : null),
               start: listenAndRun,
               stop: voice.stopListening,
-          }
-        : live
+    }
+    // Keep the voice controls for as long as the voice hook owns the microphone. If the phone's recogniser becomes
+    // unavailable mid-session and useTranscribe falls back to its recorder, platformSpeech flips to false, but the
+    // session (its text, state and stop) still belongs to `voice`, so the controls must not switch to the cloud hook.
+    const voiceOwnsSession = voice.status === "running" || voice.listening
+    const liveSrc = nativeSpeech || voiceOwnsSession ? voiceLiveSrc : live
+    useEffect(() => {
+        if (nativeTextOnly && (mode === "audio" || mode === "voice")) setMode("text")
+    }, [nativeTextOnly, mode])
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -260,7 +269,9 @@ export default function PipelineLab() {
                     )}
                     <p>
                         {nativeAvailable
-                            ? "Speech and text run on this phone's own model. "
+                            ? nativeTextOnly
+                                ? "Text runs on this phone's own model. This model cannot hear recordings, so audio and voice are off; speaking live still works because the phone's own recogniser turns it into text first. "
+                                : "Speech and text run on this phone's own model. "
                             : "Running in the browser on WebGPU: Gemma 4 E2B (~3.4 GB) writes the scene and Whisper base (~210 MB) hears speech. The first run downloads them, then they stay cached. "}
                         Your voice and words stay on this device. {imageProvider === "device" ? "The picture is made on this device too, so nothing leaves it." : `The picture is made by ${imageProvider}; only the finished scene description can go there. Choose On-device as the image model to keep that local too.`}
                     </p>
@@ -279,7 +290,7 @@ export default function PipelineLab() {
             )}
 
             <div className="flex gap-2 mb-4">
-                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !voice.platformSpeech)).map((m) => (
+                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !voice.platformSpeech) && !(nativeTextOnly && (m === "audio" || m === "voice"))).map((m) => (
                     <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); voice.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
                         {m === "live" ? (onDevice ? "Speak live (on this phone)" : "Speak live (streaming)") : m === "voice" ? "Record, then send" : `Start from ${m}`}
                     </button>

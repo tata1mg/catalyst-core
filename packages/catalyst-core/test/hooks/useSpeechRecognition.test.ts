@@ -85,6 +85,70 @@ describe("useSpeechRecognition", () => {
         expect(result.current.supported).toBe(true)
     })
 
+    it("cancel() while the microphone prompt is open: the late answer does not start recognition", async () => {
+        let allow!: (v: string) => void
+        permission.mockReturnValueOnce(new Promise<string>((resolve) => { allow = resolve }))
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        let started: any
+        let pending: Promise<void> = Promise.resolve()
+        act(() => { pending = result.current.start().then((r) => { started = r }) })
+        act(() => result.current.cancel())
+        await act(async () => { allow("GRANTED"); await pending })
+        expect(started).toEqual({ started: false, code: "CANCELLED" })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
+    it("unmounting while the microphone prompt is open: the late answer does not start recognition", async () => {
+        let allow!: (v: string) => void
+        permission.mockReturnValueOnce(new Promise<string>((resolve) => { allow = resolve }))
+        const { result, unmount } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        let pending: Promise<unknown> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        unmount()
+        await act(async () => { allow("GRANTED"); await pending })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
+    it("stop() before the prompt is answered also abandons the pending start", async () => {
+        let allow!: (v: string) => void
+        permission.mockReturnValueOnce(new Promise<string>((resolve) => { allow = resolve }))
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        let pending: Promise<unknown> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        act(() => result.current.stop())
+        await act(async () => { allow("GRANTED"); await pending })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
+    it("a refusal that arrives after cancel() is not reported as an error", async () => {
+        let deny!: (e: Error) => void
+        permission.mockReturnValueOnce(new Promise<string>((_resolve, reject) => { deny = reject }))
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        let pending: Promise<unknown> = Promise.resolve()
+        act(() => { pending = result.current.start() })
+        act(() => result.current.cancel())
+        await act(async () => { deny(new Error("denied")); await pending })
+        expect(result.current.error).toBeNull()
+    })
+
+    it("a CANCELLED error that nobody asked for ends the session as an empty result, but cancel() stays silent", async () => {
+        const onEnd = vi.fn()
+        const { result } = renderHook(() => useSpeechRecognition({ onEnd }))
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await result.current.start() })
+        emit("SPEECH_RECOGNITION_ERROR", { code: "CANCELLED", message: "x" })
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onEnd).toHaveBeenCalledWith("")
+        await act(async () => { await result.current.start() })
+        act(() => result.current.cancel())
+        emit("SPEECH_RECOGNITION_ERROR", { code: "CANCELLED", message: "x" })
+        expect(onEnd).toHaveBeenCalledTimes(1)
+    })
+
     it("start() asks for the microphone, then starts the shell with the language", async () => {
         const { result } = renderHook(() => useSpeechRecognition())
         emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })

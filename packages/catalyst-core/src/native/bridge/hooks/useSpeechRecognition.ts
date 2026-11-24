@@ -69,6 +69,19 @@ export const SPEECH_ERROR_TEXT: Record<string, (language: string) => string> = {
     AUDIO: () => "The microphone could not be used.",
 }
 
+/**
+ * Speech to text by the phone's own recogniser (Android `SpeechRecognizer`, iOS `SFSpeechRecognizer`). Inside the app
+ * only: in a browser `supported` is false and `start()` refuses with `UNSUPPORTED`.
+ *
+ * - `supported` is `null` until the shell has answered whether the language can be recognised on the device.
+ * - `start()` asks for the microphone first, then starts. It resolves `{ started: true }`, or `{ started: false, code }`
+ *   (`BUSY`, `PERMISSION_DENIED`, `ON_DEVICE_UNAVAILABLE`, ...). If you `cancel()`, `stop()` or unmount while the
+ *   permission prompt is open, the late answer starts nothing and the code is `CANCELLED`.
+ * - Recognition never leaves the device; with no on-device model for the language the shell answers `ON_DEVICE_UNAVAILABLE`.
+ * - `stop()` ends the session and the final text still arrives; `cancel()` ends it and drops what was heard.
+ *
+ * Most callers want `useTranscribe().listen()`, which routes to this engine (or a recording) by policy.
+ */
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}): UseSpeechRecognitionResult {
     const { language = "en-US" } = options
     const [state, setState] = useState<SpeechState>("idle")
@@ -88,6 +101,10 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
     const onEnd = useRef(options.onEnd)
     onEnd.current = options.onEnd
     const discard = useRef(false)
+    // Bumped by cancel(), stop() and unmount, so a start() still waiting for the microphone permission can tell it
+    // was abandoned and must not begin recognising when the answer arrives.
+    const startToken = useRef(0)
+    const mounted = useRef(true)
     const languageRef = useRef(language)
     languageRef.current = language
     const supportedRef = useRef<boolean | null>(null)
@@ -132,7 +149,12 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             onError: (code, message) => {
                 setState("idle")
                 setPartial("")
-                if (code === "CANCELLED") return
+                if (code === "CANCELLED") {
+                    // Stopping an empty session can end with only this error: that is an empty result, not silence, so
+                    // the caller's promise still settles. An explicit cancel() stays silent.
+                    if (!discard.current) onEnd.current?.("")
+                    return
+                }
                 // The support check cannot see everything (the iOS Simulator reports en-US as available but has no model
                 // files), so a failed start is the truth: stop offering it, the same as if the support check had said no.
                 if (code === "ON_DEVICE_UNAVAILABLE" || code === "LANGUAGE_UNAVAILABLE") {
@@ -166,6 +188,14 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         }
     }, [language, listener, markSupport])
 
+    useEffect(() => {
+        mounted.current = true
+        return () => {
+            mounted.current = false
+            startToken.current++
+        }
+    }, [])
+
     // Whole seconds of the session, for a "● 12s" label.
     useEffect(() => {
         if (state !== "listening") return
@@ -195,12 +225,17 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         setText("")
         setPartial("")
         discard.current = false
+        const token = ++startToken.current
         setState("starting")
         try {
             await requestMicrophonePermission()
         } catch {
+            if (token !== startToken.current || !mounted.current) return { started: false, code: "CANCELLED" }
             return refuse("PERMISSION_DENIED", SPEECH_ERROR_TEXT.PERMISSION_DENIED(languageRef.current))
         }
+        // The permission prompt can take a while. If the caller cancelled or the component went away meanwhile, there is
+        // no session to own, so recognition must not start now.
+        if (token !== startToken.current || !mounted.current) return { started: false, code: "CANCELLED" }
         try {
             const started = startSession(listener)
             if (started === "busy") return refuse("BUSY", SPEECH_ERROR_TEXT.BUSY(languageRef.current))
@@ -213,10 +248,12 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
     }, [listener])
 
     const stop = useCallback(() => {
+        startToken.current++
         if (inApp()) stopSession(listener)
     }, [listener])
 
     const cancel = useCallback(() => {
+        startToken.current++
         discard.current = true
         setPartial("")
         if (inApp()) stopSession(listener)

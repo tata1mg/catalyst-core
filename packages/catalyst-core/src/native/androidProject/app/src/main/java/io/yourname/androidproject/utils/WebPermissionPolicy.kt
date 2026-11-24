@@ -8,11 +8,15 @@ import android.webkit.PermissionRequest
  * A resource is granted only when the app itself already holds the matching Android permission; the page gets that
  * permission through the bridge first (requestCameraPermission / requestMicrophonePermission). Anything else the page
  * asks for, such as location or protected media, stays denied.
+ *
+ * The app-wide permission is not enough on its own: the page asking must be the app's own content (or an origin the
+ * access-control whitelist explicitly allows), otherwise any page the WebView happens to load could record the user
+ * once the app holds the microphone. See [isTrustedOrigin].
  */
 object WebPermissionPolicy {
 
-    fun grantable(requested: Array<String>?, hasCamera: Boolean, hasMicrophone: Boolean): Array<String> {
-        if (requested == null) return emptyArray()
+    fun grantable(requested: Array<String>?, hasCamera: Boolean, hasMicrophone: Boolean, originTrusted: Boolean): Array<String> {
+        if (requested == null || !originTrusted) return emptyArray()
         return requested.filter { resource ->
             when (resource) {
                 PermissionRequest.RESOURCE_VIDEO_CAPTURE -> hasCamera
@@ -20,5 +24,37 @@ object WebPermissionPolicy {
                 else -> false
             }
         }.toTypedArray()
+    }
+
+    /**
+     * Whether a page at [origin] may use camera or microphone: it is the same origin as the app's own page ([appUrl]),
+     * or access control is on and the whitelist allows it. With access control off only the app's own origin counts,
+     * so turning the whitelist off never widens media access.
+     */
+    fun isTrustedOrigin(
+        origin: String?,
+        appUrl: String?,
+        accessControlEnabled: Boolean,
+        isWhitelisted: (String) -> Boolean
+    ): Boolean {
+        val requesting = originOf(origin) ?: return false
+        val app = originOf(appUrl)
+        if (app != null && requesting == app) return true
+        return accessControlEnabled && isWhitelisted(origin!!)
+    }
+
+    /** scheme://host:port in lower case with the default port filled in, or null when [url] has no web origin. */
+    internal fun originOf(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+        return try {
+            val uri = java.net.URI(url.trim())
+            val scheme = uri.scheme?.lowercase() ?: return null
+            if (scheme != "http" && scheme != "https") return null
+            val host = uri.host?.lowercase() ?: return null
+            val port = if (uri.port != -1) uri.port else if (scheme == "https") 443 else 80
+            "$scheme://$host:$port"
+        } catch (e: java.net.URISyntaxException) {
+            null
+        }
     }
 }

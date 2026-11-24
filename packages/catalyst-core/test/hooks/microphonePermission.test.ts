@@ -37,6 +37,20 @@ describe("requestMicrophonePermission", () => {
         expect(webBridge.unregister).toHaveBeenCalledWith(EVENT)
     })
 
+    it("overlapping requests share one bridge call and one callback, and both get the answer", async () => {
+        const first = requestMicrophonePermission()
+        const second = requestMicrophonePermission()
+        expect(bridge.microphone.requestPermission).toHaveBeenCalledTimes(1)
+        expect(webBridge.register).toHaveBeenCalledTimes(1)
+        handlers[EVENT]("GRANTED")
+        await expect(Promise.all([first, second])).resolves.toEqual(["GRANTED", "GRANTED"])
+        // once settled, the next request asks again
+        const third = requestMicrophonePermission()
+        expect(bridge.microphone.requestPermission).toHaveBeenCalledTimes(2)
+        handlers[EVENT]("GRANTED")
+        await third
+    })
+
     it("rejects when the user refuses", async () => {
         const pending = requestMicrophonePermission()
         handlers[EVENT]("DENIED")

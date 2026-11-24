@@ -180,7 +180,9 @@ export const withoutLiveEngines = (candidates: Candidate[]): Candidate[] => cand
  * `routing.platformSpeech: false`. It is never added in a browser. Opt out is one line, because it keeps voice on the phone.
  */
 export function withPlatformSpeech(candidates: Candidate[], platform: Platform, raw: any = null): Candidate[] {
-    if (isWebPlatform(platform) || raw?.platformSpeech === false) return candidates
+    if (isWebPlatform(platform)) return candidates
+    // An explicit opt-out wins over everything, including a platform-speech entry the config lists itself.
+    if (raw?.platformSpeech === false) return withoutLiveEngines(candidates)
     if (candidates.some(isLiveEngine)) return candidates
     return [
         {
@@ -198,7 +200,9 @@ export function withPlatformSpeech(candidates: Candidate[], platform: Platform, 
  */
 export function routingFor(raw: any, platform: Platform, override: any, live: boolean, warn?: (m: string) => void) {
     const normalized = normalizeRouting(raw, platform, override, warn)
-    return { policy: normalized.policy, candidates: live ? withPlatformSpeech(normalized.candidates, platform, raw) : withoutLiveEngines(normalized.candidates) }
+    // The opt-out can be set in the config or for one call, so judge the two together (the call wins).
+    const effective = { ...(raw && typeof raw === "object" ? raw : {}), ...(override && typeof override === "object" ? override : {}) }
+    return { policy: normalized.policy, candidates: live ? withPlatformSpeech(normalized.candidates, platform, effective) : withoutLiveEngines(normalized.candidates) }
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined)

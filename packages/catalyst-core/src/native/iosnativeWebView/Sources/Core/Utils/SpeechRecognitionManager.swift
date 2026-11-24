@@ -21,6 +21,8 @@ final class SpeechRecognitionManager {
     private var silenceTimer: Timer?
     private var lastText = ""
     private var finished = false
+    /// Set once the bridge is torn down. A speech-authorization answer can arrive after that; it must not start work.
+    private var cleanedUp = false
     private struct SavedSession {
         let category: AVAudioSession.Category
         let mode: AVAudioSession.Mode
@@ -90,7 +92,7 @@ final class SpeechRecognitionManager {
 
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
-                guard let self = self else { return }
+                guard let self = self, !self.cleanedUp else { return }
                 guard status == .authorized else {
                     self.fail(SpeechRecognitionPolicy.Code.permissionDenied, "Speech recognition was refused")
                     return
@@ -101,7 +103,7 @@ final class SpeechRecognitionManager {
     }
 
     private func begin(with recognizer: SFSpeechRecognizer) {
-        guard task == nil else { return }
+        guard !cleanedUp, task == nil else { return }
         finished = false
         lastText = ""
         do {
@@ -189,6 +191,7 @@ final class SpeechRecognitionManager {
     }
 
     func cleanup() {
+        cleanedUp = true
         finished = true
         task?.cancel()
         teardown()

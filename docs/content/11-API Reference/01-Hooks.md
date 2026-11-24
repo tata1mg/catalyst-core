@@ -1027,3 +1027,100 @@ What is enforced in code, not left to the prompt:
 - **Side effects need a yes.** A `sideEffect` tool never runs without `approve()`. With no answer (cancel, unmount, error in your UI) it does not run.
 - **Tool results are data.** They are size-capped, shown to the model as quoted untrusted data and never promoted to instructions. Only the model's own reply can pick the next tool, and an unknown tool or arguments that fail the schema never reach `run`.
 - **Small models.** Tool use is a JSON protocol with one corrective retry rather than a provider feature, because on-device models do not call native tools reliably. Expect more `invalid` steps with small models.
+
+### `useTranscribe`
+
+Speech to text, from a recording or from the microphone. `transcribe(source)` takes a recording (a data URL or a Blob); `listen()` takes the microphone itself. `provider` defaults to `"auto"`, so the router (see `AI_CONFIG.routing`) picks the engine and decides what may leave the device.
+
+```jsx
+import { useTranscribe } from "catalyst-core/hooks"
+
+const voice = useTranscribe({ language: "en-US", routing: { cloud: "deny", cloudMedia: "deny" } })
+
+const heard = await voice.listen()      // { text, engine, durationSec, ... } or null when it did not finish
+if (voice.status === "needs-consent") await voice.approve({ cloud: true })
+```
+
+| Option | Description |
+|--------|-------------|
+| `language` | BCP 47 tag for the phone's recogniser in `listen()`. Default `"en-US"` |
+| `chunkSeconds`, `maxSeconds`, `skipSilence`, `unloadWhenDone` | How a long recording is cut up, the longest accepted (default 120 s), whether silent pieces are skipped, and whether the on-device model is freed afterwards |
+| `instructions` | What to ask the model. Speech-to-text models ignore it |
+| `routing` | Per-call routing override, including `platformSpeech` (below). Everything else goes to `useAI` |
+
+| Result | Description |
+|--------|-------------|
+| `listen(consent?)` | Listens until the speaker pauses or `stopListening()` is called. Resolves with `{ text, engine, ... }`, or `null` when it did not complete (read `status`) |
+| `transcribe(source)` | Same result shape, for a recording |
+| `status` | `idle`, `listening`, `running`, `needs-consent`, `denied`, `error`, `done` |
+| `engine` | `"platform-speech"` (the phone's own recogniser) or `"recorder"` (a recording sent to the routed model) |
+| `partial`, `text`, `level` | Text so far (the phone's recogniser streams it), the transcript, and loudness while recording (0 for the phone's recogniser) |
+| `platformSpeech` | `null` until the shell answers, `false` in a browser, `true` when the phone's recogniser can be used |
+| `approve(consent)`, `stopListening()`, `cancel()`, `clear()` | Allow what the router asked for, end the session (the final text still arrives), stop and forget |
+| `error`, `route`, `progress`, `model` | The latest error, why the router chose what it did, chunk progress and on-device model state |
+
+Where the voice goes:
+
+- **Inside the iOS and Android apps** the router puts the phone's own recogniser first. It runs on the device, streams partial text and loads no model. If it cannot start, the call is decided again without it, so voice only goes where your routing policy allows.
+- **Opt out** with `routing: { platformSpeech: false }` in `AI_CONFIG` or for one call. The opt-out wins over everything, including a `platform-speech` entry you listed yourself.
+- **In a browser** the phone's recogniser does not exist, so `listen()` records and sends the clip to the routed model.
+- **Consent.** Audio goes to a cloud provider only when the policy allows it (`cloudMedia`) and, if the policy says `ask`, after `approve()`.
+
+### `useMicrophone`
+
+Click-to-talk recording for web pages: `MediaRecorder` makes the clip, a level meter shows how loud it is, and the recording stops by itself after `silenceMs` of quiet once speech was heard, or at `maxSeconds`. The clip is handed over as a data URL (what `useAI` and `useTranscribe` take) and stays on the page.
+
+```jsx
+const mic = useMicrophone({ onRecorded: (dataUrl, { seconds }) => send(dataUrl) })
+await mic.start()   // { started: true } or { started: false, error }
+```
+
+| Option | Description |
+|--------|-------------|
+| `onRecorded(dataUrl, { seconds })` | Called with the finished clip |
+| `onError(message)` | Called when a recording fails or ends with no speech |
+| `autoStop`, `silenceMs`, `maxSeconds` | Stop on a pause (default on, 2000 ms) and the longest recording (default 120 s) |
+
+Result: `start()`, `stop()` (deliver the clip), `cancel()` (drop it), `state`, `listening`, `level`, `seconds`, `error` and `supported` (false where the page cannot record, such as a non-secure page). Inside the apps the shell asks for the microphone first (`requestMicrophonePermission`), then lets `getUserMedia` through. A `start()` that you cancel, or that outlives its component, releases the microphone instead of recording.
+
+### `useSpeechRecognition`
+
+The phone's own speech recogniser (Android `SpeechRecognizer`, iOS `SFSpeechRecognizer`), inside the apps only. Recognition is on-device: when a language has no on-device model the shell refuses with `ON_DEVICE_UNAVAILABLE` and nothing is sent to a server. Most apps use `useTranscribe().listen()`, which picks this engine for you; use this hook when you want the session directly.
+
+```jsx
+const speech = useSpeechRecognition({ language: "en-IN", onFinal: (text) => setNote(text) })
+
+if (speech.supported) await speech.start()   // { started: true } or { started: false, code }
+```
+
+| Option | Description |
+|--------|-------------|
+| `language` | BCP 47 tag, default `"en-US"` |
+| `onPartial(text)`, `onFinal(text)`, `onEnd(text)`, `onError(code)` | Streaming text, the final text, the end of a session (the text is empty when nothing was recognised), and the shell's error code |
+
+| Result | Description |
+|--------|-------------|
+| `start()` | Asks for the microphone, then starts. Resolves `{ started, code? }`. `code` is `UNSUPPORTED`, `BUSY`, `PERMISSION_DENIED`, `ON_DEVICE_UNAVAILABLE`, `LANGUAGE_UNAVAILABLE`, or `CANCELLED` when you cancelled or unmounted while the permission prompt was open |
+| `stop()`, `cancel()` | End the session (the final text still arrives) / end it and drop what was heard |
+| `state`, `listening`, `partial`, `text`, `seconds`, `level` | Session state (`level` is always 0: the platform recognisers do not report it) |
+| `error`, `errorCode`, `supported`, `support` | The latest error, `supported` (`null` until the shell answers, `false` in a browser or for a language with no on-device model) and the shell's support reply |
+
+Several components may use the hook at once. They share one subscription to the shell, and a session's events go only to the component that started it; a second one starting while one is running gets `BUSY`.
+
+### `requestMicrophonePermission`
+
+Asks the native shell (Android or iOS) for microphone permission so a page can record with `getUserMedia({ audio })`. The hooks above call it for you; call it yourself only when you use `getUserMedia` directly.
+
+```jsx
+import { requestMicrophonePermission } from "catalyst-core/hooks"
+
+try {
+    await requestMicrophonePermission()       // "GRANTED", or null when there is nothing to ask
+} catch {
+    // the user refused
+}
+```
+
+Resolves `"GRANTED"` once the app holds it, rejects when the user refuses, and resolves `null` where there is nothing to ask or nobody answers: a plain browser (it prompts by itself), a page without `WebBridge`, or a shell built before the command existed. Overlapping calls share one request.
+
+Only the app's own page may use the microphone. On Android the WebView grants capture only to the app's own origin (or an origin your `accessControl.allowedUrls` allows while access control is on), and on iOS the microphone bridge commands run only from the app's own main-frame page.

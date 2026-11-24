@@ -93,6 +93,8 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         onError.current?.(message)
     }, [])
     const mounted = useRef(true)
+    // Bumped by cancel() and unmount: a start() still waiting for a permission or the microphone then knows it was abandoned.
+    const startToken = useRef(0)
 
     const release = useCallback(() => {
         const s = live.current
@@ -113,6 +115,7 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
     }, [])
 
     const cancel = useCallback(() => {
+        startToken.current++
         if (live.current) live.current.discard = true
         stop()
         release()
@@ -131,16 +134,26 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         }
         // In the apps the shell must hold the microphone before the web view lets getUserMedia through. In a plain browser
         // this resolves at once and the browser's own prompt does the asking.
+        const token = ++startToken.current
+        const abandoned = () => token !== startToken.current || !mounted.current
         try {
             await requestMicrophonePermission()
         } catch {
+            if (abandoned()) return { started: false, error: "Cancelled." }
             return refuse("Microphone permission was denied.")
         }
+        if (abandoned()) return { started: false, error: "Cancelled." }
         let stream: MediaStream
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
         } catch (err: any) {
+            if (abandoned()) return { started: false, error: "Cancelled." }
             return refuse(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
+        }
+        // Cancelled or unmounted while the browser was opening the microphone: release it straight away.
+        if (abandoned()) {
+            stream.getTracks().forEach((track) => track.stop())
+            return { started: false, error: "Cancelled." }
         }
         const mimeType = MIME_TYPES.find((t) => MediaRecorder.isTypeSupported?.(t))
         const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
