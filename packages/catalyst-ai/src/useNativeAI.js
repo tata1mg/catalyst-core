@@ -47,6 +47,7 @@ const NATIVE_CALLBACKS = {
     ON_AI_ERROR: "ON_AI_ERROR",
 }
 
+/** @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults. */
 export function useNativeAI({
     genConfig: genConfigProp = {},
     attachmentComponents = {},
