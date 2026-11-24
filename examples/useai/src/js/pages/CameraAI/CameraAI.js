@@ -2,17 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { useCamera, useVision } from "catalyst-core/hooks";
 import PhoneFrame from "../../components/PhoneFrame";
 
-const SAFE_IMAGE_PROTOCOLS = ["data:", "blob:", "http:", "https:", "file:"];
+// Only image-looking URLs may reach <img src>: data:image/*, blob: (object URLs), http(s): and the native file: URL.
+const SAFE_IMAGE_SRC = /^(data:image\/|blob:|https?:\/\/|file:\/\/)/i;
 function safeImageSrc(src) {
-    if (typeof src !== "string") return null;
-    try {
-        const url = new URL(src, window.location.href);
-        if (!SAFE_IMAGE_PROTOCOLS.includes(url.protocol)) return null;
-        if (url.protocol === "data:" && !/^data:image\//i.test(src)) return null;
-        return src;
-    } catch {
-        return null;
-    }
+    return typeof src === "string" && SAFE_IMAGE_SRC.test(src) ? src : null;
 }
 
 // A lab report, read on the device into typed data with useVision. The schema is the contract: the model is asked for

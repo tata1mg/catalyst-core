@@ -11,7 +11,9 @@ const router = express.Router()
 let errorsModulePromise = null
 // Strip CR/LF and other control characters so a user-influenced value cannot forge extra log lines.
 function logSafe(value) {
-    return String(value ?? "").replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ")
+    return String(value ?? "")
+        .replace(/[\r\n]/g, " ")
+        .replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ")
 }
 
 function loadErrors() {
