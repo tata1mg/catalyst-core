@@ -184,7 +184,12 @@ final class PluginBridge: NSObject {
             trustedURL: trustedOrigin
         ) else {
             pluginBridgeLogger.warning(
-                "Rejected plugin message from untrusted origin \(message.sourceURL?.absoluteString ?? "unknown", privacy: .public) (mainFrame: \(message.isMainFrame)); trusted origin is \(self.trustedOrigin?.absoluteString ?? "none", privacy: .public)"
+                """
+                Rejected plugin message from untrusted origin \
+                \(message.sourceURL?.absoluteString ?? "unknown", privacy: .public) \
+                (mainFrame: \(message.isMainFrame)); \
+                trusted origin is \(self.trustedOrigin?.absoluteString ?? "none", privacy: .public)
+                """
             )
             return
         }

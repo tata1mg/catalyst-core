@@ -9,6 +9,11 @@ const router = express.Router()
 // catalyst-core/errors is ESM-only; route.js stays CJS (loaded via require.resolve
 // in expressServer.js), so we load it lazily via dynamic import and cache the module.
 let errorsModulePromise = null
+// Strip CR/LF and other control characters so a user-influenced value cannot forge extra log lines.
+function logSafe(value) {
+    return String(value ?? "").replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ")
+}
+
 function loadErrors() {
     if (!errorsModulePromise) errorsModulePromise = import("catalyst-core/errors")
     return errorsModulePromise
@@ -801,7 +806,7 @@ router.post("/:provider/image", async (req, res) => {
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] %s image error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
+        console.error("[catalyst-ai] %s image error:", logSafe(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })
@@ -849,7 +854,7 @@ router.post("/:provider/speech", async (req, res) => {
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] %s speech error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
+        console.error("[catalyst-ai] %s speech error:", logSafe(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })

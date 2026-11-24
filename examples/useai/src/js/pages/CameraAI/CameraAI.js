@@ -2,6 +2,19 @@ import React, { useEffect, useRef, useState } from "react";
 import { useCamera, useVision } from "catalyst-core/hooks";
 import PhoneFrame from "../../components/PhoneFrame";
 
+const SAFE_IMAGE_PROTOCOLS = ["data:", "blob:", "http:", "https:", "file:"];
+function safeImageSrc(src) {
+    if (typeof src !== "string") return null;
+    try {
+        const url = new URL(src, window.location.href);
+        if (!SAFE_IMAGE_PROTOCOLS.includes(url.protocol)) return null;
+        if (url.protocol === "data:" && !/^data:image\//i.test(src)) return null;
+        return src;
+    } catch {
+        return null;
+    }
+}
+
 // A lab report, read on the device into typed data with useVision. The schema is the contract: the model is asked for
 // exactly this shape, the reply is validated against it, and anything else is retried once and then reported.
 const LAB_SCHEMA = {
@@ -133,7 +146,8 @@ export default function CameraAI() {
     const { scan, approve, clear, status, data, route, error, attempts, partial, model, raw } = vision;
 
     const run = async (image, shown) => {
-        setPreview(shown);
+        // The preview is only ever an image URL (data:, blob:, http(s): or a native file: URL); anything else is dropped.
+        setPreview(safeImageSrc(shown));
         setSource(image);
         setElapsedMs(null);
         startedAt.current = performance.now();
