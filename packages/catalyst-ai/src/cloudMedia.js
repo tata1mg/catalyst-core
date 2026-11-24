@@ -4,15 +4,22 @@
 // Text-only requests are returned exactly as they came in. Never log request bodies from this module.
 //
 // Formats confirmed against provider docs: OpenAI Chat Completions (image_url, input_audio wav/mp3 on audio models),
-// OpenAI Responses (input_image), Gemini generateContent (inlineData), Gemini Interactions (typed image block).
+// OpenAI Responses (input_image), Gemini generateContent (inlineData), Gemini Interactions (typed image block),
+// Anthropic Messages (image and PDF `document` blocks with base64 sources).
 // NOT confirmed, so refused rather than guessed: audio on OpenAI Responses and on Gemini Interactions.
+// A third canonical part, {type:"document", data:"data:application/pdf;base64,..."}, is a PDF; only providers whose
+// capabilities say `document` take it, every other endpoint refuses it with unsupported-modality.
 
 const DEFAULT_LIMITS = {
     imageBytes: 8 * 1024 * 1024,
     audioBytes: 10 * 1024 * 1024,
     maxImages: 4,
     maxAudio: 2,
+    // The JSON body limit (20 MB, base64 inflates by a third) is the real ceiling; Anthropic itself allows 32 MB / 600 pages.
+    documentBytes: 10 * 1024 * 1024,
+    maxDocuments: 2,
 }
+const PDF_MIME = "application/pdf"
 
 function mediaError(reason, message, extra = {}) {
     return Object.assign(new Error(message), { reason, ...extra })
@@ -44,13 +51,14 @@ function usesParts(messages) {
 
 /** true when any message carries an image or audio part. */
 function hasMedia(messages) {
-    return Array.isArray(messages) && messages.some((m) => Array.isArray(m?.content) && m.content.some((p) => p && (p.type === "image" || p.type === "audio")))
+    return Array.isArray(messages) && messages.some((m) => Array.isArray(m?.content) && m.content.some((p) => p && (p.type === "image" || p.type === "audio" || p.type === "document")))
 }
 
 /** -> [{ role, parts: [{type:"text",text} | {type, mimeType, base64}] }]; throws a typed error on anything invalid. */
 function validateMessages(messages, limits = DEFAULT_LIMITS) {
     let images = 0
     let audios = 0
+    let documents = 0
     return messages.map((message) => {
         const role = message?.role
         const raw = typeof message?.content === "string" ? [{ type: "text", text: message.content }] : message?.content
@@ -61,19 +69,22 @@ function validateMessages(messages, limits = DEFAULT_LIMITS) {
                 if (typeof part.text !== "string") throw mediaError("invalid-part", "A text part needs a string `text`")
                 return { type: "text", text: part.text }
             }
-            if (part.type !== "image" && part.type !== "audio") throw mediaError("invalid-part", `Unknown content part type "${String(part.type).slice(0, 20)}"`)
-            if (role !== "user") throw mediaError("invalid-part", "Image and audio are only allowed in user messages")
+            if (part.type !== "image" && part.type !== "audio" && part.type !== "document") throw mediaError("invalid-part", `Unknown content part type "${String(part.type).slice(0, 20)}"`)
+            if (role !== "user") throw mediaError("invalid-part", "Image, audio and document parts are only allowed in user messages")
             const parsed = parseDataUrl(part.data)
             if (!parsed) throw mediaError("invalid-part", `A ${part.type} part needs \`data\` as a base64 data URL`)
-            if (!parsed.mimeType.startsWith(`${part.type}/`)) throw mediaError("invalid-part", `A ${part.type} part cannot carry ${parsed.mimeType}`)
-            const cap = part.type === "image" ? limits.imageBytes : limits.audioBytes
+            const mimeOk = part.type === "document" ? parsed.mimeType === PDF_MIME : parsed.mimeType.startsWith(`${part.type}/`)
+            if (!mimeOk) throw mediaError("invalid-part", `A ${part.type} part cannot carry ${parsed.mimeType}`)
+            const cap = part.type === "image" ? limits.imageBytes : part.type === "audio" ? limits.audioBytes : limits.documentBytes
             if (decodedBytes(parsed.base64) > cap) throw mediaError("too-large", `${part.type} is too large (limit ${cap} bytes)`, { modality: part.type, limit: cap })
             if (part.type === "image") images++
-            else audios++
+            else if (part.type === "audio") audios++
+            else documents++
             return { type: part.type, mimeType: parsed.mimeType, base64: parsed.base64 }
         })
         if (images > limits.maxImages) throw mediaError("too-many", `At most ${limits.maxImages} images per request`, { modality: "image", limit: limits.maxImages })
         if (audios > limits.maxAudio) throw mediaError("too-many", `At most ${limits.maxAudio} audio clips per request`, { modality: "audio", limit: limits.maxAudio })
+        if (documents > limits.maxDocuments) throw mediaError("too-many", `At most ${limits.maxDocuments} documents per request`, { modality: "document", limit: limits.maxDocuments })
         return { role, parts }
     })
 }
@@ -81,6 +92,7 @@ function validateMessages(messages, limits = DEFAULT_LIMITS) {
 const IMAGE_MIMES = {
     openai: ["image/png", "image/jpeg", "image/webp", "image/gif"],
     gemini: ["image/png", "image/jpeg", "image/webp"],
+    anthropic: ["image/png", "image/jpeg", "image/webp", "image/gif"],
 }
 const OPENAI_AUDIO_MIMES = { "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mpeg": "mp3", "audio/mp3": "mp3" }
 const GEMINI_AUDIO_MIMES = ["audio/wav", "audio/x-wav", "audio/mp3", "audio/mpeg", "audio/aiff", "audio/aac", "audio/ogg", "audio/flac"]
@@ -107,6 +119,10 @@ function capabilitiesFor({ provider, stateful, model }) {
             audioHint: "use wav, mp3, aiff, aac, ogg or flac",
         }
     }
+    if (provider === "anthropic") {
+        // Messages API: image and PDF document blocks. No audio input on any Claude model.
+        return { image: true, imageMimes: IMAGE_MIMES.anthropic, audio: false, audioMimes: [], document: true, documentMimes: [PDF_MIME] }
+    }
     return { image: false, audio: false, imageMimes: [], audioMimes: [] }
 }
 
@@ -116,7 +132,7 @@ function assertSupported(normalized, caps, label = "this endpoint") {
         for (const part of message.parts) {
             if (part.type === "text") continue
             if (!caps[part.type]) throw mediaError("unsupported-modality", `${label} does not support ${part.type} input`, { modality: part.type, engine: label })
-            const allowed = part.type === "image" ? caps.imageMimes : caps.audioMimes
+            const allowed = (part.type === "image" ? caps.imageMimes : part.type === "audio" ? caps.audioMimes : caps.documentMimes) || []
             if (!allowed.includes(part.mimeType)) {
                 const hint = part.type === "audio" && caps.audioHint ? ` (${caps.audioHint})` : ""
                 throw mediaError("unsupported-format", `${label} does not accept ${part.mimeType}${hint}`, { modality: part.type, mimeType: part.mimeType })
@@ -181,6 +197,28 @@ function mapGeminiInteractionsInput(messages) {
     })
 }
 
+/**
+ * Anthropic Messages shape: { system, messages }. System messages are lifted out (the API takes `system` separately);
+ * text-only turns stay plain strings, turns with media become typed blocks with base64 sources. Media is placed before
+ * the text of its turn, which is the order Anthropic recommends for images and documents.
+ */
+function mapAnthropicMessages(messages) {
+    const system = messages.filter((m) => m.role === "system").map((m) => textOf(m.content)).filter(Boolean).join("\n\n")
+    const turns = messages.filter((m) => m.role !== "system")
+    const normalized = hasMedia(turns) ? validateMessages(turns) : null
+    const mapped = turns.map((m, i) => {
+        const role = m.role === "assistant" ? "assistant" : "user"
+        if (!normalized || normalized[i].parts.every((p) => p.type === "text")) return { role, content: textOf(m.content) }
+        const parts = normalized[i].parts
+        const blocks = parts.map((p) => {
+            if (p.type === "text") return { type: "text", text: p.text }
+            return { type: p.type, source: { type: "base64", media_type: p.mimeType, data: p.base64 } }
+        })
+        return { role, content: [...blocks.filter((b) => b.type !== "text"), ...blocks.filter((b) => b.type === "text")] }
+    })
+    return { system: system || undefined, messages: mapped }
+}
+
 module.exports = {
     DEFAULT_LIMITS,
     usesParts,
@@ -193,4 +231,5 @@ module.exports = {
     mapOpenAIResponses,
     mapGeminiContents,
     mapGeminiInteractionsInput,
+    mapAnthropicMessages,
 }

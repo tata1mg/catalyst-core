@@ -19,13 +19,31 @@ trusted internal network, add authentication and per-caller rate limiting in you
 provider using your app's API key, so an unauthenticated deployment is an open proxy to
 your provider account.
 
+## Claude (`anthropic`)
+
+Add `"anthropic": { "apiKey": "...", "defaultModel": "claude-opus-5-5" }` under `AI_CONFIG.providers` and use
+`provider: "anthropic"`, or list it as a cloud candidate (`"provider": "anthropic"`) for `provider: "auto"` routing.
+The route calls the Messages API directly, like the other providers (no SDK dependency).
+
+- **Does:** text, images (png, jpeg, webp, gif), PDFs and structured outputs.
+- **Does not:** audio input, image generation or embeddings (Claude offers none); those stay with other providers.
+- **PDF.** A server-side part `{ type: "document", data: "data:application/pdf;base64,..." }` (10 MB, 2 per request).
+  Other providers refuse it with `unsupported-modality`. The client hooks do not build document parts yet.
+- **Structured outputs.** `genConfig.responseSchema` (a JSON Schema object) sets `output_config.format`, so the reply
+  matches the schema.
+- **Stateless.** The full history is sent every turn and `conversationId` is ignored.
+- **Sampling.** `temperature` and `topP` are sent only to models that still accept them (Claude Opus 4.6, Sonnet 4.6,
+  Haiku 4.5 and older); newer models reject them, so they are dropped for those.
+- **Thinking** is left at the model default and never streamed; thinking tokens are billed as output tokens.
+- A safety decline (`stop_reason: "refusal"`) is reported as an error instead of an empty reply.
+
 ## Image and audio input
 
 `messages[].content` may be a string or an array of parts: `{ type: "text", text }`,
 `{ type: "image", data: "data:image/...;base64,..." }`, `{ type: "audio", data: "data:audio/...;base64,..." }`.
 Text-only calls behave exactly as before.
 
-- **Cloud needs an explicit choice.** `useAI({ provider: "cloud" | "openai" | "gemini" })` may send media to the
+- **Cloud needs an explicit choice.** `useAI({ provider: "cloud" | "openai" | "gemini" | "anthropic" })` may send media to the
   provider. If a native or web engine was requested but is unavailable, `useAI` falls back to cloud for text only and
   refuses media with `cloud-media-not-allowed`, so a photo or voice clip is never sent to a provider by accident.
 - **What each endpoint accepts** (anything else is refused with `unsupported-modality` before any provider call):
