@@ -142,6 +142,43 @@ describe("size limits", () => {
     })
 })
 
+describe("web engine media (Gemma 4 in Transformers.js)", () => {
+    it("supportsWebMedia is true only for Gemma 4 model ids", async () => {
+        const { supportsWebMedia } = await mod
+        expect(supportsWebMedia("onnx-community/gemma-4-E2B-it-ONNX")).toBe(true)
+        expect(supportsWebMedia("onnx-community/Qwen2.5-0.5B-Instruct")).toBe(false)
+        expect(supportsWebMedia(undefined)).toBe(false)
+    })
+
+    it("toWebTemplate maps parts to chat-template placeholders and collects the media separately", async () => {
+        const { toWebTemplate } = await mod
+        const out = toWebTemplate([
+            { role: "user", content: [{ type: "image", data: PNG }, { type: "audio", data: WAV }, { type: "text", text: "go" }] },
+        ])
+        expect(out.messages).toEqual([
+            { role: "user", content: [{ type: "image" }, { type: "audio" }, { type: "text", text: "go" }] },
+        ])
+        expect(out.images).toEqual([PNG])
+        expect(out.audios).toEqual([WAV])
+    })
+
+    it("text-only input yields no media", async () => {
+        const { toWebTemplate } = await mod
+        const out = toWebTemplate([{ role: "user", content: "hi" }])
+        expect(out.messages).toEqual([{ role: "user", content: [{ type: "text", text: "hi" }] }])
+        expect(out.images).toEqual([])
+        expect(out.audios).toEqual([])
+    })
+
+    it("refuses more than one image or one audio clip rather than dropping the extras", async () => {
+        const { toWebTemplate } = await mod
+        const two = [{ type: "image", data: PNG }, { type: "image", data: PNG }]
+        expect(() => toWebTemplate([{ role: "user", content: two }])).toThrow(/one image/i)
+        const twoAudio = [{ type: "audio", data: WAV }, { type: "audio", data: WAV }]
+        expect(() => toWebTemplate([{ role: "user", content: twoAudio }])).toThrow(/one audio/i)
+    })
+})
+
 // ---- Layers still to specify as implementation reaches them (each becomes real tests, not prose) ----
 describe("scope not yet implemented", () => {
     // Native: decode `parts` -> temp files -> Content.ImageFile/AudioFile; set vision/audio backends only when asked.
@@ -152,5 +189,5 @@ describe("scope not yet implemented", () => {
     it.todo("useNativeAI.generate sends buildNativeBody and surfaces unsupported-modality as a typed AI error")
     it.todo("useAI auto routing never sends image/audio to cloud when privacy is 'sensitive' (ask/deny, no silent fallback)")
     it.todo("useCloudAI route.js forwards image/audio parts only to providers that accept them")
-    it.todo("useWebAI declares text-only until the Transformers.js multimodal spike (0.3) passes")
+    it.todo("useWebAI keeps the media-capable worker alive across calls and refuses media for other models")
 })

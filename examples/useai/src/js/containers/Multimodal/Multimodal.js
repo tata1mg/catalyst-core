@@ -44,6 +44,9 @@ const ATTACHMENT_COMPONENTS = {
 }
 const SYSTEM_PROMPT = "You are a helpful assistant. Describe or transcribe exactly what you are given, then structure your answer clearly."
 
+// Web fallback (no native module): Gemma 4 E2B in Transformers.js on WebGPU. About 3.4 GB on first use, cached after.
+const WEB_MODEL = "onnx-community/gemma-4-E2B-it-ONNX"
+
 const TABS = {
     native: { label: "📱 Native", hint: "The platform picks its own model: Gemma 4 via LiteRT-LM on Android, the best available on iOS." },
     cloud: { label: "☁️ Cloud", hint: "Text only for now. Media is refused with an unsupported-modality error." },
@@ -58,7 +61,7 @@ export default function Multimodal() {
     // One picker only: every useFilePicker instance listens to the same native callback, so two instances would
     // both receive each result. `wanted` remembers which slot the user asked for.
     const picker = useFilePicker()
-    const { selectedFile, getFileObject } = picker
+    const { selectedFile, getFileObject, isWeb } = picker
     const wanted = useRef(null)
     const [pickError, setPickError] = useState(null)
 
@@ -70,6 +73,7 @@ export default function Multimodal() {
     const provider = tab === "cloud" ? "cloud" : nativeAvailable ? "native" : "transformers"
     const ai = useAI({
         provider,
+        ...(provider === "transformers" && { model: WEB_MODEL }),
         sessionMode: "stateless",
         genConfig: { stream: true },
         systemPrompt: SYSTEM_PROMPT,
@@ -86,7 +90,14 @@ export default function Multimodal() {
         if (!selectedFile) return
         let cancelled = false
         const slot = wanted.current
-        getFileObject()
+        // Native hands back a handle that getFileObject() turns into a File. The browser fallback only returns a blob
+        // URL (its getFileObject is a stub), so fetch that instead.
+        const loadFile = isWeb
+            ? fetch(selectedFile.fileSrc)
+                  .then((response) => response.blob())
+                  .then((blob) => new File([blob], selectedFile.fileName, { type: selectedFile.mimeType || blob.type }))
+            : getFileObject()
+        loadFile
             .then(async (file) => {
                 if (!file || cancelled) return
                 const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : null
@@ -103,7 +114,7 @@ export default function Multimodal() {
         return () => {
             cancelled = true
         }
-    }, [selectedFile, getFileObject])
+    }, [selectedFile, getFileObject, isWeb])
 
     const pickMedia = (kind) => {
         wanted.current = kind
@@ -128,7 +139,9 @@ export default function Multimodal() {
             ? "loading"
             : ai.modelReady || tab === "cloud"
               ? "ready"
-              : "preparing model"
+              : provider === "transformers"
+                ? "not loaded yet (downloads ~3.4 GB on first Run, cached after)"
+                : "preparing model"
 
     const chip = "px-3 py-1.5 rounded-lg border border-[var(--border)] text-[12px]"
 
@@ -138,7 +151,7 @@ export default function Multimodal() {
                 ← Back
             </Link>
             <h1 className="text-3xl font-semibold text-white mt-4 mb-2">Image / audio input</h1>
-            <p className="mb-5 text-[14px]">{TABS[tab].hint}{tab === "native" && !nativeAvailable && " (No native module in this build, so this runs on-device in the web view.)"}</p>
+            <p className="mb-5 text-[14px]">{TABS[tab].hint}{tab === "native" && !nativeAvailable && " (No native module in this build, so this runs Gemma 4 in the browser on WebGPU. The first Run downloads about 3.4 GB and loading takes minutes. One image and one audio clip per request.)"}</p>
 
             <div className="flex gap-2 mb-5">
                 {Object.entries(TABS).map(([key, t]) => (
