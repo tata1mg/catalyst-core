@@ -8,6 +8,8 @@ const {
     checkSingleAppIcon,
     hasAndroidSizedIcons,
     hasIosSizedIcons,
+    inspectWebBridgeInit,
+    WEBBRIDGE_INIT_SNIPPET,
 } = require("../lib/helpers")
 
 // The release that added appId/url, NATIVE-010 and public/icon.png.
@@ -722,8 +724,21 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     }
 
     _checkRouting(config, wc, platform, issues, warnings, passed)
+    _checkWebBridgeInit(root, warnings, passed)
 
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+}
+
+// Native hooks silently run with isNative=false in the WebView when WebBridge.init() is missing from the client entry.
+function _checkWebBridgeInit(root, warnings, passed) {
+    const r = inspectWebBridgeInit(root)
+    const field = "client/index.js: WebBridge.init()"
+    const used = `${r.hookFiles.length} file(s) import native hooks from catalyst-core/hooks (e.g. ${r.hookFiles[0]})`
+    if (r.state === "ok") passed.push({ field, note: `present in ${r.entry}, inside hydrationReady` })
+    else if (r.state === "no-entry") warnings.push({ field, message: `${used} but no client entry (client/index.js) was found, so WebBridge.init() cannot run. Native hooks will report isNative=false.` })
+    else if (r.state === "missing-init") warnings.push({ field, message: `${used}, but ${r.entry} never calls WebBridge.init(). Native hooks silently run with isNative=false in the Android/iOS WebView. Add it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })
+    else if (r.state === "missing-import") warnings.push({ field, message: `${r.entry} calls WebBridge.init() but does not import WebBridge. Add: import WebBridge from "catalyst-core/WebBridge"` })
+    else if (r.state === "misplaced") warnings.push({ field, message: `${r.entry} calls WebBridge.init() before hydrationReady(). At module scope it can throw "Cannot read properties of null (reading 'useContext')" during hydration. Move it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })
 }
 
 const ROUTING_OBJECTIVES = ["balanced", "cost", "latency", "speed", "order"]
