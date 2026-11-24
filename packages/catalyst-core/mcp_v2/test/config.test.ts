@@ -495,9 +495,63 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(run(good).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // has an ios entry
         expect(run(webOnly, { enabled: false }).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // not a native build
     })
-    it("warns when cloud is allowed for media", () => {
-        const r = run({ ...good, routing: { ...good.routing, policy: { cloud: "allow" } } })
-        expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.policy")).toBe(true)
+    it("warns about silent media egress only when both effective policies allow it", () => {
+        const warned = (policy: object) => run({ ...good, routing: { ...good.routing, policy } }).warnings.some((x) => x.field === "AI_CONFIG.routing.policy")
+        expect(warned({ cloud: "allow", cloudMedia: "allow" })).toBe(true)
+        // cloudMedia defaults to deny, and "allow" cannot override a stricter cloud policy: the runtime asks or denies here
+        expect(warned({ cloud: "allow" })).toBe(false)
+        expect(warned({ cloudMedia: "allow" })).toBe(false)
+        expect(warned({ cloud: "ask", cloudMedia: "allow" })).toBe(false)
+        expect(warned({ cloud: "deny", cloudMedia: "allow" })).toBe(false)
+    })
+    it("rejects nested routing blocks that are not objects, instead of treating them as absent", () => {
+        const fields = (routing: object) => run({ providers, routing }).issues.map((x) => x.field)
+        expect(fields({ policy: [] })).toContain("AI_CONFIG.routing.policy")
+        expect(fields({ policy: "fast" })).toContain("AI_CONFIG.routing.policy")
+        expect(fields({ policy: { constraints: [] } })).toContain("AI_CONFIG.routing.policy.constraints")
+        expect(fields({ policy: { weights: 5 } })).toContain("AI_CONFIG.routing.policy.weights")
+        expect(fields({ onDevice: [] })).toContain("AI_CONFIG.routing.onDevice")
+        expect(fields({ onDevice: "ios" })).toContain("AI_CONFIG.routing.onDevice")
+    })
+    it("checks the weights and cloud prices the router would otherwise quietly drop", () => {
+        const fields = (routing: object) => run({ providers: { gemini: { apiKey: "k" } }, routing }).issues.map((x) => x.field).filter((f) => f.includes("routing"))
+        expect(fields({ policy: { weights: { cost: -1, latency: "2", tps: 1 } } })).toEqual(expect.arrayContaining(["AI_CONFIG.routing.policy.weights.cost", "AI_CONFIG.routing.policy.weights.latency"]))
+        expect(fields({ policy: { weights: { cost: 2, latency: 1, tps: 0 } } })).toEqual([])
+        const cloud = (price: unknown) => ({ cloud: [{ id: "g", provider: "gemini", price }] })
+        expect(fields(cloud({ input: 1 }))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud({ input: "1", output: 2 }))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud("free"))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud({ input: 1, output: 2 }))).not.toContain("AI_CONFIG.routing.cloud[0].price")
+    })
+    it("rejects an empty modalities list: the router would drop that model", () => {
+        const r = run({ providers: { gemini: { apiKey: "k" } }, routing: { cloud: [{ id: "g", provider: "gemini", modalities: [] }] } })
+        expect(r.issues.map((x) => x.field)).toContain("AI_CONFIG.routing.cloud[0].modalities")
+    })
+    it("does not accept inherited object names as configured providers", () => {
+        for (const provider of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            const r = run({ providers: { gemini: { apiKey: "k" } }, routing: { cloud: [{ id: "x", provider }] } })
+            expect(r.issues.map((x) => x.field), provider).toContain("AI_CONFIG.routing.cloud[0].provider")
+        }
+    })
+    it("flags an id shared by an on-device list and the cloud list, but not by ios and android", () => {
+        const dup = (routing: object) => run({ providers: { gemini: { apiKey: "k" } }, routing }).issues.filter((x) => /Duplicate id/.test(x.message ?? "")).length
+        expect(dup({ onDevice: { ios: [{ id: "m" }] }, cloud: [{ id: "m", provider: "gemini" }] })).toBe(1)
+        expect(dup({ onDevice: { ios: [{ id: "m" }], android: [{ id: "m" }] } })).toBe(0)
+        expect(dup({ onDevice: { ios: [{ id: "m" }, { id: "m" }] } })).toBe(1)
+    })
+    it("still checks AI_CONFIG.routing when WEBVIEW_CONFIG is missing, so one missing block does not hide the other errors", () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-nowv-"))
+        fs.mkdirSync(path.join(root, "config"))
+        fs.writeFileSync(path.join(root, "config", "config.json"), JSON.stringify({ AI_CONFIG: { providers, routing: { policy: { objective: "cheapest-ish" } } } }))
+        const fields = handle_check_config({ project_path: root }).issues.map((x) => x.field)
+        expect(fields).toContain("WEBVIEW_CONFIG")
+        expect(fields).toContain("AI_CONFIG.routing.policy.objective")
+    })
+    it("warns that native AI is off for any value of ai.enabled other than true", () => {
+        const fm = { onDevice: { ios: [{ id: "m" }] } }
+        const warned = (enabled: unknown) => run({ providers, routing: fm }, { enabled } as any).warnings.some((x) => x.field === "WEBVIEW_CONFIG.ai.enabled")
+        expect(warned(true)).toBe(false)
+        for (const off of ["true", "false", 1, false, undefined]) expect(warned(off), String(off)).toBe(true)
     })
     it("warns that on-device models need WEBVIEW_CONFIG.ai.enabled, and that foundation-models is iOS-only", () => {
         const r = run(good, { enabled: false })
@@ -605,6 +659,14 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
         const r = bridge({ ...hooks, "client/index.js": `hydrationReady().then(() => { WebBridge.init() })` })
         expect(r.warn?.message).toContain("does not import WebBridge")
     })
+    it("an unrelated WebBridge from another package does not satisfy the check", () => {
+        const wrong = bridge({ ...hooks, "client/index.js": `import WebBridge from "another-package"\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(wrong.warn?.message).toContain("does not import WebBridge")
+        const right = bridge({ ...hooks, "client/index.js": `import WebBridge from "catalyst-core/WebBridge"\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(right.warn).toBeUndefined()
+        const cjs = bridge({ ...hooks, "client/index.js": `const WebBridge = require("catalyst-core/WebBridge")\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(cjs.warn).toBeUndefined()
+    })
     it("stays quiet without native hooks, and when only useAI is imported", () => {
         expect(bridge({ "client/index.js": entry(`hydrateRoot(el, app)`) }).warn).toBeUndefined()
         const onlyAI = { "src/a.js": `import { useAI } from "catalyst-core/hooks"\n`, "client/index.js": entry(`hydrateRoot(el, app)`) }
@@ -700,5 +762,34 @@ const OTHER = { "not-a-model": { input: 1 } }`
         const real = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "pricing.js"), "utf8")
         const { PRICING } = await import("../../../catalyst-ai/src/pricing.js")
         expect([...priceKeysFromSource(real)].sort()).toEqual(Object.keys(PRICING).sort())
+    })
+})
+
+describe("which hook imports count as native hook use", () => {
+    const { usesNativeHooks }: any = require("../lib/helpers.js")
+    const cases: Array<[string, boolean]> = [
+        ['import { useCamera } from "catalyst-core/hooks"', true],
+        ['import { useAI, useCamera } from "catalyst-core/hooks"', true],
+        ['import { useAI } from "catalyst-core/hooks"', false],
+        ['import { useAI as ai, useVision } from "catalyst-core/hooks"', false],
+        // erased by the compiler: not runtime use of any hook
+        ['import type { useCamera } from "catalyst-core/hooks"', false],
+        ['import { type useCamera, useAI } from "catalyst-core/hooks"', false],
+        // the same exemption for the CommonJS form
+        ['const { useAI } = require("catalyst-core/hooks")', false],
+        ['const { useAI: ai, useVision } = require("catalyst-core/hooks")', false],
+        ['const { useCamera } = require("catalyst-core/hooks")', true],
+        // the whole module: which hooks are used cannot be told
+        ['const hooks = require("catalyst-core/hooks")', true],
+        ['import hooks from "catalyst-core/hooks"', true],
+        ['import * as hooks from "catalyst-core/hooks"', true],
+        ['import { useCamera } from "somewhere-else"', false],
+    ]
+    it.each(cases)("%s -> %s", (source, expected) => {
+        expect(usesNativeHooks(source)).toBe(expected)
+    })
+
+    it("the answer does not depend on what was checked before (no regex state is shared between calls)", () => {
+        for (let i = 0; i < 3; i++) for (const [source, expected] of cases) expect(usesNativeHooks(source)).toBe(expected)
     })
 })

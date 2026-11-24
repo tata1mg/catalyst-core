@@ -315,15 +315,36 @@ const CLIENT_ENTRY_CANDIDATES = ["client/index.js", "client/index.jsx", "client/
 // Hooks that talk to the native bridge need WebBridge.init() in the client entry: it sets window.WebBridge and
 // isNative. Without it they run with isNative=false inside the WebView and fail silently. useAI and useVision are exempt
 // (they also run on cloud/in-browser engines), so importing only those does not count as native use.
-const HOOKS_IMPORT = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']catalyst-core\/hooks["']|import\s+(?!type\b)[\w$]+\s*(?:,\s*\{[^}]*\})?\s*from\s*["']catalyst-core\/hooks["']|require\(\s*["']catalyst-core\/hooks["']\s*\)/g
+const HOOKS_MODULE = String.raw`["']catalyst-core\/hooks["']`
+const NAMED_IMPORT = new RegExp(String.raw`import\s+(type\s+)?\{([^}]*)\}\s*from\s*` + HOOKS_MODULE, "g")
+// default or namespace import, optionally with a named list after it: which hooks are used cannot be told
+const OTHER_IMPORT = new RegExp(String.raw`import\s+(?!type\b)(?:[\w$]+|\*\s+as\s+[\w$]+)\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+[\w$]+))?\s*from\s*` + HOOKS_MODULE)
+const DESTRUCTURED_REQUIRE = new RegExp(String.raw`(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\(\s*` + HOOKS_MODULE + String.raw`\s*\)`, "g")
+const ANY_REQUIRE = new RegExp(String.raw`require\(\s*` + HOOKS_MODULE + String.raw`\s*\)`, "g")
+const EXEMPT_HOOKS = new Set(["useAI", "useVision"])
+
+/** Imported names from `{ a, b as c, type d }` or `{ a, b: c }`: the exported name, with type-only specifiers left out. */
+function hookNames(list) {
+    return list
+        .split(",")
+        .map((n) => n.trim())
+        .filter((n) => n && !/^type\s/.test(n))
+        .map((n) => n.split(/\s+as\s+|\s*:\s*/)[0].trim())
+        .filter(Boolean)
+}
 
 function usesNativeHooks(source) {
-    for (const m of source.matchAll(HOOKS_IMPORT)) {
-        if (m[1] === undefined) return true // default/namespace import or require: cannot tell which hooks
-        const names = m[1].split(",").map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)
-        if (names.some((n) => n !== "useAI" && n !== "useVision")) return true
+    // A type-only import (`import type { ... }`) is erased by the compiler, so it is not runtime use of any hook.
+    for (const m of source.matchAll(NAMED_IMPORT)) {
+        if (m[1]) continue
+        if (hookNames(m[2]).some((n) => !EXEMPT_HOOKS.has(n))) return true
     }
-    return false
+    if (OTHER_IMPORT.test(source)) return true
+    // `const { useAI } = require(...)` gets the same exemption as the import form.
+    const destructured = [...source.matchAll(DESTRUCTURED_REQUIRE)]
+    for (const m of destructured) if (hookNames(m[1]).some((n) => !EXEMPT_HOOKS.has(n))) return true
+    // A require that is not destructured hands over the whole module: which hooks it uses cannot be told.
+    return [...source.matchAll(ANY_REQUIRE)].length > destructured.length
 }
 
 /**
@@ -342,7 +363,9 @@ function inspectWebBridgeInit(root) {
     const src = readText(entry) || ""
     const initAt = src.search(/WebBridge\s*\.\s*init\s*\(/)
     if (initAt === -1) return { ...base, state: hookFiles.length ? "missing-init" : "no-hooks" }
-    if (!/import[^;]*\bWebBridge\b[^;]*from|require\([^)]*WebBridge/.test(src)) return { ...base, state: "missing-import" }
+    // The Catalyst bridge itself, from its own module: an unrelated `WebBridge` from another package does not count.
+    const bridgeImport = /import\s+[^;]*?\bWebBridge\b[^;]*?from\s*["']catalyst-core\/WebBridge["']|\bWebBridge\b\s*=\s*require\(\s*["']catalyst-core\/WebBridge["']\s*\)|import\s*\(\s*["']catalyst-core\/WebBridge["']\s*\)/
+    if (!bridgeImport.test(src)) return { ...base, state: "missing-import" }
     const readyAt = src.search(/hydrationReady\s*\(/)
     if (readyAt !== -1 && initAt < readyAt) return { ...base, state: "misplaced" }
     return { ...base, state: "ok" }
@@ -358,6 +381,7 @@ const WEBBRIDGE_INIT_SNIPPET = `window.addEventListener("load", () => {
 
 module.exports = {
     inspectWebBridgeInit,
+    usesNativeHooks,
     WEBBRIDGE_INIT_SNIPPET,
     findCatalystRoot,
     makeProjectHelpers,

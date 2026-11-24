@@ -241,7 +241,9 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             severity: "error",
             message: "WEBVIEW_CONFIG object is required. Missing this will prevent native builds.",
         })
-    return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+        // The routing check does not depend on WEBVIEW_CONFIG: report its errors too, so one missing block does not hide the rest.
+        _checkRouting(config, {}, platform, issues, warnings, passed)
+        return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
     } else {
         passed.push({ field: "WEBVIEW_CONFIG", note: "block present" })
     }
@@ -900,7 +902,18 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     if (routing.platformSpeech !== undefined && typeof routing.platformSpeech !== "boolean") {
         err("AI_CONFIG.routing.platformSpeech", "platformSpeech must be true or false. Set it to false to stop useTranscribe().listen() using the phone's own speech recogniser.")
     }
-    const policy = routing.policy || {}
+    // A block that is present must be an object. The runtime treats anything else as absent, so the config would say one thing and
+    // the app do another.
+    const isRecord = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
+    const nested = (value, field, what) => {
+        if (value === undefined) return {}
+        if (!isRecord(value)) {
+            err(field, `${field} must be an object${what ? ` ${what}` : ""}.`)
+            return {}
+        }
+        return value
+    }
+    const policy = nested(routing.policy, "AI_CONFIG.routing.policy", "with objective, order, cloud, cloudMedia, weights and constraints")
     if (policy.objective !== undefined && !ROUTING_OBJECTIVES.includes(policy.objective)) {
         err("AI_CONFIG.routing.policy.objective", `Unknown objective "${policy.objective}". Use ${ROUTING_OBJECTIVES.join(", ")}.`)
     }
@@ -909,12 +922,21 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
             err(`AI_CONFIG.routing.policy.${key}`, `"${policy[key]}" is not valid. Use allow, ask or deny.`)
         }
     }
-    if (policy.cloudMedia === "allow" || (policy.cloud === "allow" && policy.cloudMedia === undefined)) {
+    // Media leaves silently only when BOTH effective policies allow it: cloudMedia defaults to deny, and cloudMedia "allow" cannot
+    // override a stricter cloud policy (ask or deny).
+    if (policy.cloud === "allow" && policy.cloudMedia === "allow") {
         warn("AI_CONFIG.routing.policy", "Cloud is allowed for image/audio: photos and voice can leave the device without asking. Keep cloudMedia at ask or deny for sensitive apps.")
     }
+    const isCount = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
+    const constraints = nested(policy.constraints, "AI_CONFIG.routing.policy.constraints", "with maxLatencyMs, minTps and maxCostUsd")
     for (const key of ["maxLatencyMs", "minTps", "maxCostUsd"]) {
-        const v = policy.constraints && policy.constraints[key]
-        if (v !== undefined && !(typeof v === "number" && v >= 0)) err(`AI_CONFIG.routing.policy.constraints.${key}`, `${key} must be a non-negative number.`)
+        const v = constraints[key]
+        if (v !== undefined && !isCount(v)) err(`AI_CONFIG.routing.policy.constraints.${key}`, `${key} must be a non-negative number.`)
+    }
+    // The router drops a weight that is not a non-negative number and quietly ranks with the default, so say so here.
+    const weights = nested(policy.weights, "AI_CONFIG.routing.policy.weights", "with cost, latency and tps")
+    for (const key of ["cost", "latency", "tps"]) {
+        if (weights[key] !== undefined && !isCount(weights[key])) err(`AI_CONFIG.routing.policy.weights.${key}`, `${key} must be a non-negative number.`)
     }
 
     const candidates = []
@@ -924,8 +946,8 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
         list.forEach((m, i) => {
             const at = `${where}[${i}]`
             if (!m || typeof m !== "object" || typeof m.id !== "string" || !m.id) return err(at, `Each model needs a string "id".`)
-            if (m.modalities !== undefined && (!Array.isArray(m.modalities) || m.modalities.some((x) => !ROUTING_MODALITIES.includes(x)))) {
-                err(`${at}.modalities`, `modalities must be a subset of ${ROUTING_MODALITIES.join(", ")}.`)
+            if (m.modalities !== undefined && (!Array.isArray(m.modalities) || m.modalities.length === 0 || m.modalities.some((x) => !ROUTING_MODALITIES.includes(x)))) {
+                err(`${at}.modalities`, `modalities must be a non-empty subset of ${ROUTING_MODALITIES.join(", ")}. A model with none is dropped and never used.`)
             }
             if (m.tasks !== undefined) {
                 if (!Array.isArray(m.tasks) || !m.tasks.length || m.tasks.some((x) => !ROUTING_TASKS.includes(x))) {
@@ -937,8 +959,14 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
             }
             if (group === "cloud") {
                 const providers = (config.AI_CONFIG && config.AI_CONFIG.providers) || {}
+                if (m.price !== undefined) {
+                    // A price the router cannot read is dropped, which leaves this model's cost unknown to routing.
+                    if (!isRecord(m.price) || !isCount(m.price.input) || !isCount(m.price.output)) {
+                        err(`${at}.price`, "price must be { input, output }, both non-negative numbers (USD per 1M tokens).")
+                    }
+                }
                 if (typeof m.provider !== "string") err(`${at}.provider`, `Cloud models need a "provider".`)
-                else if (!providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
+                else if (!isRecord(providers) || !Object.prototype.hasOwnProperty.call(providers, m.provider) || !providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
             } else if (platformKey && platformKey.startsWith("web")) {
                 // In a browser: Transformers.js (default) or Chrome's built-in model.
                 if (m.engine === "platform-speech") {
@@ -965,19 +993,27 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
             candidates.push({ id: m.id, group, where: at })
         })
     }
-    const onDevice = routing.onDevice || {}
+    const onDevice = nested(routing.onDevice, "AI_CONFIG.routing.onDevice", "keyed by platform (ios, android, web, web-desktop, web-mobile)")
     for (const key of Object.keys(onDevice)) {
         if (!ROUTING_PLATFORMS.includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ${ROUTING_PLATFORMS.join(", ")}.`)
         else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key)
     }
     collect(routing.cloud, "cloud", "AI_CONFIG.routing.cloud", "cloud")
 
-    const seen = new Map()
+    // The router reads ONE on-device list for a platform (the first of its own list, then the shared "web" one) and merges it with the
+    // cloud list, keeping the first of each id. So an id may repeat across on-device lists (ios, android, web: they are alternatives),
+    // but not between an on-device list and the cloud list, nor twice in one list.
+    const listOf = (c) => c.where.replace(/\[\d+\]$/, "")
+    const meet = (a, b) => listOf(a) === listOf(b) || a.group !== b.group
+    const firstOf = new Map()
     for (const c of candidates) {
-        // The same id on two platforms is fine (one model, per-platform numbers); twice on one list is not.
-        const key = c.where.replace(/\[\d+\]$/, "") + "|" + c.id
-        if (seen.has(key)) err(c.where, `Duplicate id "${c.id}" in the same list. Only the first is used.`)
-        seen.set(key, true)
+        const prior = (firstOf.get(c.id) || []).find((p) => meet(p, c))
+        if (prior) {
+            err(c.where, listOf(prior) === listOf(c)
+                ? `Duplicate id "${c.id}" in the same list. Only the first is used.`
+                : `Duplicate id "${c.id}": it is also in ${listOf(prior)}, and the router merges those lists and keeps only the first. Give it a different id.`)
+        }
+        firstOf.set(c.id, [...(firstOf.get(c.id) || []), c])
     }
     if (!candidates.length) warn("AI_CONFIG.routing", 'routing has no models, so provider "auto" has nothing to route to.')
 
@@ -994,13 +1030,14 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
             }
         }
     }
-    if (candidates.some((c) => c.group === "onDevice") && !(wc.ai && wc.ai.enabled)) {
+    // Plugin composition turns native AI on only for exactly true, so "true" or 1 here is NOT enabled.
+    if (candidates.some((c) => c.group === "onDevice") && !(wc.ai && wc.ai.enabled === true)) {
         warn("WEBVIEW_CONFIG.ai.enabled", "routing lists on-device models but WEBVIEW_CONFIG.ai.enabled is not true: the native AI module is not built into the app, so the app has no on-device model at all (in-browser models are only used in a plain browser, never inside the app) and only cloud models can run there.")
     }
     // A native app (WebView build) only ever uses onDevice.ios / onDevice.android; onDevice.web is for plain browsers.
     const hasNativeModels = candidates.some((c) => c.group === "onDevice" && /\.(ios|android)\[/.test(c.where))
     const hasWebModels = candidates.some((c) => c.group === "onDevice" && /\.web(-desktop|-mobile)?\[/.test(c.where))
-    if (wc.ai && wc.ai.enabled && hasWebModels && !hasNativeModels) {
+    if (wc.ai && wc.ai.enabled === true && hasWebModels && !hasNativeModels) {
         warn(
             "AI_CONFIG.routing.onDevice",
             "routing lists only in-browser (web) models, but this is a native app build: inside the app the native module owns the on-device model and web models are never used. Add onDevice.ios and/or onDevice.android entries, or the app can only route to the cloud."
