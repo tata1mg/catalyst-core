@@ -10,6 +10,10 @@ const router = express.Router()
 // in expressServer.js), so we load it lazily via dynamic import and cache the module.
 let errorsModulePromise = null
 // Strip CR/LF and other control characters so a user-influenced value cannot forge extra log lines.
+// The provider name for a log line: the canonical key from the known set, never the request-supplied string itself.
+function knownProviderName(provider) {
+    return Object.keys(PROVIDERS).find((name) => name === provider) ?? "unknown"
+}
 function logSafe(value) {
     return String(value ?? "")
         .replace(/[\r\n]/g, " ")
@@ -808,7 +812,7 @@ router.post("/:provider/image", async (req, res) => {
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] %s image error:", logSafe(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
+        console.error("[catalyst-ai] %s image error:", knownProviderName(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })
@@ -856,7 +860,7 @@ router.post("/:provider/speech", async (req, res) => {
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] %s speech error:", logSafe(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
+        console.error("[catalyst-ai] %s speech error:", knownProviderName(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })

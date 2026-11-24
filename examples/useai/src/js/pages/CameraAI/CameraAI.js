@@ -3,9 +3,16 @@ import { useCamera, useVision } from "catalyst-core/hooks";
 import PhoneFrame from "../../components/PhoneFrame";
 
 // Only image-looking URLs may reach <img src>: data:image/*, blob: (object URLs), http(s): and the native file: URL.
-const SAFE_IMAGE_SRC = /^(data:image\/|blob:|https?:\/\/|file:\/\/)/i;
 function safeImageSrc(src) {
-    return typeof src === "string" && SAFE_IMAGE_SRC.test(src) ? src : null;
+    if (typeof src !== "string") return null;
+    const lower = src.slice(0, 16).toLowerCase();
+    const allowed =
+        lower.startsWith("data:image/") ||
+        lower.startsWith("blob:") ||
+        lower.startsWith("https://") ||
+        lower.startsWith("http://") ||
+        lower.startsWith("file://");
+    return allowed ? src : null;
 }
 
 // A lab report, read on the device into typed data with useVision. The schema is the contract: the model is asked for

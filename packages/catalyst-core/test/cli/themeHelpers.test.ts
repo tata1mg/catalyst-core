@@ -63,7 +63,7 @@ describe("theme helpers", () => {
     })
 
     it("step marks done, warn and fail and hides timings below the noise floor", () => {
-        expect(plain(theme.step("Built", 50))).not.toMatch(/ms|s$/)
+        expect(plain(theme.step("Built", 50))).not.toMatch(/\d/) // under the noise floor: no timing shown
         expect(plain(theme.step("Built", 2500))).toContain("2.5s")
         expect(plain(theme.step("Built", null))).toContain("Built")
         const marks = ["done", "warn", "fail"].map((s) => plain(theme.step("x", 0, s)).trim()[0])
