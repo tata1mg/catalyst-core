@@ -196,8 +196,9 @@ try {
     _onAppServerSideError = hooks.onAppServerSideError
     _onRenderError = hooks.onRenderError
     _onRequestError = hooks.onRequestError
-    // ({ req, res, matches }) => EarlyHintLink[]: per-request preconnect/preload entries for the
-    // early-hints Link header (URLs that change per release or request; see EARLY_HINTS_LINKS).
+    // ({ req, res, matches }) => EarlyHintLink[]: preconnect/preload entries for the early-hints Link
+    // header that change per release or per route (see EARLY_HINTS_LINKS). The CDN replays the header
+    // to later visitors of the URL, so nothing derived from the user or session belongs here.
     _getEarlyHintLinks = (hooks as any).getEarlyHintLinks
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
@@ -230,7 +231,7 @@ const CLOUDFLARE_EARLY_HINTS_ENABLE = (process.env.CLOUDFLARE_EARLY_HINTS_ENABLE
 
 // EARLY_HINTS_LINKS: static app-supplied preconnect/preload entries, a JSON array of
 // { url, rel: "preconnect"|"preload", as?, type?, crossorigin?, fetchPriority? }. URLs that change per
-// release or request belong in the getEarlyHintLinks hook instead.
+// release or route belong in the getEarlyHintLinks hook instead.
 const readEarlyHintsLinks = () => {
     const raw: any = process.env.EARLY_HINTS_LINKS
     if (Array.isArray(raw)) return raw
@@ -483,7 +484,14 @@ const _renderMarkUp = async (
     try {
         res.set({ "content-type": "text/html; charset=utf-8" })
         res.status(status)
-        if (res.locals?.earlyHintLinks) res.append("link", res.locals.earlyHintLinks.join(", "))
+        if (res.locals?.earlyHintLinks) {
+            // The header is only a hint, so a value Node rejects (ERR_INVALID_CHAR) must not fail the page.
+            try {
+                res.append("link", res.locals.earlyHintLinks.join(", "))
+            } catch (error: any) {
+                console.warn(`[catalyst] Early Hints: Link header skipped: ${error?.message || error}`)
+            }
+        }
 
         return new Promise<void>((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and

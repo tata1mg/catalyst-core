@@ -124,6 +124,26 @@ export type EarlyHintLink = {
     fetchPriority?: "high" | "low"
 }
 
+// App-supplied entries must be visible ASCII. Node's setHeader/append throw ERR_INVALID_CHAR on a
+// character above U+00FF or a CR/LF, which would fail the render, so such entries are dropped (with
+// one warning per URL) instead. `<`, `>` and `"` would also break the `<url>` and quoted `type` syntax.
+const HEADER_SAFE = /^[\x21-\x7e]+$/
+const isHeaderSafe = (value: unknown) =>
+    value === undefined || (typeof value === "string" && HEADER_SAFE.test(value) && !/[<>"]/.test(value))
+const warnedUnsafeLinks = new Set<string>()
+const isSafeEarlyHintLink = (link: EarlyHintLink) => {
+    if (isHeaderSafe(link.url) && isHeaderSafe(link.as) && isHeaderSafe(link.type)) return true
+    const key = String(link.url)
+    if (!warnedUnsafeLinks.has(key) && warnedUnsafeLinks.size < 100) {
+        warnedUnsafeLinks.add(key)
+        console.warn(
+            `[catalyst] Early Hints: skipped ${JSON.stringify(key)}. url, as and type must be visible ASCII ` +
+                'without <, > or ", so percent-encode non-ASCII paths.'
+        )
+    }
+    return false
+}
+
 /**
  * `Link` header values for app-supplied preconnect/preload entries: third-party origins, fonts,
  * a static LCP image. Never hardcoded here: the app declares them via EARLY_HINTS_LINKS or the
@@ -132,6 +152,7 @@ export type EarlyHintLink = {
 export const generateCustomLinkHeader = (links: EarlyHintLink[] = []) =>
     links
         .filter((link) => link?.url && (link.rel === "preload" || link.rel === "preconnect"))
+        .filter(isSafeEarlyHintLink)
         .map((link) => {
             const parts = [`<${link.url}>`, `rel=${link.rel}`]
             if (link.as) parts.push(`as=${link.as}`)

@@ -1,3 +1,4 @@
+import { validateHeaderValue } from "node:http"
 import { Writable } from "node:stream"
 import fs from "node:fs"
 import os from "node:os"
@@ -104,6 +105,8 @@ function makeReqRes(url = "/", userAgent = "test") {
     })
     res.locals = {}
     res.append = vi.fn((k: string, v: string) => {
+        // Throws ERR_INVALID_CHAR on the same values a real ServerResponse rejects.
+        validateHeaderValue(k, v)
         res.headers[k] = res.headers[k] ? `${res.headers[k]}, ${v}` : v
         return res
     })
@@ -435,10 +438,41 @@ describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE
             "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high"
         // "é" is 1 UTF-16 code unit but 2 UTF-8 bytes; 20 of them make the entry 20 bytes longer on the
         // wire than its .length. Budget = exact .length of both entries, so only a byte count drops it.
-        const url = `https://cdn.example.com/${"é".repeat(20)}`
-        const appLink = `<${url}>; rel=preconnect`
-        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = route.length + 2 + appLink.length
-        mockHooks({ getEarlyHintLinks: () => [{ url, rel: "preconnect" }] })
+        const vendor = `<http://localhost/assets/vendor.${"é".repeat(20)}.js>; rel=preload; as=script; crossorigin; fetchpriority=high`
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = route.length + 2 + vendor.length
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": {
+                    ...FAKE_MANIFEST["src/js/routes/HomePage"],
+                    imports: ["_vendor.js"],
+                },
+                "_vendor.js": { file: `vendor.${"é".repeat(20)}.js` },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBe(route)
+    })
+
+    it("skips app entries Node would reject in a header and still renders the page", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        process.env.EARLY_HINTS_LINKS = JSON.stringify([
+            { url: "https://cdn.example.com/बैनर.webp", rel: "preload", as: "image" },
+        ])
+        mockHooks({
+            getEarlyHintLinks: () => [
+                { url: "https://cdn.example.com/a\r\nSet-Cookie: x=1", rel: "preload", as: "image" },
+                { url: "https://api.example.com", rel: "preconnect" },
+            ],
+        })
         vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
         mockManifest()
 
@@ -448,7 +482,39 @@ describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE
         await handler(req, res)
         await res.waitForEnd()
 
-        expect(res.headers.link).toBe(route)
+        expect(res.statusCode).toBe(200)
+        expect(res.headers.link).toBe(
+            [
+                "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high",
+                "<https://api.example.com>; rel=preconnect",
+            ].join(", ")
+        )
+        expect(res.getHtml()).toContain("<html")
+    })
+
+    it("renders the page without the header when Node rejects the Link value", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        // Manifest file names are not filtered; one above U+00FF makes the whole value invalid.
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": { ...FAKE_MANIFEST["src/js/routes/HomePage"], file: "होम.js" },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.append).toHaveBeenCalled()
+        expect(res.statusCode).toBe(200)
+        expect(res.headers.link).toBeUndefined()
+        expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("Link header skipped"))
+        expect(res.getHtml()).toContain("<html")
     })
 
     it("sends no Link header when the flag is off", async () => {

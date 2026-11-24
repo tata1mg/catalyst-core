@@ -71,7 +71,7 @@ When a hook itself throws, Catalyst logs it and carries on. A failing `preServer
 
 ## Early Hints links
 
-`getEarlyHintLinks` adds entries to the Early Hints `Link` header (see [Configuration](/content/API%20Reference/configuration-api#early-hints)). Use it for URLs that change per release or per request; fixed entries belong in `EARLY_HINTS_LINKS`. It returns an array of `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }` entries, the same shape as `EARLY_HINTS_LINKS`.
+`getEarlyHintLinks` adds entries to the Early Hints `Link` header (see [Configuration](/content/API%20Reference/configuration-api#early-hints)). Use it for URLs that change per release or per route; fixed entries belong in `EARLY_HINTS_LINKS`. The CDN learns the header from one response and replays it to later visitors of the same URL, so don't return anything derived from the user, session, cookies, A/B bucket or device. It returns an array of `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }` entries, the same shape as `EARLY_HINTS_LINKS`.
 
 ```javascript title="server/index.js"
 export const getEarlyHintLinks = ({ req, res, matches }) => [
@@ -80,7 +80,7 @@ export const getEarlyHintLinks = ({ req, res, matches }) => [
 ]
 ```
 
-Unlike the other request hooks, Catalyst waits for this one, so it may return a promise; keep it fast, since the response waits too. Its entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. If it throws or returns something other than an array, it adds nothing and the rest of the header is still sent.
+Unlike the other request hooks, Catalyst waits for this one, so it may return a promise; keep it fast, since the response waits too. Its entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. If it throws or returns something other than an array, it adds nothing and the rest of the header is still sent. An entry whose `url`, `as` or `type` holds anything other than visible ASCII (for example an unencoded non-ASCII path or a line break), or `<`, `>` or `"`, is skipped with a warning; percent-encode such paths.
 
 ## Rendering Flow
 

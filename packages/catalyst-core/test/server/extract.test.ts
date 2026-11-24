@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
     generateCssLinkStrings,
     generateCustomLinkHeader,
@@ -154,5 +154,21 @@ describe("Early Hints Link header values", () => {
             "<https://api.example.com>; rel=preconnect",
             '</font.woff2>; rel=preload; as=font; type="font/woff2"; crossorigin; fetchpriority=low',
         ])
+    })
+
+    it("generateCustomLinkHeader skips entries that are not visible ASCII or would break the syntax", () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+        expect(
+            generateCustomLinkHeader([
+                { url: "https://cdn.example.com/बैनर.webp", rel: "preload", as: "image" },
+                { url: "https://cdn.example.com/a\r\nX: y", rel: "preload", as: "image" },
+                { url: "https://cdn.example.com/a b.webp", rel: "preload", as: "image" },
+                { url: "https://cdn.example.com/a>.webp", rel: "preload", as: "image" },
+                { url: "/font.woff2", rel: "preload", as: "font", type: 'font/woff2"' },
+                { url: "/ok.webp", rel: "preload", as: "image" },
+            ])
+        ).toEqual(["</ok.webp>; rel=preload; as=image"])
+        expect(warn).toHaveBeenCalledTimes(5)
+        warn.mockRestore()
     })
 })
