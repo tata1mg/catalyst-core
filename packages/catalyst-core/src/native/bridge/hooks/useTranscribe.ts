@@ -31,10 +31,11 @@ export interface UseTranscribeOptions {
     /**
      * Longest piece sent to the model in one call, in seconds. A longer recording is cut into pieces at quiet moments
      * and the transcripts are joined. Default 28 (the on-device encoders take 30). `null` sends the recording whole,
-     * which is right for a cloud model that takes long audio.
+     * which is right for a cloud model that takes long audio. Whole-recording mode does NOT decode the clip, so it is not
+     * limited by `maxSeconds`, and `durationSec` stays 0 and `truncated` false in its result (the length is not measured).
      */
     chunkSeconds?: number | null
-    /** Longest recording accepted, in seconds. Longer audio is cut there and `truncated` is true. Default 120. */
+    /** Longest recording accepted, in seconds. Longer audio is cut there and `truncated` is true. Default 120. Not applied when `chunkSeconds` is `null` (the clip is sent whole, undecoded). */
     maxSeconds?: number
     /** Skip pieces with no speech in them (a speech model tends to invent text on silence). Default true. */
     skipSilence?: boolean
@@ -428,9 +429,20 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
             const session = sessionRef.current
             if (!session || session.kind !== "recorder" || session.id !== requestId.current) return
             void (async () => {
-                // The clip goes to the engine the router chose, with the same consent; execute() takes it from here.
-                const result = await execute(clip, { ...session.consent, ...(session.chosenId && { pin: session.chosenId }) } as TranscribeConsent, { engine: "recorder" })
-                if (sessionRef.current === session) endSession(result)
+                try {
+                    // The clip goes to the engine the router chose, with the same consent; execute() takes it from here.
+                    const result = await execute(clip, { ...session.consent, ...(session.chosenId && { pin: session.chosenId }) } as TranscribeConsent, { engine: "recorder" })
+                    if (sessionRef.current === session) endSession(result)
+                } catch (cause) {
+                    // execute() reports its own failures, but anything it lets escape must still end the session: otherwise listen()
+                    // never settles and the rejection goes unhandled. execute() has moved the request id on, so this reports against the
+                    // current one, the same as a normal finish does.
+                    if (sessionRef.current !== session) return
+                    const error = cause instanceof TranscribeError ? cause : new TranscribeError((cause as Error)?.message || String(cause), "TRANSCRIBE_SPEECH")
+                    lastErrorRef.current = error
+                    update(requestId.current, { status: "error", error, partial: "", progress: null })
+                    endSession(null)
+                }
             })()
         },
         micError: (message) => {

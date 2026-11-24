@@ -111,11 +111,21 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
     const supportRef = useRef<SpeechSupport | null>(null)
     const supportTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+    // start() calls made before the shell has said whether the language can be recognised wait here for its answer (or for the
+    // timeout that turns silence into "not available"), instead of posting a command that an older shell would silently ignore.
+    const supportWaiters = useRef<Array<() => void>>([])
+    const releaseWaiters = () => {
+        const waiting = supportWaiters.current
+        supportWaiters.current = []
+        waiting.forEach((resolve) => resolve())
+    }
+
     const markSupport = useCallback((reply: SpeechSupport) => {
         supportRef.current = reply
         supportedRef.current = !!reply.available
         setSupport(reply)
         setSupported(!!reply.available)
+        releaseWaiters()
     }, [])
 
     // This hook's side of the shared subscription: only what is addressed to it arrives here.
@@ -123,6 +133,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         () => ({
             language: () => languageRef.current,
             onSupport: (reply) => {
+                // The shell answers by event name, not per request: after the language changed, a late answer about the old one must not
+                // be taken as the answer for the new one.
+                if (reply.language && reply.language.toLowerCase() !== languageRef.current.toLowerCase()) return
                 // A reply (now, or cached from another subscriber) ends the wait for one.
                 clearTimeout(supportTimer.current)
                 markSupport(reply)
@@ -173,6 +186,11 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             setSupported(false)
             return
         }
+        // A new language is a new question: what was known about the old one does not carry over.
+        supportedRef.current = null
+        supportRef.current = null
+        setSupport(null)
+        setSupported(null)
         const unsubscribe = subscribe(listener)
         // A shell built before the command existed (iOS stays silent) never answers.
         supportTimer.current = setTimeout(() => {
@@ -193,6 +211,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         return () => {
             mounted.current = false
             startToken.current++
+            releaseWaiters() // a start() waiting for the support answer ends instead of hanging
         }
     }, [])
 
@@ -213,7 +232,15 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             return { started: false, code }
         }
         if (!inApp()) return refuse("UNSUPPORTED", "Speech recognition by the phone is only available inside the app.")
-        if (supportedRef.current === false) {
+        if (supportedRef.current === null) {
+            // Not asked yet, or not answered yet. Starting now could post a command the shell never acknowledges and leave the session
+            // "starting" for good, so wait for the answer. It is bounded: with no reply the support timer marks it unavailable.
+            const waitToken = startToken.current
+            setState("starting")
+            await new Promise<void>((resolve) => supportWaiters.current.push(resolve))
+            if (waitToken !== startToken.current || !mounted.current) return { started: false, code: "CANCELLED" }
+        }
+        if (supportedRef.current !== true) {
             const reason = supportRef.current?.reason ?? ""
             return refuse(
                 reason || "ON_DEVICE_UNAVAILABLE",

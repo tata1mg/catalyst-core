@@ -155,15 +155,27 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
             stream.getTracks().forEach((track) => track.stop())
             return { started: false, error: "Cancelled." }
         }
-        const mimeType = MIME_TYPES.find((t) => MediaRecorder.isTypeSupported?.(t))
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        // Building the recorder and the level meter can throw (an unsupported type, a blocked audio context). Whatever was opened is
+        // released and the failure comes back as a start result, so a caller that does not await start() cannot be left with an
+        // unhandled rejection and a promise that never settles.
+        let recorder!: MediaRecorder
+        let context: AudioContext | null = null
+        let analyser: AnalyserNode | null = null
         const chunks: Blob[] = []
-        const Context = (window as any).AudioContext || (window as any).webkitAudioContext
-        const context: AudioContext | null = Context ? new Context() : null
-        const analyser = context?.createAnalyser() ?? null
-        if (analyser && context) {
-            analyser.fftSize = 1024
-            context.createMediaStreamSource(stream).connect(analyser)
+        try {
+            const mimeType = MIME_TYPES.find((t) => MediaRecorder.isTypeSupported?.(t))
+            recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            const Context = (window as any).AudioContext || (window as any).webkitAudioContext
+            context = Context ? new Context() : null
+            analyser = context?.createAnalyser() ?? null
+            if (analyser && context) {
+                analyser.fftSize = 1024
+                context.createMediaStreamSource(stream).connect(analyser)
+            }
+        } catch (err: any) {
+            stream.getTracks().forEach((track) => track.stop())
+            context?.close?.().catch(() => {})
+            return refuse(`Could not start recording: ${err?.message || err}`)
         }
         const buffer = analyser ? new Uint8Array(analyser.fftSize) : null
         const startedAt = Date.now()
@@ -207,7 +219,12 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
             if (elapsed >= maxSeconds) stop()
         }, TICK_MS)
 
-        recorder.start(250)
+        try {
+            recorder.start(250)
+        } catch (err: any) {
+            release() // stops the tracks, the timer and the context, and clears the session
+            return refuse(`Could not start recording: ${err?.message || err}`)
+        }
         setState("listening")
         return { started: true }
     }, [autoStop, silenceMs, maxSeconds, release, stop, fail])

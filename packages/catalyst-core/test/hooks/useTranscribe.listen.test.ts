@@ -226,6 +226,19 @@ describe("useTranscribe.listen: nothing heard, and the controls", () => {
         expect((second.result.current.error as TranscribeError).code).toBe("TRANSCRIBE_NO_SPEECH")
     })
 
+    it("a model call that throws while sending the recording ends listen() as an error instead of hanging or rejecting unseen", async () => {
+        ai.decide.mockResolvedValue(gemma)
+        ai.generate.mockRejectedValue(new Error("provider crashed"))
+        const hook = renderHook(() => useTranscribe())
+        const done = listenOnce(hook)
+        await vi.waitFor(() => expect(mic.start).toHaveBeenCalledTimes(1))
+        act(() => micOpts.onRecorded(CLIP, { seconds: 3 }))
+        expect(await done).toBeNull()
+        await vi.waitFor(() => expect(hook.result.current.status).toBe("error"))
+        expect(hook.result.current.error?.message).toMatch(/provider crashed/)
+        expect(hook.result.current.listening).toBe(false)
+    })
+
     it("stopListening ends the recogniser's session or the recording, whichever is running", async () => {
         ai.decide.mockResolvedValueOnce(platform)
         const first = renderHook(() => useTranscribe())

@@ -149,6 +149,61 @@ describe("useSpeechRecognition", () => {
         expect(onEnd).toHaveBeenCalledTimes(1)
     })
 
+    it("a support answer about another language is ignored, so a late reply cannot be taken for the current one", () => {
+        const { result } = renderHook(() => useSpeechRecognition({ language: "en-US" }))
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: false, onDevice: false, language: "hi-IN", reason: "LANGUAGE_UNAVAILABLE" })
+        expect(result.current.supported).toBeNull() // still waiting for the answer about en-US
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "EN-us" })
+        expect(result.current.supported).toBe(true)
+    })
+
+    it("a language change asks again and forgets what it knew about the old one", () => {
+        const { result, rerender } = renderHook(({ language }) => useSpeechRecognition({ language }), { initialProps: { language: "en-US" } })
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        expect(result.current.supported).toBe(true)
+        rerender({ language: "hi-IN" })
+        expect(result.current.supported).toBeNull()
+        expect(bridge.speech.getSupport).toHaveBeenLastCalledWith(JSON.stringify({ language: "hi-IN" }))
+    })
+
+    it("start() before the shell has answered waits for the answer instead of posting a command it may never acknowledge", async () => {
+        const { result } = renderHook(() => useSpeechRecognition())
+        let started: any
+        let pending: Promise<void> = Promise.resolve()
+        act(() => { pending = result.current.start().then((r) => { started = r }) })
+        await act(async () => { await Promise.resolve() })
+        expect(bridge.speech.start).not.toHaveBeenCalled() // not asked yet: no command goes out
+        expect(result.current.state).toBe("starting")
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await pending })
+        expect(started).toEqual({ started: true })
+        expect(bridge.speech.start).toHaveBeenCalledTimes(1)
+    })
+
+    it("a shell that never answers ends the wait as unavailable, so start() cannot hang", async () => {
+        vi.useFakeTimers()
+        const { result } = renderHook(() => useSpeechRecognition())
+        let started: any
+        let pending: Promise<void> = Promise.resolve()
+        act(() => { pending = result.current.start().then((r) => { started = r }) })
+        await act(async () => { await vi.advanceTimersByTimeAsync(5100); await pending })
+        expect(started.started).toBe(false)
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+        expect(result.current.state).toBe("idle")
+    })
+
+    it("cancel() while start() is waiting for the support answer ends it as cancelled", async () => {
+        const { result } = renderHook(() => useSpeechRecognition())
+        let started: any
+        let pending: Promise<void> = Promise.resolve()
+        act(() => { pending = result.current.start().then((r) => { started = r }) })
+        act(() => result.current.cancel())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { await pending })
+        expect(started).toEqual({ started: false, code: "CANCELLED" })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
     it("start() asks for the microphone, then starts the shell with the language", async () => {
         const { result } = renderHook(() => useSpeechRecognition())
         emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })

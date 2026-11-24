@@ -14,6 +14,10 @@ describe("modalitiesOf: what the request really contains", () => {
         const got = modalitiesOf([{ role: "user", content: [{ type: "text", text: "see" }, { type: "image", data: "x" }, { type: "audio", data: "y" }, { type: "image", data: "z" }] }])
         expect([...got].sort()).toEqual(["audio", "image", "text"])
     })
+    it("the live-listening probe (audio in, nothing else) is an audio-only request, so the phone's recogniser can be picked for it", () => {
+        const probe = [{ role: "user", content: [{ type: "audio", data: "data:audio/wav;base64," }] }]
+        expect(modalitiesOf(probe)).toEqual(["audio"])
+    })
     it("nothing recognisable is plain text", () => {
         expect(modalitiesOf(undefined)).toEqual(["text"])
         expect(modalitiesOf([])).toEqual(["text"])

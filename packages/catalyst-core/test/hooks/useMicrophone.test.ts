@@ -112,6 +112,28 @@ describe("useMicrophone", () => {
         expect(track.stop).toHaveBeenCalled()
     })
 
+    it("a recorder that cannot be built is a start result, the microphone is released, and nothing throws", async () => {
+        vi.stubGlobal("MediaRecorder", class { static isTypeSupported = () => true; constructor() { throw new Error("unsupported type") } })
+        const { result } = renderHook(() => useMicrophone())
+        let started: any
+        await act(async () => { started = await result.current.start() })
+        expect(started.started).toBe(false)
+        expect(started.error).toMatch(/Could not start recording: unsupported type/)
+        expect(track.stop).toHaveBeenCalled()
+        expect(result.current.listening).toBe(false)
+        expect(result.current.error).toMatch(/Could not start recording/)
+    })
+
+    it("a recorder that fails to start is a start result too, and everything it opened is released", async () => {
+        vi.stubGlobal("MediaRecorder", class FailingRecorder extends FakeRecorder { start() { throw new Error("start failed") } })
+        const { result } = renderHook(() => useMicrophone())
+        let started: any
+        await act(async () => { started = await result.current.start() })
+        expect(started).toMatchObject({ started: false, error: expect.stringMatching(/start failed/) })
+        expect(track.stop).toHaveBeenCalled()
+        expect(result.current.listening).toBe(false)
+    })
+
     it("stops by itself at maxSeconds", async () => {
         vi.useFakeTimers()
         const onRecorded = vi.fn()
