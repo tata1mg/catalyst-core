@@ -98,6 +98,19 @@ export function toPromptApiInput(messages) {
  * promptStreaming has returned both increments and the whole text so far, depending on the Chrome version. The second
  * chunk tells which: if it extends the first it is cumulative, otherwise chunks are increments.
  */
+/**
+ * The sampling settings the Prompt API takes at session creation. Chrome wants temperature and topK together, so both are
+ * passed or neither. What it cannot honour (token limits, top_p, ...) is named in the log instead of being dropped silently.
+ */
+export function samplingFrom(genConfig = {}, log = () => {}) {
+    const topK = genConfig.topK ?? genConfig.top_k
+    const ignored = ["max_new_tokens", "maxTokens", "top_p", "topP", "repetition_penalty"].filter((k) => genConfig[k] !== undefined)
+    if (ignored.length) log(`ignoring generation settings the Prompt API does not support: ${ignored.join(", ")}`)
+    if (Number.isFinite(genConfig.temperature) && Number.isFinite(topK)) return { temperature: genConfig.temperature, topK }
+    if (genConfig.temperature !== undefined || topK !== undefined) log("temperature and topK are only applied together; neither was set")
+    return {}
+}
+
 export function createDeltaReader() {
     let mode = null
     let first = ""
@@ -183,6 +196,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
         try {
             session = await api.create({
                 ...options,
+                ...samplingFrom(genConfig, log),
                 ...(initialPrompts.length && { initialPrompts }),
                 signal: abort.signal,
                 monitor(monitor) {

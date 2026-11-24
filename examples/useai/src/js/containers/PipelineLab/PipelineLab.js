@@ -117,7 +117,7 @@ export default function PipelineLab() {
         if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }])
         const heard = await asrRef.current.transcribe(data)
         if (!heard) throw asrRef.current.lastError() ?? new Error("The recording could not be transcribed")
-        if (heard.truncated) console.warn(`[pipeline-lab] recording is ${heard.durationSec}s; only the first ${heard.durationSec}s were transcribed`)
+        if (heard.truncated) console.warn(`[pipeline-lab] recording exceeded the ${heard.durationSec}s transcription limit; only the first ${heard.durationSec}s were transcribed`)
         return heard.text
     }
 
@@ -240,7 +240,12 @@ export default function PipelineLab() {
         if (!file) return
         if (!file.type.startsWith("audio/")) return setPickError(`Expected an audio file, got ${file.type || "unknown"}`)
         setPickError(null)
-        setAudio({ name: file.name, data: await readAsDataUrl(file) })
+        try {
+            setAudio({ name: file.name, data: await readAsDataUrl(file) })
+        } catch (err) {
+            setAudio(null)
+            setPickError(`Could not read that file: ${err?.message || "read failed"}`)
+        }
     }
 
     const percentOf = (h) => (h.nativeDownloadProgress?.percent ?? h.downloadProgress?.percent ?? null)

@@ -297,3 +297,14 @@ describe("desktop only", () => {
         expect(api.create).toHaveBeenCalledTimes(1)
     })
 })
+
+describe("samplingFrom: genConfig reaches the session", () => {
+    it("passes temperature and topK together, and says what it cannot honour", async () => {
+        const { samplingFrom } = await import("../src/promptApiEngine.js")
+        const log = vi.fn()
+        expect(samplingFrom({ temperature: 0.2, top_k: 20, max_new_tokens: 50 }, log)).toEqual({ temperature: 0.2, topK: 20 })
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("max_new_tokens"))
+        expect(samplingFrom({ temperature: 0.2 }, log)).toEqual({})
+        expect(samplingFrom({}, log)).toEqual({})
+    })
+})
