@@ -1,0 +1,62 @@
+packages/catalyst-core/test/hooks/useMicrophone.test.ts
+  s_f9b68111c2008f::t_9908dfebc5734e 77-85,93,109
+  s_f9b68111c2008f::t_5a6953266b5751 86-92,94-108,110-114
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_f9b68111c2008f::t_9d532f6d9345d1 72-84
+  s_f9b68111c2008f::t_550434384df203 104-107,152-157,191-198,228,233,236-238,251,256
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_9d532f6d9345d1 1030-1126
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/MediaPermissionPolicy.swift
+  s_f9b68111c2008f::t_8f25d1a8afdc8a 53-62
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_f9b68111c2008f::t_8fe0c48625f90e 96-97,118,137-138,142,145,150,153-156
+  s_f9b68111c2008f::t_9f046462ad59ca 157
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_f9b68111c2008f::t_acb935166c0108 69-70,168,1297-1303
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_f9b68111c2008f::t_4addf204a18aa1 183-185,203-205
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_f9b68111c2008f::t_b35e7b51ada937 24-25,95,106,194
+packages/catalyst-core/test/hooks/microphonePermission.test.ts
+  s_f9b68111c2008f::t_348f8d36e203aa 40-53
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_f9b68111c2008f::t_0f0bdf0a8d40a1 466-484
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_f9b68111c2008f::t_1cb9c1238b1dc8 233
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_f9b68111c2008f::t_8f25d1a8afdc8a 34-37,39-41,47-50
+  s_f9b68111c2008f::t_2a979677b1898f 51-52
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/MediaPermissionPolicyTests.swift
+  s_f9b68111c2008f::t_8f25d1a8afdc8a 53-84
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebPermissionPolicyTest.kt
+  s_f9b68111c2008f::t_acb935166c0108 6-7,17-18,54-98
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_f9b68111c2008f::t_8f25d1a8afdc8a 572-581
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_f9b68111c2008f::t_348f8d36e203aa 88-151
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_f9b68111c2008f::t_1cb9c1238b1dc8 78-85,271-275
+  s_f9b68111c2008f::t_970b4bd78c6fdd 276-278
+packages/catalyst-core/src/native/bridge/hooks/microphonePermission.ts
+  s_f9b68111c2008f::t_550434384df203 16-24
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/WebPermissionPolicy.kt
+  s_f9b68111c2008f::t_acb935166c0108 11-14,18-19,28-59
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_41b322fdfdde93 77-79,187,199-207,272-274,293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7f032bed1bf113bc5c19bbe73c69197cdbeecd5",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
