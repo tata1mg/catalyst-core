@@ -76,7 +76,9 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
                 Speech.errorPayload(Speech.Code.PERMISSION_DENIED, "Microphone permission is needed"))
             return
         }
-        if (!onDeviceAvailable()) {
+        // The SDK check sits here, next to createOnDeviceSpeechRecognizer (API 31), so Android Lint can see it;
+        // onDeviceAvailable() repeats it, which is harmless.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !onDeviceAvailable()) {
             notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR,
                 Speech.errorPayload(Speech.Code.ON_DEVICE_UNAVAILABLE, "On-device speech recognition is not available on this device"))
             return
