@@ -112,6 +112,25 @@ final class BridgeMessageValidatorTests: XCTestCase {
         XCTAssertTrue(BridgeMessageValidator.validate(message: nullPayload).isValid, "A null payload should pass validation")
     }
 
+    func testValidateMessage_SpeechRecognitionCommands_ValidMessages() {
+        // The page sends the options as a JSON string (like the Android bridge); an object and no payload are fine too
+
+        let payloads: [(String, Any)] = [
+            ("getSpeechRecognitionSupport", #"{"language":"en-US"}"#),
+            ("startSpeechRecognition", #"{"language":"en-US"}"#),
+            ("startSpeechRecognition", ["language": "en-IN"] as [String: Any]),
+            ("startSpeechRecognition", NSNull()),
+            ("stopSpeechRecognition", NSNull()),
+            ("stopSpeechRecognition", [:] as [String: Any])
+        ]
+        for (command, data) in payloads {
+            let message = createMockMessage(body: ["command": command, "data": data])
+            let result = BridgeMessageValidator.validate(message: message)
+            XCTAssertTrue(result.isValid, "\(command) with \(data) should pass validation: \(String(describing: result.error))")
+            XCTAssertEqual(result.command, command)
+        }
+    }
+
     func testValidateMessage_OpenFileWithIntent_ValidMessage() {
         // Valid openFileWithIntent command
 
