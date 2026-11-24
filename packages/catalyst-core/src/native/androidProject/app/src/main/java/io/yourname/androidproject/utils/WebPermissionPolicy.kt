@@ -9,9 +9,8 @@ import android.webkit.PermissionRequest
  * permission through the bridge first (requestCameraPermission / requestMicrophonePermission). Anything else the page
  * asks for, such as location or protected media, stays denied.
  *
- * The app-wide permission is not enough on its own: the page asking must be the app's own content (or an origin the
- * access-control whitelist explicitly allows), otherwise any page the WebView happens to load could record the user
- * once the app holds the microphone. See [isTrustedOrigin].
+ * The app-wide permission is not enough on its own: the page asking must be the app's own content, otherwise any page
+ * the WebView happens to load could record the user once the app holds the microphone. See [isTrustedOrigin].
  */
 object WebPermissionPolicy {
 
@@ -27,20 +26,14 @@ object WebPermissionPolicy {
     }
 
     /**
-     * Whether a page at [origin] may use camera or microphone: it is the same origin as the app's own page ([appUrl]),
-     * or access control is on and the whitelist allows it. With access control off only the app's own origin counts,
-     * so turning the whitelist off never widens media access.
+     * Whether a page at [origin] may use camera or microphone: only the app's own page ([appUrl]), by exact scheme, host
+     * and port. The access-control whitelist is deliberately not consulted: its rules match substrings and prefixes, so
+     * "https://allowed.example.evil.example" would pass a rule for "https://allowed.example".
      */
-    fun isTrustedOrigin(
-        origin: String?,
-        appUrl: String?,
-        accessControlEnabled: Boolean,
-        isWhitelisted: (String) -> Boolean
-    ): Boolean {
+    fun isTrustedOrigin(origin: String?, appUrl: String?): Boolean {
         val requesting = originOf(origin) ?: return false
-        val app = originOf(appUrl)
-        if (app != null && requesting == app) return true
-        return accessControlEnabled && isWhitelisted(origin!!)
+        val app = originOf(appUrl) ?: return false
+        return requesting == app
     }
 
     /** scheme://host:port in lower case with the default port filled in, or null when [url] has no web origin. */

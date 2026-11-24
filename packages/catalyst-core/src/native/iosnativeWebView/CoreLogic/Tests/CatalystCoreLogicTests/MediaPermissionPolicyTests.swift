@@ -56,30 +56,28 @@ final class MediaPermissionPolicyTests: XCTestCase {
     private let app = URL(string: "https://app.example.com/home")
 
     func testTheAppsOwnOriginIsTrustedWhateverThePathCaseOrDefaultPort() {
-        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "https://app.example.com"), appURL: app, whitelisted: false))
-        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "https://APP.example.com:443/x?y=1"), appURL: app, whitelisted: false))
+        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "https://app.example.com"), appURL: app))
+        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "https://APP.example.com:443/x?y=1"), appURL: app))
     }
 
     func testAnotherHostSchemeOrPortIsNotTrusted() {
-        for other in ["https://evil.example.org", "http://app.example.com", "https://app.example.com:8443", "https://app.example.com.evil.org"] {
-            XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: other), appURL: app, whitelisted: false), other)
+        for other in ["https://evil.example.org", "http://app.example.com", "https://app.example.com:8443"] {
+            XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: other), appURL: app), other)
+        }
+    }
+
+    func testALookalikeHostIsNotTrustedSoASubstringMatchCanNeverLetItIn() {
+        for other in ["https://app.example.com.evil.org", "https://evilapp.example.com", "https://sub.app.example.com"] {
+            XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: other), appURL: app), other)
         }
     }
 
     func testAMissingOrNonWebOriginIsNeverTrusted() {
-        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: nil, appURL: app, whitelisted: true))
-        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "file:///tmp/index.html"), appURL: app, whitelisted: true))
+        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: nil, appURL: app))
+        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "file:///tmp/index.html"), appURL: app))
     }
 
-    func testAWhitelistedOriginIsTrustedButOnlyWhenTheCallerSaysSo() {
-        let other = URL(string: "https://partner.example.net")
-        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: other, appURL: app, whitelisted: true))
-        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: other, appURL: app, whitelisted: false))
-    }
-
-    func testWithoutAnAppURLOnlyTheWhitelistCanTrustAnOrigin() {
-        let page = URL(string: "https://app.example.com")
-        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: page, appURL: nil, whitelisted: false))
-        XCTAssertTrue(MediaPermissionPolicy.isTrustedOrigin(origin: page, appURL: nil, whitelisted: true))
+    func testNothingIsTrustedWithoutAnAppURL() {
+        XCTAssertFalse(MediaPermissionPolicy.isTrustedOrigin(origin: URL(string: "https://app.example.com"), appURL: nil))
     }
 }

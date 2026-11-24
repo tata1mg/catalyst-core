@@ -66,7 +66,7 @@ class CustomWebView(
     private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
-    // The app's own page. Only this origin (plus whitelisted ones) may use camera or microphone. The activity sets it from
+    // The app's own page. Only this origin may use camera or microphone. The activity sets it from
     // its properties on every create, so it is known even when the WebView is restored and loadUrl never runs; the first
     // network URL loaded is only a fallback.
     private var appUrl: String? = null
@@ -1302,12 +1302,7 @@ class CustomWebView(
                     request.resources,
                     hasCamera = CameraUtils.hasCameraPermission(activity),
                     hasMicrophone = MicrophoneUtils.hasMicrophonePermission(activity),
-                    originTrusted = WebPermissionPolicy.isTrustedOrigin(
-                        origin = request.origin?.toString(),
-                        appUrl = appUrl,
-                        accessControlEnabled = URLWhitelistManager.isAccessControlEnabled(),
-                        isWhitelisted = { URLWhitelistManager.isUrlAllowed(it) }
-                    )
+                    originTrusted = WebPermissionPolicy.isTrustedOrigin(origin = request.origin?.toString(), appUrl = appUrl)
                 )
                 if (granted.isNotEmpty()) {
                     if (BuildConfig.DEBUG) {

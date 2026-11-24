@@ -58,8 +58,7 @@ class WebPermissionPolicyTest {
     }
 
     private val app = "https://app.example.com/home"
-    private fun trusted(origin: String?, access: Boolean = false, allowed: Set<String> = emptySet()) =
-        WebPermissionPolicy.isTrustedOrigin(origin, app, access) { it in allowed }
+    private fun trusted(origin: String?) = WebPermissionPolicy.isTrustedOrigin(origin, app)
 
     @Test
     fun `the app's own origin is trusted, whatever the path, case or default port`() {
@@ -72,7 +71,13 @@ class WebPermissionPolicyTest {
         assertFalse(trusted("https://evil.example.org"))
         assertFalse(trusted("http://app.example.com"))
         assertFalse(trusted("https://app.example.com:8443"))
+    }
+
+    @Test
+    fun `a lookalike host is not trusted, so a substring match can never let it in`() {
         assertFalse(trusted("https://app.example.com.evil.org"))
+        assertFalse(trusted("https://evilapp.example.com"))
+        assertFalse(trusted("https://sub.app.example.com"))
     }
 
     @Test
@@ -84,16 +89,7 @@ class WebPermissionPolicyTest {
     }
 
     @Test
-    fun `a whitelisted origin is trusted only while access control is on`() {
-        val other = "https://partner.example.net"
-        assertTrue(trusted(other, access = true, allowed = setOf(other)))
-        assertFalse(trusted(other, access = false, allowed = setOf(other)))
-        assertFalse(trusted(other, access = true, allowed = emptySet()))
-    }
-
-    @Test
-    fun `nothing is trusted before the app url is known unless the whitelist allows it`() {
-        assertFalse(WebPermissionPolicy.isTrustedOrigin("https://app.example.com", null, false) { true })
-        assertTrue(WebPermissionPolicy.isTrustedOrigin("https://app.example.com", null, true) { true })
+    fun `nothing is trusted before the app url is known`() {
+        assertFalse(WebPermissionPolicy.isTrustedOrigin("https://app.example.com", null))
     }
 }

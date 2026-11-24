@@ -1123,4 +1123,4 @@ try {
 
 Resolves `"GRANTED"` once the app holds it, rejects when the user refuses, and resolves `null` where there is nothing to ask or nobody answers: a plain browser (it prompts by itself), a page without `WebBridge`, or a shell built before the command existed. Overlapping calls share one request.
 
-Only the app's own page may use the microphone. On Android the WebView grants capture only to the app's own origin (or an origin your `accessControl.allowedUrls` allows while access control is on), and on iOS the microphone bridge commands run only from the app's own main-frame page.
+Only the app's own page may use the microphone. On Android and iOS the WebView grants capture only to the app's own origin, by exact scheme, host and port; `accessControl.allowedUrls` does not widen this, because its rules match substrings and a lookalike host could pass them. On iOS the microphone bridge commands also run only from the app's own main-frame page.
