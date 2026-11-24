@@ -1,0 +1,19 @@
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_992d4f5a56c233 512,514
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a56484564a532ab90bf11e16d21b715a021ed609",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
