@@ -55,6 +55,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+    restoreUrls()
+    restoreUrls = () => {}
     vi.unstubAllGlobals()
     vi.useRealTimers()
 })
@@ -164,6 +166,20 @@ describe("startLiveTranscription lifecycle", () => {
     })
 })
 
+/** Gives URL.createObjectURL/revokeObjectURL fakes and returns a function that puts the originals back exactly. */
+function fakeObjectUrls(url: string) {
+    const saved = ["createObjectURL", "revokeObjectURL"].map((name) => [name, Object.getOwnPropertyDescriptor(URL, name)] as const)
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, writable: true, value: () => url })
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, writable: true, value: () => {} })
+    return () => {
+        for (const [name, descriptor] of saved) {
+            if (descriptor) Object.defineProperty(URL, name, descriptor)
+            else delete (URL as any)[name]
+        }
+    }
+}
+let restoreUrls: () => void = () => {}
+
 /** Browser audio fakes for the default microphone implementation. */
 function stubAudio({ worklet = true, rateThrows = false } = {}) {
     const stopTrack = vi.fn()
@@ -194,7 +210,7 @@ function stubAudio({ worklet = true, rateThrows = false } = {}) {
     }
     vi.stubGlobal("AudioContext", FakeContext)
     vi.stubGlobal("AudioWorkletNode", FakeWorkletNode)
-    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }))
+    restoreUrls = fakeObjectUrls("blob:x")
     return { stopTrack, nodes, contexts }
 }
 

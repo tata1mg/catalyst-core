@@ -55,8 +55,11 @@ describe("useMicrophone with an analyser", () => {
         loud = false
         await act(async () => { await vi.advanceTimersByTimeAsync(800) })
         expect(result.current.listening).toBe(false)
-        await vi.waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(1), { timeout: 2000, interval: 10 }).catch(() => {})
-        await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+        // The data URL is read with a real FileReader, so let real time pass; then it must have been delivered exactly once.
+        vi.useRealTimers()
+        await vi.waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(1))
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(onRecorded).toHaveBeenCalledTimes(1)
         expect(onRecorded).toHaveBeenCalledWith(expect.stringMatching(/^data:audio\/webm/), expect.objectContaining({ seconds: expect.any(Number) }))
     })
 

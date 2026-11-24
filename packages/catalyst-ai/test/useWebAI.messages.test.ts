@@ -9,6 +9,20 @@ const TEXT_MODEL = "onnx-community/Qwen2.5-0.5B-Instruct"
 const GEMMA = "onnx-community/gemma-4-E2B-it-ONNX"
 const ask = [{ role: "user", content: "hi" }]
 
+/** Gives URL.createObjectURL/revokeObjectURL fakes and returns a function that puts the originals back exactly. */
+function fakeObjectUrls(url: string) {
+    const saved = ["createObjectURL", "revokeObjectURL"].map((name) => [name, Object.getOwnPropertyDescriptor(URL, name)] as const)
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, writable: true, value: () => url })
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, writable: true, value: () => {} })
+    return () => {
+        for (const [name, descriptor] of saved) {
+            if (descriptor) Object.defineProperty(URL, name, descriptor)
+            else delete (URL as any)[name]
+        }
+    }
+}
+let restoreUrls: () => void = () => {}
+
 let workers: FakeWorker[] = []
 let failConstruct = false
 class FakeWorker {
@@ -29,21 +43,26 @@ beforeEach(() => {
     workers = []
     failConstruct = false
     vi.stubGlobal("Worker", FakeWorker)
-    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:fake" }))
+    restoreUrls = fakeObjectUrls("blob:fake")
     vi.spyOn(console, "log").mockImplementation(() => {})
     vi.spyOn(console, "error").mockImplementation(() => {})
 })
 afterEach(() => {
+    restoreUrls()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
 })
 
-/** Starts a generation and returns the pending promise plus the worker it created. */
+const generateRequests = () => workers.reduce((n, w) => n + w.sent.filter((m: any) => m.type === "generate").length, 0)
+
+/** Starts a generation and returns the pending promise plus the worker that received its "generate" request. */
 async function start(hook: any, args: any = {}) {
+    const before = generateRequests()
     let pending: Promise<any> = Promise.resolve()
     act(() => { pending = hook.result.current.generate({ messages: ask, ...args }) })
-    await vi.waitFor(() => expect(workers.length).toBeGreaterThan(0))
-    return { pending, worker: workers[workers.length - 1] }
+    await vi.waitFor(() => expect(generateRequests()).toBeGreaterThan(before))
+    const worker = [...workers].reverse().find((w) => w.sent.filter((m: any) => m.type === "generate").length > 0 && !w.terminated) ?? workers[workers.length - 1]
+    return { pending, worker }
 }
 const finish = (worker: FakeWorker, text = "ok", extra: any = {}) => {
     worker.emit({ type: "model_ready", device: "webgpu", dtype: "q4", loadMs: 5, totalBytes: 100 })
