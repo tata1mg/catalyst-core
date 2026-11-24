@@ -725,6 +725,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 
     _checkRouting(config, wc, platform, issues, warnings, passed)
     _checkPricing(config, root, issues, warnings, passed)
+    _checkImageModels(config, issues, warnings, passed)
     _checkWebBridgeInit(root, warnings, passed)
 
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
@@ -762,8 +763,11 @@ function _checkPricing(config, root, issues, warnings, passed) {
     const before = issues.length
     for (const [model, p] of Object.entries(configured || {})) {
         const at = `AI_CONFIG.pricing.${model}`
-        if (!p || typeof p !== "object" || Array.isArray(p)) { err(at, "needs { input, output } in USD per 1M tokens."); continue }
-        for (const key of ["input", "output"]) if (!isNum(p[key])) err(`${at}.${key}`, `${key} must be a non-negative number (USD per 1M tokens).`)
+        if (!p || typeof p !== "object" || Array.isArray(p)) { err(at, "needs { input, output } in USD per 1M tokens, or { perImage } in USD per image."); continue }
+        if (p.perImage !== undefined && !isNum(p.perImage)) err(`${at}.perImage`, "perImage must be a non-negative number (USD per generated image).")
+        // A model priced per image alone may leave the token rates out.
+        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+        if (!perImageOnly) for (const key of ["input", "output"]) if (!isNum(p[key])) err(`${at}.${key}`, `${key} must be a non-negative number (USD per 1M tokens).`)
         if (p.cachedInput !== undefined && !isNum(p.cachedInput)) err(`${at}.cachedInput`, "cachedInput must be a non-negative number.")
         if (p.audioInput !== undefined && p.audioInput !== null && !isNum(p.audioInput)) err(`${at}.audioInput`, "audioInput must be a number or null.")
     }
@@ -792,6 +796,36 @@ function _checkPricing(config, root, issues, warnings, passed) {
     if (issues.length === before && configured && Object.keys(configured).length) {
         passed.push({ field: "AI_CONFIG.pricing", note: `${Object.keys(configured).length} model price(s) set` })
     }
+}
+
+// Providers whose /ai/:provider/image route can draw (see catalyst-ai imageGen.js). Anthropic has no image generation.
+const IMAGE_PROVIDERS = ["openai", "gemini"]
+
+// providers.<name>.imageModel is the model POST /ai/:provider/image uses when the request names none.
+function _checkImageModels(config, issues, warnings, passed) {
+    const providers = config.AI_CONFIG && config.AI_CONFIG.providers
+    if (!providers || typeof providers !== "object" || Array.isArray(providers)) return
+    const configured = config.AI_CONFIG.pricing && typeof config.AI_CONFIG.pricing === "object" ? config.AI_CONFIG.pricing : {}
+    const before = issues.length + warnings.length
+    let count = 0
+    for (const [name, cfg] of Object.entries(providers)) {
+        if (!cfg || typeof cfg !== "object" || cfg.imageModel === undefined) continue
+        const at = `AI_CONFIG.providers.${name}.imageModel`
+        if (typeof cfg.imageModel !== "string" || !/^[a-zA-Z0-9._:-]+$/.test(cfg.imageModel)) {
+            issues.push({ field: at, severity: "error", message: "imageModel must be a model id string of letters, digits and . _ : - (for example \"gpt-image-1\")." })
+            continue
+        }
+        count++
+        if (!IMAGE_PROVIDERS.includes(name)) {
+            warnings.push({ field: at, message: `Provider "${name}" cannot generate images (supported: ${IMAGE_PROVIDERS.join(", ")}), so this imageModel is never used and POST /ai/${name}/image fails.` })
+            continue
+        }
+        // There are no built-in image prices: without a developer-set one the image cost is reported as unknown.
+        if (!Object.prototype.hasOwnProperty.call(configured, cfg.imageModel)) {
+            warnings.push({ field: `AI_CONFIG.pricing.${cfg.imageModel}`, message: `No price set for image model "${cfg.imageModel}": image cost is reported as unknown. Add AI_CONFIG.pricing["${cfg.imageModel}"] = { "perImage": <USD per image> } (and/or input/output per 1M tokens).` })
+        }
+    }
+    if (count && issues.length + warnings.length === before) passed.push({ field: "AI_CONFIG.providers.*.imageModel", note: `${count} image model(s), valid` })
 }
 
 // AI_CONFIG.routing drives useAI({ provider: "auto" }). Mistakes here do not crash: the browser drops bad entries
