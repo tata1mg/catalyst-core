@@ -463,4 +463,52 @@ class BridgeUtilsTest {
             isNull()
         )
     }
+
+    // ============================================================
+    // notifyWebJson and safeExecute
+    // ============================================================
+
+    @Test
+    fun `notifyWebJson sends the object raw as a callback and escapes the JS line terminators`() {
+        val webView: WebView = mock()
+        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_PARTIAL, JSONObject().put("text", "a\u2028b"))
+        val js = org.mockito.kotlin.argumentCaptor<String>()
+        verify(webView).evaluateJavascript(js.capture(), isNull())
+        assertTrue(js.firstValue, js.firstValue.startsWith("window.WebBridge.callback('SPEECH_RECOGNITION_PARTIAL', {"))
+        assertFalse("a raw U+2028 would be a syntax error in V8", js.firstValue.contains("\u2028"))
+    }
+
+    @Test
+    fun `notifyWebJson reports an error to the page when evaluateJavascript throws`() {
+        val webView: WebView = mock()
+        // The first call (the JSON callback) throws; the follow-up error notification then goes through.
+        org.mockito.kotlin.whenever(webView.evaluateJavascript(any(), org.mockito.kotlin.anyOrNull()))
+            .thenThrow(IllegalStateException("webview gone"))
+            .thenAnswer { null }
+        BridgeUtils.notifyWebJson(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_FINAL, JSONObject().put("text", "hi"))
+        val js = org.mockito.kotlin.argumentCaptor<String>()
+        verify(webView, org.mockito.kotlin.times(2)).evaluateJavascript(js.capture(), org.mockito.kotlin.anyOrNull())
+        assertTrue(js.secondValue, js.secondValue.contains("SPEECH_RECOGNITION_FINAL"))
+        assertTrue(js.secondValue, js.secondValue.contains("Error processing data"))
+    }
+
+    @Test
+    fun `safeExecute runs the block and tells the page nothing when it succeeds`() {
+        val webView: WebView = mock()
+        var ran = false
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR, "do a thing") { ran = true }
+        assertTrue(ran)
+        org.mockito.kotlin.verifyNoInteractions(webView)
+    }
+
+    @Test
+    fun `safeExecute turns an exception into an error event for the page instead of crashing`() {
+        val webView: WebView = mock()
+        BridgeUtils.safeExecute(webView, BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR, "do a thing") { throw IllegalStateException("boom") }
+        val js = org.mockito.kotlin.argumentCaptor<String>()
+        verify(webView).evaluateJavascript(js.capture(), isNull())
+        assertTrue(js.firstValue, js.firstValue.contains("SPEECH_RECOGNITION_ERROR"))
+        assertTrue(js.firstValue, js.firstValue.contains("do a thing"))
+        assertTrue(js.firstValue, js.firstValue.contains("boom"))
+    }
 }

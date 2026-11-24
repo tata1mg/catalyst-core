@@ -264,4 +264,33 @@ class BridgeMessageValidatorTest {
         assertTrue(availableCommands.contains("pickFile"))
         assertEquals(7, availableCommands.size)
     }
+
+    @Test
+    fun `a message over the size limit is refused as MESSAGE_TOO_LARGE`() {
+        val message = JSONObject().apply {
+            put("command", "openCamera")
+            put("data", "x".repeat(CatalystConstants.Bridge.MAX_MESSAGE_SIZE + 1))
+        }
+        val result = BridgeMessageValidator.validate(message)
+        assertFalse(result.isValid)
+        assertEquals("MESSAGE_TOO_LARGE", result.error?.code)
+        assertEquals("BRIDGE_ERROR", result.error?.eventName)
+    }
+
+    @Test
+    fun `the microphone and speech commands are known to the bridge, with or without a language`() {
+        for (command in listOf("requestMicrophonePermission", "getSpeechRecognitionSupport", "startSpeechRecognition", "stopSpeechRecognition")) {
+            val bare = BridgeMessageValidator.validate(JSONObject().put("command", command))
+            assertTrue("$command with no data: ${bare.error?.message}", bare.isValid)
+            val withLanguage = BridgeMessageValidator.validate(JSONObject().put("command", command).put("data", JSONObject().put("language", "en-US")))
+            assertTrue("$command with a language: ${withLanguage.error?.message}", withLanguage.isValid)
+        }
+    }
+
+    @Test
+    fun `an unknown command is refused`() {
+        val result = BridgeMessageValidator.validate(JSONObject().put("command", "recordEverything"))
+        assertFalse(result.isValid)
+        assertNotNull(result.error)
+    }
 }
