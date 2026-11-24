@@ -46,6 +46,26 @@ export function createGenerationApi(getPkg: () => any) {
             // Stable for the life of the page (the package either loaded or did not), so hook order never changes.
             return pkg?.useImageGen ? pkg.useImageGen(options) : { ...idle("useImageGen", { images: [] }), images: [] }
         },
+        /** Registers the on-device image engine once at startup: registerDeviceImageEngine(() => import("web-txt2img")). Then requestImage/useImageGen accept provider "device". */
+        registerDeviceImageEngine(loader: (() => Promise<unknown>) | null, options: { wasmPaths?: string } = {}) {
+            getPkg()?.registerDeviceImageEngine?.(loader, options)
+        },
+        /** { available, reason? }: whether on-device image generation can run here (WebGPU + a registered engine). */
+        async deviceImageSupport(): Promise<{ available: boolean; reason?: string }> {
+            const pkg = getPkg()
+            return pkg?.deviceImageSupport ? pkg.deviceImageSupport() : { available: false, reason: missing("deviceImageSupport").message }
+        },
+        /** Frees the on-device image model from GPU/RAM (cached files stay). generate() already does this after each picture unless keepLoaded is set. */
+        async unloadDeviceImage(): Promise<void> {
+            await getPkg()?.unloadDeviceImage?.()
+        },
+        /** Live speech-to-text over the Gemini Live API: { start, stop, cancel, state, listening, partial, text, level, seconds, error }. */
+        useLiveTranscribe(options: Record<string, unknown> = {}): any {
+            const pkg = getPkg()
+            return pkg?.useLiveTranscribe
+                ? pkg.useLiveTranscribe(options)
+                : { ...idle("useLiveTranscribe", {}), state: "idle", listening: false, partial: "", text: "", level: 0, seconds: 0, error: missing("useLiveTranscribe").message, start: async () => {}, stop: async () => "" }
+        },
         /** { speak(text, overrides), audio, url, loading, error, usage, cancel, reset }. */
         useSpeech(options: Record<string, unknown> = {}): any {
             const pkg = getPkg()
@@ -59,3 +79,7 @@ export const requestImage = api.requestImage
 export const requestSpeech = api.requestSpeech
 export const useImageGen = api.useImageGen
 export const useSpeech = api.useSpeech
+export const useLiveTranscribe = api.useLiveTranscribe
+export const registerDeviceImageEngine = api.registerDeviceImageEngine
+export const deviceImageSupport = api.deviceImageSupport
+export const unloadDeviceImage = api.unloadDeviceImage

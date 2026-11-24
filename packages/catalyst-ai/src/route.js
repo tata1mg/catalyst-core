@@ -1,6 +1,7 @@
 const express = require("express")
 const media = require("./cloudMedia")
 const imageGen = require("./imageGen")
+const liveGen = require("./liveGen")
 const speechGen = require("./speechGen")
 
 const router = express.Router()
@@ -849,6 +850,42 @@ router.post("/:provider/speech", async (req, res) => {
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
         console.error("[catalyst-ai] %s speech error:", provider, code ? `[${code}] ${logSuffix}` : logSuffix)
+        res.status(500).json({ error: err.message, code })
+    }
+})
+
+// POST /ai/gemini/live-token — a one-use ephemeral token for the Gemini Live API, so the browser streams audio to Gemini
+// directly and never holds the API key. Body: { model? } (default: the provider's `liveModel` in AI_CONFIG).
+// Returns { token, model, expiresAt, startBy, url, setup }; the client opens `url?access_token=<token>` and sends `setup` first.
+router.post("/gemini/live-token", async (req, res) => {
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
+    const cfg = getProviderConfig("gemini")
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, 'Provider "gemini" not configured')
+        return
+    }
+    const model = req.body?.model || cfg.liveModel
+    const modelError = !model
+        ? "no model specified and provider has no liveModel configured"
+        : typeof model !== "string" || !MODEL_NAME_RE.test(model)
+          ? "model contains invalid characters"
+          : null
+    if (modelError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, modelError)
+        return
+    }
+    try {
+        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError }))
+    } catch (err) {
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] gemini live-token error:", code ? `[${code}] ${logSuffix}` : logSuffix)
         res.status(500).json({ error: err.message, code })
     }
 })

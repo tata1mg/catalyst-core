@@ -232,12 +232,14 @@ export function useAI(options: any = {}) {
                 setSelected(chosen)
             })
         }
-        return { ...active, generate, route, generateWithConsent: generate }
+        return { ...active, unload: active.unload ?? (() => {}), generate, route, generateWithConsent: generate }
     }
 
+    // unload() frees an in-browser model from GPU/RAM; the other engines hold nothing in the page, so it is a no-op there.
+    const withUnload = (r: any) => ({ ...r, unload: r.unload ?? (() => {}) })
     if (mode === "local") return webResult
-    if (mode === "native" && isNativeAIAvailable()) return nativeResult
-    return cloudResult
+    if (mode === "native" && isNativeAIAvailable()) return withUnload(nativeResult)
+    return withUnload(cloudResult)
 }
 
 // Returned when catalyst-ai is missing — keeps hook shape stable so callers don't crash
@@ -258,6 +260,7 @@ function emptyHook() {
         generate: () => {},
         cancel: () => {},
         reset: () => {},
+        unload: () => {},
         clearError: () => {},
         conversationId: null,
         getSessionMetrics: () => null,

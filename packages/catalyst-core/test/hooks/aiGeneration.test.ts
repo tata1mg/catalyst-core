@@ -19,6 +19,31 @@ describe("aiGeneration wrappers", () => {
         expect(pkg.useImageGen).toHaveBeenCalledWith({ provider: "gemini" })
     })
 
+    it("forwards useLiveTranscribe, and reports a clear error when catalyst-ai lacks it", () => {
+        const pkg = { useLiveTranscribe: vi.fn().mockReturnValue("live") }
+        expect(createGenerationApi(() => pkg).useLiveTranscribe({ model: "m" })).toBe("live")
+        expect(pkg.useLiveTranscribe).toHaveBeenCalledWith({ model: "m" })
+        const idle = createGenerationApi(() => null).useLiveTranscribe()
+        expect(idle.listening).toBe(false)
+        expect(idle.error).toMatch(/useLiveTranscribe needs/)
+    })
+
+    it("forwards the device image engine registration and support check", async () => {
+        const pkg = { registerDeviceImageEngine: vi.fn(), deviceImageSupport: vi.fn().mockResolvedValue({ available: true }) }
+        const api = createGenerationApi(() => pkg)
+        const loader = async () => ({})
+        api.registerDeviceImageEngine(loader)
+        expect(pkg.registerDeviceImageEngine).toHaveBeenCalledWith(loader, {})
+        expect(await api.deviceImageSupport()).toEqual({ available: true })
+        const none = createGenerationApi(() => null)
+        expect(() => none.registerDeviceImageEngine(loader)).not.toThrow()
+        expect((await none.deviceImageSupport()).available).toBe(false)
+        const unload = vi.fn().mockResolvedValue(undefined)
+        await createGenerationApi(() => ({ unloadDeviceImage: unload })).unloadDeviceImage()
+        expect(unload).toHaveBeenCalled()
+        await expect(none.unloadDeviceImage()).resolves.toBeUndefined()
+    })
+
     it("fails clearly when catalyst-ai is missing or too old", async () => {
         const api = createGenerationApi(() => null)
         await expect(api.requestImage({ prompt: "a" })).rejects.toThrow(/Update catalyst-ai/)
