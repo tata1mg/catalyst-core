@@ -27,6 +27,7 @@ function getWorkerBlobUrl() {
     return workerBlobUrl
 }
 
+/** @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults. */
 export function useWebAI({
     model: modelProp,
     formatPrompt,

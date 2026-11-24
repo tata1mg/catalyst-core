@@ -487,7 +487,7 @@ describe("check_config: AI_CONFIG.routing", () => {
         const ok = run({ ...good, routing: { ...good.routing, policy: { order: ["onDevice", "cost", "latency", "tps"] } } })
         expect(ok.warnings.filter((x) => x.field === "AI_CONFIG.routing.policy.order")).toEqual([])
         const clash = run({ providers, routing: { onDevice: { ios: [{ id: "cost" }] } } })
-        expect(clash.warnings.some((x) => x.message.includes("collides"))).toBe(true)
+        expect(clash.warnings.some((x) => x.message?.includes("collides"))).toBe(true)
     })
     it("warns when only web models are listed but the app is a native build (they are never used there)", () => {
         const webOnly = { providers, routing: { onDevice: { web: [{ id: "w", model: "m", modalities: ["text"] }] } } }

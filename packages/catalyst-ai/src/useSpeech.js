@@ -6,6 +6,7 @@ const REQUEST_TIMEOUT_MS = 180_000
  * speech.synthesize against the cloud route (POST {basePath}/{provider}/speech). Pure, so pipelines can call it without React.
  * Resolves { audio: { mimeType, data, url }, usage, model } where `url` is a data: URL ready for new Audio(url).
  * Rejects with Error (message from the server's `error` field); aborts via `signal`.
+ * @param {any} [options] Destructured here; typed loosely so TypeScript 7 does not narrow callers to the listed defaults.
  */
 export async function requestSpeech({ basePath = "/ai", provider = "openai", text, voice, format, model, signal } = {}) {
     if (typeof text !== "string" || text.trim() === "") throw new Error("text must be a non-empty string")

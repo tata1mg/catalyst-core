@@ -7,8 +7,9 @@ vi.mock("../../src/native/bridge/hooks/useAI.js", () => ({ useAI: vi.fn(() => ai
 
 import { useAI } from "../../src/native/bridge/hooks/useAI.js"
 import { useVision, VisionError } from "../../src/native/bridge/hooks/useVision"
+import type { Schema } from "../../src/native/bridge/hooks/useVision"
 
-const schema = { type: "object", required: ["total"], properties: { total: { type: "number" } } } as const
+const schema: Schema = { type: "object", required: ["total"], properties: { total: { type: "number" } } }
 const PNG = "data:image/png;base64,iVBORw0KGgo="
 const ok = (output: string, route?: any) => ({ output, error: null, ...(route && { route }) })
 const run = { action: "run", candidate: { id: "gemma" }, reason: "r", scores: [], skipped: [] }

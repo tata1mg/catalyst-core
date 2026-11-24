@@ -147,7 +147,7 @@ describe("imageStage", () => {
         await runPipeline([stage], { src: ["data:image/png;base64,AAA"] })
         expect(requestImage).toHaveBeenLastCalledWith(expect.objectContaining({ images: ["data:image/png;base64,AAA"] }))
         await runPipeline([stage], { src: [] })
-        expect(requestImage.mock.calls[1][0]).not.toHaveProperty("images")
+        expect((requestImage.mock.calls as any[][])[1][0]).not.toHaveProperty("images")
     })
     it("errors when no image comes back", async () => {
         const res = await runPipeline([imageStage({ requestImage: async () => ({ images: [] }), prompt: () => "p" })], {}, { cloudPolicy: "allow" })

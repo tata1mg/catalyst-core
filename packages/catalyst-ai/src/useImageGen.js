@@ -25,6 +25,7 @@ export function toImageInput(img) {
  * provider "device" runs the picture on this device instead (web desktop, WebGPU; see deviceImage.js) and returns the
  * same shape with cost 0; `onProgress` is only used there.
  * Rejects with Error (message from the server's `error` field); aborts via `signal`.
+ * @param {any} [options] Destructured here; typed loosely so TypeScript 7 does not narrow callers to the listed defaults.
  */
 export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, images: inputImages, signal, onProgress, seed } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")

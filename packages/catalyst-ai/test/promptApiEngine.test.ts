@@ -27,7 +27,7 @@ function fakeApi({ availability = "available", chunks = ["Hel", "lo"], createErr
 }
 
 function run(api: any, messages: any[]) {
-    const engine = createPromptApiEngine({ api, now: (() => { let t = 0; return () => (t += 100) })() })
+    const engine: any = createPromptApiEngine({ api, now: (() => { let t = 0; return () => (t += 100) })() })
     const seen: Msg[] = []
     const finished = new Promise<void>((resolve) => {
         engine.onmessage = ({ data }: { data: Msg }) => { seen.push(data); if (data.type === "done" || data.type === "error") resolve() }
@@ -157,7 +157,7 @@ describe("image and audio input, structured replies", () => {
         const { api, created } = fakeApi()
         const { finished } = run(api, [user([{ type: "text", text: "what is this?" }, { type: "image", data: PNG }])])
         await finished
-        const asked = api.availability.mock.calls[0][0]
+        const asked = (api.availability.mock.calls as any[][])[0][0]
         expect(asked).toEqual({
             expectedInputs: [{ type: "text", languages: ["en"] }, { type: "image" }],
             expectedOutputs: [{ type: "text", languages: ["en"] }],
@@ -169,7 +169,7 @@ describe("image and audio input, structured replies", () => {
         const { api } = fakeApi()
         const { finished } = run(api, [user("hi")])
         await finished
-        expect(api.availability.mock.calls[0][0].expectedInputs).toEqual([{ type: "text", languages: ["en"] }])
+        expect((api.availability.mock.calls as any[][])[0][0].expectedInputs).toEqual([{ type: "text", languages: ["en"] }])
     })
 
     it("sends the last user message as { type, value: Blob } parts", async () => {
@@ -198,7 +198,7 @@ describe("image and audio input, structured replies", () => {
     it("forwards responseConstraint to promptStreaming", async () => {
         const { api, created } = fakeApi()
         const schema = { type: "object", properties: { n: { type: "number" } }, required: ["n"] }
-        const engine = createPromptApiEngine({ api })
+        const engine: any = createPromptApiEngine({ api })
         const done = new Promise<void>((resolve) => { engine.onmessage = ({ data }: any) => { if (data.type === "done" || data.type === "error") resolve() } })
         engine.postMessage({ type: "generate", messages: [user("give n")], genConfig: { responseConstraint: schema } })
         await done
@@ -278,7 +278,7 @@ describe("desktop only", () => {
 
     it("the engine refuses on a phone before touching the API, and says why", async () => {
         const { api } = fakeApi()
-        const engine = createPromptApiEngine({ api, nav: phone as any })
+        const engine: any = createPromptApiEngine({ api, nav: phone as any })
         const seen: Msg[] = []
         const finished = new Promise<void>((resolve) => { engine.onmessage = ({ data }: any) => { seen.push(data); if (data.type === "error") resolve() } })
         engine.postMessage({ type: "generate", messages: [user("hi")], genConfig: {} })
@@ -290,7 +290,7 @@ describe("desktop only", () => {
 
     it("a desktop runs normally", async () => {
         const { api } = fakeApi()
-        const engine = createPromptApiEngine({ api, nav: mac as any })
+        const engine: any = createPromptApiEngine({ api, nav: mac as any })
         const finished = new Promise<void>((resolve) => { engine.onmessage = ({ data }: any) => { if (data.type === "done") resolve() } })
         engine.postMessage({ type: "generate", messages: [user("hi")], genConfig: {} })
         await finished

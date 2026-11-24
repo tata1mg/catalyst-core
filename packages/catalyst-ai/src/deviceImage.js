@@ -67,6 +67,7 @@ export function parseDeviceSize(size) {
  * `onProgress({ phase, pct?, message? })` reports "loading" (model download, pct 0-100) then denoising/decoding.
  * The model is freed from GPU/RAM after the picture (cached files stay) unless `keepLoaded: true`, because it is ~2.3 GB and
  * usually shares the page with a text model. `load` is injectable for tests. Rejects on cancel, missing WebGPU, or a failed load/generation.
+ * @param {any} [options] Destructured here; typed loosely so TypeScript 7 does not narrow callers to the listed defaults.
  */
 export async function generateOnDevice({ prompt, size, seed, n, images: inputImages, signal, onProgress, keepLoaded = false, load = loadLibrary } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")

@@ -60,6 +60,10 @@ export function parseLiveMessage(raw) {
     return { kind: "other" }
 }
 
+/**
+ * @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults.
+ * @returns {Promise<any>} the short-lived token and WebSocket URL
+ */
 export async function requestLiveToken({ basePath = "/ai", model, signal } = {}) {
     const response = await fetch(`${basePath}/gemini/live-token`, {
         method: "POST",
@@ -114,6 +118,7 @@ async function openMicrophone(onSamples) {
  * Starts streaming. Resolves once the microphone is open and Gemini accepted the session.
  * -> { stop(): Promise<string> final text, cancel() }. Callbacks: onPartial(text), onFinal(textSoFar), onLevel(0..1),
  * onStatus("connecting"|"listening"|"finishing"|"closed"), onError(Error).
+ * @param {any} [options] Destructured here; typed loosely so TypeScript 7 does not narrow callers to the listed defaults.
  */
 export async function startLiveTranscription({ basePath = "/ai", model, onPartial, onFinal, onLevel, onStatus, onError, signal, WebSocketImpl = globalThis.WebSocket, openMic = openMicrophone } = {}) {
     onStatus?.("connecting")

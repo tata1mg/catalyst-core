@@ -211,10 +211,10 @@ describe("useWebAI runs speech-to-text models (Whisper, Moonshine)", () => {
         const { useWebAI } = await mod
         const { result } = renderHook(() => useWebAI({ model: WHISPER }))
         await act(async () => { await result.current.generate({ messages: ask }) })
-        expect(result.current.error?.message).toMatch(/attach an audio clip/)
+        expect((result.current.error as any)?.message).toMatch(/attach an audio clip/)
         const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
         await act(async () => { await result.current.generate({ messages: [{ role: "user", content: [{ type: "image", data: png }, { type: "text", text: "x" }] }] }) })
-        expect(result.current.error?.message).toMatch(/does not support image/)
+        expect((result.current.error as any)?.message).toMatch(/does not support image/)
         expect(instances).toHaveLength(0)
     })
 })
