@@ -1,6 +1,6 @@
 // Branch coverage for the pipeline runner: value previews, validation errors, aborts, cancellation mid-run and the
 // transcribe stage's two result shapes.
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { codeStage, preview, runPipeline, transcribeStage, validatePipeline } from "../../src/native/bridge/hooks/aiPipeline"
 
 describe("preview", () => {
@@ -91,5 +91,16 @@ describe("transcribeStage", () => {
         const result = await runPipeline([transcribeStage(async () => ({ text: "spoken", costUsd: 0.25 }))], "data:audio/wav;base64,AA")
         expect(result.output).toBe("spoken")
         expect(result.spentUsd).toBeCloseTo(0.25)
+    })
+})
+
+describe("a cancel from the start event stops the stage before it begins", () => {
+    it("a stage that would have made a paid call never runs when the start listener aborts", async () => {
+        const controller = new AbortController()
+        const run = vi.fn(async (x: string) => x)
+        const stage = codeStage("paid", "text", "text", run)
+        const result = await runPipeline([stage], "in", { signal: controller.signal, onStep: (step: any) => { if (step.type === "start") controller.abort() } })
+        expect(result.status).toBe("cancelled")
+        expect(run).not.toHaveBeenCalled()
     })
 })

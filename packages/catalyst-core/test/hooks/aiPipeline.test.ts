@@ -177,7 +177,7 @@ describe("cancellation", () => {
                 codeStage("later", "text", "text", later),
             ],
             "x",
-            { signal: c.signal, onStep: (s) => s.type === "start" && queueMicrotask(() => c.abort()) }
+            { signal: c.signal, onStep: (s) => s.type === "start" && setTimeout(() => c.abort(), 0) } // after the stage has begun: this test is about aborting MID-stage
         )
         expect(res.status).toBe("cancelled")
         expect(res.stage).toBe("slow")

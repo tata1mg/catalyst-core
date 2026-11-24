@@ -76,10 +76,13 @@ describe("useImageGen", () => {
         const { result } = renderHook(() => useImageGen())
         let pending: Promise<any> = Promise.resolve()
         act(() => { pending = result.current.generate("one") })
+        expect(result.current.loading).toBe(true)
         act(() => { result.current.cancel() })
+        expect(result.current.loading).toBe(false) // not stuck loading after an explicit cancel
         let out: any
         await act(async () => { out = await pending })
         expect(out.error).toBeTruthy()
+        expect(result.current.loading).toBe(false)
         act(() => { result.current.reset() })
         expect(result.current).toMatchObject({ images: [], loading: false, error: null, usage: null })
     })
@@ -127,8 +130,11 @@ describe("useSpeech", () => {
         const { result } = renderHook(() => useSpeech())
         let pending: Promise<any> = Promise.resolve()
         act(() => { pending = result.current.speak("one") })
+        expect(result.current.loading).toBe(true)
         act(() => { result.current.cancel() })
+        expect(result.current.loading).toBe(false) // not stuck loading after an explicit cancel
         await act(async () => { await pending })
+        expect(result.current.loading).toBe(false)
         act(() => { result.current.reset() })
         expect(result.current).toMatchObject({ audio: null, loading: false, error: null, usage: null, url: null })
     })

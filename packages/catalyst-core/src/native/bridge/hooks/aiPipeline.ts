@@ -149,6 +149,8 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     if (!signal) return promise
     return new Promise<T>((resolve, reject) => {
         const onAbort = () => reject(new Error("cancelled"))
+        // When we stop waiting for the stage, its own failure still has to be marked as seen, or it would surface as an unhandled rejection.
+        promise.catch(() => {})
         if (signal.aborted) return onAbort()
         signal.addEventListener("abort", onAbort, { once: true })
         promise.then(
@@ -225,7 +227,15 @@ export async function runPipeline(stages: Stage[], input: unknown, options: RunP
 
         let out: unknown
         try {
-            out = await raceAbort(Promise.resolve().then(() => stage.run(value, ctx)), signal)
+            // The "start" event has already run, and its listener may have cancelled. The stage must not begin then: racing the abort only
+            // stops waiting for it, and a stage that already started (a paid or side-effecting call) would carry on regardless.
+            out = await raceAbort(
+                Promise.resolve().then(() => {
+                    if (signal?.aborted) throw new Error("cancelled")
+                    return stage.run(value, ctx)
+                }),
+                signal
+            )
         } catch (cause) {
             if (cancelled()) {
                 record({ type: "error", index, stage: stage.name, durationMs: Date.now() - started, error: "cancelled" })

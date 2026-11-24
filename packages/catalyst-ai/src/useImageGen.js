@@ -59,8 +59,11 @@ export function useImageGen({ basePath = "/ai", provider = "openai", model, size
     const controllerRef = useRef(null)
 
     const cancel = useCallback(() => {
-        controllerRef.current?.abort()
+        const controller = controllerRef.current
         controllerRef.current = null
+        controller?.abort()
+        // The aborted request sees that it is no longer the current one and returns without touching state, so the flag is cleared here.
+        if (controller) setState((s) => ({ ...s, loading: false }))
     }, [])
 
     const reset = useCallback(() => {
