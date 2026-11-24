@@ -52,7 +52,8 @@ export async function requestImage({ basePath = "/ai", provider = "openai", prom
     return { images, usage, model: data?.model ?? model ?? null, cost, costPartial: partial }
 }
 
-/** React wrapper: { generate, images, loading, error, usage, cancel, reset }. Cloud only for now (#611). */
+/** React wrapper: { generate, images, loading, error, usage, cancel, reset }. Cloud only for now (#611).
+ * @param {any} [options] */
 export function useImageGen({ basePath = "/ai", provider = "openai", model, size, n } = {}) {
     const [state, setState] = useState({ images: [], loading: false, error: null, usage: null })
     const controllerRef = useRef(null)

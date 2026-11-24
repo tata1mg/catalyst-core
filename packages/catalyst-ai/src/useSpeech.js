@@ -30,7 +30,8 @@ export async function requestSpeech({ basePath = "/ai", provider = "openai", tex
     return { audio, usage: data?.usage ?? null, model: data?.model ?? model ?? null }
 }
 
-/** React wrapper: { speak, cancel, reset, loading, error, audio, url, usage }. Cloud only for now (#611). */
+/** React wrapper: { speak, cancel, reset, loading, error, audio, url, usage }. Cloud only for now (#611).
+ * @param {any} [options] */
 export function useSpeech({ basePath = "/ai", provider = "openai", model, voice, format } = {}) {
     const [state, setState] = useState({ audio: null, loading: false, error: null, usage: null })
     const controllerRef = useRef(null)
