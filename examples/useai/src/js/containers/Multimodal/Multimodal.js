@@ -4,7 +4,15 @@ import { useAI, useFilePicker } from "catalyst-core/hooks"
 import { renderOutput } from "../../utils/ai"
 
 // Verifies image/audio input through useAI (catalyst-ai content parts) on a real device.
-// Native only: the on-device Gemma 4 model takes image and audio. Cloud/web engines refuse media with a typed error.
+// Native and web run Gemma 4 on the device. Cloud sends the image/audio to the chosen provider, only on this explicit tab.
+
+// Same rule as catalyst-ai's isNativeAIAvailable(), so the page never asks for "native" when useAI would fall back to
+// cloud. Kept inline: the app reaches catalyst-ai only through catalyst-core/hooks.
+const nativeAIAvailable = () => {
+    const bridge = window.NativeBridge
+    if (bridge && typeof bridge.isAIAvailable === "function") return !!bridge.isAIAvailable()
+    return !!window.webkit?.messageHandlers?.PluginBridge && Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"])
+}
 
 const readAsDataUrl = (file) =>
     new Promise((resolve, reject) => {
@@ -49,7 +57,10 @@ const WEB_MODEL = "onnx-community/gemma-4-E2B-it-ONNX"
 
 const TABS = {
     native: { label: "📱 Native", hint: "The platform picks its own model: Gemma 4 via LiteRT-LM on Android, the best available on iOS." },
-    cloud: { label: "☁️ Cloud", hint: "Text only for now. Media is refused with an unsupported-modality error." },
+    cloud: {
+        label: "☁️ Cloud",
+        hint: "Your image and audio are SENT to the selected provider. Gemini takes images and audio; OpenAI gpt-4o-mini takes images only, and audio is refused with an unsupported-modality error.",
+    },
 }
 
 export default function Multimodal() {
@@ -61,16 +72,22 @@ export default function Multimodal() {
     // One picker only: every useFilePicker instance listens to the same native callback, so two instances would
     // both receive each result. `wanted` remembers which slot the user asked for.
     const picker = useFilePicker()
-    const { selectedFile, getFileObject, isWeb } = picker
+    // Everything the picker effect needs is read through a ref and the effect is keyed on the file's URL string. In the
+    // browser fallback, getFileObject is recreated every render and selectedFile may be a fresh object each render, so
+    // using either as a dependency re-runs the effect forever (fetch -> setState -> render -> fetch ...).
+    const pickerRef = useRef(picker)
+    pickerRef.current = picker
+    const pickedSrc = picker.selectedFile?.fileSrc ?? null
     const wanted = useRef(null)
     const [pickError, setPickError] = useState(null)
 
     useEffect(() => {
-        setNativeAvailable(!!window.NativeBridge || Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"]))
+        setNativeAvailable(nativeAIAvailable())
     }, [])
 
     // No native module in this build -> the "native" tab becomes on-device web inference (Transformers.js).
-    const provider = tab === "cloud" ? "cloud" : nativeAvailable ? "native" : "transformers"
+    const [cloudProvider, setCloudProvider] = useState("gemini")
+    const provider = tab === "cloud" ? cloudProvider : nativeAvailable ? "native" : "transformers"
     const ai = useAI({
         provider,
         ...(provider === "transformers" && { model: WEB_MODEL }),
@@ -87,7 +104,8 @@ export default function Multimodal() {
     // into a File, which becomes the data URL that useAI content parts expect. The file's own MIME type decides
     // the slot, so an image can never end up in the audio player (or the reverse).
     useEffect(() => {
-        if (!selectedFile) return
+        if (!pickedSrc) return
+        const { selectedFile, getFileObject, isWeb } = pickerRef.current
         let cancelled = false
         const slot = wanted.current
         // Native hands back a handle that getFileObject() turns into a File. The browser fallback only returns a blob
@@ -114,7 +132,7 @@ export default function Multimodal() {
         return () => {
             cancelled = true
         }
-    }, [selectedFile, getFileObject, isWeb])
+    }, [pickedSrc])
 
     const pickMedia = (kind) => {
         wanted.current = kind
@@ -165,6 +183,20 @@ export default function Multimodal() {
                 ))}
             </div>
 
+            {tab === "cloud" && (
+                <div className="flex gap-2 mb-4">
+                    {["gemini", "openai"].map((p) => (
+                        <button
+                            key={p}
+                            onClick={() => setCloudProvider(p)}
+                            className={`${chip} ${cloudProvider === p ? "bg-indigo-500 border-indigo-500 text-white" : ""}`}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="flex flex-wrap gap-2 mb-4">
                 <button onClick={() => setImage({ name: "sample.png", data: sampleImage() })} className={chip}>Sample image</button>
                 <button onClick={() => pickMedia("image")} className={chip}>Pick image</button>
@@ -202,9 +234,11 @@ export default function Multimodal() {
             </div>
 
             <div className="mt-4 font-mono text-[12px]" data-testid="status">
-                engine: {engineLabel} · state: {state}
+                engine: {engineLabel} · provider: {provider} · state: {state}
                 {percent != null && percent < 100 && ` · download ${percent}%`}
                 {ai.metrics?.tps ? ` · ${ai.metrics.tps} tok/s` : ""}
+                {typeof ai.metrics?.cost === "number" && ` · cost $${ai.metrics.cost.toFixed(5)}${ai.metrics.audioCostUnknown ? " (audio not priced)" : ""}`}
+                {ai.metrics?.cloudEquivalent && ` · ≈ $${ai.metrics.cloudEquivalent.cost.toFixed(5)} on ${ai.metrics.cloudEquivalent.model} (estimate)`}
             </div>
             {(pickError || picker.error) && (
                 <div className="mt-2 text-[13px] text-red-400" data-testid="pick-error">

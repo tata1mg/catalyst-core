@@ -1,4 +1,5 @@
 const express = require("express")
+const media = require("./cloudMedia")
 
 const router = express.Router()
 
@@ -43,12 +44,24 @@ function getProviderConfig(provider) {
 const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
 
 // Returns an error string if the request body is invalid, otherwise null.
-function validateRequestBody(req, cfg) {
+function validateRequestBody(req, cfg, provider) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
     if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    // Image/audio parts: re-validated server-side (client caps can be bypassed) and checked against what this
+    // provider endpoint really accepts, before any paid call. Requests without array content skip this entirely.
+    if (provider && media.usesParts(messages)) {
+        try {
+            const normalized = media.validateMessages(messages)
+            const caps = media.capabilitiesFor({ provider, stateful: "conversationId" in req.body, model: resolvedModel })
+            media.assertSupported(normalized, caps, `${provider}/${resolvedModel}`)
+        } catch (err) {
+            if (err.reason) return `${err.reason}: ${err.message}`
+            throw err
+        }
+    }
     return null
 }
 
@@ -78,6 +91,12 @@ async function throwProviderError(provider, response) {
 // Subtracting reasoning out here keeps totalTokens = prompt + completion +
 // reasoning valid for every provider downstream.
 
+// audioTokens is a subset of promptTokens that is billed at a different rate. The key is only present when audio was
+// actually used, so text-only usage payloads stay exactly as they were.
+function audioTokensField(count) {
+    return typeof count === "number" && count > 0 ? { audioTokens: count } : {}
+}
+
 function normalizeOpenAIChatUsage(usage, model) {
     if (!usage) return null
     const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0
@@ -87,6 +106,7 @@ function normalizeOpenAIChatUsage(usage, model) {
         cachedTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
         completionTokens: (usage.completion_tokens ?? 0) - reasoningTokens,
         reasoningTokens,
+        ...audioTokensField(usage.prompt_tokens_details?.audio_tokens),
     }
 }
 
@@ -99,6 +119,7 @@ function normalizeOpenAIResponsesUsage(usage, model) {
         cachedTokens: usage.input_tokens_details?.cached_tokens ?? 0,
         completionTokens: (usage.output_tokens ?? 0) - reasoningTokens,
         reasoningTokens,
+        ...audioTokensField(usage.input_tokens_details?.audio_tokens),
     }
 }
 
@@ -111,6 +132,9 @@ function normalizeGeminiUsage(usageMetadata, model) {
         cachedTokens: usageMetadata.cachedContentTokenCount ?? 0,
         completionTokens: usageMetadata.candidatesTokenCount ?? 0,
         reasoningTokens: usageMetadata.thoughtsTokenCount ?? 0,
+        ...audioTokensField(
+            usageMetadata.promptTokensDetails?.filter((d) => d.modality === "AUDIO").reduce((sum, d) => sum + (d.tokenCount ?? 0), 0)
+        ),
     }
 }
 
@@ -134,7 +158,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
             model,
-            input: messages,
+            input: media.mapOpenAIResponses(messages),
             stream: true,
             ...(conversationId && { previous_response_id: conversationId }),
             ...(genConfig?.maxTokens && { max_output_tokens: genConfig.maxTokens }),
@@ -188,7 +212,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
             model,
-            messages,
+            messages: media.mapOpenAIChat(messages),
             stream: true,
             stream_options: { include_usage: true },
             ...(genConfig?.maxTokens && { max_tokens: genConfig.maxTokens }),
@@ -241,7 +265,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
             model,
-            input: messages,
+            input: media.mapOpenAIResponses(messages),
             stream: false,
             ...(conversationId && { previous_response_id: conversationId }),
             ...(genConfig?.maxTokens && { max_output_tokens: genConfig.maxTokens }),
@@ -261,7 +285,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
             model,
-            messages,
+            messages: media.mapOpenAIChat(messages),
             stream: false,
             ...(genConfig?.maxTokens && { max_tokens: genConfig.maxTokens }),
             ...(genConfig?.temperature != null && { temperature: genConfig.temperature }),
@@ -281,14 +305,12 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
 // ─── Gemini adapters ──────────────────────────────────────────────────────────
 
 function toGeminiContents(messages) {
-    return messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }))
+    return media.mapGeminiContents(messages)
 }
 
 function geminiSystemInstruction(messages) {
     const sys = messages.find((m) => m.role === "system")
-    return sys ? { parts: [{ text: sys.content }] } : undefined
+    return sys ? { parts: [{ text: media.textOf(sys.content) }] } : undefined
 }
 
 // Interactions API (v1beta/interactions) takes system_instruction as a plain string —
@@ -296,7 +318,7 @@ function geminiSystemInstruction(messages) {
 // Confirmed via live 400: "Expected string, unexpected character: '{'"
 function geminiInteractionsSystemInstruction(messages) {
     const sys = messages.find((m) => m.role === "system")
-    return sys ? sys.content : undefined
+    return sys ? media.textOf(sys.content) : undefined
 }
 
 async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res, signal }) {
@@ -304,7 +326,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
         // stateful: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiInteractionsSystemInstruction(messages)
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
+        const lastUserMsg = media.mapGeminiInteractionsInput(messages)
         const body = {
             model: `models/${model}`,
             input: lastUserMsg,
@@ -415,7 +437,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiInteractionsSystemInstruction(messages)
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
+        const lastUserMsg = media.mapGeminiInteractionsInput(messages)
         const body = {
             model: `models/${model}`,
             input: lastUserMsg,
@@ -507,7 +529,7 @@ router.post("/:provider/stream", async (req, res) => {
         return
     }
 
-    const validationError = validateRequestBody(req, cfg)
+    const validationError = validateRequestBody(req, cfg, provider)
     if (validationError) {
         await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
         return
@@ -576,7 +598,7 @@ router.post("/:provider/generate", async (req, res) => {
         return
     }
 
-    const validationError = validateRequestBody(req, cfg)
+    const validationError = validateRequestBody(req, cfg, provider)
     if (validationError) {
         await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
         return
@@ -618,6 +640,7 @@ router._internal = {
     isAIEnabled,
     getProviderConfig,
     validateRequestBody,
+    media,
     MODEL_NAME_RE,
     normalizeOpenAIChatUsage,
     normalizeOpenAIResponsesUsage,

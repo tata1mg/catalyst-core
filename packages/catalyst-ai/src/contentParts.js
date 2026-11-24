@@ -99,6 +99,10 @@ export function toLegacyPrompt(messages) {
 
 /**
  * Request body for the native local server. Text-only stays {prompt, genConfig}.
+ * @param {any[]} messages
+ * @param {Record<string, any>} genConfig
+ * @param {{ conversationId?: string }} [options]
+ * @returns {{ prompt: string, genConfig: Record<string, any>, conversationId?: string }}
  * Media rides inside genConfig.inputParts (ordered [{type, mimeType, base64}]) because catalyst-core's servers
  * forward genConfig to the plugin verbatim: no core change, and a core/plugin version mismatch cannot silently
  * drop an image. The text of every message stays in `prompt` (system prompt is prefixed server-side).
@@ -138,4 +142,23 @@ export function toWebTemplate(messages) {
     if (images.length > 1) throw inputError("too-many", "The web engine accepts one image per request", { modality: "image", limit: 1 })
     if (audios.length > 1) throw inputError("too-many", "The web engine accepts one audio clip per request", { modality: "audio", limit: 1 })
     return { messages: mapped, images, audios }
+}
+
+// ---- Cloud (explicit consent) -------------------------------------------------------------------------------------
+/**
+ * Image and audio leave the device only when the developer chose cloud explicitly. useAI falls back to the cloud hook
+ * when a native or web engine is unavailable; that fallback must never ship a user's photo or voice to a provider.
+ * `allowMedia` has to be exactly `true`, so an older catalyst-core that does not pass it fails closed.
+ */
+export function assertCloudMediaAllowed(modalities, allowMedia) {
+    if (allowMedia === true) return
+    for (const modality of ["image", "audio"]) {
+        if (modalities.has(modality)) {
+            throw inputError(
+                "cloud-media-not-allowed",
+                `Sending ${modality} to a cloud provider needs an explicit choice: use useAI({ provider: "cloud" }) (or pass allowMedia: true to useCloudAI). This call fell back to cloud because the on-device engine was unavailable, so the ${modality} was not sent.`,
+                { modality, engine: "cloud" }
+            )
+        }
+    }
 }

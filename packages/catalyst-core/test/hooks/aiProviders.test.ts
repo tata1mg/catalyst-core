@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resolveMode, resolveNativeEngine } from "../../src/native/bridge/hooks/aiProviders"
+import { allowCloudMedia, resolveMode, resolveNativeEngine } from "../../src/native/bridge/hooks/aiProviders"
 
 describe("useAI provider resolution", () => {
     it("maps on-device provider names to native mode", () => {
@@ -29,5 +29,14 @@ describe("useAI provider resolution", () => {
         expect(resolveNativeEngine("native", undefined, undefined)).toBeUndefined()
         expect(resolveNativeEngine("native", undefined, { engine: "foundation-models" })).toBe("foundation-models")
         expect(resolveNativeEngine("native", "litert", { engine: "foundation-models" })).toBe("litert")
+    })
+})
+
+
+describe("allowCloudMedia", () => {
+    it("allows media only for an explicit cloud choice, never for a fallback from native or web", () => {
+        expect(allowCloudMedia("cloud")).toBe(true)
+        expect(allowCloudMedia("native")).toBe(false)
+        expect(allowCloudMedia("local")).toBe(false)
     })
 })

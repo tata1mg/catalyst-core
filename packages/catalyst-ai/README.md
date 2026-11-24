@@ -19,6 +19,29 @@ trusted internal network, add authentication and per-caller rate limiting in you
 provider using your app's API key, so an unauthenticated deployment is an open proxy to
 your provider account.
 
+## Image and audio input
+
+`messages[].content` may be a string or an array of parts: `{ type: "text", text }`,
+`{ type: "image", data: "data:image/...;base64,..." }`, `{ type: "audio", data: "data:audio/...;base64,..." }`.
+Text-only calls behave exactly as before.
+
+- **Cloud needs an explicit choice.** `useAI({ provider: "cloud" | "openai" | "gemini" })` may send media to the
+  provider. If a native or web engine was requested but is unavailable, `useAI` falls back to cloud for text only and
+  refuses media with `cloud-media-not-allowed`, so a photo or voice clip is never sent to a provider by accident.
+- **What each endpoint accepts** (anything else is refused with `unsupported-modality` before any provider call):
+  OpenAI Chat Completions: images, plus wav/mp3 audio on `*audio*` models. OpenAI Responses (stateful): images only.
+  Gemini `generateContent`: images and audio. Gemini Interactions (stateful): images only. The refused combinations
+  are ones whose request format is not confirmed in the provider docs.
+- **Request size.** `catalyst-core` raises the JSON body limit to 20 MB on the AI path only (other routes keep the
+  100 kb default). Set `AI_CONFIG.maxRequestMB` (1 to 100) to change it. The route also re-validates every part:
+  type, base64 data URL, size (image 8 MB, audio 10 MB), and count (4 images, 2 audio clips). Larger bodies make an
+  unauthenticated deployment more expensive to abuse, so the authentication note above matters more with media.
+- **Preparation on the device.** Images are resized (long edge 1536 px, JPEG; GIF becomes its first frame) and audio is
+  converted to 16 kHz mono WAV (30 s cap) before sending.
+- **Cost.** Cloud metrics bill audio tokens at the model's audio rate. A model without a confirmed rate reports
+  `audioCostUnknown: true` and a partial cost instead of pricing audio as text. On-device runs may report
+  `cloudEquivalent`, an estimate from the on-device token counts at a reference model's text rates.
+
 ## `useWebAI` — remote script execution
 
 `useWebAI` (the in-browser/Transformers.js provider) loads `@huggingface/transformers` from
