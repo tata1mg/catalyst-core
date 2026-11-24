@@ -509,9 +509,9 @@ describe("check_config: AI_CONFIG.routing", () => {
         const ok = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech" }], android: [{ id: "android-speech", engine: "platform-speech", modalities: ["audio"], tasks: ["speech.transcribe"] }] } } })
         expect(routingFields(ok).filter((f) => !f.field.endsWith("routing.onDevice"))).toEqual([])
         const changed = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech", modalities: ["text", "audio"] }] } } })
-        expect(changed.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.ios[0]" && /ignored/.test(x.message))).toBe(true)
+        expect(changed.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.ios[0]" && /ignored/.test(x.message ?? ""))).toBe(true)
         const web = run({ providers, routing: { onDevice: { web: [{ id: "w", engine: "platform-speech" }] } } })
-        expect(web.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine" && /only exists in the iOS and Android apps/.test(x.message))).toBe(true)
+        expect(web.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine" && /only exists in the iOS and Android apps/.test(x.message ?? ""))).toBe(true)
         expect(web.issues.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine")).toBe(false)
     })
     it("platformSpeech must be a boolean", () => {
