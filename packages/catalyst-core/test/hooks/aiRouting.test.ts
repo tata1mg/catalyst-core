@@ -179,3 +179,36 @@ describe("recordObserved", () => {
         expect(recordObserved(undefined, { ttftMs: null, tps: null })).toBeUndefined()
     })
 })
+
+describe("a download the user agreed to does not count against the latency limit", () => {
+    const web = (tps: number) => ({
+        onDevice: { web: [{ id: "gemma-web", model: "m", modalities: ["text", "image"], ttftMs: 2000, tps, loadMs: 260000 }] },
+        cloud: [],
+    })
+    const run = (c: any, consent = {}) =>
+        pick(["text", "image"], sig({ platform: "web", nativeAvailable: false, webModelLoaded: false }), { objective: "order", constraints: { maxLatencyMs: 15000 } }, consent, {}, c)
+
+    it("asks first, and the same call runs after consent although the load alone is far over the limit", () => {
+        const asked = run(web(40)) // ~8.4 s to answer once loaded
+        expect(asked).toMatchObject({ action: "ask", candidate: { id: "gemma-web" } })
+        const approved = run(web(40), { download: true })
+        expect(approved).toMatchObject({ action: "run", candidate: { id: "gemma-web" } })
+        expect(approved.estimate!.latencyMs).toBeGreaterThan(260000) // the estimate still tells the truth about the first call
+    })
+    it("does not ask for a download the limits would reject anyway, and says why at once", () => {
+        const d = run(web(9)) // ~30 s to answer even once loaded
+        expect(d.action).toBe("deny")
+        expect(d.skipped.find((s) => s.id === "gemma-web")?.why).toMatch(/^latency ~30444ms over limit/)
+        expect(d.skipped.map((s) => s.why)).not.toContain("model not downloaded")
+        expect(run(web(9), { download: true }).action).toBe("deny")
+    })
+    it("autoDownload counts as agreement", () => {
+        const d = pick(["text", "image"], sig({ platform: "web", nativeAvailable: false, webModelLoaded: false }), { objective: "order", autoDownload: true, constraints: { maxLatencyMs: 15000 } }, {}, {}, web(40))
+        expect(d).toMatchObject({ action: "run", candidate: { id: "gemma-web" } })
+    })
+    it("a native model's load still counts (it is not a download the user agreed to)", () => {
+        const native = { onDevice: { ios: [{ id: "gemma", engine: "litert", modalities: ["text"], ttftMs: 900, tps: 40, loadMs: 20000 }] }, cloud: [] }
+        const d = pick(["text"], sig({ platform: "ios", loadedId: null }), { objective: "order", constraints: { maxLatencyMs: 15000 } }, {}, {}, native)
+        expect(d.skipped.find((s) => s.id === "gemma")?.why).toMatch(/over limit/)
+    })
+})

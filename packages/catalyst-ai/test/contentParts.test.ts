@@ -150,6 +150,16 @@ describe("web engine media (Gemma 4 in Transformers.js)", () => {
         expect(supportsWebMedia(undefined)).toBe(false)
     })
 
+    it("webModelKind tells Gemma 4, speech-to-text and text models apart", async () => {
+        const { webModelKind } = await mod
+        expect(webModelKind("onnx-community/gemma-4-E4B-it-ONNX")).toBe("gemma4")
+        for (const id of ["onnx-community/whisper-base", "onnx-community/whisper-large-v3-turbo", "onnx-community/moonshine-tiny-ONNX"]) {
+            expect(webModelKind(id)).toBe("asr")
+        }
+        expect(webModelKind("onnx-community/Qwen2.5-1.5B-Instruct")).toBe("text")
+        expect(webModelKind(undefined)).toBe("text")
+    })
+
     it("toWebTemplate maps parts to chat-template placeholders and collects the media separately", async () => {
         const { toWebTemplate } = await mod
         const out = toWebTemplate([
