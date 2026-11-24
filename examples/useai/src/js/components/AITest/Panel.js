@@ -84,6 +84,8 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
         : isNative && nativeDownloadProgress && !modelReady
             ? nativeDownloadProgress.phase === "engine_init"
                 ? "Loading engine…"
+                : useAIResult.downloadPaused
+                ? `Download paused (${useAIResult.downloadPauseReason})`
                 : `Fetching model ${nativeDownloadProgress.percent > 0 ? nativeDownloadProgress.percent + "%" : ""}`
             : "Idle";
 
@@ -217,7 +219,7 @@ export default function Panel({ mode, label, icon, provider, accentColor, border
                     {nativeDownloadProgress.percent > 0 && (
                         <div className="w-full h-1.5 bg-[var(--surface-3)] rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-orange-400 rounded-full transition-all duration-200"
+                                className={`h-full rounded-full transition-all duration-200 ${useAIResult.downloadPaused ? "bg-amber-400 animate-pulse" : "bg-orange-400"}`}
                                 style={{ width: `${nativeDownloadProgress.percent}%` }}
                             />
                         </div>

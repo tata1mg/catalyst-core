@@ -80,6 +80,36 @@ export function clearNativeConversation() {
 }
 
 /**
+ * Tell the native model download the connection is gone. The partial file is kept; resumeNativeDownload() lets it go
+ * on from where it stopped. Returns false when this build has no such command (older apps), so callers can ignore it.
+ */
+export function pauseNativeDownload(reason = "offline") {
+    const platform = getNativeAIPlatform()
+    if (platform === "android" && typeof window.NativeBridge.pauseAIDownload === "function") {
+        window.NativeBridge.pauseAIDownload(reason)
+        return true
+    }
+    if (platform === "ios" && window.CatalystPlugins?.[AI_PLUGIN_ID]?.includes("pauseDownload")) {
+        postToIosPlugin("pauseDownload", { reason })
+        return true
+    }
+    return false
+}
+
+export function resumeNativeDownload() {
+    const platform = getNativeAIPlatform()
+    if (platform === "android" && typeof window.NativeBridge.resumeAIDownload === "function") {
+        window.NativeBridge.resumeAIDownload()
+        return true
+    }
+    if (platform === "ios" && window.CatalystPlugins?.[AI_PLUGIN_ID]?.includes("resumeDownload")) {
+        postToIosPlugin("resumeDownload", null)
+        return true
+    }
+    return false
+}
+
+/**
  * Native errors carry a registry code (e.g. AI-003 invalid request, AI-005 stream not ready). Use it when it is a
  * code the registry knows (`isKnownCode`), otherwise fall back, so apps can tell failures apart without trusting
  * arbitrary strings from the native side.
