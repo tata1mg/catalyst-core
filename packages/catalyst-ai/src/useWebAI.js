@@ -427,6 +427,8 @@ export function useWebAI({
         loading,
         error,
         modelReady,
+        // The model that is loaded, so a caller that switches models can tell A being ready from B being ready.
+        loadedModel: modelReady ? workerModelRef.current : null,
         downloadProgress,
         // True while a model file waits for the connection; the reason is "offline", "weak" or "error".
         downloadPaused,

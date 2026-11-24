@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolveRoutingPlatform } from "./aiProviders.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
+import { ERROR_CODES, createError } from "../../../errors/index.js"
 import { chooseCandidate, DEFAULT_TASK, isTask, recordObserved, routingFor } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
@@ -36,19 +37,32 @@ function getPricingConfig() {
     }
 }
 
-function modalitiesOf(messages: any): Modality[] {
-    const set = new Set<Modality>(["text"])
+// What the request really contains: text for string content or a text part, image and audio only for those parts. An audio-only
+// request is NOT also a text request, or a model that listens but does not read would be skipped as lacking text support.
+// A request with nothing recognisable in it is plain text.
+export function modalitiesOf(messages: any): Modality[] {
+    const set = new Set<Modality>()
     for (const m of Array.isArray(messages) ? messages : []) {
+        if (typeof m?.content === "string") { set.add("text"); continue }
         if (!Array.isArray(m?.content)) continue
-        for (const part of m.content) if (part?.type === "image" || part?.type === "audio") set.add(part.type)
+        for (const part of m.content) {
+            if (part?.type === "text") set.add("text")
+            else if (part?.type === "image" || part?.type === "audio") set.add(part.type)
+        }
     }
-    return [...set]
+    return set.size ? [...set] : ["text"]
 }
 
 // What the call asks for: generate({ task }) wins over useAI({ task }); anything unrecognised is plain text generation.
-function taskOf(args: any, options: any) {
-    return isTask(args?.task) ? args.task : isTask(options?.task) ? options.task : DEFAULT_TASK
+export function taskOf(args: any, options: any) {
+    // A task named on the call decides, even when it is not one we know: that is plain text generation, not the hook's own task.
+    if (args && typeof args === "object" && "task" in args) return isTask(args.task) ? args.task : DEFAULT_TASK
+    return isTask(options?.task) ? options.task : DEFAULT_TASK
 }
+
+// generate() takes messages and returns text. These tasks fit that; the rest (embeddings, images, speech out) have their own
+// calls (requestImage, requestSpeech, ...) and cannot be run by a generate() request, whichever model routing picked for them.
+const GENERATE_TASKS = ["text.generate", "vision.read", "speech.transcribe"]
 
 // Live checks, not the user agent: an iPhone Safari tab is a web target (it has no native module), a WebView build is not.
 // A plain browser is further split into desktop and mobile, which is the only place the user agent is consulted.
@@ -169,7 +183,10 @@ export function useAI(options: any = {}) {
     const active: any = webSel ? webResult : nativeSel ? nativeResult : cloudResult
 
     // Run a call that was waiting for its model to be configured/initialised.
-    const ready = nativeSel ? !!nativeResult.modelReady : true
+    // The native model must be the one that was selected, not just any that is ready: after a switch the old one can still be ready for a render.
+    const nativeKey = nativeSel ? `${nativeSel.engine ?? ""}|${nativeSel.model ?? ""}|${nativeSel.modelPath ?? ""}` : null
+    const nativeReadyFor = (key: string | null) => !!nativeResult.modelReady && nativeResult.readyKey === key
+    const ready = nativeSel ? nativeReadyFor(nativeKey) : true
     useEffect(() => {
         const p = pending.current
         if (!p || selected?.id !== p.id || !ready) return
@@ -212,6 +229,8 @@ export function useAI(options: any = {}) {
                 webgpu: typeof navigator !== "undefined" && !!(navigator as any).gpu,
                 online: typeof navigator === "undefined" || navigator.onLine !== false,
                 webModelLoaded: !!webResult.modelReady,
+                // Which model, so that candidate B is not treated as downloaded just because A is loaded.
+                webLoadedModel: webResult.modelReady ? (webResult.loadedModel ?? undefined) : null,
                 promptApi: priced.some((c) => c.engine === "prompt-api") ? await _pkg.getPromptApiAvailability?.() : undefined,
                 loadedId: loadedId.current,
                 ...extra,
@@ -226,6 +245,14 @@ export function useAI(options: any = {}) {
 
         // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
         const generate = async (args: any, consent: Consent = {}) => {
+            const task = taskOf(args, options)
+            if (!GENERATE_TASKS.includes(task)) {
+                // Routing could pick a model for this task, but generate() would still send an ordinary text request to it.
+                const error = createError(ERROR_CODES.AI_INVALID_REQUEST_BODY, {
+                    message: `generate() cannot run the "${task}" task: it takes messages and returns text. Use the call made for it (requestImage, requestSpeech, ...).`,
+                })
+                return { output: "", error, route: null }
+            }
             const decision = await decideFor(args, consent, false)
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
@@ -234,7 +261,8 @@ export function useAI(options: any = {}) {
             if (decision.action !== "run" || !decision.candidate) return withRoute(null)
             const chosen = decision.candidate
             const same = selected?.id === chosen.id
-            if (same && (chosen.mode !== "native" || nativeResult.modelReady)) {
+            const chosenKey = `${chosen.engine ?? ""}|${chosen.model ?? ""}|${chosen.modelPath ?? ""}`
+            if (same && (chosen.mode !== "native" || nativeReadyFor(chosenKey))) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
                 return withRoute(await active.generate(args))
             }

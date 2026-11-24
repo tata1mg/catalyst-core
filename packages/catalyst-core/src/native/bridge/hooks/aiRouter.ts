@@ -101,6 +101,8 @@ export interface Signals {
     online: boolean
     /** Web model already in memory; false means using it starts a download. */
     webModelLoaded: boolean
+    /** Which web model is loaded right now. When given it decides, per candidate; `webModelLoaded` alone says that some model is. */
+    webLoadedModel?: string | null
     /** Candidate currently loaded on device (a different on-device pick pays loadMs). */
     loadedId?: string | null
     /** Chrome Prompt API availability (desktop Chrome). Undefined = not checked, treated as unavailable. */
@@ -129,6 +131,8 @@ export interface Estimate {
     latencyMs: number
     tps: number
     costUsd: number
+    /** False for a cloud model with no price: its cost is unknown, not zero. On-device models are free, so theirs is always known. */
+    costKnown: boolean
     /** "observed" once real samples back the numbers; "config" while it is still the prior. */
     source: "observed" | "config" | "default"
 }
@@ -343,11 +347,14 @@ export function estimate(c: Candidate, policy: Policy, observed: Observed | unde
     // Switching on-device models re-initialises the engine, so a model that is not loaded pays its load time.
     if (c.target === "onDevice" && loadedId !== c.id) ttft += c.priors.loadMs ?? (isLiveEngine(c) ? 0 : DEFAULT_LOAD_MS)
     const latencyMs = ttft + (policy.expectedOutputTokens / tps) * 1000
+    // A cloud model with no configured price is not free, it is unknown: counting it as 0 would let it pass any cost limit and win
+    // a cost objective. On-device models cost nothing to run, so no price there is a known zero.
+    const costKnown = c.price !== undefined || c.target !== "cloud"
     const costUsd = c.price
         ? (policy.expectedInputTokens / 1e6) * c.price.input + (policy.expectedOutputTokens / 1e6) * c.price.output
         : 0
     const source: Estimate["source"] = observed && observed.n > 0 ? "observed" : c.priors.ttftMs !== undefined || c.priors.tps !== undefined ? "config" : "default"
-    return { latencyMs, tps, costUsd, source }
+    return { latencyMs, tps, costUsd, costKnown, source }
 }
 
 /**
@@ -359,8 +366,15 @@ function limitViolation(e: Estimate, k: Policy["constraints"], waivedLoadMs = 0)
     const latencyMs = e.latencyMs - waivedLoadMs
     if (k.maxLatencyMs !== undefined && latencyMs > k.maxLatencyMs) return `latency ~${Math.round(latencyMs)}ms over limit`
     if (k.minTps !== undefined && e.tps < k.minTps) return `${e.tps.toFixed(1)} tps under limit`
+    if (k.maxCostUsd !== undefined && !e.costKnown) return "cost unknown (no price set), so it cannot be checked against maxCostUsd"
     if (k.maxCostUsd !== undefined && e.costUsd > k.maxCostUsd) return "cost over limit"
     return null
+}
+
+/** Cheaper first; a cost that is unknown sorts after every known one. */
+function compareCost(a: Estimate, b: Estimate): number {
+    if (a.costKnown !== b.costKnown) return a.costKnown ? -1 : 1
+    return a.costUsd - b.costUsd
 }
 
 /** Min-max across the survivors so cost ($), latency (ms) and tps are comparable; lower score is better. */
@@ -370,11 +384,18 @@ function scoreAll(rows: { c: Candidate; e: Estimate }[], policy: Policy) {
         const lo = Math.min(...v), hi = Math.max(...v)
         return (x: number) => (hi === lo ? 0 : (x - lo) / (hi - lo))
     }
-    const cost = span((e) => e.costUsd), lat = span((e) => e.latencyMs), speed = span((e) => -e.tps)
+    // Only models whose cost is known set the cost scale; an unknown cost scores as the worst, never as the cheapest.
+    const known = rows.filter((r) => r.e.costKnown)
+    const costSpan = (() => {
+        const v = known.map((r) => r.e.costUsd)
+        const lo = Math.min(...v), hi = Math.max(...v)
+        return (e: Estimate) => (!e.costKnown ? (known.length ? 1 : 0) : hi === lo ? 0 : (e.costUsd - lo) / (hi - lo))
+    })()
+    const lat = span((e) => e.latencyMs), speed = span((e) => -e.tps)
     const { weights: w } = policy
     const total = w.cost + w.latency + w.tps || 1
     return rows
-        .map(({ c, e }) => ({ id: c.id, estimate: e, score: (w.cost * cost(e.costUsd) + w.latency * lat(e.latencyMs) + w.tps * speed(-e.tps)) / total }))
+        .map(({ c, e }) => ({ id: c.id, estimate: e, score: (w.cost * costSpan(e) + w.latency * lat(e.latencyMs) + w.tps * speed(-e.tps)) / total }))
         .sort((a, b) => a.score - b.score)
 }
 
@@ -430,7 +451,9 @@ export function chooseCandidate(
             }
         } else if (c.mode === "local") {
             if (!signals.webgpu) { skipped.push({ id: c.id, why: "WebGPU unavailable" }); continue }
-            if (!signals.webModelLoaded && !policy.autoDownload && !consent.download) {
+            // Loaded means THIS candidate's model: another model being ready does not make this one free of a download.
+            const loaded = signals.webLoadedModel !== undefined ? !!c.model && c.model === signals.webLoadedModel : signals.webModelLoaded
+            if (!loaded && !policy.autoDownload && !consent.download) {
                 // Never ask permission for a download of a model the limits would reject anyway (the user would agree to 3.4 GB and
                 // then be told no). The load is waived here because that is exactly what they would be agreeing to.
                 const why = limitViolation(estimate(c, policy, observed[c.id], signals.loadedId), policy.constraints, loadMsOf(c, signals))
@@ -460,7 +483,7 @@ export function chooseCandidate(
             for (const key of policy.order) {
                 const x = est.get(a)!, y = est.get(b)!
                 const d = ORDER_METRICS.includes(key)
-                    ? key === "cost" ? x.e.costUsd - y.e.costUsd : key === "latency" ? x.e.latencyMs - y.e.latencyMs : y.e.tps - x.e.tps
+                    ? key === "cost" ? compareCost(x.e, y.e) : key === "latency" ? x.e.latencyMs - y.e.latencyMs : y.e.tps - x.e.tps
                     : Number(x.c.id !== key && x.c.target !== key) - Number(y.c.id !== key && y.c.target !== key)
                 if (d !== 0) return d
             }

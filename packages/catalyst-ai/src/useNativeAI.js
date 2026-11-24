@@ -80,6 +80,9 @@ export function useNativeAI({
         setErrorState(value)
     }, [])
     const [modelReady, setModelReady] = useState(false)
+    // Which engine/model the ready signal belongs to. After a switch from A to B, modelReady can still describe A for one render.
+    const [readyKey, setReadyKey] = useState(null)
+    const selectionKey = `${engine ?? ""}|${model ?? ""}|${modelPath ?? ""}`
     const [nativeDownloadProgress, setNativeDownloadProgress] = useState(null)
     const [nativeLogs, setNativeLogs] = useState([])
     const [metrics, setMetrics] = useState(null)
@@ -124,6 +127,7 @@ export function useNativeAI({
                 if (parsed?.url) {
                     nativeStreamUrlRef.current = parsed.url
                     setModelReady(true)
+                    setReadyKey(selectionKey)
                     setNativeDownloadProgress(null)
                 }
             } catch (_) {
@@ -191,6 +195,7 @@ export function useNativeAI({
             // generate() waits for the new session instead of using the previous engine.
             nativeStreamUrlRef.current = null
             setModelReady(false)
+            setReadyKey(null)
         }
         // Re-initialise when the engine/model selection changes (e.g. switching provider "litert" ->
         // "foundation-models"). attachmentComponents / systemPrompt are objects/strings that callers often
@@ -422,6 +427,7 @@ export function useNativeAI({
         loading,
         error,
         modelReady,
+        readyKey,
         downloadProgress: null,
         nativeDownloadProgress,
         // True while the model download waits for the connection; the reason is "offline", "weak" or "error".

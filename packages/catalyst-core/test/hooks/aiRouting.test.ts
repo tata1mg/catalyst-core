@@ -130,7 +130,7 @@ describe("chooseCandidate: metrics", () => {
         expect(after.candidate?.id).not.toBe("apple-fm")
     })
     it("ties go to the device", () => {
-        const c = { cloud: [{ id: "c", provider: "p", ttftMs: 1000, tps: 20 }], onDevice: { web: [{ id: "w", ttftMs: 1000, tps: 20, loadMs: 0 }] } }
+        const c = { cloud: [{ id: "c", provider: "p", ttftMs: 1000, tps: 20, price: { input: 0, output: 0 } }], onDevice: { web: [{ id: "w", ttftMs: 1000, tps: 20, loadMs: 0 }] } }
         const d = pick(["text"], sig({ platform: "web", loadedId: "w" }), { cloud: "allow" }, {}, {}, c)
         expect(d.candidate?.id).toBe("w")
     })
@@ -154,7 +154,7 @@ describe("default order", () => {
     })
     it("default order is on-device before cloud and breaks score ties", () => {
         expect(pick(["text"], sig(), { ...open, objective: "order" }).candidate?.target).toBe("onDevice")
-        const c = { cloud: [{ id: "c", provider: "p", ttftMs: 1000, tps: 20 }], onDevice: { web: [{ id: "w", ttftMs: 1000, tps: 20, loadMs: 0 }] } }
+        const c = { cloud: [{ id: "c", provider: "p", ttftMs: 1000, tps: 20, price: { input: 0, output: 0 } }], onDevice: { web: [{ id: "w", ttftMs: 1000, tps: 20, loadMs: 0 }] } }
         const flipped = pick(["text"], sig({ platform: "web", loadedId: "w" }), { cloud: "allow", order: ["cloud", "onDevice"] }, {}, {}, c)
         expect(flipped.candidate?.id).toBe("c")
     })
@@ -480,5 +480,60 @@ describe("platformSpeech opt-out", () => {
 
     it("a per-call override of true wins over a config that turned it off", () => {
         expect(ids({ ...base, platformSpeech: false }, { platformSpeech: true })).toContain("ios-speech")
+    })
+})
+
+describe("a cloud model with no price has an unknown cost, not a free one", () => {
+    const cloud = { cloud: [{ id: "unpriced", provider: "p", model: "m", ttftMs: 600, tps: 60 }, { id: "priced", provider: "p", model: "m2", ttftMs: 600, tps: 60, price: { input: 1, output: 4 } }] }
+    const cloudOnly = sig({ nativeAvailable: false, webgpu: false })
+    const open = { cloud: "allow", cloudMedia: "allow" }
+
+    it("cannot pass a maxCostUsd limit it cannot be checked against", () => {
+        const d = pick(["text"], cloudOnly, { ...open, constraints: { maxCostUsd: 100 } }, {}, {}, cloud)
+        expect(d.candidate?.id).toBe("priced")
+        expect(d.skipped.find((s: any) => s.id === "unpriced")?.why).toMatch(/cost unknown/)
+    })
+
+    it("does not win a cost objective by being counted as free", () => {
+        expect(pick(["text"], cloudOnly, { ...open, objective: "cost" }, {}, {}, cloud).candidate?.id).toBe("priced")
+        expect(pick(["text"], cloudOnly, { ...open, objective: "order", order: ["cost"] }, {}, {}, cloud).candidate?.id).toBe("priced")
+    })
+
+    it("is still used when nothing else can run", () => {
+        const only = { cloud: [cloud.cloud[0]] }
+        expect(pick(["text"], cloudOnly, open, {}, {}, only).candidate?.id).toBe("unpriced")
+    })
+
+    it("does not affect on-device models, which are free", () => {
+        const mixed = { ...cloud, onDevice: { ios: [{ id: "local", ttftMs: 900, tps: 20, loadMs: 0 }] } }
+        const d = pick(["text"], sig(), { ...open, objective: "order", constraints: { maxCostUsd: 0.01 } }, {}, {}, mixed)
+        expect(d.candidate?.id).toBe("local")
+    })
+})
+
+describe("web models are downloaded one at a time", () => {
+    const web = { onDevice: { web: [{ id: "a", model: "model-a", ttftMs: 800, tps: 20, loadMs: 0 }, { id: "b", model: "model-b", ttftMs: 800, tps: 20, loadMs: 0 }] } }
+    const onWeb = (o: Partial<Signals>) => sig({ platform: "web", nativeAvailable: false, ...o })
+
+    it("model A being loaded does not make model B free of the download consent", () => {
+        const both = pick(["text"], onWeb({ webModelLoaded: true, webLoadedModel: "model-a" }), { objective: "order", order: ["b", "a"] }, {}, {}, web)
+        expect(both.candidate?.id).toBe("a") // B is first in the order, but it would download: A, already loaded, is what can run now
+        expect(both.skipped.find((s: any) => s.id === "b")?.why).toMatch(/not downloaded/)
+
+        const onlyB = { onDevice: { web: [web.onDevice.web[1]] } }
+        const asked = pick(["text"], onWeb({ webModelLoaded: true, webLoadedModel: "model-a" }), { objective: "order" }, {}, {}, onlyB)
+        expect(asked.action).toBe("ask") // B alone: it needs the user's yes first
+        expect(asked.candidate?.id).toBe("b")
+    })
+
+    it("the loaded model itself runs without asking", () => {
+        const d = pick(["text"], onWeb({ webModelLoaded: true, webLoadedModel: "model-a" }), { objective: "order", order: ["a"] }, {}, {}, web)
+        expect(d.action).toBe("run")
+        expect(d.candidate?.id).toBe("a")
+    })
+
+    it("without a model name the old behaviour stands: some model being loaded counts for all", () => {
+        const d = pick(["text"], onWeb({ webModelLoaded: true }), { objective: "order", order: ["b"] }, {}, {}, web)
+        expect(d.action).toBe("run")
     })
 })
