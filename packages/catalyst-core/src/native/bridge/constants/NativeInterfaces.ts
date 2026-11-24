@@ -7,6 +7,9 @@ export const NATIVE_COMMANDS = {
     OPEN_CAMERA: "openCamera",
     REQUEST_CAMERA_PERMISSION: "requestCameraPermission",
 
+    // Microphone commands
+    REQUEST_MICROPHONE_PERMISSION: "requestMicrophonePermission",
+
     // Video stream commands
     START_VIDEO_STREAM: "startVideoStream",
     STOP_VIDEO_STREAM: "stopVideoStream",
@@ -64,6 +67,9 @@ export const NATIVE_COMMANDS = {
 export const NATIVE_CALLBACKS = {
     // Camera callbacks
     CAMERA_PERMISSION_STATUS: "CAMERA_PERMISSION_STATUS",
+
+    // Microphone callbacks
+    MICROPHONE_PERMISSION_STATUS: "MICROPHONE_PERMISSION_STATUS",
     ON_CAMERA_CAPTURE: "ON_CAMERA_CAPTURE",
     ON_CAMERA_ERROR: "ON_CAMERA_ERROR",
 
@@ -147,6 +153,10 @@ export const INTERFACE_CATEGORIES = {
             NATIVE_CALLBACKS.ON_CAMERA_CAPTURE,
             NATIVE_CALLBACKS.ON_CAMERA_ERROR,
         ],
+    },
+    MICROPHONE: {
+        commands: [NATIVE_COMMANDS.REQUEST_MICROPHONE_PERMISSION],
+        callbacks: [NATIVE_CALLBACKS.MICROPHONE_PERMISSION_STATUS],
     },
     FILE: {
         commands: [NATIVE_COMMANDS.PICK_FILE, NATIVE_COMMANDS.OPEN_FILE_WITH_INTENT],

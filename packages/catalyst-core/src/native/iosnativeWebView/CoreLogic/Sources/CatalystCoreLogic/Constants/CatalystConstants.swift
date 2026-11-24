@@ -78,6 +78,7 @@ public enum CatalystConstants {
             var commands: Set<String> = [
                 "openCamera",
                 "requestCameraPermission",
+                "requestMicrophonePermission",
                 "getDeviceInfo",
                 "getNetworkStatus",
                 "logger",

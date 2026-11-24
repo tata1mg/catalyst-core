@@ -146,7 +146,7 @@ final class CatalystConstantsTests: XCTestCase {
         let commands = CatalystConstants.Bridge.validCommands
 
         let expectedBaseCommands = [
-            "openCamera", "requestCameraPermission", "getDeviceInfo", "getNetworkStatus",
+            "openCamera", "requestCameraPermission", "requestMicrophonePermission", "getDeviceInfo", "getNetworkStatus",
             "logger", "pickFile", "openFileWithIntent", "requestHapticFeedback",
             "googleSignIn", "getSafeArea", "setScreenSecure", "getScreenSecure",
             "clearWebData", "startVideoStream", "stopVideoStream", "flipVideoStream",

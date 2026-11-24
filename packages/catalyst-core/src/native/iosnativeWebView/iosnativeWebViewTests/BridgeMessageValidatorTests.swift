@@ -98,6 +98,20 @@ final class BridgeMessageValidatorTests: XCTestCase {
         XCTAssertNil(result.error)
     }
 
+    func testValidateMessage_RequestMicrophonePermission_ValidMessage() {
+        // The page sends no parameters, as for requestCameraPermission; an empty object and a null payload must both pass
+
+        let emptyPayload = createMockMessage(body: ["command": "requestMicrophonePermission", "data": [:] as [String: Any]])
+        let result = BridgeMessageValidator.validate(message: emptyPayload)
+
+        XCTAssertTrue(result.isValid, "Valid requestMicrophonePermission message should pass validation")
+        XCTAssertEqual(result.command, "requestMicrophonePermission")
+        XCTAssertNil(result.error)
+
+        let nullPayload = createMockMessage(body: ["command": "requestMicrophonePermission", "data": NSNull()])
+        XCTAssertTrue(BridgeMessageValidator.validate(message: nullPayload).isValid, "A null payload should pass validation")
+    }
+
     func testValidateMessage_OpenFileWithIntent_ValidMessage() {
         // Valid openFileWithIntent command
 

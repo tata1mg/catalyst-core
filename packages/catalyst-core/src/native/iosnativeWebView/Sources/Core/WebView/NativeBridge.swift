@@ -287,6 +287,9 @@ extension NativeBridge: WKScriptMessageHandler {
             // Pass raw params - command handler will extract config
             let configString = delegateHandler.extractStringParam(from: params)
             commandHandler.requestCameraPermission(config: configString)
+        case "requestMicrophonePermission":
+            let configString = delegateHandler.extractStringParam(from: params)
+            commandHandler.requestMicrophonePermission(config: configString)
         case "getDeviceInfo":
             commandHandler.getDeviceInfo()
         case "getNetworkStatus":

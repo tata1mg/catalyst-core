@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { requestMicrophonePermission } from "./microphonePermission.js"
 
 // Click-to-talk recording for web pages. MediaRecorder gives the clip, an AnalyserNode gives a live level, and the
 // recording stops by itself after `silenceMs` of quiet once speech was heard, or at `maxSeconds`. The clip is handed
 // over as a data URL (what useAI and useTranscribe take) and never leaves the page here.
 //
-// Web only for now: the Android WebView grants camera but not microphone requests, and the iOS shell declares no
-// microphone usage, so inside the app `supported` is false or start() reports a permission error. A native recorder
-// bridge is the follow-up.
+// Inside the Android and iOS apps the shell asks for the microphone first (requestMicrophonePermission), then the web
+// view lets getUserMedia through. In a plain browser the browser's own prompt does the asking.
 
 export interface UseMicrophoneOptions {
     /** Called with the finished clip as a data URL, e.g. "data:audio/webm;codecs=opus;base64,...". */
@@ -110,6 +110,14 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         setSeconds(0)
         if (!canRecord()) {
             setError("This page cannot record audio here (it needs a secure page such as localhost or https, and a browser that supports recording).")
+            return
+        }
+        // In the apps the shell must hold the microphone before the web view lets getUserMedia through. In a plain browser
+        // this resolves at once and the browser's own prompt does the asking.
+        try {
+            await requestMicrophonePermission()
+        } catch {
+            setError("Microphone permission was denied.")
             return
         }
         let stream: MediaStream
