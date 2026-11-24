@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
-import { useAI, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
+import { useAI, useTranscribe, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
 // Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
@@ -74,7 +74,9 @@ export default function PipelineLab() {
     })
     const deviceRef = useRef(device)
     deviceRef.current = device
-    const asr = useAI({ provider: "transformers", model: WHISPER_WEB, sessionMode: "stateless", genConfig: { stream: true } })
+    // Speech to text in the browser. useTranscribe cuts a recording longer than the encoder takes (30 s) into pieces at quiet
+    // moments, transcribes them one after another and frees Whisper once at the end (up to 120 s per recording).
+    const asr = useTranscribe({ provider: "transformers", model: WHISPER_WEB, sessionMode: "stateless", genConfig: { stream: true }, instructions: "Transcribe" })
     const asrRef = useRef(asr)
     asrRef.current = asr
 
@@ -95,10 +97,10 @@ export default function PipelineLab() {
     // Speech to text on the device: Whisper in the browser, the platform model in the native app.
     const hearOnDevice = async (data) => {
         if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }])
-        const result = await asrRef.current.generate({ messages: [{ role: "user", content: [{ type: "audio", data }, { type: "text", text: "Transcribe" }] }] })
-        asrRef.current.unload?.()
-        if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
-        return (result?.output ?? "").trim()
+        const heard = await asrRef.current.transcribe(data)
+        if (!heard) throw asrRef.current.lastError() ?? new Error("The recording could not be transcribed")
+        if (heard.truncated) console.warn(`[pipeline-lab] recording is ${heard.durationSec}s; only the first ${heard.durationSec}s were transcribed`)
+        return heard.text
     }
 
     const stages = useMemo(() => {
@@ -184,7 +186,7 @@ export default function PipelineLab() {
 
     const percentOf = (h) => (h.nativeDownloadProgress?.percent ?? h.downloadProgress?.percent ?? null)
     const gemmaPct = percentOf(device)
-    const whisperPct = percentOf(asr)
+    const whisperPct = asr.model.downloadProgress?.percent ?? null
     const sceneStep = pipe.steps.find((st) => st.type === "end" && st.stage === "json")?.preview
     const imageUrl = pipe.output?.url ?? pipe.output?.[0]?.url ?? (typeof pipe.output === "string" ? pipe.output : null)
     const keptOnDevice = onDevice && skipImage && imageProvider !== "device" && pipe.status === "denied"
@@ -217,6 +219,7 @@ export default function PipelineLab() {
                         <input type="checkbox" data-testid="skip-image" checked={skipImage} onChange={(e) => setSkipImage(e.target.checked)} />
                         Stop at the scene (no picture, nothing leaves the device)
                     </label>}
+                    {asr.loading && asr.progress && asr.progress.of > 1 && <p data-testid="asr-progress" className="mt-1">Transcribing part {asr.progress.chunk} of {asr.progress.of}…</p>}
                     {(gemmaPct != null || whisperPct != null) && (
                         <p data-testid="device-progress" className="mt-1">
                             {gemmaPct != null && gemmaPct < 100 && `Gemma download ${gemmaPct}%. `}

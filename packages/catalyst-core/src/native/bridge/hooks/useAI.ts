@@ -212,7 +212,8 @@ export function useAI(options: any = {}) {
                 loadedId: loadedId.current,
             }
             observed.current = observed.current || loadObserved()
-            const decision = chooseCandidate(modalitiesOf(args?.messages), priced, signals, policy, observed.current, consent, taskOf(args, options))
+            const pool = consent.pin ? priced.filter((c) => c.id === consent.pin) : priced
+            const decision = chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
