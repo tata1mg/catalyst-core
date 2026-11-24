@@ -53,15 +53,19 @@ afterEach(() => {
     vi.restoreAllMocks()
 })
 
-const generateRequests = () => workers.reduce((n, w) => n + w.sent.filter((m: any) => m.type === "generate").length, 0)
+const generateCount = (w: FakeWorker) => w.sent.filter((m: any) => m.type === "generate").length
 
-/** Starts a generation and returns the pending promise plus the worker that received its "generate" request. */
+/** Starts a generation and returns the pending promise plus the worker whose "generate" request count went up. */
 async function start(hook: any, args: any = {}) {
-    const before = generateRequests()
+    const before = new Map(workers.map((w) => [w, generateCount(w)] as const))
     let pending: Promise<any> = Promise.resolve()
     act(() => { pending = hook.result.current.generate({ messages: ask, ...args }) })
-    await vi.waitFor(() => expect(generateRequests()).toBeGreaterThan(before))
-    const worker = [...workers].reverse().find((w) => w.sent.filter((m: any) => m.type === "generate").length > 0 && !w.terminated) ?? workers[workers.length - 1]
+    let worker!: FakeWorker
+    await vi.waitFor(() => {
+        const found = workers.find((w) => generateCount(w) > (before.get(w) ?? 0))
+        expect(found).toBeDefined()
+        worker = found!
+    })
     return { pending, worker }
 }
 const finish = (worker: FakeWorker, text = "ok", extra: any = {}) => {

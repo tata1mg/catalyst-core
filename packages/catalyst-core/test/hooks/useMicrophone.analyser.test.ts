@@ -56,6 +56,7 @@ describe("useMicrophone with an analyser", () => {
         await act(async () => { await vi.advanceTimersByTimeAsync(800) })
         expect(result.current.listening).toBe(false)
         // The data URL is read with a real FileReader, so let real time pass; then it must have been delivered exactly once.
+        await act(async () => { await vi.runOnlyPendingTimersAsync() }) // finish anything scheduled under fake timers first
         vi.useRealTimers()
         await vi.waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(1))
         await new Promise((resolve) => setTimeout(resolve, 50))
