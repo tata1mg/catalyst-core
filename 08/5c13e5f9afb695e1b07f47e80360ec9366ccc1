@@ -1,0 +1,23 @@
+packages/catalyst-core/test/server/otel.errorSampling.test.ts
+  c501d9c84d9af58e 1-177,179-461
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "085c13e5f9afb695e1b07f47e80360ec9366ccc1",
+  "prompts": {
+    "c501d9c84d9af58e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf7ed56b-7ede-42dd-932e-81d9397e453e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 453,
+      "total_deletions": 0,
+      "accepted_lines": 460,
+      "overriden_lines": 1
+    }
+  }
+}

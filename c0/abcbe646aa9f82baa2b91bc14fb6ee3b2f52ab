@@ -1,0 +1,19 @@
+docs/server/server.js
+  s_ca46e09f3bacb9::t_15f9bd3c8e7ce9 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0abcbe646aa9f82baa2b91bc14fb6ee3b2f52ab",
+  "prompts": {},
+  "sessions": {
+    "s_ca46e09f3bacb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a41169c4-ac1e-4342-a8c8-4d212a9e340b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}
