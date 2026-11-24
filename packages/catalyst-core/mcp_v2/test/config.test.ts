@@ -657,3 +657,48 @@ describe("check_config: AI_CONFIG.pricing", () => {
         expect(fieldsOf(r).filter((f) => f.startsWith("AI_CONFIG.pricing"))).toEqual([])
     })
 })
+
+describe("built-in prices are read as text, never by running the project's code", () => {
+    const { priceKeysFromSource, readBuiltInPriceKeys }: any = require("../tools/config.js")
+
+    it("lists the keys of the PRICING table and of every Object.assign(PRICING, ...) block", () => {
+        const source = `// header
+const PRICING = {
+    // a comment: with a colon
+    "gpt-4o-mini": { input: 0.15, output: 0.6 },
+    "gemini-3.5-flash": { input: 1.5, output: 9 },
+}
+Object.assign(PRICING, {
+    "claude-opus-5": { input: 5, output: 25 },
+})
+const OTHER = { "not-a-model": { input: 1 } }`
+        expect(priceKeysFromSource(source)).toEqual(["gpt-4o-mini", "gemini-3.5-flash", "claude-opus-5"])
+    })
+
+    it("returns null for a file that has no price table, or no file at all", () => {
+        expect(priceKeysFromSource("module.exports = {}")).toBeNull()
+        expect(priceKeysFromSource(undefined)).toBeNull()
+    })
+
+    it("finds the installed catalyst-ai, including a hoisted one, without executing it", () => {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prices-"))
+        const marker = path.join(base, "executed.txt")
+        const pkg = path.join(base, "node_modules", "catalyst-ai", "src")
+        fs.mkdirSync(pkg, { recursive: true })
+        fs.writeFileSync(
+            path.join(pkg, "pricing.js"),
+            `require("fs").writeFileSync(${JSON.stringify(marker)}, "ran")\nconst PRICING = { "model-a": { input: 1, output: 2 } }\n`
+        )
+        const app = path.join(base, "packages", "app")
+        fs.mkdirSync(app, { recursive: true })
+        expect(readBuiltInPriceKeys(base)).toEqual(["model-a"])
+        expect(readBuiltInPriceKeys(app)).toEqual(["model-a"]) // hoisted to a parent node_modules
+        expect(fs.existsSync(marker)).toBe(false) // the project's code was only read, never run
+    })
+
+    it("reads the real catalyst-ai table: the same names the package exports", async () => {
+        const real = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "pricing.js"), "utf8")
+        const { PRICING } = await import("../../../catalyst-ai/src/pricing.js")
+        expect([...priceKeysFromSource(real)].sort()).toEqual(Object.keys(PRICING).sort())
+    })
+})

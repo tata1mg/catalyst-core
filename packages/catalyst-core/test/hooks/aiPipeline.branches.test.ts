@@ -12,7 +12,12 @@ describe("preview", () => {
         circular.self = circular
         expect(preview("json", circular)).toBe("(unserialisable)")
         expect(preview("image", "data:image/png;base64,AAAA")).toMatch(/^image \(data URL, \d+ chars\)$/)
-        expect(preview("image", "https://x/y.png")).toBe("image (https://x/y.png)")
+        expect(preview("image", "https://x/y.png")).toBe("image (reference, 15 chars)")
+        // a signed URL, a local path or a token in a query string must never reach an event consumer
+        for (const secret of ["https://cdn.example/a.png?X-Amz-Signature=abc123", "/Users/me/private/photo.png", "file:///tmp/secret.wav"]) {
+            expect(preview("image", secret)).not.toContain("abc123")
+            expect(preview("audio", secret)).not.toMatch(/Users|tmp|secret|cdn/)
+        }
         expect(preview("audio", new ArrayBuffer(8))).toBe("audio (8 bytes)")
         expect(preview("audio", new Uint8Array(3))).toBe("audio (3 bytes)")
         expect(preview("audio", new Blob(["abc"], { type: "audio/wav" }))).toBe("audio (3 bytes, audio/wav)")

@@ -115,7 +115,8 @@ export function preview(type: PipelineType, value: unknown): string {
     }
     const v: any = value
     const kind = type === "image" ? "image" : "audio"
-    if (typeof v === "string") return `${kind} (${v.startsWith("data:") ? `data URL, ${v.length} chars` : clip(v, 80)})`
+    // Metadata only. A non-data string may be a signed URL, a local path or a token in a query string, and previews go to every event consumer.
+    if (typeof v === "string") return `${kind} (${v.startsWith("data:") ? "data URL" : "reference"}, ${v.length} chars)`
     if (v instanceof ArrayBuffer || ArrayBuffer.isView(v)) return `${kind} (${v.byteLength} bytes)`
     if (typeof Blob !== "undefined" && v instanceof Blob) return `${kind} (${v.size} bytes${v.type ? `, ${v.type}` : ""})`
     if (isPlainObject(v)) return `${kind} (${v.mimeType ?? "object"})`

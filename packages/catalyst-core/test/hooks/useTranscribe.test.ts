@@ -193,4 +193,24 @@ describe("useTranscribe", () => {
         expect(result.current.status).toBe("idle")
         expect(ai.cancel).toHaveBeenCalled()
     })
+
+    it("a recording that finishes reading after the request was cancelled never reaches a model", async () => {
+        class SlowReader {
+            result: string | null = null
+            onload: (() => void) | null = null
+            onerror: (() => void) | null = null
+            static last: SlowReader
+            constructor() { SlowReader.last = this }
+            readAsDataURL() {}
+            finish(data: string) { this.result = data; this.onload?.() }
+        }
+        vi.stubGlobal("FileReader", SlowReader)
+        const { result } = renderHook(() => useTranscribe({ chunkSeconds: null }))
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.transcribe(new Blob(["audio"], { type: "audio/webm" })) })
+        act(() => result.current.cancel())
+        await act(async () => { SlowReader.last.finish(CLIP); await pending })
+        expect(ai.generate).not.toHaveBeenCalled()
+        vi.unstubAllGlobals()
+    })
 })

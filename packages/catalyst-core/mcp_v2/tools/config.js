@@ -15,6 +15,70 @@ const {
 // The release that added appId/url, NATIVE-010 and public/icon.png.
 const NATIVE_120 = "1.2.0"
 
+
+/**
+ * The model names catalyst-ai has built-in prices for, read as TEXT from its pricing.js. The file is never required: the
+ * project root is whatever the caller points the tool at, and loading its dependencies would run their code. Looks in the
+ * project's node_modules and then its parents (hoisted and workspace installs). Null when it cannot be found or read, in
+ * which case the missing-price warnings are skipped.
+ */
+function readBuiltInPriceKeys(root) {
+    let dir = root
+    for (let depth = 0; depth < 8; depth++) {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project directory; the rest is a fixed literal
+        const file = path.join(dir, "node_modules", "catalyst-ai", "src", "pricing.js")
+        if (fs.existsSync(file)) return priceKeysFromSource(safeRead(file))
+        const parent = path.dirname(dir)
+        if (parent === dir) break
+        dir = parent
+    }
+    return null
+}
+
+function safeRead(file) {
+    try {
+        return fs.readFileSync(file, "utf8")
+    } catch (_) {
+        return null
+    }
+}
+
+/** The keys of one object literal that starts at source[open] === "{", found by scanning the text (nothing is evaluated). */
+function keysOfObjectLiteral(source, open) {
+    const keys = []
+    let depth = 0
+    let lineStart = open + 1
+    for (let i = open; i < source.length; i++) {
+        const ch = source[i]
+        if (ch === "/" && source[i + 1] === "/") {
+            i = source.indexOf("\n", i)
+            if (i === -1) break
+            lineStart = i + 1
+            continue
+        }
+        if (ch === "{") depth++
+        else if (ch === "}") {
+            depth--
+            if (depth === 0) break
+        } else if (ch === "\n" && depth === 1) lineStart = i + 1
+        if (ch === ":" && depth === 1) {
+            const key = /^\s*["']?([A-Za-z0-9._:/-]+)["']?\s*$/.exec(source.slice(lineStart, i))
+            if (key) keys.push(key[1])
+        }
+    }
+    return keys
+}
+
+/** Every model name priced in pricing.js: `const PRICING = { ... }` (or a `PRICING: { ... }` property) plus each `Object.assign(PRICING, { ... })` block. */
+function priceKeysFromSource(source) {
+    if (typeof source !== "string") return null
+    const starts = [...source.matchAll(/const PRICING = \{|Object\.assign\(\s*PRICING\s*,\s*\{|\bPRICING\s*:\s*\{/g)]
+    if (!starts.length) return null
+    const keys = []
+    for (const m of starts) keys.push(...keysOfObjectLiteral(source, m.index + m[0].length - 1))
+    return keys
+}
+
 let _projectInfo
 
 function init(projectInfo) {
@@ -773,13 +837,7 @@ function _checkPricing(config, root, issues, warnings, passed) {
     }
 
     // Built-in prices come from the installed catalyst-ai; without it there is no way to say which models are covered.
-    let builtIn = null
-    try {
-        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project directory; the rest is a fixed literal.
-        builtIn = Object.keys(require(path.join(root, "node_modules", "catalyst-ai", "src", "pricing.js")).PRICING || {})
-    } catch (_) {
-        builtIn = null
-    }
+    const builtIn = readBuiltInPriceKeys(root)
     if (builtIn) {
         const models = new Set()
         for (const cfg of Object.values(ai.providers || {})) if (cfg && typeof cfg.defaultModel === "string") models.add(cfg.defaultModel)
@@ -976,4 +1034,4 @@ function _buildResult({ root, configPath, platform, issues, warnings, passed }) 
     }
 }
 
-module.exports = { init, handle_check_config, isStaleLanAddress, STALE_LAN_ADDRESS_MESSAGE }
+module.exports = { init, handle_check_config, isStaleLanAddress, STALE_LAN_ADDRESS_MESSAGE, priceKeysFromSource, readBuiltInPriceKeys }

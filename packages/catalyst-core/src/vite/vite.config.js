@@ -5,6 +5,7 @@ import { builtinModules, createRequire } from "node:module"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 import { resolveDevBase, buildDevServer } from "./resolveDevServerConfig.js"
 import { getModuleAliases } from "./moduleAliases.js"
+import { publicRouting } from "./publicRouting.js"
 
 /**
  * Treat all .scss imports as CSS modules (webpack compat).
@@ -234,7 +235,8 @@ export const getClientEnvVariables = () => {
     }
     const aiPublicConfig = {}
     if (aiConfig.browser) aiPublicConfig.browser = aiConfig.browser
-    if (aiConfig.routing && typeof aiConfig.routing === "object") aiPublicConfig.routing = aiConfig.routing
+    // Known routing fields only: the whole object would also ship anything else someone put in it (a header, an endpoint, a token).
+    if (aiConfig.routing && typeof aiConfig.routing === "object") aiPublicConfig.routing = publicRouting(aiConfig.routing)
     // Per-model prices set by the developer (catalyst-ai pricing). Not secret; the browser needs them for cost metrics and routing.
     if (aiConfig.pricing && typeof aiConfig.pricing === "object" && !Array.isArray(aiConfig.pricing)) aiPublicConfig.pricing = aiConfig.pricing
     envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))

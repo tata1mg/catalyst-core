@@ -141,7 +141,7 @@ export function useAI(options: any = {}) {
         ? _pkg.useCloudAI({
               ...options,
               ...(cloudSel && { provider: cloudSel.provider, model: cloudSel.model ?? options.model }),
-              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
+              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode, resolvedProvider !== undefined),
           })
         : emptyHook()
     const webResult = _pkg

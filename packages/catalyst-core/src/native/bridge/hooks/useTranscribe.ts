@@ -261,6 +261,9 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
             } catch (cause) {
                 return fail(new TranscribeError((cause as Error).message, "TRANSCRIBE_SOURCE"))
             }
+            // Reading a Blob takes time. If this request was cancelled, superseded or unmounted meanwhile, its audio must
+            // not reach a model (this also covers the whole-recording branch below, which has no later check before generate).
+            if (id !== requestId.current) return null
 
             // Whole recording in one call (chunkSeconds null), or decoded once and cut into pieces that fit the encoders.
             let pieces: { data: string; silent: boolean }[]

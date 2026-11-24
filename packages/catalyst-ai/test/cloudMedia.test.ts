@@ -173,3 +173,16 @@ describe("recorder formats on the cloud route", () => {
         expect(() => m.validateMessages([user([{ type: "audio", data: "data:audio/webm;codecs=opus;base64,GkXfowEAAAAA" }])])).toThrow()
     })
 })
+
+describe("messages whose content is neither a string nor an array", () => {
+    it("count as using parts, so they are validated instead of skipping validation", () => {
+        expect(m.usesParts([{ role: "user", content: { type: "image", data: "x" } }])).toBe(true)
+        expect(m.usesParts([{ role: "user", content: 5 }])).toBe(true)
+        expect(m.usesParts([{ role: "user", content: "hello" }])).toBe(false)
+        expect(m.usesParts([{ role: "user" }])).toBe(false)
+    })
+
+    it("are refused by validateMessages", () => {
+        expect(() => m.validateMessages([{ role: "user", content: { type: "text", text: "hi" } }])).toThrow(/string or a non-empty array/)
+    })
+})

@@ -46,6 +46,8 @@ export interface AgentConfirmRequest {
     tool: string
     args: unknown
     description: string
+    /** Set by useAgent: pass it to approve(id) / deny(id) so an answer to an older prompt cannot settle a newer one. */
+    id?: number
 }
 
 export interface GenerateResult {

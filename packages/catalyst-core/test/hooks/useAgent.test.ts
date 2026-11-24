@@ -63,6 +63,45 @@ describe("useAgent", () => {
         expect(result.current).toMatchObject({ status: "done", pendingConfirmation: null })
     })
 
+    it("an answer aimed at an older prompt cannot settle the current one (approve(id) / deny(id))", async () => {
+        const send = vi.fn(async () => "sent")
+        ai.generate.mockResolvedValueOnce(ok({ tool: "send", args: {} })).mockResolvedValueOnce(ok({ final: "sent it" }))
+        const { result } = renderHook(() => useAgent({ tools: [{ name: "send", description: "Send the form", sideEffect: true, run: send }] }))
+        let done: Promise<any>
+        act(() => { done = result.current.run("send it") })
+        await waitFor(() => expect(result.current.status).toBe("awaiting-confirmation"))
+        const current = result.current.pendingConfirmation!.id!
+        expect(typeof current).toBe("number")
+        act(() => result.current.approve(current + 100)) // a late click on some earlier prompt
+        act(() => result.current.deny(current - 1))
+        expect(send).not.toHaveBeenCalled()
+        expect(result.current.status).toBe("awaiting-confirmation")
+        act(() => result.current.approve(current))
+        await act(async () => { await done })
+        expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it("each prompt gets its own id", async () => {
+        const send = vi.fn(async () => "sent")
+        ai.generate
+            .mockResolvedValueOnce(ok({ tool: "send", args: { n: 1 } }))
+            .mockResolvedValueOnce(ok({ tool: "send", args: { n: 2 } }))
+            .mockResolvedValueOnce(ok({ final: "done" }))
+        const { result } = renderHook(() => useAgent({ tools: [{ name: "send", description: "Send", sideEffect: true, run: send }] }))
+        let done: Promise<any>
+        act(() => { done = result.current.run("send twice") })
+        await waitFor(() => expect(result.current.status).toBe("awaiting-confirmation"))
+        const first = result.current.pendingConfirmation!.id!
+        act(() => result.current.approve(first))
+        await waitFor(() => expect(result.current.pendingConfirmation?.id).toBeDefined())
+        await waitFor(() => expect(result.current.pendingConfirmation!.id).not.toBe(first))
+        act(() => result.current.approve(first)) // the first prompt's answer, repeated: ignored
+        expect(send).toHaveBeenCalledTimes(1)
+        act(() => result.current.approve())
+        await act(async () => { await done })
+        expect(send).toHaveBeenCalledTimes(2)
+    })
+
     it("deny() keeps the tool from running and the agent carries on", async () => {
         const send = vi.fn()
         ai.generate.mockResolvedValueOnce(ok({ tool: "send" })).mockResolvedValueOnce(ok({ final: "did not send" }))

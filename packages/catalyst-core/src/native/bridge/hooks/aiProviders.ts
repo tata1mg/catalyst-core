@@ -61,7 +61,8 @@ export function resolveNativeEngine(
  * Image/audio may go to a cloud provider only when the caller picked cloud explicitly. When native or web was
  * requested but is unavailable, useAI falls back to the cloud hook; that fallback must refuse media.
  */
-export function allowCloudMedia(mode: "local" | "native" | "cloud"): boolean {
-    return mode === "cloud"
+export function allowCloudMedia(mode: "local" | "native" | "cloud", explicitProvider = true): boolean {
+    // resolveMode() answers "cloud" for no provider at all; that default is not a choice, so it must not enable media.
+    return mode === "cloud" && explicitProvider
 }
 

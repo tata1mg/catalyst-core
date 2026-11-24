@@ -23,6 +23,10 @@ final class SpeechRecognitionManager {
     private var finished = false
     /// Set once the bridge is torn down. A speech-authorization answer can arrive after that; it must not start work.
     private var cleanedUp = false
+    /// Which start() a speech-authorization answer belongs to. stop() and cleanup() move it on, so an answer that arrives
+    /// after the caller stopped (or the bridge went away) is ignored instead of starting recognition.
+    private var generation = 0
+    private var authorizationPending = false
     private struct SavedSession {
         let category: AVAudioSession.Category
         let mode: AVAudioSession.Mode
@@ -90,9 +94,13 @@ final class SpeechRecognitionManager {
         }
         guard let recognizer = recognizer else { return }
 
+        generation += 1
+        let mine = generation
+        authorizationPending = true
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
-                guard let self = self, !self.cleanedUp else { return }
+                guard let self = self, !self.cleanedUp, mine == self.generation else { return }
+                self.authorizationPending = false
                 guard status == .authorized else {
                     self.fail(SpeechRecognitionPolicy.Code.permissionDenied, "Speech recognition was refused")
                     return
@@ -182,6 +190,14 @@ final class SpeechRecognitionManager {
     /// Ends the audio; the recognizer then delivers the final text for what it heard.
     func stop() {
         silenceTimer?.invalidate()
+        generation += 1
+        if authorizationPending && task == nil {
+            // Stopped while the permission prompt was open: nothing is recording yet, and nothing may start when it is answered.
+            authorizationPending = false
+            fail(SpeechRecognitionPolicy.Code.cancelled, "Speech recognition was stopped before it began")
+            send("SPEECH_RECOGNITION_STATE", SpeechRecognitionPolicy.statePayload("idle"))
+            return
+        }
         guard task != nil, !finished else { return }
         if audioEngine.isRunning {
             audioEngine.stop()
@@ -192,6 +208,8 @@ final class SpeechRecognitionManager {
 
     func cleanup() {
         cleanedUp = true
+        generation += 1
+        authorizationPending = false
         finished = true
         task?.cancel()
         teardown()

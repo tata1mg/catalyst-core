@@ -45,8 +45,12 @@ function parseDataUrl(value) {
 }
 
 /** true when any message carries array content, i.e. the request uses content parts at all. */
+/**
+ * true when any message has content other than a plain string. An array is the normal case; an object or any other value
+ * counts too, so it goes through validateMessages (which refuses it) instead of skipping validation and reaching a provider.
+ */
 function usesParts(messages) {
-    return Array.isArray(messages) && messages.some((m) => Array.isArray(m?.content))
+    return Array.isArray(messages) && messages.some((m) => m?.content != null && typeof m.content !== "string")
 }
 
 /** true when any message carries an image or audio part. */
