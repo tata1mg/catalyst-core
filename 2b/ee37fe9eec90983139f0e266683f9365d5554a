@@ -1,0 +1,75 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SpeechRecognitionManager.kt
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 1-136
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView.xcodeproj/project.pbxproj
+  s_b51c9b0dcf5264::t_25386e9395d363 469,490
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_b51c9b0dcf5264::t_25386e9395d363 223-240
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebView/Info-Release.plist
+  s_b51c9b0dcf5264::t_25386e9395d363 20-21
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_b51c9b0dcf5264::t_25386e9395d363 78-92,393-395
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_b51c9b0dcf5264::t_a3b350c1892d7b 287
+  s_b51c9b0dcf5264::t_3e14189389d1c7 4,158-167,215,243-245,281-283,285,292,295,297,299-302
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CatalystConstants.kt
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 70-72
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/BridgeUtils.kt
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 39-45
+packages/catalyst-core/src/native/androidProject/app/src/main/AndroidManifest.xml
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 19-21
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_b51c9b0dcf5264::t_80a366bab5d439 1-180
+packages/catalyst-core/src/native/bridge/utils/NativeBridge.ts
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 241-250
+  s_b51c9b0dcf5264::t_b01baf7ec0d672 240
+packages/catalyst-core/src/native/iosnativeWebView/Configurations/Shared.xcconfig
+  s_b51c9b0dcf5264::t_25386e9395d363 49
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 148,436-461,1461-1463
+  s_b51c9b0dcf5264::t_1e628c0c1b018e 1464
+packages/catalyst-core/src/native/bridge/constants/NativeInterfaces.ts
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 13-17,77-83,172-184
+  s_b51c9b0dcf5264::t_208b311250ea17 185
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/SpeechRecognitionUtils.kt
+  s_b51c9b0dcf5264::t_aa484e515bbc1e 1-67
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/SpeechRecognitionUtilsTest.kt
+  s_b51c9b0dcf5264::t_63d69e9d876e58 1-104
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_b51c9b0dcf5264::t_80a366bab5d439 8-9
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_b51c9b0dcf5264::t_a069ee84cf2c53 1-214
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/CatalystConstants.swift
+  s_b51c9b0dcf5264::t_c9fbe57deb32fc 82-84
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/CatalystConstantsTests.swift
+  s_b51c9b0dcf5264::t_c9fbe57deb32fc 149-150
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BridgeMessageValidatorTests.swift
+  s_b51c9b0dcf5264::t_8b0bac615f33a7 115-133
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/SpeechRecognitionPolicy.swift
+  s_b51c9b0dcf5264::t_bbf3a8ed33cd96 40-41,55-56,78-79
+  s_b51c9b0dcf5264::t_c9fbe57deb32fc 1-39,42-54,57-77,80-91
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_b51c9b0dcf5264::t_25386e9395d363 1-6,10-23,30-92,94-204,206-217
+  s_b51c9b0dcf5264::t_041d2f255f7ab8 7-9,24-29,93,205
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_b51c9b0dcf5264::t_25386e9395d363 290-295
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/SpeechRecognitionPolicyTests.swift
+  s_b51c9b0dcf5264::t_041d2f255f7ab8 15-20
+  s_b51c9b0dcf5264::t_c9fbe57deb32fc 1-8,23-33,36-38,41-43,46-70,82-83
+  s_b51c9b0dcf5264::t_bbf3a8ed33cd96 9-14,21-22,34-35,39-40,44-45,71-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2bee37fe9eec90983139f0e266683f9365d5554a",
+  "prompts": {},
+  "sessions": {
+    "s_b51c9b0dcf5264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14779470-e579-476b-994f-ca5f906d20c2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

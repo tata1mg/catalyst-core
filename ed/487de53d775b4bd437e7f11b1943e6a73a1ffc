@@ -1,0 +1,29 @@
+packages/catalyst-ai/src/useCloudAI.js
+  s_f9b68111c2008f::t_48106d8d35ea66 43
+packages/catalyst-core/test/native/nativeBridgeUtil.test.ts
+  s_f9b68111c2008f::t_97ebc183457649 1-161
+packages/catalyst-ai/test/useNativeAI.hook.test.ts
+  s_f9b68111c2008f::t_9e8a8a48036e91 156,212
+packages/catalyst-ai/test/useCloudAI.hook.test.ts
+  s_f9b68111c2008f::t_28a07094dd0d14 1-143
+packages/catalyst-ai/test/useWebAI.messages.test.ts
+  s_f9b68111c2008f::t_b9200aa82f8ff5 62,132
+  s_f9b68111c2008f::t_dbace8ce352768 1-61,63-72,74-125,127-131,133-177
+  s_f9b68111c2008f::t_727cb3a45a4b2a 73,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed487de53d775b4bd437e7f11b1943e6a73a1ffc",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

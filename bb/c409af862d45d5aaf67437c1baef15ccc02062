@@ -1,0 +1,26 @@
+packages/catalyst-ai/test/opfsStorage.test.ts
+  s_f9b68111c2008f::t_981b9705df269c 1-143
+packages/catalyst-ai/test/useNativeAI.hook.test.ts
+  s_f9b68111c2008f::t_07458aa29cb0ac 25-27,38,72,95,104,116,128,130-131,133,141,164,181,190,201,228,240,255,279
+  s_f9b68111c2008f::t_7af29cd3831a9a 1-24,28-37,39-69,71,74-94,96-103,105-115,117-121,123,125-127,129,132,134-140,142-163,165-167,169-180,182-189,191-200,202-227,229-239,241-254,256-278,280-286
+  s_f9b68111c2008f::t_e94fdc03770389 122,124,168
+  s_f9b68111c2008f::t_b5e58ebba66f94 70,73
+packages/catalyst-ai/src/useNativeAI.js
+  s_f9b68111c2008f::t_07458aa29cb0ac 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbc409af862d45d5aaf67437c1baef15ccc02062",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

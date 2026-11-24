@@ -1,0 +1,31 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/SpeechRecognitionPolicyTests.swift
+  s_b51c9b0dcf5264::t_7a84a1b9eec7ae 59-60
+  s_b51c9b0dcf5264::t_d4993af68e901b 56-58,61-63,65-66
+  s_b51c9b0dcf5264::t_9ac862d3cdb8be 55,64,67-75
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_b51c9b0dcf5264::t_9443adab21077c 134-139
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/SpeechRecognitionPolicy.swift
+  s_b51c9b0dcf5264::t_9ac862d3cdb8be 57-62,69-73,78-81
+  s_b51c9b0dcf5264::t_ad13e550798e37 82-83
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_b51c9b0dcf5264::t_7a84a1b9eec7ae 156-161
+  s_b51c9b0dcf5264::t_9ac862d3cdb8be 58-60,152-153
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_b51c9b0dcf5264::t_9443adab21077c 154-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f15cddc3fd3ac4a32c25e772ce187d6381861f7",
+  "prompts": {},
+  "sessions": {
+    "s_b51c9b0dcf5264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14779470-e579-476b-994f-ca5f906d20c2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

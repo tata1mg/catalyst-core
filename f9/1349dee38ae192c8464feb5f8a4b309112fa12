@@ -1,0 +1,38 @@
+packages/catalyst-ai/src/liveTranscribe.js
+  s_f9b68111c2008f::t_6feaed38e84a32 121
+  s_f9b68111c2008f::t_3bc78ac1cb57ed 63-66
+packages/catalyst-ai/src/useSpeech.js
+  s_f9b68111c2008f::t_6feaed38e84a32 9
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_6feaed38e84a32 30
+packages/catalyst-ai/src/deviceImage.js
+  s_f9b68111c2008f::t_6feaed38e84a32 70
+packages/catalyst-ai/test/promptApiEngine.test.ts
+  s_f9b68111c2008f::t_6feaed38e84a32 30,160,172,201,281,293
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_f9b68111c2008f::t_3bc78ac1cb57ed 214,217
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_221003310fdc9e 490
+packages/catalyst-core/test/hooks/aiPipeline.test.ts
+  s_f9b68111c2008f::t_221003310fdc9e 150
+packages/catalyst-ai/src/useImageGen.js
+  s_f9b68111c2008f::t_6feaed38e84a32 28
+packages/catalyst-core/test/hooks/useVision.test.ts
+  s_f9b68111c2008f::t_221003310fdc9e 10,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f91349dee38ae192c8464feb5f8a4b309112fa12",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
