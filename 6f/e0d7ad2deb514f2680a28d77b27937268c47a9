@@ -1,0 +1,69 @@
+packages/catalyst-ai/src/pricing.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 3-8
+packages/catalyst-ai/src/contentParts.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 102-105,146-163
+  s_f9b68111c2008f::t_2fd25a3e7a8ae0 164
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 3,60-62
+packages/catalyst-ai/test/contentParts.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 182-212
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 29-36
+packages/catalyst-ai/README.md
+  s_f9b68111c2008f::t_74f8a185b0c28e 22-44
+packages/catalyst-ai/src/cloudMedia.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-196
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 6,114,171-175
+packages/catalyst-ai/test/route.media.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-118
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 7-15,60-63,75-80,85,89-90,107-108,135,186-199,237,240-241
+packages/catalyst-core/test/hooks/aiProviders.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 2,34-40
+  s_f9b68111c2008f::t_2c5ab7199c1eeb 41-42
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 2,47,53-64,94-99,109,122,135-137,161,215,268,288,308,313,321,329,440,532,601,643
+packages/catalyst-ai/src/metrics.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 4-10,13,26-30,37,56-57,68-76
+  s_f9b68111c2008f::t_1752503d539dc4 77-78
+packages/catalyst-ai/src/useCloudAI.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 2-4,52-54,75-79,100-103,105-115
+packages/catalyst-ai/src/webWorkerScript.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 156
+packages/catalyst-core/src/server/expressServer.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 15,244-246
+  s_f9b68111c2008f::t_7622637d8fbe70 247
+packages/catalyst-ai/test/useCloudAI.media.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-53
+packages/catalyst-ai/test/cloudMedia.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-156
+packages/catalyst-core/src/server/utils/aiBodyParser.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-35
+packages/catalyst-core/test/server/aiBodyParser.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-72
+packages/catalyst-ai/src/audioPrep.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 1,80-84
+packages/catalyst-ai/src/route.d.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 35-36,60
+packages/catalyst-ai/src/imagePrep.js
+  s_f9b68111c2008f::t_74f8a185b0c28e 50-54
+packages/catalyst-ai/test/metrics.test.ts
+  s_f9b68111c2008f::t_74f8a185b0c28e 1-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6fe0d7ad2deb514f2680a28d77b27937268c47a9",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
