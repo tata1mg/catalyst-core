@@ -220,7 +220,7 @@ export const getClientEnvVariables = () => {
         process.env["PUBLIC_STATIC_ASSET_URL"]
     )
 
-    // Derive AI_PUBLIC_CONFIG: only the browser block from AI_CONFIG, no API keys
+    // Derive AI_PUBLIC_CONFIG: only the browser and routing blocks from AI_CONFIG, no API keys
     let aiConfig = {}
     try {
         const parsedConfig = JSON.parse(process.env.AI_CONFIG || "{}")
@@ -232,7 +232,9 @@ export const getClientEnvVariables = () => {
     } catch (e) {
         console.warn(`[catalyst-core] Invalid AI_CONFIG JSON, ignoring: ${e.message}`)
     }
-    const aiPublicConfig = aiConfig.browser ? { browser: aiConfig.browser } : {}
+    const aiPublicConfig = {}
+    if (aiConfig.browser) aiPublicConfig.browser = aiConfig.browser
+    if (aiConfig.routing && typeof aiConfig.routing === "object") aiPublicConfig.routing = aiConfig.routing
     envVarDefinitions[`process.env.AI_PUBLIC_CONFIG`] = JSON.stringify(JSON.stringify(aiPublicConfig))
 
     // Detect which catalyst-* AI packages are installed for the app, including
