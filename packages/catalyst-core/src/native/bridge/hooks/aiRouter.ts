@@ -201,9 +201,9 @@ export function normalizeRouting(
     }
     const list = (v: any) => (Array.isArray(v) ? v : [])
     const candidates: Candidate[] = [
-        // A native app can use its platform's models and the in-WebView engine; a plain browser only the web list.
-        ...(platform === "web" ? [] : list(raw?.onDevice?.[platform])).map((x: any) => normalizeCandidate(x, "onDevice", platform, warn)),
-        ...list(raw?.onDevice?.web).map((x: any) => normalizeCandidate(x, "onDevice", "web", warn)),
+        // One list per target. Inside a native app (a WebView build) the on-device model is the native one, loaded by the
+        // native module; the in-browser list is for plain browsers only and is never consulted there.
+        ...list(raw?.onDevice?.[platform]).map((x: any) => normalizeCandidate(x, "onDevice", platform, warn)),
         ...list(raw?.cloud).map((x: any) => normalizeCandidate(x, "cloud", "cloud", warn)),
     ].filter(Boolean) as Candidate[]
     const seen = new Set<string>()

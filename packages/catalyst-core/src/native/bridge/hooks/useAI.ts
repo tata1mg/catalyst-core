@@ -1,7 +1,8 @@
 /* global __CATALYST_PACKAGES__ */
 
 import { useEffect, useRef, useState } from "react"
-import { allowCloudMedia, resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { allowCloudMedia, resolveMode, resolveNativeEngine, resolvePlatform } from "./aiProviders.js"
+import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
 import { chooseCandidate, normalizeRouting, recordObserved } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
@@ -35,11 +36,10 @@ function modalitiesOf(messages: any): Modality[] {
     return [...set]
 }
 
+// Live checks, not the user agent: an iPhone Safari tab is "web" (it has no native module), a WebView build is not.
 function detectPlatform(): Platform {
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : ""
-    if (/iPhone|iPad|iPod/.test(ua)) return "ios"
-    if (/Android/.test(ua)) return "android"
-    return "web"
+    if (typeof window === "undefined") return "web"
+    return resolvePlatform({ android: nativeBridge._detectAndroid(), ios: nativeBridge._detectIOS() })
 }
 
 // Observed ttft/tps per candidate, kept per device so routing improves with use. Best-effort: no storage, no memory.

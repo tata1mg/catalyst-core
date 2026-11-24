@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { allowCloudMedia, resolveMode, resolveNativeEngine } from "../../src/native/bridge/hooks/aiProviders"
+import { allowCloudMedia, resolveMode, resolveNativeEngine, resolvePlatform } from "../../src/native/bridge/hooks/aiProviders"
 
 describe("useAI provider resolution", () => {
     it("maps on-device provider names to native mode", () => {
@@ -38,5 +38,15 @@ describe("allowCloudMedia", () => {
         expect(allowCloudMedia("cloud")).toBe(true)
         expect(allowCloudMedia("native")).toBe(false)
         expect(allowCloudMedia("local")).toBe(false)
+    })
+})
+
+describe("resolvePlatform", () => {
+    it("is the native app's platform inside a WebView build", () => {
+        expect(resolvePlatform({ android: true, ios: false })).toBe("android")
+        expect(resolvePlatform({ android: false, ios: true })).toBe("ios")
+    })
+    it("is web in any browser, including a phone's: there is no native module there", () => {
+        expect(resolvePlatform({ android: false, ios: false })).toBe("web")
     })
 })
