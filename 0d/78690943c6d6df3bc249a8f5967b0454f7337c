@@ -1,0 +1,25 @@
+packages/catalyst-ai/src/audioPrep.js
+  s_f9b68111c2008f::t_0f4dfa09d44720 149-152
+packages/catalyst-ai/test/audioPrep.test.ts
+  s_f9b68111c2008f::t_e9269068511f29 177-192
+packages/catalyst-ai/src/liveTranscribe.js
+  s_f9b68111c2008f::t_0f4dfa09d44720 141-146,245-248,266,277-286,289-293,298,316,321-328
+packages/catalyst-ai/test/liveTranscribe.session.test.ts
+  s_f9b68111c2008f::t_e9269068511f29 312-352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d78690943c6d6df3bc249a8f5967b0454f7337c",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
