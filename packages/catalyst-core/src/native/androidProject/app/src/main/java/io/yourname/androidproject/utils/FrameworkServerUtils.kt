@@ -341,7 +341,9 @@ object FrameworkServerUtils {
     }
     
     private fun startKtorServer() {
-        server = embeddedServer(Netty, port = serverPort) {
+        // Loopback only. embeddedServer defaults to host "0.0.0.0", which makes the server (file downloads and the
+        // on-device AI routes) reachable by every device on the same network.
+        server = embeddedServer(Netty, port = serverPort, host = "127.0.0.1") {
             install(SSE)
             routing {
                 // Native AI streaming endpoint — POST body: { "prompt": "...", "genConfig": {...} }
