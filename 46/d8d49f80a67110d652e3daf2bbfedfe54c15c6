@@ -1,0 +1,31 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/MediaPermissionPolicyTests.swift
+  s_f9b68111c2008f::t_c989eeb7ab0460 59-60,64-65,69-72,75-77,80-81
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/MediaPermissionPolicy.swift
+  s_f9b68111c2008f::t_c989eeb7ab0460 54-61
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/WebPermissionPolicyTest.kt
+  s_f9b68111c2008f::t_c989eeb7ab0460 61,74-77,79-80,92-93
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/WebPermissionPolicy.kt
+  s_f9b68111c2008f::t_c989eeb7ab0460 12-13,29-31,33,35-36
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_f9b68111c2008f::t_c989eeb7ab0460 572-575
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_e3fddd79210618 1126
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_f9b68111c2008f::t_c989eeb7ab0460 69,1305
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46d8d49f80a67110d652e3daf2bbfedfe54c15c6",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
