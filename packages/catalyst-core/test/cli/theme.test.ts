@@ -4,13 +4,14 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createRequire } from "module"
 import pkg from "../../package.json"
-import type themeModule from "../../src/cli/theme.js"
+import themeImported from "../../src/cli/theme.js"
 
-// Loaded with require, the way diagnostic.js and the native commands load it:
-// v8 coverage then sees one copy of the file rather than two that it merges
-// badly across test files.
-const theme: typeof themeModule = createRequire(import.meta.url)("../../src/cli/theme.js")
+// The CLI modules are CommonJS. The build commands load them with require; src/native/utils.js imports them. That makes two copies in one
+// test run, and v8 coverage merges two copies of a file badly: the coverage of these files swung between 57% and 100% with how the test
+// files happened to be spread over workers. So every suite here runs against BOTH copies, and whichever copy the merge keeps is fully covered.
+const themeRequired: typeof themeImported = createRequire(import.meta.url)("../../src/cli/theme.js")
 
+for (const [copyName, theme] of [["required", themeRequired], ["imported", themeImported]] as const) describe(`${copyName} copy`, () => {
 // theme.js is the shared visual language for every CLI command. Colour is
 // decided by ansis from the environment (it turns on under CI), so every
 // assertion here strips ANSI codes and checks what a reader would see.
@@ -160,4 +161,5 @@ describe("step", () => {
         expect(plain(theme.step("Copied assets"))).toBe("  ✓ Copied assets")
         expect(plain(theme.step("Copied assets", null))).toBe("  ✓ Copied assets")
     })
+})
 })

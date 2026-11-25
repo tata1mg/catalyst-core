@@ -3,12 +3,21 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type spinnerModule from "../../src/cli/spinner.js"
-import type themeModule from "../../src/cli/theme.js"
+import spinnerImported from "../../src/cli/spinner.js"
+import themeImported from "../../src/cli/theme.js"
 
+// The CLI modules are CommonJS. The build commands load them with require; src/native/utils.js imports them. That makes two copies in one
+// test run, and v8 coverage merges two copies of a file badly: the coverage of these files swung between 57% and 100% with how the test
+// files happened to be spread over workers. So every suite here runs against BOTH copies, and whichever copy the merge keeps is fully covered.
 const load = createRequire(import.meta.url)
-const theme: typeof themeModule = load("../../src/cli/theme.js")
-const { Spinner }: typeof spinnerModule = load("../../src/cli/spinner.js")
+const copies: Array<[string, { spinner: typeof spinnerImported; theme: typeof themeImported }]> = [
+    ["required", { spinner: load("../../src/cli/spinner.js"), theme: load("../../src/cli/theme.js") }],
+    ["imported", { spinner: spinnerImported, theme: themeImported }],
+]
+
+for (const [copyName, copy] of copies) describe(`${copyName} copy`, () => {
+const theme = copy.theme
+const { Spinner } = copy.spinner
 const plain = (text: string) => text.replace(theme.ANSI, "")
 
 describe("theme helpers", () => {
@@ -133,4 +142,5 @@ describe("Spinner edge cases", () => {
         new Spinner(stream).stop()
         expect(writes).toHaveLength(0)
     })
+})
 })
