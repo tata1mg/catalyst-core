@@ -21,7 +21,14 @@ class FakeRecorder {
     onstop: (() => void) | null = null
     constructor(public stream: any) {}
     start() { this.state = "recording"; this.ondataavailable?.({ data: new Blob(["audio"]) }) }
-    stop() { this.state = "inactive"; void this.onstop?.() }
+    // A recorder whose `onstop` arrives later than stop() (as it does in a browser) is what lets a new recording start in between.
+    static deferStop = false
+    static pendingStops: Array<() => void> = []
+    stop() {
+        this.state = "inactive"
+        if (FakeRecorder.deferStop) FakeRecorder.pendingStops.push(() => void this.onstop?.())
+        else void this.onstop?.()
+    }
 }
 const track = { stop: vi.fn() }
 const stream = { getTracks: () => [track] }
@@ -215,5 +222,24 @@ describe("useMicrophone", () => {
         act(() => { result.current.cancel() }) // too late for the session, but the clip must still be dropped
         await act(async () => { SlowReader.last.finish("data:audio/webm;base64,AAAA"); await Promise.resolve() })
         expect(onRecorded).not.toHaveBeenCalled()
+    })
+
+    it("a recording that ends late does not release the recording that started after it", async () => {
+        FakeRecorder.deferStop = true
+        FakeRecorder.pendingStops = []
+        const secondStream = { getTracks: () => [{ stop: vi.fn() }] }
+        ;(navigator.mediaDevices.getUserMedia as any).mockResolvedValueOnce(stream).mockResolvedValueOnce(secondStream)
+        try {
+            const { result } = renderHook(() => useMicrophone())
+            await act(async () => { await result.current.start() })
+            await act(async () => { result.current.cancel() }) // A: cancelled, its onstop is still to come
+            await act(async () => { await result.current.start() }) // B starts
+            expect(result.current.listening).toBe(true)
+            await act(async () => { FakeRecorder.pendingStops[0]() }) // A's onstop arrives now
+            expect(secondStream.getTracks()[0].stop).not.toHaveBeenCalled() // B's microphone is still open
+            expect(result.current.listening).toBe(true)
+        } finally {
+            FakeRecorder.deferStop = false
+        }
     })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { createPendingSlot } from "../../src/native/bridge/hooks/aiPending"
+import { createGenerationGuard, createPendingSlot } from "../../src/native/bridge/hooks/aiPending"
 
 const call = (id: string) => ({ args: { messages: [] }, id, settle: vi.fn() })
 
@@ -47,5 +47,24 @@ describe("the call parked while a model switches", () => {
         slot.fail("a", error)
         expect(c.settle).toHaveBeenCalledWith({ output: "", error })
         expect(slot.waiting).toBe(false)
+    })
+})
+
+describe("createGenerationGuard", () => {
+    it("ends a call that was routing when cancel() ran, and leaves a later call alone", () => {
+        const guard = createGenerationGuard()
+        const routing = guard.begin()
+        guard.cancel() // cancel() while the first call is still being routed
+        expect(guard.cancelledSince(routing)).toBe(true)
+        const next = guard.begin()
+        expect(guard.cancelledSince(next)).toBe(false)
+    })
+
+    it("one cancel ends every call that started before it", () => {
+        const guard = createGenerationGuard()
+        const a = guard.begin()
+        const b = guard.begin()
+        guard.cancel()
+        expect([a, b].map(guard.cancelledSince)).toEqual([true, true])
     })
 })

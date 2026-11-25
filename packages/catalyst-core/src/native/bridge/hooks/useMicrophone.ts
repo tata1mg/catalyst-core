@@ -121,6 +121,21 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         }
     }, [])
 
+    // `onstop` can run after this recording was cancelled and a new one started: release() would then end the NEW recording (it works on
+    // `live.current`). Release `session` itself; only touch the shared state when it is still the live one.
+    const releaseSession = useCallback(
+        (session: Session) => {
+            if (live.current === session) {
+                release()
+                return
+            }
+            if (session.timer) clearInterval(session.timer)
+            session.stream.getTracks().forEach((t) => t.stop())
+            session.context?.close?.().catch(() => {})
+        },
+        [release]
+    )
+
     const stop = useCallback(() => {
         const r = live.current?.recorder
         if (r && r.state !== "inactive") r.stop()
@@ -204,7 +219,7 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         recorder.onstop = async () => {
             const { discard, heardSpeech } = session
             const secs = Math.round((Date.now() - startedAt) / 100) / 10
-            release()
+            releaseSession(session)
             if (discard || !mounted.current) return
             if (!heardSpeech && analyser) {
                 fail("No speech was heard. Check the microphone and try again.")

@@ -276,9 +276,14 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         }
     }, [listener])
 
+    // A start() still waiting for the permission or the support answer owns no native session, so stopSession() says nothing and no event
+    // would end "starting". Whoever stops it also resets it.
+    const endStarting = () => setState((current) => (current === "starting" ? "idle" : current))
+
     const stop = useCallback(() => {
         startToken.current++
         if (inApp()) stopSession(listener)
+        endStarting()
     }, [listener])
 
     const cancel = useCallback(() => {
@@ -286,6 +291,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         discard.current = true
         setPartial("")
         if (inApp()) stopSession(listener)
+        endStarting()
     }, [listener])
 
     return {

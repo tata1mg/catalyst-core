@@ -44,3 +44,21 @@ export function createPendingSlot() {
         },
     }
 }
+
+/**
+ * Tells a call that is still being routed that it was cancelled. Routing is asynchronous and cancel() has nothing to cancel yet (no call is
+ * parked), so without this the call would park and run after the person pressed cancel. Each cancel (and unmount) ends every call that
+ * started before it; a call started after it is unaffected.
+ */
+export function createGenerationGuard() {
+    let epoch = 0
+    return {
+        /** Take at the start of a call. */
+        begin: () => epoch,
+        /** True when a cancel happened since `begin()` returned `started`. */
+        cancelledSince: (started: number) => started !== epoch,
+        cancel: () => {
+            epoch++
+        },
+    }
+}

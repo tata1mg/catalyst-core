@@ -5,7 +5,7 @@ import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolve
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
 import { ERROR_CODES, createError } from "../../../errors/index.js"
-import { createPendingSlot } from "./aiPending.js"
+import { createGenerationGuard, createPendingSlot } from "./aiPending.js"
 import { chooseCandidate, GENERATE_TASKS, modalitiesOf, recordObserved, routingFor, taskOf } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
@@ -127,6 +127,7 @@ export function useAI(options: any = {}) {
     const [selected, setSelected] = useState<Candidate | null>(null)
     const [route, setRoute] = useState<RouteDecision | null>(null)
     const pending = useRef(createPendingSlot())
+    const guard = useRef(createGenerationGuard())
     // The error the hooks already carried when a call was parked: only a NEW error means the model it waits for failed to start.
     const errorWhenParked = useRef<unknown>(null)
     const loadedId = useRef<string | null>(null)
@@ -188,7 +189,13 @@ export function useAI(options: any = {}) {
         if (!ready && active?.error && active.error !== errorWhenParked.current) pending.current.fail(selected?.id, active.error)
     })
     // Unmounting must not leave a parked call (and the images it holds) waiting for a model that will never be asked for it.
-    useEffect(() => () => pending.current.cancel(), [])
+    useEffect(
+        () => () => {
+            guard.current.cancel()
+            pending.current.cancel()
+        },
+        []
+    )
 
     // Feed each finished call's metrics (the same ones useAI reports) back into the router.
     const metrics = active?.metrics
@@ -245,7 +252,10 @@ export function useAI(options: any = {}) {
                 })
                 return { output: "", error, route: null }
             }
+            const started = guard.current.begin()
             const decision = await decideFor(args, consent, false)
+            // cancel() (or unmount) while routing was still deciding: nothing is parked yet for it to end, so the call ends here.
+            if (guard.current.cancelledSince(started)) return { output: "", error: null, route: decision }
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
@@ -258,6 +268,9 @@ export function useAI(options: any = {}) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
                 return withRoute(await active.generate(args))
             }
+            // The same on-device model failed to start and nothing changed: parking would wait for a new error that cannot come, because
+            // the hook does not restart its initialisation for an unchanged configuration. Report the failure that is already known.
+            if (same && chosen.mode === "native" && nativeResult.error) return withRoute({ output: "", error: nativeResult.error })
             // The hooks are configured from `selected`; switch it and run once the new model is ready.
             // A call still waiting for an earlier switch is superseded, not left hanging.
             return new Promise((resolve) => {
@@ -268,6 +281,7 @@ export function useAI(options: any = {}) {
         }
         // cancel() also ends a call parked for a model switch: otherwise it would still run, with its media, once the model arrived.
         const cancel = () => {
+            guard.current.cancel()
             pending.current.cancel()
             active.cancel?.()
         }

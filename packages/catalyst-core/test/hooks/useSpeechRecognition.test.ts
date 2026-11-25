@@ -431,4 +431,21 @@ describe("two components using speech recognition at once", () => {
         expect(second.result.current.errorCode).toBeNull()
         expect(bridge.speech.start).toHaveBeenCalledTimes(2)
     })
+
+    it("stop() while the microphone permission is pending ends the starting state", async () => {
+        let grant!: (value: string) => void
+        permission.mockReset().mockReturnValue(new Promise<string>((resolve) => { grant = resolve }))
+        const { result } = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US", installed: true })
+        let outcome: any
+        act(() => { void result.current.start().then((r) => { outcome = r }) })
+        await act(async () => {})
+        expect(result.current.state).toBe("starting")
+        act(() => { result.current.stop() })
+        expect(result.current.state).toBe("idle") // no native session exists, so no event would have ended it
+        await act(async () => { grant("GRANTED") })
+        expect(outcome).toMatchObject({ started: false, code: "CANCELLED" })
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+        expect(result.current.state).toBe("idle")
+    })
 })
