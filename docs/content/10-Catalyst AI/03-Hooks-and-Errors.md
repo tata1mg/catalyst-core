@@ -1,10 +1,10 @@
 ---
-title: AI Hooks
-slug: ai
-id: ai
+title: Hooks and Errors
+slug: hooks-and-errors
+id: hooks-and-errors
 ---
 
-# AI Hooks
+# Hooks and Errors
 
 Catalyst's AI hooks let one app use cloud models, models built into the browser, and models that run on the phone, through the same few
 hooks. They live in `catalyst-core/hooks` and are powered by the optional `catalyst-ai` package.
@@ -14,9 +14,10 @@ used without the package, it tells you what to install (see [When something is m
 
 ## Set up
 
-1. Install the package in your app: `npm install catalyst-ai`.
-2. Add an `AI_CONFIG` block to your config (providers and keys, the browser model, and optionally a routing policy). The keys stay on your
-   server; the browser never holds them.
+See the [Quick Start](/content/Catalyst%20AI/quick-start) for installation and configuration. In short:
+
+1. `npm install catalyst-ai`.
+2. Add an `AI_CONFIG` block to your config. The keys stay on your server; the browser never holds them.
 3. Use a hook:
 
 ```javascript
