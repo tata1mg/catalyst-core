@@ -81,7 +81,11 @@ if (error?.code === "AI-010") {
 }
 ```
 
-The full list of cases, and what each one means, is in [Hooks and Errors](/content/Catalyst%20AI/hooks-and-errors#when-something-is-missing).
+The full list of cases, and what each one means, is in [Errors](/content/Catalyst%20AI/errors#when-something-is-missing).
+
+## What to build next
+
+[Recipes](/content/Catalyst%20AI/recipes) has five complete examples: a chat that picks the best model, reading a photo into typed data, a voice note summary that stays on the phone, an assistant that calls your functions, and a voice-to-picture pipeline.
 
 ## Try it on a phone
 

@@ -36,3 +36,10 @@ either through cloud providers or with the phone's own models. Open `/pipeline-l
   recording's words must not reach a provider silently. In the on-device mode the text and speech stages run on the phone.
 - The page shows each stage's events as they happen, the estimated spend, and why a run stopped. Cancelling is cooperative
   (see `usePipeline` in the hooks reference).
+
+## On-device pictures (optional)
+
+Pipeline Lab can make pictures in the browser (SD-Turbo on WebGPU). This app declares `web-txt2img` so the page builds, but the engine's own
+runtime packages are not installed with it: run `npm install @xenova/transformers onnxruntime-web` in this folder to use the "On-device" image
+model. Without them the page says so and offers the cloud model instead.
+

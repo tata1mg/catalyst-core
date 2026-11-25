@@ -58,7 +58,7 @@ marked "renders" never throw and report `isNative: false` / `isWeb: true`.
 | `useNativeTransition` | A router (`<Router>`) | Throws if there is no router | Plain navigation |
 | `useMicrophone` | Microphone permission; the native shell adds the permission prompt | Renders; `supported: false` when the browser cannot record | Browser `getUserMedia` |
 | `useSpeechRecognition` | The native app | Renders; `supported: false` | None |
-| `useAI`, `useVision`, `useTranscribe`, `useAgent`, `useImageGen`, `useSpeech`, `useLiveTranscribe`, `requestImage`, `requestSpeech` | `catalyst-ai` | `error` with code `AI-010` that says `npm install catalyst-ai`; actions return that error | Depends on the provider: see [AI Hooks](/content/Catalyst%20AI/hooks-and-errors) |
+| `useAI`, `useVision`, `useTranscribe`, `useAgent`, `useImageGen`, `useSpeech`, `useLiveTranscribe`, `requestImage`, `requestSpeech` | `catalyst-ai` | `error` with code `AI-010` that says `npm install catalyst-ai`; actions return that error | Depends on the provider: see [AI Hooks](/content/Catalyst%20AI/choosing-a-hook) |
 
 A missing requirement is either a documented throw (the rows above that throw) or an `error` value with a message that says what to do.
 
@@ -729,7 +729,7 @@ Several hooks carry alias keys kept from earlier releases. Both names work and r
 
 `useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
 
-`useAI`'s and `useVision`'s shapes are owned by the `catalyst-ai` package and are outside this contract, but their errors are registry errors too (`AI-0xx`; see [AI Hooks](/content/Catalyst%20AI/hooks-and-errors)).
+`useAI`'s and `useVision`'s shapes are owned by the `catalyst-ai` package and are outside this contract, but their errors are registry errors too (`AI-0xx`; see [AI Hooks](/content/Catalyst%20AI/choosing-a-hook)).
 
 ### Hooks and bridge methods with the same name
 
@@ -957,7 +957,7 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 
 #### Requirements
 
-Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs one console error and returns a hook whose `error` is the registry error [`AI-010`](https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-010.md) ("useAI requires catalyst-ai, which is not installed. Run: npm install catalyst-ai"); `generate()` resolves with `{ output: "", error }` using that same error. `cancel`/`reset` are no-ops. The AI hooks built on `useAI` (`useVision`, `useTranscribe`, `useAgent`) report the same error through their own `error`. See [AI Hooks](/content/Catalyst%20AI/hooks-and-errors).
+Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs one console error and returns a hook whose `error` is the registry error [`AI-010`](https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-010.md) ("useAI requires catalyst-ai, which is not installed. Run: npm install catalyst-ai"); `generate()` resolves with `{ output: "", error }` using that same error. `cancel`/`reset` are no-ops. The AI hooks built on `useAI` (`useVision`, `useTranscribe`, `useAgent`) report the same error through their own `error`. See [AI Hooks](/content/Catalyst%20AI/choosing-a-hook).
 
 `useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.
 

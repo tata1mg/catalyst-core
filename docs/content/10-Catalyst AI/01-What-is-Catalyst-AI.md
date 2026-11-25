@@ -73,7 +73,7 @@ working.
 
 | You want to | Use |
 |-------------|-----|
-| Chat, summarise, rewrite, answer | [`useAI`](/content/Catalyst%20AI/hooks-and-errors) |
+| Chat, summarise, rewrite, answer | [`useAI`](/content/Catalyst%20AI/choosing-a-hook) |
 | Read a receipt, form or screenshot into typed data | `useVision` |
 | Turn speech into text, live or from a recording | `useTranscribe` |
 | Let a model use your app's functions | `useAgent` |
@@ -86,12 +86,13 @@ working.
 - **Media stays put.** Images and audio are sent to a cloud model only if your routing policy allows it (`cloudMedia`). Text asks first when the
   policy is `"ask"`.
 - **A problem is an `error`, not a blank screen.** A missing package, a missing key, a refused microphone permission or a model that is not ready
-  each give an `error` with a code and a message. The table in [Hooks and Errors](/content/Catalyst%20AI/hooks-and-errors#when-something-is-missing) lists them.
+  each give an `error` with a code and a message. The table in [Errors](/content/Catalyst%20AI/errors#when-something-is-missing) lists them.
 - **You set the limits.** Cost caps, consent, `cancel()`, and the list of models that may be used are all configuration or options.
 - **It is optional.** An app that does not use AI does not install `catalyst-ai`.
 
 ## Next
 
 - [Quick Start](/content/Catalyst%20AI/quick-start): install it and get a first answer on screen.
-- [Hooks and Errors](/content/Catalyst%20AI/hooks-and-errors): every AI hook, where the model runs, and what happens when something is missing.
+- [Recipes](/content/Catalyst%20AI/recipes): five things to build, each with the config and the code.
+- [Choosing a Hook](/content/Catalyst%20AI/choosing-a-hook) and [Errors](/content/Catalyst%20AI/errors): every AI hook, where the model runs, and what happens when something is missing.
 - [Hooks reference](/content/API%20Reference/hooks): every hook, with return values and examples.
