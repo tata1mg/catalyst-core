@@ -69,7 +69,7 @@ export default function PipelineLab() {
     // is a quarter of that, for small emulators and low-end phones. It writes the scene JSON; it cannot hear audio.
     const NATIVE_MODELS = [
         ["gemma-4-E2B", "Gemma 4 E2B (2.6 GB, text and audio)"],
-        ["qwen3-0.6B", "Qwen3 0.6B (0.5 GB, text only: small emulators)"],
+        ["qwen3-0.6B", "Qwen3 0.6B (0.6 GB, text only: small emulators)"],
     ]
     const [nativeModel, setNativeModel] = useState(() => {
         try { return localStorage.getItem("lab.nativeModel") || "gemma-4-E2B" } catch { return "gemma-4-E2B" }

@@ -26,9 +26,9 @@ final class NativeBridgeAI: NativeAIEngine {
             sizeHint: 2_588_147_712
         ),
         "qwen3-0.6B": ModelEntry(
-            url: "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm",
-            filename: "qwen3_0_6b_mixed_int4.litertlm",
-            sizeHint: 497_516_544
+            url: "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm",
+            filename: "Qwen3-0.6B.litertlm",
+            sizeHint: 613_722_264
         ),
     ]
 
