@@ -1,0 +1,65 @@
+packages/catalyst-ai/scripts/pricing-cli.js
+  s_f9b68111c2008f::t_12d59de067951f 156-161,204-214
+packages/catalyst-ai/src/useImageGen.js
+  s_f9b68111c2008f::t_12d59de067951f 34-35
+packages/catalyst-ai/test/metrics.test.ts
+  s_f9b68111c2008f::t_541d81e83926fa 35-37,44,46-47
+packages/catalyst-ai/src/metrics.js
+  s_f9b68111c2008f::t_5505bd9e999551 28-31
+packages/catalyst-ai/src/contentParts.js
+  s_f9b68111c2008f::t_c926bb103792ff 16-22,96,98,181-214
+  s_f9b68111c2008f::t_fe946708781423 12-13,76,84-87,153-158,160,172,245
+packages/catalyst-ai/src/imageGen.js
+  s_f9b68111c2008f::t_9778199a7b8265 119,141
+  s_f9b68111c2008f::t_5505bd9e999551 6,10-11,61-66,122
+packages/catalyst-ai/test/route.image.test.ts
+  s_f9b68111c2008f::t_541d81e83926fa 142-151,158-167
+  s_f9b68111c2008f::t_eddc361b772d4f 168
+packages/catalyst-ai/test/route.image.edit.test.ts
+  s_f9b68111c2008f::t_541d81e83926fa 94
+packages/catalyst-ai/src/useNativeAI.js
+  s_f9b68111c2008f::t_6a9a6869e7577d 5,221
+packages/catalyst-ai/test/speechGen.adapters.test.ts
+  s_f9b68111c2008f::t_541d81e83926fa 11-14
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_5505bd9e999551 68-74
+packages/catalyst-ai/test/useWebAI.media.test.ts
+  s_f9b68111c2008f::t_1fc526db0cc514 1-102
+packages/catalyst-ai/src/upstream.js
+  s_f9b68111c2008f::t_5505bd9e999551 33-37,39-62,65-68
+  s_f9b68111c2008f::t_9778199a7b8265 38,63-64
+packages/catalyst-ai/src/audioPrep.js
+  s_f9b68111c2008f::t_172fa45b5964e4 123-142
+  s_f9b68111c2008f::t_fe946708781423 45-49,57
+packages/catalyst-ai/test/mediaInputGuards.test.ts
+  s_f9b68111c2008f::t_774e8d23d63383 1-47,49-70
+  s_f9b68111c2008f::t_1a2773ac6de64a 48
+packages/catalyst-ai/src/useCloudAI.js
+  s_f9b68111c2008f::t_6a9a6869e7577d 2,117
+packages/catalyst-ai/test/serverGuards.review3.test.ts
+  s_f9b68111c2008f::t_462e0807aaa048 1-139
+packages/catalyst-ai/src/speechGen.js
+  s_f9b68111c2008f::t_5505bd9e999551 5,81,118-119,121
+  s_f9b68111c2008f::t_9778199a7b8265 82,109
+packages/catalyst-ai/src/pricing.js
+  s_f9b68111c2008f::t_12d59de067951f 92-95
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_6a9a6869e7577d 2,161-165,169-176,180-184,186,194,309
+  s_f9b68111c2008f::t_172fa45b5964e4 3,177-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2afe349f2da3fdfd4a44c1510f51db1ec9282cc8",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

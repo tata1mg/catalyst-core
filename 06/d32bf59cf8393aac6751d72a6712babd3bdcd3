@@ -1,0 +1,48 @@
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/DownloadReviewTests.swift
+  s_f9b68111c2008f::t_bc1f76684f25d3 1-98
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_f9b68111c2008f::t_8f8f69dd4a9de0 86
+  s_f9b68111c2008f::t_87828bf32cf1fc 83-85,87,198-200
+  s_f9b68111c2008f::t_c6603af437e79e 201-203
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_f9b68111c2008f::t_061f01360306c4 64-66,138-139,176-180,195,244,247-249,312-315,321
+packages/catalyst-ai/plugins/ai/ios/Support/LegacyModelFiles.swift
+  s_f9b68111c2008f::t_6c9095c46a2ab1 1-24
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/DownloadControl.kt
+  s_f9b68111c2008f::t_87828bf32cf1fc 91-95,98,108-125,201-202,206,252
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SpeechRecognitionManager.kt
+  s_f9b68111c2008f::t_4c13f680a28ed7 40-44
+  s_f9b68111c2008f::t_092304e2417421 70-83,88-90,94
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/SpeechRecognitionUtils.kt
+  s_f9b68111c2008f::t_092304e2417421 60-65
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/SpeechRecognitionUtilsTest.kt
+  s_f9b68111c2008f::t_4c13f680a28ed7 104-109
+packages/catalyst-ai/plugins/ai/ios/Support/ResilientDownload.swift
+  s_f9b68111c2008f::t_061f01360306c4 58-59,62,109
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_87828bf32cf1fc 43-44,66-68,72-82,206,251-253,337-338
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/LegacyModelFiles.kt
+  s_f9b68111c2008f::t_87828bf32cf1fc 1-22
+packages/catalyst-ai/android/src/test/java/io/catalyst/nativeai/DownloadRulesTest.kt
+  s_f9b68111c2008f::t_8f8f69dd4a9de0 1-111
+packages/catalyst-ai/plugins/ai/ios/Support/DownloadControl.swift
+  s_f9b68111c2008f::t_061f01360306c4 42-48,70,94,102-104,106-108,110,114-123
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_f9b68111c2008f::t_6c9095c46a2ab1 19-22,35-37,92-93,182,188,251-253,323-324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "06d32bf59cf8393aac6751d72a6712babd3bdcd3",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+packages/catalyst-ai/src/contentParts.js
+  s_f9b68111c2008f::t_295cea3bb006f3 9-10
+packages/catalyst-ai/test/route.image.test.ts
+  s_f9b68111c2008f::t_51323d40f8075a 182-199
+packages/catalyst-ai/src/speechGen.js
+  s_f9b68111c2008f::t_0441d38cda6004 5
+  s_f9b68111c2008f::t_275301a31c9371 72,75,92,98
+  s_f9b68111c2008f::t_3af814b2cc1bfe 6
+packages/catalyst-ai/test/useWebAI.worker.test.ts
+  s_f9b68111c2008f::t_3d0bce69b1d5fc 221-243
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_f850f04a7c0fec 772,823,908
+  s_f9b68111c2008f::t_0441d38cda6004 871
+  s_f9b68111c2008f::t_275301a31c9371 6,278,291,311,452,471,495,623,625
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_3d0bce69b1d5fc 99-101,104-106
+packages/catalyst-ai/src/liveGen.js
+  s_f9b68111c2008f::t_f850f04a7c0fec 1,20,29
+packages/catalyst-ai/src/upstream.js
+  s_f9b68111c2008f::t_5c6f3de6e0de8b 24-29
+  s_f9b68111c2008f::t_275301a31c9371 1-23,30-33
+packages/catalyst-ai/src/imageGen.js
+  s_f9b68111c2008f::t_295cea3bb006f3 27,32-34,36-38
+  s_f9b68111c2008f::t_275301a31c9371 6,86,100,107,120,126
+packages/catalyst-ai/test/upstream.test.ts
+  s_f9b68111c2008f::t_23386a851a28c9 1-76
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_ac547562dca09f 863
+packages/catalyst-ai/README.md
+  s_f9b68111c2008f::t_3532a03044a9eb 6-11,115-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5cfb1c917b933d2da51d3725d26c77a5592e4bc8",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

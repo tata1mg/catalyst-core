@@ -1,0 +1,24 @@
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_5f89015509745e 876-877,1006-1010,1048-1049,1066
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_f9b68111c2008f::t_5f89015509745e 168-171,173,176,178,180,182-183,205-207,209,376-377,383-386
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_c9c5abaf19cfc4 917
+  s_f9b68111c2008f::t_e351fc9e6089ad 867-916,918-943
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bec191608de674433a1fe6fe3d03f7c3d80fe9eb",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
