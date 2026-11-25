@@ -873,6 +873,8 @@ function _checkWebBridgeInit(root, warnings, passed) {
 const ROUTING_OBJECTIVES = ["balanced", "cost", "latency", "speed", "order"]
 const ROUTING_POLICIES = ["allow", "ask", "deny"]
 const ROUTING_TASKS = ["text.generate", "vision.read", "speech.transcribe", "speech.synthesize", "image.generate", "embed"]
+// One list for the check and its message: what an on-device native entry may name as its engine.
+const NATIVE_ROUTING_ENGINES = ["auto", "litert", "foundation-models", "platform-speech"]
 const ROUTING_PLATFORMS = ["ios", "android", "web-desktop", "web-mobile", "web"]
 const ROUTING_MODALITIES = ["text", "image", "audio"]
 
@@ -1001,7 +1003,11 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     }
 
     const candidates = []
-    const collect = (list, group, where, platformKey) => {
+    const outerWarn = warn
+    // `quiet` is for the list of a platform this check is not about (the Android list while checking iOS): its structure is still checked
+    // (errors), but warnings that describe how it would behave on a device the target is not are left out.
+    const collect = (list, group, where, platformKey, quiet = false) => {
+        const warn = quiet ? () => {} : outerWarn
         if (list === undefined) return
         if (!Array.isArray(list)) return err(where, `${where} must be an array of models.`)
         list.forEach((m, i) => {
@@ -1039,8 +1045,8 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
                 }
                 // No modality warning for prompt-api: the engine builds image and audio inputs for Chrome's model (expectedInputs), so
                 // declaring them is valid. Whether the user's Chrome supports them is answered at run time by the availability check.
-            } else if (m.engine !== undefined && !["auto", "litert", "foundation-models", "platform-speech"].includes(m.engine)) {
-                err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert, foundation-models or platform-speech (the phone's own speech recogniser).`)
+            } else if (m.engine !== undefined && !NATIVE_ROUTING_ENGINES.includes(m.engine)) {
+                err(`${at}.engine`, `Unknown engine "${m.engine}". Use ${NATIVE_ROUTING_ENGINES.join(", ")} (platform-speech is the phone's own speech recogniser).`)
             } else if (m.engine === "foundation-models" && platformKey === "android") {
                 warn(`${at}.engine`, "foundation-models is iOS-only; this Android entry will never run.")
             } else if (m.engine === "platform-speech") {
@@ -1057,7 +1063,7 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
     const onDevice = nested(routing.onDevice, "AI_CONFIG.routing.onDevice", "keyed by platform (ios, android, web, web-desktop, web-mobile)")
     for (const key of Object.keys(onDevice)) {
         if (!ROUTING_PLATFORMS.includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ${ROUTING_PLATFORMS.join(", ")}.`)
-        else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key)
+        else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key, (platform === "ios" && key === "android") || (platform === "android" && key === "ios"))
     }
     collect(routing.cloud, "cloud", "AI_CONFIG.routing.cloud", "cloud")
 

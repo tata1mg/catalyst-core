@@ -165,14 +165,22 @@ function makeProjectHelpers(root) {
         }
     }
 
+    // Each file is read once per set of helpers: the source walk, the filters that follow it and the entry lookup all want the same
+    // files, and a check that runs several of them used to read every file again each time.
+    const textCache = new Map()
+
     function readText(rel) {
+        if (textCache.has(rel)) return textCache.get(rel)
         const filePath = safeProjectPath(rel)
         if (!filePath) return null
+        let text = null
         try {
-            return fs.readFileSync(filePath, "utf8")
+            text = fs.readFileSync(filePath, "utf8")
         } catch {
-            return null
+            text = null
         }
+        textCache.set(rel, text)
+        return text
     }
 
     /**
@@ -194,9 +202,11 @@ function makeProjectHelpers(root) {
                     walk(full)
                 } else if (/\.(js|jsx|ts|tsx)$/.test(e.name)) {
                     try {
-                        const content = fs.readFileSync(full, "utf8")
+                        const rel = path.relative(root, full)
+                        const content = textCache.has(rel) ? textCache.get(rel) : fs.readFileSync(full, "utf8")
+                        textCache.set(rel, content)
                         if (pattern.test(content)) {
-                            matches.push(path.relative(root, full))
+                            matches.push(rel)
                         }
                     } catch {
                         // Ignore unreadable files during source scan.
@@ -363,11 +373,17 @@ function inspectWebBridgeInit(root) {
     const src = readText(entry) || ""
     const initAt = src.search(/WebBridge\s*\.\s*init\s*\(/)
     if (initAt === -1) return { ...base, state: hookFiles.length ? "missing-init" : "no-hooks" }
+    // The check is about apps that use native hooks. A project without any can call WebBridge.init() however it likes.
+    if (!hookFiles.length) return { ...base, state: "no-hooks" }
     // The Catalyst bridge itself, from its own module: an unrelated `WebBridge` from another package does not count.
     const bridgeImport = /import\s+[^;]*?\bWebBridge\b[^;]*?from\s*["']catalyst-core\/WebBridge["']|\bWebBridge\b\s*=\s*require\(\s*["']catalyst-core\/WebBridge["']\s*\)|import\s*\(\s*["']catalyst-core\/WebBridge["']\s*\)/
     if (!bridgeImport.test(src)) return { ...base, state: "missing-import" }
     const readyAt = src.search(/hydrationReady\s*\(/)
     if (readyAt !== -1 && initAt < readyAt) return { ...base, state: "misplaced" }
+    // It must also come before hydrateRoot: after it, the first render has already run without the bridge. (A textual check, not a scope
+    // analysis: it cannot tell which function an init() call sits in.)
+    const hydrateAt = src.search(/hydrateRoot\s*\(/)
+    if (hydrateAt !== -1 && initAt > hydrateAt) return { ...base, state: "misplaced" }
     return { ...base, state: "ok" }
 }
 

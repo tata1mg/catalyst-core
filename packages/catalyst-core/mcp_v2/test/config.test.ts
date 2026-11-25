@@ -864,3 +864,80 @@ describe("check_config: the 1.3.0 switches (CSP nonce, offline snapshots, locati
         expect(r.warnings.some((w) => w.field === "CSP_NONCE_ENABLE")).toBe(true)
     })
 })
+
+describe("check_config: review backlog", () => {
+    const tmp = (files: Record<string, string>) => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-backlog-"))
+        for (const [rel, body] of Object.entries(files)) {
+            fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+            fs.writeFileSync(path.join(root, rel), body)
+        }
+        return root
+    }
+    const entry = (body: string) => `import WebBridge from "catalyst-core/WebBridge"\n${body}`
+    const hooks = { "src/js/Page.js": `import { useCamera } from "catalyst-core/hooks"\n` }
+    const inspect = (files: Record<string, string>) => require("../lib/helpers.js").inspectWebBridgeInit(tmp(files))
+
+    it("a project with no native hooks is left alone, however it calls WebBridge.init()", () => {
+        expect(inspect({ "client/index.js": `WebBridge.init()\nhydrateRoot(el, app)` }).state).toBe("no-hooks") // not even the missing import
+        expect(inspect({ "client/index.js": `import WebBridge from "x"\nhydrationReady().then(() => WebBridge.init())` }).state).toBe("no-hooks")
+    })
+
+    it("init that comes after hydrateRoot is misplaced: the first render has already run without the bridge", () => {
+        expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { hydrateRoot(el, app); WebBridge.init() })`) }).state).toBe("misplaced")
+        expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) })`) }).state).toBe("ok")
+        // 0.2.x waits for loadableReady, not hydrationReady: still fine while init comes first
+        expect(inspect({ ...hooks, "client/index.js": entry(`loadableReady(() => { WebBridge.init(); hydrateRoot(el, app) })`) }).state).toBe("ok")
+    })
+
+    it("a namespace import of the hooks counts as using native hooks", () => {
+        const { usesNativeHooks } = require("../lib/helpers.js")
+        expect(usesNativeHooks(`import * as Hooks from "catalyst-core/hooks"\nHooks.useCamera()`)).toBe(true)
+    })
+
+    it("reads each source file once however many questions are asked of it", () => {
+        const root = tmp({ ...hooks, "src/js/Other.js": "export const x = 1", "client/index.js": entry(`hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) })`) })
+        const reads: string[] = []
+        const original = fs.readFileSync
+        const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((p: any, ...rest: any[]) => { reads.push(String(p)); return (original as any)(p, ...rest) }) as any)
+        try {
+            require("../lib/helpers.js").inspectWebBridgeInit(root)
+        } finally {
+            spy.mockRestore()
+        }
+        const mine = reads.filter((p) => p.startsWith(root))
+        expect(new Set(mine).size).toBe(mine.length) // no file twice
+    })
+
+    it("an unknown engine in a native entry lists every accepted engine, including auto", () => {
+        const root = tmp({ "config/config.json": JSON.stringify({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", ai: { enabled: true } }, AI_CONFIG: { enabled: true, routing: { onDevice: { ios: [{ id: "x", engine: "mystery" }] } } } }) })
+        fs.mkdirSync(path.join(root, "node_modules", "catalyst-ai"), { recursive: true })
+        fs.writeFileSync(path.join(root, "node_modules", "catalyst-ai", "package.json"), "{}")
+        const r = handle_check_config({ project_path: root })
+        const issue = r.issues.find((i) => /Unknown engine "mystery"/.test(i.message ?? ""))
+        expect(issue?.message).toMatch(/auto, litert, foundation-models, platform-speech/)
+    })
+
+    it("a warning about the Android list is not shown when the target is iOS, but a structural error still is", () => {
+        const config = { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", ai: { enabled: true } }, AI_CONFIG: { enabled: true, routing: { onDevice: { android: [{ id: "a", engine: "foundation-models" }, { id: "" }] } } } }
+        const root = tmp({ "config/config.json": JSON.stringify(config) })
+        fs.mkdirSync(path.join(root, "node_modules", "catalyst-ai"), { recursive: true })
+        fs.writeFileSync(path.join(root, "node_modules", "catalyst-ai", "package.json"), "{}")
+        const forIos = handle_check_config({ project_path: root, platform: "ios" } as any)
+        const forAndroid = handle_check_config({ project_path: root, platform: "android" } as any)
+        const mentionsFm = (r: any) => [...r.warnings, ...r.issues].some((f: any) => /foundation-models is iOS-only/.test(f.message))
+        expect(mentionsFm(forAndroid)).toBe(true)
+        expect(mentionsFm(forIos)).toBe(false) // an inactive platform's entry is not reported as a problem for this build
+        expect(forIos.issues.some((i: any) => /needs a string "id"/.test(i.message))).toBe(true) // but a broken entry is
+    })
+
+    it("the image-capable provider list matches the adapters that the route really has", () => {
+        const source = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "imageGen.js"), "utf8")
+        const adapters = /return \{ ([^}]*) \}\s*\n\}\s*\n\s*module\.exports/.exec(source)?.[1] ?? ""
+        const names = [...adapters.matchAll(/(\w+):/g)].map((m) => m[1]).sort()
+        expect(names).toEqual(["gemini", "openai"])
+        const configSource = fs.readFileSync(path.join(__dirname, "..", "tools", "config.js"), "utf8")
+        const listed = /const IMAGE_PROVIDERS = \[([^\]]*)\]/.exec(configSource)?.[1] ?? ""
+        expect([...listed.matchAll(/"(\w+)"/g)].map((m) => m[1]).sort()).toEqual(names) // a new adapter must be added to check_config too
+    })
+})
