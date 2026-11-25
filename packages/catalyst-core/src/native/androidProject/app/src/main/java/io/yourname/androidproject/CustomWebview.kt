@@ -29,6 +29,7 @@ import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
+import io.yourname.androidproject.utils.GeolocationPrompts
 import io.yourname.androidproject.utils.MicrophoneUtils
 import io.yourname.androidproject.utils.WebPermissionPolicy
 import io.yourname.androidproject.utils.NetworkUtils
@@ -52,8 +53,9 @@ class CustomWebView(
     override val coroutineContext = Dispatchers.Main + job
 
     // navigator.geolocation prompt waiting on the runtime permission result
-    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
-    private var pendingGeolocationOrigin: String? = null
+    private val geolocationPrompts = GeolocationPrompts<GeolocationPermissions.Callback> { callback, origin, allow ->
+        callback.invoke(origin, allow, false)
+    }
     private var geolocationPermissionLauncher: ActivityResultLauncher<Array<String>>? = null
 
     private var cacheManager: WebCacheManager
@@ -370,16 +372,10 @@ class CustomWebView(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             val granted = permissions.values.any { it }
-            val callback = pendingGeolocationCallback
-            val origin = pendingGeolocationOrigin
-            pendingGeolocationCallback = null
-            pendingGeolocationOrigin = null
-            if (callback != null && origin != null) {
-                if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Geolocation permission result: granted=$granted")
-                }
-                callback.invoke(origin, granted, false)
+            if (BuildConfig.DEBUG && geolocationPrompts.hasPending) {
+                Log.d(TAG, "Geolocation permission result: granted=$granted")
             }
+            geolocationPrompts.onPermissionResult(granted)
         }
     }
 
@@ -1340,19 +1336,9 @@ class CustomWebView(
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Geolocation permission requested for origin: $origin")
                 }
-                if (hasLocationPermission()) {
-                    callback?.invoke(origin, true, false)
-                    return
-                }
                 val launcher = geolocationPermissionLauncher
-                if (launcher == null || callback == null || origin == null) {
-                    callback?.invoke(origin, false, false)
-                    return
-                }
-                // Deny any prompt still waiting so its page doesn't hang
-                pendingGeolocationCallback?.invoke(pendingGeolocationOrigin, false, false)
-                pendingGeolocationCallback = callback
-                pendingGeolocationOrigin = origin
+                val outcome = geolocationPrompts.onPrompt(origin, callback, hasLocationPermission(), launcher != null)
+                if (outcome != GeolocationPrompts.Outcome.WAITING_FOR_PERMISSION || launcher == null) return
                 // Without the permission in the manifest (location disabled), Android
                 // returns denied immediately and no dialog is shown.
                 launcher.launch(
