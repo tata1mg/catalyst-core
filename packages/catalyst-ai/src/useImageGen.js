@@ -31,6 +31,8 @@ export function toImageInput(img) {
 export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, images: inputImages, signal, onProgress, seed } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")
     if (provider === "device") return generateOnDevice({ prompt, n, size, images: inputImages, signal, onProgress, seed })
+    // `images` is a list. A string or an array-like used to fail with the engine's own "map is not a function".
+    if (inputImages !== undefined && inputImages !== null && !Array.isArray(inputImages)) throw new Error("images must be an array of data URLs or { mimeType, data }")
     const inputs = inputImages && inputImages.length > 0 ? inputImages.map(toImageInput) : undefined
     const deadline = withDeadline(signal, REQUEST_TIMEOUT_MS)
     let response

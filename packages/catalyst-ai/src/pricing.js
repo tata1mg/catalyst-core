@@ -89,4 +89,8 @@ function imageCost(usage, price) {
     return { cost, partial }
 }
 
+// Exported, so frozen: nothing may change a built-in rate in place.
+for (const entry of Object.values(PRICING)) Object.freeze(entry)
+Object.freeze(PRICING)
+
 module.exports = { PRICING, getPricing, normalizePricing, priceSource, lookupPricing, imageCost }

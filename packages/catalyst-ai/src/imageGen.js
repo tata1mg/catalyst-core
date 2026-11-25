@@ -3,10 +3,12 @@
 // provider image model names change often. Images come back as base64 in JSON; we never fetch or proxy provider URLs.
 
 const { DEFAULT_LIMITS, isValidBase64, decodedBytes } = require("./cloudMedia")
-const { upstreamSignal, MEDIA_MS } = require("./upstream")
+const { upstreamSignal, readJsonLimited, MEDIA_MS } = require("./upstream")
 
 const MAX_PROMPT_CHARS = 4000
 const MAX_IMAGES = 4
+// The whole provider response, read with a cap: up to four images as base64 plus the JSON around them.
+const MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 // WxH or "auto". Kept strict because the value is forwarded to the provider.
 const SIZE_RE = /^(auto|\d{3,4}x\d{3,4})$/
 const MIME_RE = /^image\/(png|jpeg|webp)$/
@@ -56,9 +58,12 @@ function validateProviderRequest(provider, body) {
 const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }
 
 function cleanImage(mimeType, data) {
-    if (typeof data !== "string" || data.length === 0) return null
-    if (data.length > MAX_B64_CHARS) return null
-    return { mimeType: MIME_RE.test(mimeType) ? mimeType : "image/png", data }
+    // Only a payload that really is base64, labelled with a type we know. Anything else used to be passed on, relabelled image/png,
+    // and reach the client as a data URL that cannot render.
+    if (typeof data !== "string" || data.length === 0 || data.length > MAX_B64_CHARS) return null
+    if (typeof mimeType !== "string" || !MIME_RE.test(mimeType)) return null
+    if (!isValidBase64(data)) return null
+    return { mimeType, data }
 }
 
 function normalizeOpenAIImageUsage(usage, model, count, inputImages = 0) {
@@ -111,9 +116,10 @@ function createImageAdapters({ throwProviderError, createError }) {
             })
         }
         if (!response.ok) await throwProviderError("openai", response)
-        const data = await response.json()
+        const data = await readJsonLimited(response, MAX_RESPONSE_BYTES).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError(`openai ${e.message}`) : e })
         const images = (data.data ?? []).map((d) => cleanImage("image/png", d.b64_json)).filter(Boolean)
         if (images.length === 0) throw createError("openai returned no image data (only base64 results are supported)")
+        if (images.length > MAX_IMAGES) throw createError(`openai returned ${images.length} images; at most ${MAX_IMAGES} are allowed`)
         return { images, usage: normalizeOpenAIImageUsage(data.usage, model, images.length, inputs.length) }
     }
 
@@ -132,7 +138,7 @@ function createImageAdapters({ throwProviderError, createError }) {
             }),
         })
         if (!response.ok) await throwProviderError("gemini", response)
-        const data = await response.json()
+        const data = await readJsonLimited(response, MAX_RESPONSE_BYTES).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError(`gemini ${e.message}`) : e })
         const parts = data.candidates?.[0]?.content?.parts ?? []
         const images = parts.map((p) => cleanImage(p.inlineData?.mimeType, p.inlineData?.data)).filter(Boolean)
         if (images.length === 0) {

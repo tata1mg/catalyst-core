@@ -139,13 +139,31 @@ describe("POST /:provider/image", () => {
         expect(none.jsonBody.error).toMatch(/no image: I can't draw that/)
     })
 
-    it("maps an unknown mime type to png and surfaces provider errors without the key", async () => {
-        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/svg+xml", data: "CC" } }] } }] })))
-        expect((await post("gemini", { prompt: "a cat" })).jsonBody.images[0].mimeType).toBe("image/png")
+    it("refuses an image it cannot label honestly (unknown mime type, or data that is not base64) instead of relabelling it png", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/svg+xml", data: "AAAA" } }] } }] })))
+        const svg = await post("gemini", { prompt: "a cat" })
+        expect(svg.statusCode).toBe(500)
+        expect(String(svg.jsonBody.error)).toMatch(/returned no image/)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "not base64!!" } }] } }] })))
+        expect((await post("gemini", { prompt: "a cat" })).statusCode).toBe(500)
+    })
+
+    it("surfaces provider errors without the key", async () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("quota exceeded", { status: 429 })))
         const err = await post("openai", { prompt: "a cat" })
         expect(err.statusCode).toBe(500)
         expect(JSON.stringify(err.jsonBody)).not.toContain("sk-o")
+    })
+
+    it("stops reading a provider response that is larger than allowed, and accepts one that is not", async () => {
+        const { readBodyLimited, readJsonLimited } = require("../src/upstream.js")
+        const stream = (bytes: number) => new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array(bytes)); c.close() } }))
+        await expect(readBodyLimited(stream(2000), 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
+        expect((await readBodyLimited(stream(500), 1000)).length).toBe(500)
+        expect(await readJsonLimited(new Response('{"a":1}'), 1000)).toEqual({ a: 1 })
+        const lying = new Response(new Uint8Array(2000), { headers: { "content-length": "10" } }) // announces 10, sends 2000
+        await expect(readBodyLimited(lying, 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
+        await expect(readBodyLimited(new Response("x", { headers: { "content-length": "5000" } }), 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
     })
 
     it("Gemini has no size setting, so a size other than auto is refused instead of quietly returning default dimensions", async () => {

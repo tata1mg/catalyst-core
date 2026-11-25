@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { assertEngineSupports, getModalities, toWebTemplate, webModelKind } from "./contentParts.js"
-import { prepareAudioParts } from "./audioPrep.js"
+import { PRE_PREP_LIMITS, assertEngineSupports, assertWebMediaCounts, getModalities, historyAsText, toWebTemplate, webModelKind } from "./contentParts.js"
+import { isWorkerReadyWav, prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
@@ -158,19 +158,32 @@ export function useWebAI({
             let template = null
             let outgoing = messages
             try {
-                assertEngineSupports(getModalities(messages), caps, "web")
-                if (kind === "asr" && !getModalities(messages).has("audio")) {
+                // The raw photo may be bigger than what is finally sent (it is resized first), so this check uses the looser pre-preparation
+                // limits; the strict ones apply to the prepared media in toWebTemplate below.
+                const requested = getModalities(messages, PRE_PREP_LIMITS)
+                assertEngineSupports(requested, caps, "web")
+                if (kind === "asr" && !requested.has("audio")) {
                     throw new Error(`${resolvedModel} is a speech-to-text model: attach an audio clip`)
                 }
                 if (mediaModel) {
-                    const prepared = await prepareImageParts(
-                        await prepareAudioParts(withSystem(messages), {
-                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
-                        }),
-                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
-                    )
+                    // Refuse a request the engine cannot take BEFORE spending CPU and memory decoding and resizing it.
+                    assertWebMediaCounts(messages)
+                    // A stateful chat replays earlier turns as text only (see historyAsText), so the media of this turn is the only media.
+                    const base = sessionMode === "stateful" ? [...historyAsText(messagesRef.current), ...messages] : messages
+                    // An audio clip that cannot be converted is an error here, not a reason to pass the original on: the worker takes
+                    // only 16 kHz mono WAV, so an m4a or mp3 sent as it is would end as an unexplained worker crash.
+                    let audioProblem = null
+                    const audioPrepared = await prepareAudioParts(withSystem(base), { onError: (e) => { audioProblem = audioProblem || e } })
+                    // (Audio that already is 16 kHz mono WAV needs no conversion, so a decoder that is missing does not matter for it.)
+                    const everyClipReady = base.every((m) => !Array.isArray(m?.content) || m.content.every((p) => p?.type !== "audio" || isWorkerReadyWav(p.data)))
+                    if (audioProblem && !everyClipReady) {
+                        throw Object.assign(new Error(`The audio could not be converted for the in-browser model: ${audioProblem.message}`), { reason: "invalid-part", modality: "audio" })
+                    }
+                    const prepared = await prepareImageParts(audioPrepared, {
+                        onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message),
+                    })
                     template = toWebTemplate(prepared)
-                } else if (promptApi && [...getModalities(messages)].some((m) => m !== "text")) {
+                } else if (promptApi && [...requested].some((m) => m !== "text")) {
                     // Same resize / 16 kHz conversion as the other engines; the engine itself turns the data URLs into Blobs.
                     outgoing = await prepareImageParts(
                         await prepareAudioParts(messages, {
@@ -178,6 +191,7 @@ export function useWebAI({
                         }),
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
                     )
+                    getModalities(outgoing) // the strict size caps apply to what is actually sent
                 }
             } catch (inputErr) {
                 if (token === runToken.current) setError(inputErr)
@@ -292,7 +306,7 @@ export function useWebAI({
                                         ? crypto.randomUUID()
                                         : `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
                             }
-                            messagesRef.current = [...resolvedMessages, { role: "assistant", content: outputAccRef.current }]
+                            messagesRef.current = [...(mediaModel ? historyAsText(resolvedMessages) : resolvedMessages), { role: "assistant", content: outputAccRef.current }]
                         }
                         setStreaming(false)
                         setLoading(false)

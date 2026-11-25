@@ -30,4 +30,39 @@ function clientGoneSignal(res) {
     return controller.signal
 }
 
-module.exports = { upstreamSignal, clientGoneSignal, GENERATE_MS, MEDIA_MS, TOKEN_MS }
+/**
+ * Reads a provider response body, stopping as soon as it exceeds `maxBytes`. A missing or wrong content-length no longer lets the
+ * whole body be buffered first (`arrayBuffer()` and `json()` read everything before any size can be checked).
+ */
+async function readBodyLimited(response, maxBytes) {
+    const tooLarge = () => Object.assign(new Error(`The provider's response is larger than the allowed ${maxBytes} bytes`), { code: "RESPONSE_TOO_LARGE" })
+    const declared = Number(response.headers?.get?.("content-length"))
+    if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge()
+    if (!response.body || typeof response.body.getReader !== "function") {
+        const whole = Buffer.from(await response.arrayBuffer())
+        if (whole.length > maxBytes) throw tooLarge()
+        return whole
+    }
+    const reader = response.body.getReader()
+    const chunks = []
+    let total = 0
+    for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.length
+        if (total > maxBytes) {
+            reader.cancel().catch(() => {})
+            throw tooLarge()
+        }
+        chunks.push(value)
+    }
+    return Buffer.concat(chunks)
+}
+
+async function readJsonLimited(response, maxBytes) {
+    // A response object with no body to read (a test double with only json()) cannot be bounded: use it as it is.
+    if (!response.body && typeof response.arrayBuffer !== "function" && typeof response.json === "function") return response.json()
+    return JSON.parse((await readBodyLimited(response, maxBytes)).toString("utf8"))
+}
+
+module.exports = { upstreamSignal, clientGoneSignal, readBodyLimited, readJsonLimited, GENERATE_MS, MEDIA_MS, TOKEN_MS }

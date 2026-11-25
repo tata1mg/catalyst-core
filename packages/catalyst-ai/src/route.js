@@ -65,6 +65,13 @@ const MAX_TOKENS_LIMIT = 200_000
 function validateRequestBody(req, cfg, provider) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
+    // Roles are not coerced: an unknown one would silently change meaning (everything that is not "assistant" used to become "user"),
+    // and a null entry would be dereferenced deep inside an adapter and come back as a 500.
+    for (const message of messages) {
+        if (!message || typeof message !== "object" || Array.isArray(message)) return "each message must be an object { role, content }"
+        if (!["system", "user", "assistant"].includes(message.role)) return 'message role must be "system", "user" or "assistant"'
+        if (typeof message.content !== "string" && !Array.isArray(message.content)) return "message content must be a string or an array of parts"
+    }
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
     if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"

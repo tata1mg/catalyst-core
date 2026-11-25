@@ -2,7 +2,7 @@
 // Server-side only (CJS, loaded by route.js). Models come from config (`speechModel`) or the request, never hardcoded
 // here and never the chat `defaultModel`. Audio comes back as base64 in JSON.
 
-const { upstreamSignal, MEDIA_MS } = require("./upstream")
+const { upstreamSignal, readBodyLimited, readJsonLimited, MEDIA_MS } = require("./upstream")
 
 const MAX_TEXT_CHARS = 4000
 const VOICE_RE = /^[a-zA-Z0-9._-]+$/
@@ -78,9 +78,8 @@ function createSpeechAdapters({ throwProviderError, createError }) {
             body: JSON.stringify({ model, input: text, voice: voice || DEFAULT_OPENAI_VOICE, response_format: fmt }),
         })
         if (!response.ok) await throwProviderError("openai", response)
-        const declared = Number(response.headers?.get?.("content-length"))
-        if (declared > MAX_AUDIO_BYTES) throw createError("openai returned audio larger than the allowed size")
-        const bytes = Buffer.from(await response.arrayBuffer())
+        // Read with a cap, so a body that is larger than announced (or announces nothing) is stopped part-way, not buffered whole.
+        const bytes = await readBodyLimited(response, MAX_AUDIO_BYTES).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError("openai returned audio larger than the allowed size") : e })
         if (bytes.length === 0) throw createError("openai returned no audio data")
         if (bytes.length > MAX_AUDIO_BYTES) throw createError("openai returned audio larger than the allowed size")
         return {
@@ -107,7 +106,7 @@ function createSpeechAdapters({ throwProviderError, createError }) {
             }),
         })
         if (!response.ok) await throwProviderError("gemini", response)
-        const data = await response.json()
+        const data = await readJsonLimited(response, MAX_B64_CHARS + 1024 * 1024).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError("gemini returned audio larger than the allowed size") : e })
         const parts = data.candidates?.[0]?.content?.parts ?? []
         const inline = parts.find((p) => typeof p.inlineData?.data === "string" && p.inlineData.data.length > 0)?.inlineData
         if (!inline) {
@@ -116,8 +115,10 @@ function createSpeechAdapters({ throwProviderError, createError }) {
         }
         if (inline.data.length > MAX_B64_CHARS) throw createError("gemini returned audio larger than the allowed size")
         const mime = String(inline.mimeType || "")
-        // Already a playable container: pass through. Otherwise (audio/L16 PCM, the documented shape) wrap it.
+        // Already a playable container: pass through. Raw PCM (audio/L16 or audio/pcm, the documented shape) is wrapped as WAV. Anything
+        // else is a codec we do not know: wrapping it as PCM would produce noise labelled as audio, so it is an error.
         const playable = /^audio\/(wav|x-wav|wave|mpeg|mp3|ogg)\b/i.test(mime)
+        if (!playable && !/^audio\/(l16|pcm)\b/i.test(mime)) throw createError(`gemini returned audio in an unrecognised format (${mime || "no type"})`)
         const audio = playable
             ? { mimeType: mime.split(";")[0].toLowerCase(), data: inline.data }
             : { mimeType: "audio/wav", data: pcmToWav(Buffer.from(inline.data, "base64"), { sampleRate: sampleRateOf(mime) }).toString("base64") }

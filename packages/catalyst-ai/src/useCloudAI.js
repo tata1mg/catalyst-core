@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react"
-import { assertCloudMediaAllowed, getModalities } from "./contentParts.js"
+import { PRE_PREP_LIMITS, assertCloudMediaAllowed, getModalities } from "./contentParts.js"
 import { prepareAudioParts, normalizeAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
@@ -114,7 +114,7 @@ export function useCloudAI({
             // decides which provider endpoints take which modality.
             let messages = rawMessages
             try {
-                const modalities = getModalities(rawMessages)
+                const modalities = getModalities(rawMessages, PRE_PREP_LIMITS) // before resizing: judged by the looser limits, the strict ones apply below
                 assertCloudMediaAllowed(modalities, allowMediaRef.current)
                 if (modalities.has("image") || modalities.has("audio")) {
                     // Gemini takes recorder formats (webm, mp4, opus) as they are and handles minutes of audio, so its audio is

@@ -9,7 +9,16 @@ export const DEFAULT_LIMITS = {
     // The server refuses audio over 10 MiB (cloudMedia DEFAULT_LIMITS), so a bigger clip would be encoded, uploaded and rejected.
     audioBytes: 10 * 1024 * 1024,
     maxImages: 4,
+    // The server accepts 2 audio clips. Each one is decoded and resampled, so without a count a request could start any number of them at once.
+    maxAudio: 2,
 }
+
+/**
+ * Limits for the check that runs BEFORE media is resized or converted. A photo straight from a camera or picker can be far bigger than
+ * what is finally sent (it is scaled down first), so judging it against the final cap would refuse an image that would have fit.
+ * The strict DEFAULT_LIMITS apply again to the prepared media.
+ */
+export const PRE_PREP_LIMITS = { ...DEFAULT_LIMITS, imageBytes: 32 * 1024 * 1024, audioBytes: 20 * 1024 * 1024 }
 
 const MEDIA_TYPES = ["image", "audio"]
 // Recorders label clips "audio/webm;codecs=opus": RFC 2397 allows ;name=value attributes before ;base64, so accept them and keep the bare type.
@@ -64,6 +73,7 @@ function normalizePart(part, limits) {
 /** -> [{ role, parts: [{type:"text",text} | {type, mimeType, base64}] }]; validates types, data URLs and size limits. */
 export function normalizeMessages(messages, limits = DEFAULT_LIMITS) {
     let images = 0
+    let audios = 0
     return messages.map((message) => {
         const raw = typeof message.content === "string" ? [{ type: "text", text: message.content }] : message.content
         if (!Array.isArray(raw) || raw.length === 0) {
@@ -71,6 +81,10 @@ export function normalizeMessages(messages, limits = DEFAULT_LIMITS) {
         }
         const parts = raw.map((part) => normalizePart(part, limits))
         images += parts.filter((p) => p.type === "image").length
+        audios += parts.filter((p) => p.type === "audio").length
+        if (audios > limits.maxAudio) {
+            throw inputError("too-many", `At most ${limits.maxAudio} audio clips per request`, { modality: "audio", limit: limits.maxAudio })
+        }
         if (images > limits.maxImages) {
             throw inputError("too-many", `At most ${limits.maxImages} images per request`, { modality: "image", limit: limits.maxImages })
         }
@@ -79,9 +93,9 @@ export function normalizeMessages(messages, limits = DEFAULT_LIMITS) {
 }
 
 /** Set of modalities used across the messages; always includes "text" only when text is present. */
-export function getModalities(messages) {
+export function getModalities(messages, limits = DEFAULT_LIMITS) {
     const set = new Set()
-    for (const message of normalizeMessages(messages)) for (const part of message.parts) set.add(part.type)
+    for (const message of normalizeMessages(messages, limits)) for (const part of message.parts) set.add(part.type)
     return set
 }
 
@@ -136,8 +150,14 @@ export function buildNativeBody(messages, genConfig, { conversationId } = {}) {
 // Only Gemma 4 takes image/audio in the browser today (spike 0.3). One image and one audio clip per request is what
 // was verified; more is refused instead of silently dropped.
 
+/**
+ * The Gemma 4 family as a whole name part: at the start or after a "/", then `gemma4` or `gemma-4`, then the end or a separator. A bare
+ * substring would also match unrelated names ("legacygemma4x") and send them down the Gemma-specific processor path.
+ */
+const GEMMA4 = /(?:^|\/)gemma-?4(?=$|[-_./])/i
+
 export function supportsWebMedia(model) {
-    return typeof model === "string" && /gemma-?4/i.test(model)
+    return typeof model === "string" && GEMMA4.test(model)
 }
 
 /**
@@ -149,7 +169,7 @@ export function supportsWebMedia(model) {
  */
 export function webModelKind(model) {
     if (typeof model !== "string") return "text"
-    if (/gemma-?4/i.test(model)) return "gemma4"
+    if (GEMMA4.test(model)) return "gemma4"
     if (/whisper|moonshine/i.test(model)) return "asr"
     return "text"
 }
@@ -158,6 +178,40 @@ export function webModelKind(model) {
  * -> { messages, images, audios }. `messages` use the chat-template shape ({type:"image"|"audio"} placeholders);
  * the media itself travels beside them as data URLs, in order, for the worker to decode.
  */
+/** Counts the image and audio parts in raw messages, without decoding or size-checking anything. */
+function countMedia(messages) {
+    let images = 0
+    let audios = 0
+    for (const message of Array.isArray(messages) ? messages : []) {
+        if (!Array.isArray(message?.content)) continue
+        for (const part of message.content) {
+            if (part?.type === "image") images++
+            else if (part?.type === "audio") audios++
+        }
+    }
+    return { images, audios }
+}
+
+/** The in-browser engine takes one image and one clip per request. Checked on the raw request so a refusal costs nothing. */
+export function assertWebMediaCounts(messages) {
+    const { images, audios } = countMedia(messages)
+    if (images > 1) throw inputError("too-many", "The web engine accepts one image per request", { modality: "image", limit: 1 })
+    if (audios > 1) throw inputError("too-many", "The web engine accepts one audio clip per request", { modality: "audio", limit: 1 })
+}
+
+/**
+ * Earlier turns of a stateful chat, as text only. The web engine accepts one image and one clip per request, and older media would
+ * both break that limit and keep megabytes of data URLs alive for the life of the chat; what the model needs of an old turn is the words.
+ */
+export function historyAsText(messages) {
+    return (Array.isArray(messages) ? messages : []).map((message) => {
+        if (typeof message?.content === "string" || !Array.isArray(message?.content)) return message
+        const text = message.content.filter((p) => p?.type === "text").map((p) => p.text).join("\n")
+        const hadMedia = message.content.some((p) => p?.type === "image" || p?.type === "audio")
+        return { ...message, content: text || (hadMedia ? "(an earlier image or audio clip was attached here)" : "") }
+    })
+}
+
 export function toWebTemplate(messages) {
     const images = []
     const audios = []
@@ -188,7 +242,7 @@ export function assertCloudMediaAllowed(modalities, allowMedia) {
         if (modalities.has(modality)) {
             throw inputError(
                 "cloud-media-not-allowed",
-                `Sending ${modality} to a cloud provider needs an explicit choice: use useAI({ provider: "cloud" }) (or pass allowMedia: true to useCloudAI). This call fell back to cloud because the on-device engine was unavailable, so the ${modality} was not sent.`,
+                `Sending ${modality} to a cloud provider needs an explicit choice: use useAI({ provider: "openai" | "gemini" | "anthropic" }) (or pass allowMedia: true to useCloudAI). This call fell back to cloud because the on-device engine was unavailable, so the ${modality} was not sent.`,
                 { modality, engine: "cloud" }
             )
         }

@@ -25,6 +25,10 @@ let configuredPricing = {}
 const validPrice = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
 
 /** Called with AI_CONFIG.pricing from the public config; anything malformed is ignored, never thrown. */
+// The table is exported, so it is frozen: a consumer (or a test) changing a rate in place would change every later cost calculation.
+for (const entry of Object.values(PRICING)) Object.freeze(entry)
+Object.freeze(PRICING)
+
 export function setPricingOverrides(raw) {
     const next = {}
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
