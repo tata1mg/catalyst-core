@@ -160,6 +160,16 @@ describe("useNativeAI generate", () => {
         expect(out.error).toBeTruthy()
     })
 
+    it("the result of generate() already holds the whole text when tokens and done arrive back to back", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ token: "Hello " }, { token: "world" }, { done: true }))))
+        const { result } = renderHook(() => useNativeAI() as any)
+        await ready(result)
+        let out: any
+        await act(async () => { out = await result.current.generate({ messages }) })
+        expect(out.output).toBe("Hello world") // read at once, not after a frame
+        expect(out.error).toBeNull()
+    })
+
     it("streams tokens, rewrites attachment tags, and records metrics on done", async () => {
         const fetchMock: any = vi.fn(async () => streamResponse(sse(
             { token: "Hello " },

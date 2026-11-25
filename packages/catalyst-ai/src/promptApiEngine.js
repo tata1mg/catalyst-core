@@ -138,6 +138,9 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
     let session = null
     let closed = false
 
+    // Whether Chrome still had to download its model for this request. Only then is a refused start about the missing click: a
+    // NotAllowedError from a model that was already available is some other refusal, and its own message must not be hidden.
+    let needsDownload = false
     const engine = {
         onmessage: null,
         onerror: null,
@@ -157,7 +160,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
     const fail = (err) => {
         if (closed || abort.signal.aborted) return
         // A model that still has to download can only start from a user gesture; say so instead of "NotAllowedError".
-        const message = err?.name === "NotAllowedError"
+        const message = err?.name === "NotAllowedError" && needsDownload
             ? "Chrome needs a click or tap to start downloading its built-in model. Try again from a button press."
             : `${err?.name && err.name !== "Error" ? err.name + ": " : ""}${err?.message || String(err)}`
         console.error("[catalyst-ai] Chrome Prompt API error:", err)
@@ -172,6 +175,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
         const options = expectedOptions({ image, audio })
 
         const availability = await getPromptApiAvailability(api, options, nav)
+        needsDownload = availability === "downloadable" || availability === "downloading"
         if (availability === "unavailable") {
             const media = [image && "image", audio && "audio"].filter(Boolean).join(" and ")
             throw new Error(

@@ -9,6 +9,9 @@ export const LIVE_RATE = 16000
 const CHUNK_SAMPLES = 1600 // 100 ms at 16 kHz
 const FINISH_QUIET_MS = 1800 // after the end signal, done once the server has been quiet this long (and sent a final)
 const FINISH_MAX_MS = 8000
+const LEVEL_EVERY_MS = 80 // the level meter does not need more than about 12 updates a second
+const SETUP_TIMEOUT_MS = 15000 // how long the socket may stay silent before the session is given up on
+const MAX_BUFFERED_BYTES = 256 * 1024 // about 8 s of audio: a connection slower than the microphone drops audio instead of queueing it
 
 /** Float samples in [-1, 1] at inputRate -> 16-bit PCM at 16 kHz (linear resample, clamped). */
 export function floatToPcm16(samples, inputRate = LIVE_RATE) {
@@ -85,27 +88,34 @@ const WORKLET = `class P extends AudioWorkletProcessor{process(i){const c=i[0]&&
 
 async function openMicrophone(onSamples) {
     const media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } })
-    const Context = globalThis.AudioContext || globalThis.webkitAudioContext
-    let context
+    // Everything after getUserMedia can throw (AudioContext, addModule, the nodes). The microphone is already open by then, and the
+    // caller never receives the function that closes it, so this has to release it itself.
+    let context, source, node
     try {
-        context = new Context({ sampleRate: LIVE_RATE })
-    } catch {
-        context = new Context()
+        const Context = globalThis.AudioContext || globalThis.webkitAudioContext
+        try {
+            context = new Context({ sampleRate: LIVE_RATE })
+        } catch {
+            context = new Context()
+        }
+        source = context.createMediaStreamSource(media)
+        if (context.audioWorklet) {
+            const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }))
+            await context.audioWorklet.addModule(url)
+            URL.revokeObjectURL(url)
+            node = new AudioWorkletNode(context, "pcm-capture")
+            node.port.onmessage = (e) => onSamples(e.data, context.sampleRate)
+        } else {
+            node = context.createScriptProcessor(4096, 1, 1)
+            node.onaudioprocess = (e) => onSamples(new Float32Array(e.inputBuffer.getChannelData(0)), context.sampleRate)
+        }
+        source.connect(node)
+        node.connect(context.destination) // some browsers only run the node when connected; it outputs silence
+    } catch (error) {
+        media.getTracks().forEach((t) => t.stop())
+        try { context?.close?.().catch?.(() => {}) } catch { /* nothing to close */ }
+        throw error
     }
-    const source = context.createMediaStreamSource(media)
-    let node
-    if (context.audioWorklet) {
-        const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }))
-        await context.audioWorklet.addModule(url)
-        URL.revokeObjectURL(url)
-        node = new AudioWorkletNode(context, "pcm-capture")
-        node.port.onmessage = (e) => onSamples(e.data, context.sampleRate)
-    } else {
-        node = context.createScriptProcessor(4096, 1, 1)
-        node.onaudioprocess = (e) => onSamples(new Float32Array(e.inputBuffer.getChannelData(0)), context.sampleRate)
-    }
-    source.connect(node)
-    node.connect(context.destination) // some browsers only run the node when connected; it outputs silence
     return () => {
         node.disconnect()
         source.disconnect()
@@ -155,7 +165,11 @@ export async function startLiveTranscription({ basePath = "/ai", model, onPartia
         return text
     }
 
+    // A socket that opens and then says nothing would leave the caller in "connecting" for good: give the handshake a deadline.
+    let setupTimer
+    try {
     await new Promise((resolve, reject) => {
+        setupTimer = setTimeout(() => reject(new Error("Gemini did not answer the live connection in time")), SETUP_TIMEOUT_MS)
         ws.onerror = () => reject(new Error("Could not open the live connection to Gemini"))
         ws.onclose = (e) => {
             if (!ended) reject(new Error(`Live connection closed${e?.reason ? `: ${e.reason}` : ""}`))
@@ -180,6 +194,13 @@ export async function startLiveTranscription({ basePath = "/ai", model, onPartia
         }
     })
 
+    } catch (error) {
+        try { ws.close() } catch { /* already closed */ }
+        throw error
+    } finally {
+        clearTimeout(setupTimer)
+    }
+
     ws.onerror = () => onError?.(new Error("The live connection to Gemini failed"))
     ws.onclose = () => {
         if (!ended) onError?.(new Error("The live connection to Gemini closed unexpectedly"))
@@ -194,7 +215,17 @@ export async function startLiveTranscription({ basePath = "/ai", model, onPartia
             for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i]
             onLevel?.(Math.min(1, Math.sqrt(sum / samples.length) * 6))
             pending.push(...floatToPcm16(samples, rate))
-            while (pending.length >= CHUNK_SAMPLES) ws.send(JSON.stringify(audioMessage(Int16Array.from(pending.splice(0, CHUNK_SAMPLES)))))
+            while (pending.length >= CHUNK_SAMPLES) {
+                const chunk = Int16Array.from(pending.splice(0, CHUNK_SAMPLES))
+                // Live audio that is already late is worth less than the word being said now: when the socket is backed up, drop the chunk
+                // instead of queueing seconds of audio (memory and latency would only grow).
+                if (ws.bufferedAmount > MAX_BUFFERED_BYTES) continue
+                try {
+                    ws.send(JSON.stringify(audioMessage(chunk)))
+                } catch {
+                    // the socket is closing: its close handler ends the session
+                }
+            }
         })
     } catch (err) {
         ws.close()
@@ -252,6 +283,7 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
     // One number per start(). cancel() and unmount move it on, so a startup that is still connecting (token, socket, microphone)
     // can tell, when it finishes, that nobody wants it any more and shut it down instead of leaving a live microphone running.
     const startId = useRef(0)
+    const lastLevelAt = useRef(0)
     const mounted = useRef(true)
     const onFinishedRef = useRef(onFinished)
     onFinishedRef.current = onFinished
@@ -283,7 +315,14 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
                     setText(t)
                     setPartial("")
                 },
-                onLevel: (l) => { if (mine === startId.current) setLevel(l) },
+                // The microphone reports a level many times a second; React only needs it at about the display rate.
+                onLevel: (l) => {
+                    if (mine !== startId.current) return
+                    const now = Date.now()
+                    if (now - lastLevelAt.current < LEVEL_EVERY_MS && l !== 0) return
+                    lastLevelAt.current = now
+                    setLevel(l)
+                },
                 onStatus: (st) => {
                     if (mine !== startId.current) return
                     // "closed" is how an unexpected close (the provider hung up) reaches us: stop the clock and go idle, keeping the error.

@@ -26,6 +26,8 @@ async function installResumableFetch(env) {
                 self.postMessage({ type: "log", msg: "[worker] origin-private storage unavailable: downloads are not resumable" });
                 return;
             }
+            // Partials nobody resumed for a month are dropped, so abandoned model downloads do not fill the browser's storage.
+            storage.evictStale(30 * 24 * 60 * 60 * 1000).catch(() => {});
             resumable = createResumableFetch({
                 storage,
                 policy: downloadPolicy,
@@ -302,6 +304,8 @@ self.onmessage = async (e) => {
     // These arrive while a model is still loading (the handler below is awaiting), so they must not queue behind it.
     if (type === "configure") {
         downloadPolicy = e.data.policy || {};
+        // A worker that is reused keeps its resumable fetch: it has to be given the new policy too, or it goes on with the old thresholds.
+        if (resumable) resumable.setPolicy(downloadPolicy);
         if (typeof e.data.online === "boolean") pageOnline = e.data.online;
         if (resumable) resumable.setOnline(pageOnline);
         return;

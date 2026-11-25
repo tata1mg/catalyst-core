@@ -181,7 +181,7 @@ function fakeObjectUrls(url: string) {
 let restoreUrls: () => void = () => {}
 
 /** Browser audio fakes for the default microphone implementation. */
-function stubAudio({ worklet = true, rateThrows = false } = {}) {
+function stubAudio({ worklet = true, rateThrows = false, moduleFails = false } = {}) {
     const stopTrack = vi.fn()
     const nodes: any[] = []
     const contexts: any[] = []
@@ -189,7 +189,7 @@ function stubAudio({ worklet = true, rateThrows = false } = {}) {
     class FakeContext {
         sampleRate = 16000
         destination = {}
-        audioWorklet = worklet ? { addModule: vi.fn(async () => {}) } : undefined
+        audioWorklet = worklet ? { addModule: vi.fn(async () => { if (moduleFails) throw new Error("worklet blocked by CSP") }) } : undefined
         close = vi.fn(async () => {})
         constructor(opts?: any) {
             if (rateThrows && opts) throw new Error("sampleRate unsupported")
@@ -384,5 +384,70 @@ describe("useLiveTranscribe", () => {
         expect(hook.result.current.error).toBeNull()
         act(() => hook.result.current.cancel())
         await act(async () => { await FakeSocket.last.serve({ setupComplete: {} }); await second })
+    })
+})
+
+describe("robustness from review", () => {
+    beforeEach(() => stubNetwork())
+
+    it("microphone setup that throws after the stream opened releases the stream and the context", async () => {
+        const audio = stubAudio({ worklet: true, moduleFails: true })
+        const started = startLiveTranscription({ WebSocketImpl: FakeSocket as any })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        await FakeSocket.last.serve(ready)
+        await expect(started).rejects.toThrow(/worklet blocked by CSP/)
+        expect(audio.stopTrack).toHaveBeenCalled() // the microphone is not left open
+        expect(audio.contexts[0].close).toHaveBeenCalled()
+        expect(FakeSocket.last.closed).toBe(true)
+    })
+
+    it("a socket that opens and then stays silent fails after the deadline and is closed", async () => {
+        vi.useFakeTimers()
+        const started = startLiveTranscription({ WebSocketImpl: FakeSocket as any, openMic: async () => () => {} })
+        const outcome = started.then(() => "resolved", (e: Error) => e.message)
+        await vi.advanceTimersByTimeAsync(15_001)
+        expect(await outcome).toMatch(/did not answer the live connection in time/)
+        expect(FakeSocket.last.closed).toBe(true)
+    })
+
+    it("audio is dropped, not queued, while the socket is backed up, and sent again once it drains", async () => {
+        const { push } = await open()
+        const socket: any = FakeSocket.last
+        const audioSent = () => socket.sent.filter((m: any) => m.realtimeInput?.audio).length
+        socket.bufferedAmount = 10 * 1024 * 1024
+        push(new Float32Array(3200).fill(0.1))
+        expect(audioSent()).toBe(0)
+        socket.bufferedAmount = 0
+        push(new Float32Array(3200).fill(0.1))
+        expect(audioSent()).toBeGreaterThan(0)
+    })
+
+    it("a socket that throws while sending ends nothing by itself: its close handler does", async () => {
+        const { push, session } = await open()
+        const socket: any = FakeSocket.last
+        socket.send = () => { throw new Error("socket closing") }
+        expect(() => push(new Float32Array(3200).fill(0.1))).not.toThrow()
+        session.cancel()
+    })
+
+    it("the level meter is updated at display rate, not once per audio callback", async () => {
+        vi.stubGlobal("WebSocket", FakeSocket) // the hook opens its own socket
+        const audio = stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let started: Promise<void> = Promise.resolve()
+        act(() => { started = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        await FakeSocket.last.serve(ready)
+        await act(async () => { await started })
+        const node = audio.nodes.find((n: any) => n.port)
+        const feed = (amplitude: number) => act(() => { node.port.onmessage({ data: new Float32Array(1600).fill(amplitude) }) })
+        feed(0.01) // level 0.06: the first update goes through
+        const first = hook.result.current.level
+        expect(first).toBeGreaterThan(0)
+        feed(0.1) // level 0.6, a few microseconds later: skipped, the meter does not re-render for it
+        expect(hook.result.current.level).toBe(first)
+        await new Promise((r) => setTimeout(r, 120))
+        feed(0.1) // enough time has passed: this one is shown
+        expect(hook.result.current.level).toBeGreaterThan(first)
     })
 })

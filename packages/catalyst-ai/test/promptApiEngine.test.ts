@@ -129,6 +129,16 @@ describe("createPromptApiEngine", () => {
         expect(seen.at(-1)!.message).toMatch(/click or tap/)
     })
 
+    it("a NotAllowedError from a model that was already available is NOT blamed on a missing click", async () => {
+        const err = Object.assign(new Error("blocked by enterprise policy"), { name: "NotAllowedError" })
+        const { api } = fakeApi({ availability: "available", createError: err })
+        const { seen, finished } = run(api, [user("hi")])
+        await finished
+        expect(seen.at(-1)).toMatchObject({ type: "error" })
+        expect(seen.at(-1)!.message).toMatch(/NotAllowedError: blocked by enterprise policy/)
+        expect(seen.at(-1)!.message).not.toMatch(/click or tap/)
+    })
+
     it("errors cleanly when unavailable or without the API", async () => {
         for (const [api, msgs, pattern] of [
             [fakeApi({ availability: "unavailable" }).api, [user("hi")], /unavailable on this device.*22 GB/],

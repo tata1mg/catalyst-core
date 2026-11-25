@@ -384,6 +384,9 @@ export function useWebAI({
     )
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
         runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }

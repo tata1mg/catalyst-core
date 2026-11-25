@@ -325,6 +325,13 @@ export function useNativeAI({
                                 continue
                             }
                             if (data.done) {
+                                // Tokens and `done` can arrive back to back, before the scheduled output flush has run. generate() returns
+                                // right after this, so the full text has to be in the result now, not on the next frame.
+                                if (rafRef.current) {
+                                    typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
+                                    rafRef.current = null
+                                }
+                                setOutput(outputAccRef.current)
                                 setStreaming(false)
                                 const genMs = Math.round(performance.now() - t0)
                                 const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
@@ -398,6 +405,9 @@ export function useNativeAI({
     }
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
         generationRef.current++
         cancelRaf()
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }

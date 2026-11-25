@@ -11,7 +11,7 @@ const { openai, gemini } = createSpeechAdapters({ throwProviderError, createErro
 // A real Response, as fetch returns: bytes for audio bodies, JSON text otherwise. (A double whose json() and arrayBuffer() hand back the
 // same object cannot be read through a bounded reader, and no real response behaves that way.)
 const okResponse = (body: any, headers: Record<string, string> = {}) =>
-    new Response(body instanceof ArrayBuffer || ArrayBuffer.isView(body) ? (body as BodyInit) : JSON.stringify(body), { status: 200, headers })
+    new Response(body instanceof ArrayBuffer || ArrayBuffer.isView(body) ? (body as any) : JSON.stringify(body), { status: 200, headers })
 
 afterEach(() => {
     vi.unstubAllGlobals()

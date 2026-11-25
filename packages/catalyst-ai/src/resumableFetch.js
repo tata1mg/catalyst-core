@@ -22,19 +22,24 @@ export function createResumableFetch(options = {}) {
     const storage = options.storage
     const onStatus = options.onStatus || (() => {})
     const log = options.log || (() => {})
-    const policy = Object.assign(
-        {
-            minBytesPerSec: 50000,
-            windowSec: 20,
-            resumeDelaySec: 10,
-            maxDelaySec: 120,
-            maxIdleRetries: 8,
-            heldRetrySec: 120,
-            minResumableBytes: 8 * 1024 * 1024,
-            replayChunkBytes: 4 * 1024 * 1024,
-        },
-        options.policy || {}
-    )
+    const DEFAULT_POLICY = {
+        minBytesPerSec: 50000,
+        windowSec: 20,
+        resumeDelaySec: 10,
+        maxDelaySec: 120,
+        maxIdleRetries: 8,
+        heldRetrySec: 120,
+        minResumableBytes: 8 * 1024 * 1024,
+        replayChunkBytes: 4 * 1024 * 1024,
+    }
+    const policy = {}
+    // One object that every part of the download reads, so it can be replaced in place: a reused worker is told a new policy
+    // (setPolicy) and the transfers started afterwards use it. Keys that are not given go back to their defaults.
+    function applyPolicy(overrides) {
+        for (const key of Object.keys(policy)) delete policy[key]
+        Object.assign(policy, DEFAULT_POLICY, overrides || {})
+    }
+    applyPolicy(options.policy)
 
     let online = options.online !== undefined ? options.online : typeof navigator === "undefined" || navigator.onLine !== false
     const active = new Set() // AbortControllers of transfers in flight
@@ -196,9 +201,12 @@ export function createResumableFetch(options = {}) {
         let have = 0
         try {
             meta = await storage.getMeta(key)
-            have = meta && meta.url === url ? await storage.size(key) : 0
+            // A part can exist while its metadata is missing or unreadable (getMeta then returns null). It must still be found and dropped:
+            // appending a fresh download after bytes of unknown origin would produce a corrupt file.
+            const stored = await storage.size(key)
+            have = meta && meta.url === url ? stored : 0
             if (!(have > 0 && isStrong(meta && meta.etag))) {
-                if (meta || have) await safeRemove(key)
+                if (meta || stored) await safeRemove(key)
                 meta = null
                 have = 0
             }
@@ -207,7 +215,12 @@ export function createResumableFetch(options = {}) {
             return baseFetch(input, init)
         }
 
-        const baseInit = Object.assign({}, init, { headers: callerHeaders })
+        // A Request carries its own abort signal, credentials, cache and mode. Passing only its URL would drop them (aborting the Request
+        // would no longer stop the download), so they are the defaults and anything in `init` overrides them, as fetch(request, init) does.
+        const fromRequest = typeof Request !== "undefined" && input instanceof Request
+            ? { credentials: input.credentials, cache: input.cache, mode: input.mode, redirect: input.redirect, referrerPolicy: input.referrerPolicy, signal: input.signal }
+            : {}
+        const baseInit = Object.assign({}, fromRequest, init, { headers: callerHeaders })
         let attempt = await sendPatiently(url, baseInit, have, label, have)
         let outcome = interpret(attempt.res, have, meta && meta.etag)
 
@@ -449,9 +462,11 @@ export function createResumableFetch(options = {}) {
                 }
             },
             cancel() {
-                // The consumer gave up (worker terminated, page left): stop, but keep the partial for next time.
+                // The consumer gave up (worker terminated, page left): stop, but keep the partial for next time. What was written but not
+                // yet flushed is flushed now, so the next attempt resumes from the byte that was delivered.
                 closed = true
                 stopTransfer()
+                Promise.resolve(storage.flush && storage.flush(key)).catch(() => {})
             },
         })
     }
@@ -467,6 +482,10 @@ export function createResumableFetch(options = {}) {
         },
         get online() {
             return online
+        },
+        /** Replaces the download policy (thresholds, delays, retries). Transfers already in flight keep their current window. */
+        setPolicy(overrides) {
+            applyPolicy(overrides)
         },
     }
 }
@@ -505,6 +524,28 @@ export async function createOpfsStorage() {
     const encoder = new TextEncoder()
 
     return {
+        /**
+         * Removes partial downloads that have not been written to for `maxAgeMs`. A cancelled download keeps its partial on purpose (so
+         * it can resume), but one that is never resumed would otherwise occupy hundreds of megabytes for ever. Partials in use (open
+         * handles) are never touched. Returns the keys that were removed.
+         */
+        async evictStale(maxAgeMs) {
+            const removed = []
+            for await (const [name, entry] of dir.entries()) {
+                if (!name.endsWith(".part") || open.has(name)) continue
+                let modified
+                try {
+                    modified = (await entry.getFile()).lastModified
+                } catch (error) {
+                    continue // locked or gone: not ours to judge
+                }
+                if (Date.now() - modified <= maxAgeMs) continue
+                const key = name.slice(0, -5)
+                await this.remove(key)
+                removed.push(key)
+            }
+            return removed
+        },
         async getMeta(key) {
             const access = await handle(key + ".json", false)
             if (!access) return null
@@ -543,6 +584,14 @@ export async function createOpfsStorage() {
                 access.flush()
                 unflushed.set(key, 0)
             } else unflushed.set(key, pending)
+        },
+        /** Makes everything appended so far durable (the periodic flush only runs every few megabytes). */
+        async flush(key) {
+            const access = open.get(key + ".part")
+            if (access) {
+                access.flush()
+                unflushed.set(key, 0)
+            }
         },
         async remove(key) {
             for (const name of [key + ".part", key + ".json"]) {
@@ -591,6 +640,10 @@ export function createMemoryStorage() {
             next.set(old, 0)
             next.set(chunk, old.length)
             parts.set(key, next)
+        },
+        async flush() {},
+        async evictStale() {
+            return []
         },
         async remove(key) {
             parts.delete(key)

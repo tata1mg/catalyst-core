@@ -339,6 +339,9 @@ export function useCloudAI({
     )
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)
