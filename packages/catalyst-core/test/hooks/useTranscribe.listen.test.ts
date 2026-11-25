@@ -258,6 +258,20 @@ describe("useTranscribe.listen: nothing heard, and the controls", () => {
         expect(hook.result.current.error).toBeNull()
     })
 
+    it("stopListening while the router is deciding again after the recogniser failed does not let the recorder take the microphone", async () => {
+        let decideSecond!: (d: any) => void
+        ai.decide.mockResolvedValueOnce(platform).mockReturnValueOnce(new Promise((resolve) => { decideSecond = resolve }))
+        const hook = renderHook(() => useTranscribe())
+        const done = listenOnce(hook)
+        await vi.waitFor(() => expect(speech.start).toHaveBeenCalledTimes(1))
+        act(() => speechOpts.onError("ON_DEVICE_UNAVAILABLE")) // falls back: a second routing decision starts and stays pending
+        await vi.waitFor(() => expect(ai.decide).toHaveBeenCalledTimes(2))
+        act(() => hook.result.current.stopListening()) // the person stops now
+        await act(async () => { decideSecond(gemma) }) // the decision comes back and would start the recorder
+        expect(await done).toBeNull()
+        expect(mic.start).not.toHaveBeenCalled()
+    })
+
     it("stopListening ends the recogniser's session or the recording, whichever is running", async () => {
         ai.decide.mockResolvedValueOnce(platform)
         const first = renderHook(() => useTranscribe())

@@ -155,6 +155,8 @@ interface LiveSession {
     chosenId?: string
     /** Something was heard already: a later failure is reported, not answered with a fallback. */
     heard: boolean
+    /** stopListening() was called: whatever is still being decided or started must not take the microphone afterwards. */
+    stopRequested?: boolean
     startedAt: number
     resolve: (result: TranscribeResult | null) => void
 }
@@ -379,6 +381,7 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
     const begin = async (id: number, allowPlatform: boolean) => {
         const session = sessionRef.current
         if (!session || session.id !== id) return
+        if (session.stopRequested) return endSession(null)
         let chosen: Candidate | null = null
         // With provider "auto" the router picks. With an explicit provider there is nothing to route: record, then send the
         // clip to that provider (the phone's recogniser is only ever a routed choice).
@@ -390,6 +393,8 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
                 return failLive(id, new TranscribeError(String((cause as Error)?.message || cause), "TRANSCRIBE_UNAVAILABLE"))
             }
             if (id !== requestId.current || sessionRef.current?.id !== id) return
+            // Stopped while the router was deciding (including the second decision after the phone's recogniser could not start).
+            if (session.stopRequested) return endSession(null)
             update(id, { route: decision })
             if (decision.action !== "run" || !decision.candidate) {
                 update(id, { status: decision.action === "ask" ? "needs-consent" : "denied", progress: null })
@@ -486,6 +491,7 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
     const stopListening = useCallback(() => {
         const session = sessionRef.current
         if (!session) return
+        session.stopRequested = true
         if (session.kind === "platform") speechRef.current.stop()
         else if (session.kind === "recorder") micRef.current.stop()
         else stopLive() // still deciding: nothing to wait for

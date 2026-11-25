@@ -39,7 +39,7 @@ const requestOnce = (): Promise<string | null> => {
             }
 
             bridge.register(NATIVE_CALLBACKS.MICROPHONE_PERMISSION_STATUS, (status: string) => {
-                finish(() => (status === PERMISSION_STATUS.GRANTED ? resolve(status) : reject(new Error(`Microphone permission ${String(status).toLowerCase()}`))))
+                finish(() => (status === PERMISSION_STATUS.GRANTED ? resolve(status) : reject(Object.assign(new Error(`Microphone permission ${String(status).toLowerCase()}`), { code: "PERMISSION_DENIED" }))))
             })
             // false = the shell has no such method; nothing will answer, so do not wait for it.
             if (nativeBridge.microphone.requestPermission() === false) {
@@ -48,7 +48,8 @@ const requestOnce = (): Promise<string | null> => {
             }
             timer = setTimeout(() => finish(() => resolve(null)), NO_ANSWER_MS)
         } catch (error) {
-            finish(() => reject(error))
+            // Not the user's answer: the request could not be delivered. Callers must not tell the person they refused.
+            finish(() => reject(Object.assign(error instanceof Error ? error : new Error(String(error)), { code: "BRIDGE_ERROR" })))
         }
     })
 }

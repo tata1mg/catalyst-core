@@ -64,11 +64,12 @@ export function validate(schema: Schema, value: unknown, path = "$"): string[] {
 }
 
 /** The prompt that asks for the schema's shape and nothing else. */
-export function buildPrompt(schema: Schema, instructions?: string): string {
+export function buildPrompt(schema: Schema, instructions?: string, source: "image" | "text" = "image"): string {
+    const thing = source === "text" ? "text" : "image"
     return [
-        instructions?.trim() || "Read the image and extract the requested information.",
+        instructions?.trim() || `Read the ${thing} and extract the requested information.`,
         "Reply with ONLY a JSON value that matches this JSON Schema. No prose, no explanation, no code fences.",
-        "If a value is not visible in the image, use null for it when the schema allows that; never invent one.",
+        `If a value is not ${source === "text" ? "present in the text" : "visible in the image"}, use null for it when the schema allows that; never invent one.`,
         JSON.stringify(schema),
     ].join("\n\n")
 }
@@ -127,6 +128,13 @@ export function extractJson(text: string): Extracted {
     if (fenced) candidates.push(fenced[1].trim())
     const balanced = firstBalanced(trimmed)
     if (balanced) candidates.push(balanced)
+    // No object or array in the reply: a scalar schema (a number, a yes/no, a quoted string) is answered with a bare value inside prose
+    // ("The answer is 42"), which would otherwise never be found.
+    // Only when the reply has no braces or brackets at all: a truncated or malformed object must stay an error, not become its first string.
+    else if (!/[{[\]}]/.test(trimmed)) {
+        const scalar = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/.exec(trimmed)
+        if (scalar) candidates.push(scalar[0])
+    }
     for (const candidate of candidates) {
         try {
             return { ok: true, value: JSON.parse(candidate) }

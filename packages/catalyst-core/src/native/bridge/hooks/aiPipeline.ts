@@ -319,7 +319,7 @@ export function jsonStage(options: {
         output: "json",
         cloud: options.cloud,
         run: async (text, ctx) => {
-            const base = `${buildPrompt(schema, options.instructions ?? "Extract the requested information from the text below.")}\n\nText:\n<<<\n${text}\n>>>`
+            const base = `${buildPrompt(schema, options.instructions ?? "Extract the requested information from the text below.", "text")}\n\nText:\n<<<\n${text}\n>>>`
             let prompt = base
             let problems: string[] = []
             for (let attempt = 0; attempt < 2; attempt++) {
@@ -363,9 +363,14 @@ export function imageStage(options: {
         run: async (json, ctx) => {
             const prompt = await options.prompt(json)
             const images = options.images ? await options.images(json) : undefined
-            const result = await options.requestImage({ ...options.requestOptions, prompt, ...(images?.length ? { images } : {}), signal: ctx.signal })
-            const cost = options.cost?.(result)
-            if (cost) ctx.addCost(cost)
+            // `images` decides whether this is an edit: a list means edit, an empty or missing list means generate. A leftover `images` in
+            // requestOptions must not survive an empty answer, or stale pictures would be uploaded for an edit nobody asked for.
+            const { images: _ignored, ...rest } = (options.requestOptions ?? {}) as Record<string, unknown>
+            const result = await options.requestImage({ ...rest, prompt, ...(images?.length ? { images } : {}), signal: ctx.signal })
+            // The standard image result carries its own cost (requestImage computes it from AI_CONFIG.pricing); use it unless the caller maps one.
+            const cost = options.cost ? options.cost(result) : (result as { cost?: unknown })?.cost
+            if (typeof cost === "number" && !Number.isFinite(cost)) throw new Error("The image request reported a cost that is not a number")
+            if (typeof cost === "number" && cost) ctx.addCost(cost)
             const first = result?.images?.[0]
             if (!first) throw new Error("The image request returned no images")
             return first

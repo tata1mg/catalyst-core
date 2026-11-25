@@ -29,13 +29,20 @@ function getRoutingConfig() {
     }
 }
 
+// The public config is fixed at build time, so it is parsed once per distinct value, not on every render of every useAI.
+let pricingRaw: string | undefined | null = null
+let pricingParsed: any = null
+let pricingApplied: any = undefined
 function getPricingConfig() {
+    const raw = process.env.AI_PUBLIC_CONFIG
+    if (raw === pricingRaw) return pricingParsed
+    pricingRaw = raw
     try {
-        const raw = process.env.AI_PUBLIC_CONFIG
-        return raw ? JSON.parse(raw)?.pricing || null : null
+        pricingParsed = raw ? JSON.parse(raw)?.pricing || null : null
     } catch (_) {
-        return null
+        pricingParsed = null
     }
+    return pricingParsed
 }
 
 // Live checks, not the user agent: an iPhone Safari tab is a web target (it has no native module), a WebView build is not.
@@ -108,7 +115,12 @@ export function useAI(options: any = {}) {
     // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
     const network = useNetworkStatus()
     // Prices the developer set in AI_CONFIG.pricing win over catalyst-ai's built-in table (idempotent; older catalyst-ai ignores it).
-    _pkg?.setPricingOverrides?.(getPricingConfig())
+    // Only when the prices changed: setPricingOverrides normalises and replaces the whole table.
+    const pricing = getPricingConfig()
+    if (pricing !== pricingApplied) {
+        _pkg?.setPricingOverrides?.(pricing)
+        pricingApplied = pricing
+    }
 
     // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
     // nothing downloads) until a call is routed to it.
@@ -119,7 +131,9 @@ export function useAI(options: any = {}) {
     const errorWhenParked = useRef<unknown>(null)
     const loadedId = useRef<string | null>(null)
     const observed = useRef<Record<string, Observed> | null>(null)
-    const lastMetrics = useRef<any>(null)
+    // The last metrics seen per candidate: every provider hook keeps its previous completion, so one shared marker would record an old
+    // completion again each time the selection switches back and forth.
+    const lastMetrics = useRef<Record<string, any>>({})
 
     const nativeSel = auto && selected?.mode === "native" ? selected : null
     const webSel = auto && selected?.mode === "local" ? selected : null
@@ -179,8 +193,8 @@ export function useAI(options: any = {}) {
     // Feed each finished call's metrics (the same ones useAI reports) back into the router.
     const metrics = active?.metrics
     useEffect(() => {
-        if (!auto || !selected || !metrics || metrics === lastMetrics.current) return
-        lastMetrics.current = metrics
+        if (!auto || !selected || !metrics || metrics === lastMetrics.current[selected.id]) return
+        lastMetrics.current[selected.id] = metrics
         observed.current = observed.current || loadObserved()
         observed.current[selected.id] = recordObserved(observed.current[selected.id], metrics) as Observed
         saveObserved(observed.current)

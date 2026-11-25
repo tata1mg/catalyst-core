@@ -28,7 +28,7 @@ export type RoutingPlatform = "ios" | "android" | "web-desktop" | "web-mobile"
 export function isMobileWeb(env: { uaMobile?: boolean; userAgent?: string; platform?: string; maxTouchPoints?: number }): boolean {
     if (typeof env.uaMobile === "boolean") return env.uaMobile
     if (/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(env.userAgent || "")) return true
-    return env.platform === "MacIntel" && (env.maxTouchPoints || 0) > 1
+    return env.platform === "MacIntel" && (env.maxTouchPoints || 0) > 0
 }
 
 /** resolvePlatform, with the browser split into desktop and mobile (they have different models to offer). */

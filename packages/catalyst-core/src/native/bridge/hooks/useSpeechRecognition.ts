@@ -257,8 +257,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         setState("starting")
         try {
             await requestMicrophonePermission()
-        } catch {
+        } catch (err: any) {
             if (token !== startToken.current || !mounted.current) return { started: false, code: "CANCELLED" }
+            if (err?.code === "BRIDGE_ERROR") return refuse("UNKNOWN", `Could not ask for the microphone permission: ${err?.message || err}`)
             return refuse("PERMISSION_DENIED", SPEECH_ERROR_TEXT.PERMISSION_DENIED(languageRef.current))
         }
         // The permission prompt can take a while. If the caller cancelled or the component went away meanwhile, there is

@@ -169,4 +169,51 @@ describe("useMicrophone", () => {
         expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
         expect(result.current.listening).toBe(true)
     })
+
+    it("a bridge failure while asking for permission is reported as that, not as the person refusing", async () => {
+        permission.mockRejectedValueOnce(Object.assign(new Error("bridge down"), { code: "BRIDGE_ERROR" }))
+        const { result } = renderHook(() => useMicrophone())
+        let started: any
+        await act(async () => { started = await result.current.start() })
+        expect(started.started).toBe(false)
+        expect(started.error).toMatch(/Could not ask for the microphone permission: bridge down/)
+        expect(started.error).not.toMatch(/denied/)
+        permission.mockRejectedValueOnce(Object.assign(new Error("Microphone permission denied"), { code: "PERMISSION_DENIED" }))
+        await act(async () => { started = await result.current.start() })
+        expect(started.error).toBe("Microphone permission was denied.")
+    })
+
+    it("two quick start() calls make one recording: the second is refused while the first is still opening", async () => {
+        let release!: (v: string | null) => void
+        permission.mockReturnValueOnce(new Promise((resolve) => { release = resolve }))
+        const { result } = renderHook(() => useMicrophone())
+        let first!: Promise<any>
+        let second: any
+        act(() => { first = result.current.start() })
+        await act(async () => { second = await result.current.start() })
+        expect(second).toEqual({ started: false, error: "Already starting." })
+        await act(async () => { release(null); await first })
+        expect(result.current.listening).toBe(true)
+        expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1)
+    })
+
+    it("a recording cancelled while its clip is being read is not delivered", async () => {
+        class SlowReader {
+            static last: SlowReader
+            result: any = null
+            onload: any
+            onerror: any
+            constructor() { SlowReader.last = this }
+            readAsDataURL() {}
+            finish(data: string) { this.result = data; this.onload?.() }
+        }
+        vi.stubGlobal("FileReader", SlowReader)
+        const onRecorded = vi.fn()
+        const { result } = renderHook(() => useMicrophone({ onRecorded }))
+        await act(async () => { await result.current.start() })
+        act(() => { result.current.stop() }) // the clip is now being read
+        act(() => { result.current.cancel() }) // too late for the session, but the clip must still be dropped
+        await act(async () => { SlowReader.last.finish("data:audio/webm;base64,AAAA"); await Promise.resolve() })
+        expect(onRecorded).not.toHaveBeenCalled()
+    })
 })

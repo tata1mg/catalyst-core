@@ -113,10 +113,13 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
     const requestId = useRef(0)
     const lastSource = useRef<ImageSource | null>(null)
     const mounted = useRef(true)
+    // The image download of the scan that is current. A newer scan, clear() and unmount stop it, so an obsolete download does not carry on.
+    const sourceAbort = useRef<AbortController | null>(null)
     useEffect(() => {
         mounted.current = true
         return () => {
             mounted.current = false
+            sourceAbort.current?.abort()
         }
     }, [])
 
@@ -139,7 +142,10 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
 
             let imageUrl: string
             try {
-                imageUrl = await toImageDataUrl(source)
+                sourceAbort.current?.abort()
+                const controller = new AbortController()
+                sourceAbort.current = controller
+                imageUrl = await toImageDataUrl(source, { signal: controller.signal })
             } catch (cause) {
                 return fail(new VisionError((cause as Error).message, "VISION_SOURCE"))
             }
@@ -199,6 +205,7 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
     )
     const clear = useCallback(() => {
         requestId.current++
+        sourceAbort.current?.abort()
         aiRef.current.cancel?.()
         lastSource.current = null
         if (mounted.current) setState(initial<T>())

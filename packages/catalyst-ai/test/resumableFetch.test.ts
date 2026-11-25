@@ -468,6 +468,6 @@ describe("abandoned partial downloads", () => {
 
     it("the in-memory storage has the same method and removes nothing", async () => {
         const { createMemoryStorage } = await import("../src/resumableFetch.js")
-        expect(await createMemoryStorage().evictStale(1)).toEqual([])
+        expect(await (createMemoryStorage() as any).evictStale(1)).toEqual([])
     })
 })

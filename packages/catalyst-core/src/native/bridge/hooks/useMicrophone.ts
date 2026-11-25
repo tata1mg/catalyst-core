@@ -126,14 +126,16 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         if (r && r.state !== "inactive") r.stop()
     }, [])
 
+    const cancelled = useRef(0)
     const cancel = useCallback(() => {
+        cancelled.current++
         startToken.current++
         if (live.current) live.current.discard = true
         stop()
         release()
     }, [stop, release])
 
-    const start = useCallback(async (): Promise<MicrophoneStartResult> => {
+    const startInner = useCallback(async (): Promise<MicrophoneStartResult> => {
         if (live.current) return { started: false, error: "Already recording." }
         setError(null)
         setSeconds(0)
@@ -150,8 +152,10 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         const abandoned = () => token !== startToken.current || !mounted.current
         try {
             await requestMicrophonePermission()
-        } catch {
+        } catch (err: any) {
             if (abandoned()) return { started: false, error: "Cancelled." }
+            // A refusal and a request that never reached the shell are different things: only the first is the person's answer.
+            if (err?.code === "BRIDGE_ERROR") return refuse(`Could not ask for the microphone permission: ${err?.message || err}`)
             return refuse("Microphone permission was denied.")
         }
         if (abandoned()) return { started: false, error: "Cancelled." }
@@ -208,7 +212,12 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
             }
             try {
                 const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
-                onRecorded.current?.(await readAsDataUrl(blob), { seconds: secs })
+                const deliverAfter = cancelled.current
+                const dataUrl = await readAsDataUrl(blob)
+                // Reading takes time, and release() has already cleared the session, so a cancel() or an unmount in the meantime can only
+                // be seen through this counter: the clip of a recording that was dropped must not reach the consumer.
+                if (!mounted.current || cancelled.current !== deliverAfter) return
+                onRecorded.current?.(dataUrl, { seconds: secs })
             } catch (err: any) {
                 fail(`Could not read the recording: ${err?.message || err}`)
             }
@@ -240,6 +249,19 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
         setState("listening")
         return { started: true }
     }, [autoStop, silenceMs, maxSeconds, release, stop, fail])
+
+    // One start at a time. `live` is only set once the stream is open, so two quick calls would otherwise both pass the guard (while
+    // the permission or the browser's prompt is pending) and the second recorder would replace the first one's reference.
+    const starting = useRef(false)
+    const start = useCallback(async (): Promise<MicrophoneStartResult> => {
+        if (starting.current) return { started: false, error: "Already starting." }
+        starting.current = true
+        try {
+            return await startInner()
+        } finally {
+            starting.current = false
+        }
+    }, [startInner])
 
     useEffect(() => {
         mounted.current = true
