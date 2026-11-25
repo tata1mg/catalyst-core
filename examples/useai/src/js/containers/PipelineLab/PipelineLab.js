@@ -56,6 +56,7 @@ export default function PipelineLab() {
     const [typed, setTyped] = useState("A calm morning by a lake, painted softly, with a small red boat.")
     const [audio, setAudio] = useState(null)
     const [pickError, setPickError] = useState(null)
+    const pickSeq = useRef(0)
 
     // Stateless cloud hook used by the transcribe and JSON stages. Held in a ref so the stage array stays stable.
     const ai = useAI({ provider: textProvider, sessionMode: "stateless" })
@@ -137,7 +138,7 @@ export default function PipelineLab() {
     }
     const askDeviceInner = async (content) => {
         const result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
-        deviceRef.current.unload?.()
+        await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }
@@ -276,9 +277,13 @@ export default function PipelineLab() {
         // Audio is decoded in full before its 30 s cap applies, so an oversized file is refused before it is read into memory.
         if (file.size > MAX_AUDIO_FILE_BYTES) return setPickError(`That recording is ${Math.round(file.size / 1048576)} MB; the limit is ${MAX_AUDIO_FILE_BYTES / 1048576} MB.`)
         setPickError(null)
+        // Only the latest selection may write its result: an earlier, slower read must not replace a newer pick.
+        const mine = ++pickSeq.current
         try {
-            setAudio({ name: file.name, data: await readAsDataUrl(file) })
+            const data = await readAsDataUrl(file)
+            if (pickSeq.current === mine) setAudio({ name: file.name, data })
         } catch (err) {
+            if (pickSeq.current !== mine) return
             setAudio(null)
             setPickError(`Could not read that file: ${err?.message || "read failed"}`)
         }

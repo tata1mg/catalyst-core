@@ -225,7 +225,10 @@ export default function Multimodal() {
         picker.execute({ mimeType: `${kind}/*` })
     }
 
+    // Identifies the pipeline run in progress. Stop (and a newer run) changes it, so a run that was stopped cannot go on to the next step.
+    const pipelineRun = useRef(0)
     const runPipeline = async () => {
+        const mine = ++pipelineRun.current
         if (!audio) {
             setPickError("This pipeline starts from speech: pick an audio clip first")
             return
@@ -235,6 +238,7 @@ export default function Multimodal() {
         const t0 = performance.now()
         setPipe({ step: "transcribing", transcript: null, asrMs: null, structMs: null })
         const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
+        if (pipelineRun.current !== mine) return
         const transcript = heard?.output?.trim()
         if (!transcript) {
             setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
@@ -244,10 +248,12 @@ export default function Multimodal() {
         setPipe({ step: "structuring", transcript, asrMs, structMs: null })
         const t1 = performance.now()
         await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
+        if (pipelineRun.current !== mine) return
         setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
     }
 
     const stop = () => {
+        pipelineRun.current++
         speech.cancel?.()
         ai.cancel?.()
         setPipe((p) => (p && (p.step === "transcribing" || p.step === "structuring") ? { ...p, step: "stopped" } : p))
@@ -398,7 +404,8 @@ export default function Multimodal() {
                 <button onClick={run} disabled={busy} className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-[13px] font-semibold disabled:opacity-50">
                     Run
                 </button>
-                {busy && <button onClick={isPipeline ? stop : ai.cancel} className={chip}>Stop</button>}
+                {/* stop() ends whichever request is running (the speech step of a pipeline as well as the model), whatever tab is showing now */}
+                {busy && <button onClick={stop} className={chip}>Stop</button>}
             </div>
 
             <div className="mt-4 font-mono text-[12px]" data-testid="status">
