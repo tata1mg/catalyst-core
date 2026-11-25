@@ -139,6 +139,12 @@ export const aiScenarios = [
         path: "/ai/openai/image",
         body: { prompt: "edit this", images: [{ mimeType: "image/png", data: "A" }] },
     }),
+    aiRequestScenario({
+        title: "maxTokens of 0 -> 400, not read as unset and silently turned into a large default",
+        provider: "openai",
+        path: "/ai/openai/generate",
+        body: { messages: [{ role: "user", content: "hi" }], genConfig: { maxTokens: 0 } },
+    }),
 ]
 
 /**

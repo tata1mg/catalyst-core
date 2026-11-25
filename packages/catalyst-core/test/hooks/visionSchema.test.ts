@@ -174,3 +174,14 @@ describe("a reply that ran out of room", () => {
         expect(extractJson('{"a": 1 "b": 2}').error).toContain("not valid JSON")
     })
 })
+
+describe("enum values that are objects or arrays", () => {
+    it("compares by structure, not by reference", () => {
+        const schema: Schema = { enum: [{ unit: "mg", per: [1, 2] }, [3, 4], "x"] }
+        expect(validate(schema, { unit: "mg", per: [1, 2] })).toEqual([])
+        expect(validate(schema, [3, 4])).toEqual([])
+        expect(validate(schema, "x")).toEqual([])
+        expect(validate(schema, { unit: "mg", per: [1, 3] })).not.toEqual([])
+        expect(validate(schema, { unit: "mg", per: [1, 2], extra: true })).not.toEqual([])
+    })
+})

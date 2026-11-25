@@ -38,6 +38,8 @@ class NativeBridgeAI(
     private val TAG = "NativeBridgeAI"
 
     private var engine: Engine? = null
+    // The model file the loaded engine was built from. A different request must not be answered by this engine.
+    private var loadedModelPath: String? = null
 
     // What the loaded engine was actually initialised with. Image/audio parts are refused (not dropped) when false.
     private var visionEnabled = false
@@ -193,12 +195,24 @@ class NativeBridgeAI(
     }
 
     private fun ensureEngine(modelPath: String) {
-        if (engine != null) {
+        if (engine != null && loadedModelPath == modelPath) {
             log("Engine already loaded — reusing warm instance")
             return
         }
+        engine?.let { previous ->
+            // Another model was asked for (the page switched from Gemma to Qwen, say). Keeping the old engine would answer with the
+            // wrong model and hold its memory, so release it and its conversation before loading the new one.
+            log("Model changed ($loadedModelPath -> $modelPath): releasing the previous engine")
+            try { nativeConversation?.close() } catch (e: Exception) { log("closing the previous conversation failed: ${e.message}") }
+            nativeConversation = null
+            nativeConversationId = null
+            try { previous.close() } catch (e: Exception) { log("closing the previous engine failed: ${e.message}") }
+            engine = null
+            loadedModelPath = null
+        }
         progress("engine_init", 0, 0, 0, "loading")
         engine = tryCreateEngine(modelPath)
+        loadedModelPath = modelPath
         log("LiteRT-LM engine ready")
         progress("engine_init", 100, 0, 0, "ready")
     }

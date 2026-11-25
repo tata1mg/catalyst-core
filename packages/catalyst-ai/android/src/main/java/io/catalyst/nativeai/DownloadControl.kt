@@ -207,7 +207,14 @@ internal class ResilientDownload(
             }
 
             val size = partialSize()
-            if (size > lastSize) idle = 0 else idle++
+            if (size > lastSize) {
+                idle = 0
+                // A slow link that is still moving bytes is not a stuck one: restart the weak-link backoff, or it would climb to its
+                // maximum and sleep that long after every window even though the file keeps growing.
+                if (reason == PauseReason.WEAK) weakStreak = 1
+            } else {
+                idle++
+            }
             lastSize = size
             if (idle > policy.maxIdleRetries) {
                 throw DownloadException(

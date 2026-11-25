@@ -152,3 +152,12 @@ describe("catalyst-ai pricing command", () => {
         expect(await cli.run(["--bogus"], harness().io)).toBe(2)
     })
 })
+
+describe("pricing CLI option parsing", () => {
+    it("--config with no path is an error, not a silent fall back to the default config file", () => {
+        const { parseArgs } = require("../scripts/pricing-cli.js")
+        expect(() => parseArgs(["--config"])).toThrow(/--config needs the path/)
+        expect(() => parseArgs(["--config", "--check"])).toThrow(/--config needs the path/)
+        expect(parseArgs(["--config", "my.json"]).config).toBe("my.json")
+    })
+})

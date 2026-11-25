@@ -59,12 +59,21 @@ function getProviderConfig(provider) {
 const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
 
 // Returns an error string if the request body is invalid, otherwise null.
+/** The most output tokens a caller may ask for in one request; a sanity ceiling, the provider's own limit still applies. */
+const MAX_TOKENS_LIMIT = 200_000
+
 function validateRequestBody(req, cfg, provider) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
     if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    // maxTokens is forwarded to a paid provider. Anything but a sane whole number is the caller's mistake: a 0 would otherwise be
+    // read as "unset" and silently become a large default, and a string or a huge value would be passed on as it is.
+    const maxTokens = req.body?.genConfig?.maxTokens
+    if (maxTokens !== undefined && maxTokens !== null && !(Number.isInteger(maxTokens) && maxTokens >= 1 && maxTokens <= MAX_TOKENS_LIMIT)) {
+        return `genConfig.maxTokens must be a whole number from 1 to ${MAX_TOKENS_LIMIT}`
+    }
     // Image/audio parts: re-validated server-side (client caps can be bypassed) and checked against what this
     // provider endpoint really accepts, before any paid call. Requests without array content skip this entirely.
     if (provider && media.usesParts(messages)) {

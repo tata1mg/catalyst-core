@@ -207,12 +207,15 @@ internal class ResumableDownloader(
                 }
                 ResumeRules.Outcome.Complete -> return Attempt.Done(offset)
                 ResumeRules.Outcome.Restart -> return Attempt.Restart
-                is ResumeRules.Outcome.Fail ->
+                is ResumeRules.Outcome.Fail -> {
+                    // Rate-limited (429) and request-timeout (408) answers say "try again later", not "this file cannot be had": keep the partial.
+                    val transient = outcome.status >= 500 || outcome.status == 429 || outcome.status == 408
                     throw DownloadException(
                         "HTTP ${outcome.status} from model server",
-                        discardPartial = outcome.status in 400..499,
-                        transient = outcome.status >= 500 || outcome.status == 429,
+                        discardPartial = outcome.status in 400..499 && !transient,
+                        transient = transient,
                     )
+                }
             }
 
             if (ResumeRules.isStrong(etag)) etagFile.writeText(etag!!) else etagFile.delete()

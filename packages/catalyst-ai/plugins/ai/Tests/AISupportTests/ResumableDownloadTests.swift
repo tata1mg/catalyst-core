@@ -312,6 +312,19 @@ final class ModelDownloaderTests: XCTestCase {
         }
     }
 
+    func testRateLimitedAndTimedOutAnswersKeepThePartialAndAreRetryable() async throws {
+        try Data(repeating: 1, count: 100).write(to: partial)
+        try "\"v1\"".write(to: etagFile, atomically: true, encoding: .utf8)
+        for status in [429, 408] {
+            FakeServer.config.forceStatus = status
+            do { _ = try await makeDownloader().download(from: url); XCTFail() } catch let error as ModelDownloadError {
+                XCTAssertFalse(error.discardPartial, "HTTP \(status) is a reason to wait, not to drop the partial")
+                XCTAssertTrue(error.transient, "HTTP \(status) is retryable")
+            }
+            XCTAssertEqual(onDisk().count, 100)
+        }
+    }
+
     func testBodyShorterThanAnnounced_IsRejectedAndTheBytesKept() async throws {
         FakeServer.config.declaredLength = 5000
         FakeServer.config.body = FakeServer.config.body.prefix(3000)

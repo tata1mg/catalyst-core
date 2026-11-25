@@ -86,7 +86,14 @@ final class ResilientDownload {
             }
 
             let size = partialSize()
-            if size > lastSize { idle = 0 } else { idle += 1 }
+            if size > lastSize {
+                idle = 0
+                // A slow link that is still moving bytes is not a stuck one: restart the weak-link backoff, or it would climb to its
+                // maximum and sleep that long after every window even though the file keeps growing.
+                if reason == .weak { weakStreak = 1 }
+            } else {
+                idle += 1
+            }
             lastSize = size
             if idle > policy.maxIdleRetries {
                 throw ModelDownloadError(

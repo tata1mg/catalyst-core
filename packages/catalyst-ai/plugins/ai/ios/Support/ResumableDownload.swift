@@ -272,8 +272,10 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             restartNeeded = true
             completionHandler(.cancel)
         case .fail(let status):
-            let client = (400..<500).contains(status)
-            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client, transient: status >= 500 || status == 429)
+            // Rate-limited (429) and request-timeout (408) answers say "try again later", not "this file cannot be had": the partial is kept.
+            let transient = status >= 500 || status == 429 || status == 408
+            let client = (400..<500).contains(status) && !transient
+            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client, transient: transient)
             completionHandler(.cancel)
         }
     }

@@ -258,7 +258,12 @@ export function createResumableFetch(options = {}) {
             const length = outcome.total
             const eligible = res.ok && isStrong(etag) && /bytes/i.test(res.headers.get("accept-ranges") || "") && length !== null && length >= policy.minResumableBytes
             if (have > 0) await safeRemove(key)
-            if (!eligible) return res
+            if (!eligible) {
+                // Not worth resuming: it is an ordinary response now. Stop tracking it, or its controller would stay in `active` for good
+                // and every later network transition would keep iterating (and aborting) a download that is not ours to heal.
+                finish()
+                return res
+            }
             have = 0
             total = length
         }
@@ -327,6 +332,21 @@ export function createResumableFetch(options = {}) {
                 reader.cancel().catch(() => {})
                 reader = null
             }
+        }
+
+        // A half-open connection stays open and sends nothing, so reader.read() would wait forever and the model load with it. The
+        // idle window is the same one that fails an attempt elsewhere: no bytes for windowSec ends the read, and recover() takes over.
+        function readWithDeadline() {
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                    if (controller) controller.abort()
+                    reject(new Error("no data for " + policy.windowSec + " s"))
+                }, policy.windowSec * 1000)
+                reader.read().then(
+                    (step) => { clearTimeout(timer); resolve(step) },
+                    (error) => { clearTimeout(timer); reject(error) }
+                )
+            })
         }
 
         async function recover(cause) {
@@ -402,7 +422,7 @@ export function createResumableFetch(options = {}) {
                         }
                         let step
                         try {
-                            step = reader ? await reader.read() : { done: true, value: undefined }
+                            step = reader ? await readWithDeadline() : { done: true, value: undefined }
                         } catch (error) {
                             await recover(error)
                             continue

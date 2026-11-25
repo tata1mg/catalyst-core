@@ -52,7 +52,11 @@ function parseArgs(argv) {
         if (a === "--all") opts.all = true
         else if (a === "--check") opts.check = true
         else if (a === "--set") opts.sets.push(parseSet(argv[++i]))
-        else if (a === "--config") opts.config = argv[++i]
+        else if (a === "--config") {
+            // A missing operand would silently fall back to the default config file, and the command would edit that one instead.
+            if (argv[i + 1] === undefined || String(argv[i + 1]).startsWith("--")) throw new Error("--config needs the path of a config file")
+            opts.config = argv[++i]
+        }
         else if (a === "--help" || a === "-h") opts.help = true
         else throw new Error(`Unknown option "${a}"`)
     }

@@ -139,3 +139,53 @@ describe("useSpeech", () => {
         expect(result.current).toMatchObject({ audio: null, loading: false, error: null, usage: null, url: null })
     })
 })
+
+describe("request deadlines and unmount", () => {
+    it("a request still ends at its deadline when AbortSignal.timeout and AbortSignal.any do not exist", async () => {
+        vi.useFakeTimers()
+        const original = { timeout: (AbortSignal as any).timeout, any: (AbortSignal as any).any }
+        ;(AbortSignal as any).timeout = undefined
+        ;(AbortSignal as any).any = undefined
+        try {
+            const { requestImage } = await import("../src/useImageGen.js")
+            let seen: AbortSignal | undefined
+            vi.stubGlobal("fetch", vi.fn((_u: string, init: any) => new Promise((_res, rej) => { seen = init.signal; init.signal.addEventListener("abort", () => rej(new Error("aborted"))) })))
+            const caller = new AbortController() // the caller's own signal must not replace the deadline
+            const pending = requestImage({ prompt: "p", signal: caller.signal }).catch((e: Error) => e)
+            await vi.advanceTimersByTimeAsync(180_001)
+            expect(seen?.aborted).toBe(true)
+            expect(caller.signal.aborted).toBe(false)
+            expect((await pending as Error).message).toMatch(/aborted/)
+        } finally {
+            ;(AbortSignal as any).timeout = original.timeout
+            ;(AbortSignal as any).any = original.any
+            vi.useRealTimers()
+            vi.unstubAllGlobals()
+        }
+    })
+
+    it("n: 0 and an empty voice reach the server's validation instead of being silently dropped", async () => {
+        const bodies: any[] = []
+        vi.stubGlobal("fetch", vi.fn(async (_u: string, init: any) => { bodies.push(JSON.parse(init.body)); return json({ error: "no" }, false, 400) }))
+        const { requestImage } = await import("../src/useImageGen.js")
+        const { requestSpeech } = await import("../src/useSpeech.js")
+        await requestImage({ prompt: "p", n: 0 }).catch(() => {})
+        await requestSpeech({ text: "t", voice: "" }).catch(() => {})
+        expect(bodies[0]).toMatchObject({ n: 0 })
+        expect(bodies[1]).toMatchObject({ voice: "" })
+    })
+
+    it("unmounting aborts the request that is still running", async () => {
+        const fetchMock = hangingFetch()
+        vi.stubGlobal("fetch", fetchMock)
+        const image = renderHook(() => useImageGen())
+        act(() => { void image.result.current.generate("p") })
+        const speech = renderHook(() => useSpeech())
+        act(() => { void speech.result.current.speak("t") })
+        const signals = fetchMock.mock.calls.map((c: any) => c[1].signal as AbortSignal)
+        expect(signals).toHaveLength(2)
+        image.unmount()
+        speech.unmount()
+        expect(signals.every((s) => s.aborted)).toBe(true)
+    })
+})

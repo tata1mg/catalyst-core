@@ -16,6 +16,7 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
         chunk: 1000,
         chunkDelayMs: 0,
         breakAfter: [] as number[], // per request: break the body after this many bytes (consumed in order)
+        stallAfter: [] as number[], // per request: stop sending after this many bytes but keep the connection open (a half-open link)
         status: 0, // force a status on the next request
         requests: [] as Req[],
         fetch: (input: any, init: any = {}) => {
@@ -37,6 +38,7 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
             const payload = s.body.subarray(start)
             headers.set("content-length", String(payload.length))
             const cut = s.breakAfter.length ? s.breakAfter.shift()! : Infinity
+            const stall = s.stallAfter.length ? s.stallAfter.shift()! : Infinity
             let sent = 0
             let ctrl: ReadableStreamDefaultController
             const stream = new ReadableStream({
@@ -45,9 +47,10 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
                     if (init.signal?.aborted) return c.error(new DOMException("Aborted", "AbortError"))
                     if (sent >= cut) return c.error(new TypeError("network error"))
                     if (sent >= payload.length) return c.close()
+                    if (sent >= stall) return new Promise(() => {}) // open, silent, and never answers
                     if (s.chunkDelayMs) await new Promise((r) => setTimeout(r, s.chunkDelayMs))
                     if (init.signal?.aborted) return c.error(new DOMException("Aborted", "AbortError"))
-                    const n = Math.min(s.chunk, payload.length - sent, cut - sent)
+                    const n = Math.min(s.chunk, payload.length - sent, cut - sent, stall - sent)
                     c.enqueue(payload.subarray(sent, sent + n))
                     sent += n
                 },
@@ -358,5 +361,26 @@ describe("concurrent files and cancellation", () => {
         const p = rf.fetch(URL_, { signal: controller.signal })
         setTimeout(() => controller.abort(), 30)
         await expect(p).rejects.toBeTruthy()
+    })
+})
+
+describe("a link that stays open but sends nothing", () => {
+    it("ends the wait at the idle window, resumes from the same byte, and delivers the whole file", async () => {
+        const { server, rf, events } = setup()
+        server.stallAfter = [5000]
+        const out = await bytes(await rf.fetch(URL_))
+        expect(same(out, server.body)).toBe(true)
+        expect(server.requests.map((r) => r.range)).toEqual([null, "bytes=5000-"])
+        expect(events.some((e) => e.state === "paused")).toBe(true)
+    })
+})
+
+describe("a response that is not persisted", () => {
+    it("is no longer tracked, so a later offline signal does not abort an ordinary download", async () => {
+        const { server, rf } = setup()
+        server.etag = 'W/"weak"' // a weak ETag is not resumable: an ordinary response
+        const res = await rf.fetch(URL_)
+        rf.setOnline(false) // would abort every tracked transfer
+        expect(same(await bytes(res), server.body)).toBe(true)
     })
 })
