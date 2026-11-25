@@ -72,9 +72,62 @@ Only the rows that mention `catalyst-ai` need it. `useMicrophone`, `useSpeechRec
 With the policy used in the example config, `auto` never sends images or audio to the cloud (`cloudMedia: "deny"`) and asks before text leaves
 the device (`cloud: "ask"`). Hooks that have a `status` (`useVision`, `useTranscribe`, `useAgent`) report `"needs-consent"` while they wait for the person to agree.
 
+## Pictures, speech and live transcription
+
+These hooks call your server's `/ai` route (or, for pictures, the device), so they need `catalyst-ai` and a provider key unless noted. Their
+`error` is a plain string.
+
+```javascript
+import { useImageGen, useSpeech } from "catalyst-core/hooks";
+
+function Poster() {
+  const { generate, images, loading, error } = useImageGen({ provider: "openai", size: "1024x1024" });
+  return (
+    <>
+      <button disabled={loading} onClick={() => generate("A red boat on a calm lake")}>Draw</button>
+      {error && <p role="alert">{error}</p>}
+      {images.map((img) => <img key={img.url.slice(-16)} src={img.url} alt="" />)}
+    </>
+  );
+}
+
+function Reader({ text }) {
+  const { speak, audio, loading, error } = useSpeech({ provider: "openai", voice: "alloy" });
+  return <button disabled={loading} onClick={() => speak(text)}>Read aloud</button>;
+}
+```
+
+- `useImageGen({ provider, model, size, n })`: `generate(prompt, overrides)` resolves `{ images, usage }`; each image has `mimeType`, `data` (base64)
+  and `url` (a `data:` URL for `<img src>`). Up to 4 images per call. Pass `images` in the overrides to edit existing pictures instead.
+- `useSpeech({ provider, model, voice, format })`: `speak(text)` resolves `{ audio, usage }`; `audio.url` plays with `new Audio(url)`.
+- `requestImage(args)` and `requestSpeech(args)` are the same calls without React, for pipelines and event handlers.
+- `useLiveTranscribe()` streams the microphone to a live model and gives you `listening`, `partial`, `text`, `level`, `seconds`, `start()` and
+  `stop()`. It uses Gemini Live: set `liveModel` in the `gemini` entry of `AI_CONFIG.providers`. Without one the route answers 400 ("no model specified and provider has no liveModel configured").
+
+### Pictures on the device (desktop browsers)
+
+Set `provider: "device"` to make the picture in the browser with SD-Turbo on WebGPU: free, nothing leaves the machine. The engine is not
+installed with `catalyst-ai`; your app owns it and registers it once:
+
+```bash
+npm install web-txt2img onnxruntime-web @huggingface/transformers
+```
+
+```javascript
+import { registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks";
+
+registerDeviceImageEngine(() => import("web-txt2img"), { wasmPaths: "/ort/" });
+
+const { available, reason } = await deviceImageSupport(); // false, with the reason, when WebGPU or the package is missing
+```
+
+If the package is missing when a picture is requested, the error says: "On-device image generation needs the web-txt2img package. Install it
+with: npm i web-txt2img @xenova/transformers onnxruntime-web". `wasmPaths` is the folder (or CDN prefix, ending in `/`) that serves
+onnxruntime-web's `.wasm` files. Pictures are 512x512.
+
 ## When something is missing
 
-A hook never fails silently. What is missing decides what you get:
+When a requirement is missing, the AI hooks report it through `error`. What is missing decides what you get:
 
 | What is missing | What you see | Code |
 |-----------------|--------------|------|
@@ -96,14 +149,14 @@ if (error?.code === "AI-004") return <p>On-device AI needs the app.</p>;
 
 ## Rules the AI hooks follow
 
-These hold for every AI hook, today and for the ones added later:
+These are checked by tests for the AI hooks:
 
-1. **Importing never needs the package.** Only calling an AI hook does.
-2. **Missing requirements are reported, not thrown during render.** The hook returns `error` (a registry error with a code and a suggested
+1. **Importing does not need the package.** Only calling an AI hook does.
+2. **A missing requirement is reported, not thrown during render.** The hook returns `error` (a registry error with a code and a suggested
    action) and its action (`generate`, `scan`, `transcribe`, `run`) returns an error result.
 3. **Fallbacks are chosen by you, not by surprise.** Where a fallback exists (`auto` routing picks another model) it is named in the tables
    above. Nothing leaves the device unless your policy allows it.
-4. **A cancel is a cancel.** `cancel()` stops the work, and an old call can never overwrite a newer one.
+4. **`cancel()` stops the work**, and a call that was replaced does not overwrite the newer one.
 
 ## Related
 

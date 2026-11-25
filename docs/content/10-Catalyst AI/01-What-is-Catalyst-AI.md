@@ -6,18 +6,31 @@ id: what-is-catalyst-ai
 
 # What is Catalyst AI
 
-**One hook. Any model. Your rules.**
+Say your app lets a customer record a voice note and wants a one-paragraph summary.
 
-Catalyst AI is how a Catalyst app talks to a language model, wherever that model lives: on your server's cloud account, inside the browser, or
-on the phone itself. You write the same code for all of them. The framework worries about where the model is, what it costs, and whether the
-person's words are allowed to leave their device.
+- On a new iPhone the summary can be made **on the phone**: the audio never leaves it, it works offline, and it costs nothing per request.
+- In a desktop browser it can run in the **browser tab**, after a one-time model download.
+- On an older Android phone, where the model will not fit, it can fall back to a **cloud model**, if you allow that.
+
+Catalyst AI is the part of Catalyst that makes this one piece of code instead of three:
 
 ```javascript
 const { generate, output, error } = useAI({ provider: "auto" });
 ```
 
-That one line can end up talking to Gemma running on an iPhone, Apple's built-in model, a model in the browser tab, or Gemini in the cloud,
-depending on the device and on the policy you set.
+`provider: "auto"` looks at the device, your cost limits and your privacy rules, and picks where the model runs. You can also name the
+place yourself (`"native"`, `"transformers"`, `"openai"`, `"gemini"`), and you handle one result shape and one error shape either way.
+
+## Words used on these pages
+
+| Term | Meaning here |
+|------|--------------|
+| **Provider** | Where a model runs: a cloud service (`openai`, `gemini`, `anthropic`), the browser (`transformers`, `prompt-api`), or the phone (`native`, `litert`, `foundation-models`) |
+| **On-device** | The model runs on the person's own phone, inside your Catalyst app. Nothing is sent to a server |
+| **WebGPU** | A browser feature that lets a page use the graphics chip. In-browser models need it |
+| **Routing policy** | Your rules for `provider: "auto"`: which places are allowed, what may leave the device, and cost and speed limits. It lives in `AI_CONFIG.routing` |
+| **Consent** | When the policy says "ask", the hook pauses with status `"needs-consent"` until the person agrees |
+| **Tool** | A function of yours that a model may call (`useAgent`) |
 
 ## Why it exists
 
@@ -42,7 +55,7 @@ your React code
    |  useAI, useVision, useTranscribe, useAgent, usePipeline ...      (catalyst-core/hooks)
    v
 catalyst-ai  (npm package you install)
-   |-- cloud models   -> your Express server route (/ai)  -> OpenAI / Gemini / Anthropic   (keys never reach the browser)
+   |-- cloud models   -> your Express server route (/ai)  -> OpenAI / Gemini / Anthropic   (the API keys are read from your server's config; the browser only calls your `/ai` route)
    |-- browser models -> a web worker (Transformers.js on WebGPU, or Chrome's Prompt API)
    '-- device models  -> the native app shell (iOS and Android)  -> Gemma 4, Qwen3, Apple Foundation Models
 ```
@@ -53,8 +66,8 @@ catalyst-ai  (npm package you install)
 - **The server route** keeps your API keys on the server and gives the browser a single endpoint.
 - **The native plugins** run models on the phone, download them with pause and resume, and ask for permissions for you.
 
-If you call an AI hook without the package installed, you get a clear error that says `npm install catalyst-ai`. Nothing else in your app
-is affected.
+If you call an AI hook without the package installed, you get an error that says `npm install catalyst-ai`. The rest of `catalyst-core` keeps
+working.
 
 ## What you can build with it
 
@@ -67,14 +80,15 @@ is affected.
 | Chain speech, text, data and pictures into one flow | `usePipeline` |
 | Make pictures, or speak text aloud | `useImageGen`, `useSpeech` |
 
-## Principles
+## What you can rely on
 
-1. **Private by default.** On-device comes first when you use `provider: "auto"`. Images and audio do not go to the cloud unless your policy
-   says so, and text asks first.
-2. **Nothing fails silently.** A missing package, a missing key, a refused permission or a model that is not ready is an `error` with a code
-   and a message that says what to do.
-3. **You stay in control.** Cost limits, consent, cancel, and which models are allowed are all yours to set.
-4. **Optional.** Apps that do not use AI do not pay for it.
+- **On-device first.** With `provider: "auto"` the phone's own model is tried before the browser and the cloud.
+- **Media stays put.** Images and audio are sent to a cloud model only if your routing policy allows it (`cloudMedia`). Text asks first when the
+  policy is `"ask"`.
+- **A problem is an `error`, not a blank screen.** A missing package, a missing key, a refused microphone permission or a model that is not ready
+  each give an `error` with a code and a message. The table in [Hooks and Errors](/content/Catalyst%20AI/hooks-and-errors#when-something-is-missing) lists them.
+- **You set the limits.** Cost caps, consent, `cancel()`, and the list of models that may be used are all configuration or options.
+- **It is optional.** An app that does not use AI does not install `catalyst-ai`.
 
 ## Next
 

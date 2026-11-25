@@ -60,7 +60,7 @@ marked "renders" never throw and report `isNative: false` / `isWeb: true`.
 | `useSpeechRecognition` | The native app | Renders; `supported: false` | None |
 | `useAI`, `useVision`, `useTranscribe`, `useAgent`, `useImageGen`, `useSpeech`, `useLiveTranscribe`, `requestImage`, `requestSpeech` | `catalyst-ai` | `error` with code `AI-010` that says `npm install catalyst-ai`; actions return that error | Depends on the provider: see [AI Hooks](/content/Catalyst%20AI/hooks-and-errors) |
 
-A hook never fails silently: a missing requirement is a thrown, documented error or an `error` value with a message that says what to do.
+A missing requirement is either a documented throw (the rows above that throw) or an `error` value with a message that says what to do.
 
 ## Route Hooks
 

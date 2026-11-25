@@ -10,6 +10,9 @@ import { search, isKnownDocUrl, getDocByUrl } from '../search.js'
 import { scrollToAndHighlightArticle, scrollToAndHighlightArticleAfterNavigation } from '../scrollHighlight.js'
 import ShellSync from '../components/ShellSync'
 
+// One get_doc_content call returns at most this many characters; a longer page continues with `nextOffset` or a `section`.
+const DOC_CONTENT_CHUNK = 8000
+
 /**
  * Site chrome. The docs grid itself (sidebar, article, TOC) belongs to
  * DocPage, which renders `.docs-shell` per page — this only wraps it in the
@@ -137,28 +140,48 @@ const DocsLayout = () => {
             'is the tool to use before answering a question or writing a solution based on a specific doc page — ' +
             'get_page_info/search_docs alone only give a short description, not enough to ground a real answer on. ' +
             'Also navigates the page there, so use open_doc separately only if you want to open a page WITHOUT ' +
-            "reading its content first (e.g. handing off to the person to read it themselves).",
+            "reading its content first (e.g. handing off to the person to read it themselves). Long pages come back in parts: " +
+            'the result has `nextOffset` when there is more (call again with it as `offset`), and `sections` lists the page\'s headings, so ' +
+            'you can pass `section` to read one directly (for example one hook on the Hooks page).',
         inputSchema: {
             type: 'object',
             properties: {
                 url: { type: 'string', description: 'a URL returned by search_docs, e.g. "/content/Introduction/why-catalyst"' },
+                section: { type: 'string', description: 'a section id from the `sections` of an earlier result; starts the content at that heading' },
+                offset: { type: 'number', minimum: 0, description: 'character position to continue from (the `nextOffset` of an earlier result)' },
             },
             required: ['url'],
         },
-        execute: async ({ url } = {}) => {
+        execute: async ({ url, section, offset } = {}) => {
             const doc = getDocByUrl(url)
             if (!doc) {
                 throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
                     message: `"${url}" is not a known documentation page. Call search_docs to find a valid URL.`,
                 })
             }
+            const sections = doc.sections || []
+            let start = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0
+            if (section !== undefined) {
+                const found = sections.find((s) => s.id === section)
+                if (!found) {
+                    throw new WebMcpError(WEBMCP_ERROR_CODES.INVALID_ARGS, {
+                        message: `"${section}" is not a section of this page. Valid sections: ${sections.map((s) => s.id).join(', ') || '(none)'}.`,
+                    })
+                }
+                start = found.start
+            }
+            const end = Math.min(doc.searchText.length, start + DOC_CONTENT_CHUNK)
             navigate(url)
             const highlighted = await scrollToAndHighlightArticleAfterNavigation()
             return {
                 url: doc.url,
                 title: doc.title,
                 categories: doc.categories,
-                content: doc.searchText,
+                content: doc.searchText.slice(start, end),
+                offset: start,
+                nextOffset: end < doc.searchText.length ? end : null,
+                totalChars: doc.searchText.length,
+                sections: sections.map(({ id, title: sectionTitle, start: at }) => ({ id, title: sectionTitle, start: at })),
                 toc: doc.toc,
                 highlighted,
             }
