@@ -80,6 +80,11 @@ internal object ResumeRules {
                 val total = range?.total
                 when {
                     !(offset > 0 && range?.start == offset && total != null && total > offset) -> Outcome.Restart
+                    // We asked for "from offset to the end": the answer must run to the last byte, and its body must be exactly that long.
+                    // Checking only the start and the total would accept a range whose end or length disagrees, so long as the file
+                    // happens to come out the right size.
+                    range?.end == null || range.end != total!! - 1 -> Outcome.Restart
+                    contentLength != null && contentLength != range.end - range.start!! + 1 -> Outcome.Restart
                     expectedETag != null && etag?.trim() != expectedETag -> Outcome.Restart
                     else -> Outcome.Append(total)
                 }
@@ -187,6 +192,12 @@ internal class ResumableDownloader(
         }
         // A pause from the page interrupts the transfer in flight: closing the connection ends the blocked read.
         gate?.setPauseHandler { reason ->
+            if (interruption == null) interruption = DownloadInterrupted.Kind.Paused(reason)
+            conn.disconnect()
+        }
+        // A pause that arrived after the check at the top of download() but before the handler existed found nobody to tell, and
+        // registering does not replay it: look again now that the handler is in place.
+        gate?.pausedReason?.let { reason ->
             if (interruption == null) interruption = DownloadInterrupted.Kind.Paused(reason)
             conn.disconnect()
         }

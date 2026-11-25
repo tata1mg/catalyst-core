@@ -57,6 +57,12 @@ object SpeechRecognitionUtils {
     fun errorPayload(code: String, message: String): String =
         JSONObject().put("code", code).put("message", message).toString()
 
+    /**
+     * Whether a language can be recognised on the device right now. Only an INSTALLED model can: a language that the recognizer merely
+     * lists as supported has to be downloaded first, and starting it would fail. Returns (available, reason).
+     */
+    fun availabilityOf(installed: Boolean): Pair<Boolean, String?> = if (installed) true to null else false to Code.LANGUAGE_UNAVAILABLE
+
     /** { available, onDevice, language, installed?, reason? }; `installed` is whether that language's model is on the device. */
     fun supportPayload(available: Boolean, language: String, installed: Boolean? = null, reason: String? = null): String {
         val json = JSONObject().put("available", available).put("onDevice", available).put("language", language)

@@ -101,4 +101,10 @@ class SpeechRecognitionUtilsTest {
         assertEquals("ON_DEVICE_UNAVAILABLE", no.getString("reason"))
         assertFalse(no.has("installed"))
     }
+
+    @Test
+    fun `only an installed language is available on the device, a language that is merely supported still has to be downloaded`() {
+        assertEquals(true to null, SpeechRecognitionUtils.availabilityOf(installed = true))
+        assertEquals(false to Code.LANGUAGE_UNAVAILABLE, SpeechRecognitionUtils.availabilityOf(installed = false))
+    }
 }

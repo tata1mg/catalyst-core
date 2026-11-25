@@ -39,7 +39,13 @@ struct DownloadPolicy: Equatable {
 
     init(object: [String: Any]?) {
         guard let object else { return }
-        func number(_ key: String) -> Double? { (object[key] as? NSNumber)?.doubleValue }
+        func number(_ key: String) -> Double? {
+            guard let n = object[key] as? NSNumber else { return nil }
+            // JSON true/false also arrive as NSNumber, and would be clamped into a threshold (true -> 1). A boolean is not a number
+            // here, the same as on Android and in the config checker.
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+            return n.doubleValue
+        }
         if let v = number("minBytesPerSec") { minBytesPerSec = min(max(v, 0), 50_000_000) }
         if let v = number("windowSec") { windowSec = min(max(v, 5), 300) }
         if let v = number("resumeDelaySec") { resumeDelaySec = min(max(v, 1), 600) }
@@ -61,6 +67,7 @@ final class DownloadGate {
 
     private let lock = NSLock()
     private var reason: PauseReason?
+    private var resumeCount = 0
     private var waiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
     private var pauseHandler: ((PauseReason) -> Void)?
 
@@ -84,6 +91,7 @@ final class DownloadGate {
     func resume() {
         let toWake: [CheckedContinuation<Bool, Never>] = lock.withLock {
             reason = nil
+            resumeCount += 1
             let all = Array(waiters.values)
             waiters.removeAll()
             return all
@@ -91,13 +99,28 @@ final class DownloadGate {
         toWake.forEach { $0.resume(returning: true) }
     }
 
+    /// A mark in time. Passed to `nap` as `since`, a resume that happened after the mark ends the wait at once instead of being missed.
+    func ticket() -> Int { lock.withLock { resumeCount } }
+
     /// Returns true when woken by `resume()`, false when `timeout` passed first (or the task was cancelled).
+    ///
+    /// `since` (from `ticket()`): the caller looked at the state, then `resume()` ran, then `nap` started; without the mark that resume
+    /// would be missed and the whole wait served. `onlyWhilePaused`: returns at once when the page no longer has the download paused.
     @discardableResult
-    func nap(seconds: TimeInterval) async -> Bool {
+    func nap(seconds: TimeInterval, since: Int? = nil, onlyWhilePaused: Bool = false) async -> Bool {
         let id = UUID()
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-                lock.withLock { waiters[id] = continuation }
+                let alreadyDone: Bool = lock.withLock {
+                    if let since, since != resumeCount { return true }
+                    if onlyWhilePaused && reason == nil { return true }
+                    waiters[id] = continuation
+                    return false
+                }
+                if alreadyDone {
+                    continuation.resume(returning: true)
+                    return
+                }
                 DispatchQueue.global().asyncAfter(deadline: .now() + max(seconds, 0)) { [weak self] in
                     self?.wake(id, resumedByCommand: false)
                 }

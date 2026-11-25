@@ -37,6 +37,11 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
         putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
     }
 
+    private companion object {
+        /** A support probe that has not answered by then is destroyed and reported as unavailable. */
+        const val SUPPORT_PROBE_TIMEOUT_MS = 6_000L
+    }
+
     /** Answers SPEECH_RECOGNITION_SUPPORT: is on-device recognition possible here, and is this language installed. */
     fun getSupport(language: String) {
         // Runs on the UI thread after the bridge call has already returned, so the bridge's own error handling no longer applies:
@@ -62,21 +67,31 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
         }
         // Which languages are installed on the device is only known by asking the recognizer itself.
         val probe = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
+        // The recognition service may never answer. The page gives up after a few seconds, but only this side can release the recognizer,
+        // so whatever happens first (a result, an error, or this deadline) destroys it, exactly once.
+        val answered = java.util.concurrent.atomic.AtomicBoolean(false)
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val finish: (String) -> Unit = { payload ->
+            if (answered.compareAndSet(false, true)) {
+                handler.removeCallbacksAndMessages(null)
+                probe.destroy()
+                notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_SUPPORT, payload)
+            }
+        }
+        handler.postDelayed({
+            finish(Speech.supportPayload(false, language, reason = "NO_RESPONSE"))
+        }, SUPPORT_PROBE_TIMEOUT_MS)
         probe.checkRecognitionSupport(intentFor(language), ContextCompat.getMainExecutor(activity),
             object : RecognitionSupportCallback {
                 override fun onSupportResult(support: RecognitionSupport) {
                     val installed = support.installedOnDeviceLanguages.any { it.equals(language, ignoreCase = true) }
-                    val supported = installed || support.supportedOnDeviceLanguages.any { it.equals(language, ignoreCase = true) }
-                    probe.destroy()
-                    notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_SUPPORT,
-                        Speech.supportPayload(supported, language, installed,
-                            if (supported) null else Speech.Code.LANGUAGE_UNAVAILABLE))
+                    // Installed is what decides: a language that is only listed as supported still has to be downloaded.
+                    val (available, reason) = Speech.availabilityOf(installed)
+                    finish(Speech.supportPayload(available, language, installed, reason))
                 }
 
                 override fun onError(error: Int) {
-                    probe.destroy()
-                    notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_SUPPORT,
-                        Speech.supportPayload(false, language, reason = Speech.errorCode(error)))
+                    finish(Speech.supportPayload(false, language, reason = Speech.errorCode(error)))
                 }
             })
     }

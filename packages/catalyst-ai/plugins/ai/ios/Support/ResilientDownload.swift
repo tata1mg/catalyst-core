@@ -55,9 +55,11 @@ final class ResilientDownload {
         while true {
             try Task.checkCancellation()
 
+            // Taken before the attempt: a resume that lands while it runs or fails still ends the backoff nap below at once.
+            let resumeMark = gate.ticket()
             if let reason = gate.pausedReason {
                 emit(.paused(reason, retryInSec: nil))
-                let resumed = await gate.nap(seconds: policy.heldRetrySec)
+                let resumed = await gate.nap(seconds: policy.heldRetrySec, onlyWhilePaused: true)
                 try Task.checkCancellation()
                 if !resumed {
                     // The page never said the network came back (it may have been suspended): try anyway.
@@ -104,7 +106,7 @@ final class ResilientDownload {
 
             let delay = policy.backoff(attempt: reason == .weak ? weakStreak : max(idle, 1))
             emit(.paused(reason, retryInSec: Int(delay.rounded(.up))))
-            await gate.nap(seconds: delay) // the page's resumeDownload ends this early
+            await gate.nap(seconds: delay, since: resumeMark) // the page's resumeDownload ends this early, even one that arrived a moment ago
             try Task.checkCancellation()
             emit(.resuming)
         }

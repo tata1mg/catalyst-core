@@ -16,6 +16,10 @@ final class NativeBridgeAI: NativeAIEngine {
         let url: String
         let filename: String
         let sizeHint: Int64
+        /// The model has no vision or audio executors, so the multimodal engine tiers are skipped (each failed attempt is a full initialisation).
+        var textOnly: Bool = false
+        /// Files an earlier version stored this model under; removed once the current file is in place.
+        var legacyFilenames: [String] = []
     }
 
     /// Same models as Android's MODEL_REGISTRY.
@@ -28,7 +32,9 @@ final class NativeBridgeAI: NativeAIEngine {
         "qwen3-0.6B": ModelEntry(
             url: "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm",
             filename: "Qwen3-0.6B.litertlm",
-            sizeHint: 613_722_264
+            sizeHint: 613_722_264,
+            textOnly: true,
+            legacyFilenames: ["Qwen3-0.6B-it-int4.litertlm", "qwen3_0_6b_mixed_int4.litertlm"]
         ),
     ]
 
@@ -83,6 +89,8 @@ final class NativeBridgeAI: NativeAIEngine {
 
     /// What the loaded engine was initialised with. Image/audio parts are refused (not dropped) when false.
     private var visionEnabled = false
+    /// Set when a registry model is resolved: the multimodal engine tiers are not tried for a model that has no media executors.
+    private var textOnlyModel = false
     private var audioEnabled = false
 
     func clearConversation() {
@@ -171,11 +179,13 @@ final class NativeBridgeAI: NativeAIEngine {
     private func resolveModel(_ options: AIOptions) async throws -> String {
         if let explicit = options.modelPath {
             onLog("Using explicit modelPath: \(explicit)")
+            lock.withLock { textOnlyModel = false }
             return explicit
         }
         guard let entry = Self.modelRegistry[options.modelKey] else {
             throw NativeAIError(message: "Unknown model '\(options.modelKey)'. Available: \(Self.modelRegistry.keys.sorted().joined(separator: ", "))")
         }
+        lock.withLock { textOnlyModel = entry.textOnly }
         onLog("Model registry lookup: \(options.modelKey)")
         onProgress("lookup", 0, 0, 0, options.modelKey)
         return try await downloadModel(entry, policy: options.downloadPolicy)
@@ -238,7 +248,9 @@ final class NativeBridgeAI: NativeAIEngine {
             ("CPU text-only", .cpu(), nil, nil),
         ]
         var lastError: Error?
-        for attempt in attempts {
+        // A text-only model has no vision or audio executors: the first two tiers can only fail, and each failure is a full initialisation.
+        let textOnly = lock.withLock { textOnlyModel }
+        for attempt in attempts where !textOnly || attempt.vision == nil {
             onLog("[tryCreateEngine] Attempting \(attempt.label)...")
             do {
                 let created = Engine(engineConfig: try EngineConfig(
@@ -308,6 +320,8 @@ final class NativeBridgeAI: NativeAIEngine {
             try? FileManager.default.removeItem(at: modelFile)
             try FileManager.default.moveItem(at: partial, to: modelFile)
             try? FileManager.default.removeItem(at: partial.appendingPathExtension("etag"))
+            // The replacement is in place: only now are the files of earlier versions (hundreds of megabytes) safe to delete.
+            for name in LegacyModelFiles.remove(in: directory, names: entry.legacyFilenames) { onLog("Removed an old copy of the model: \(name)") }
             onLog("Download complete: \(size / 1_000_000)MB saved to \(modelFile.path)")
             onProgress("download", 100, size, size, "complete")
         } catch {

@@ -40,6 +40,8 @@ class NativeBridgeAI(
     private var engine: Engine? = null
     // The model file the loaded engine was built from. A different request must not be answered by this engine.
     private var loadedModelPath: String? = null
+    // Set when a registry model is resolved: the multimodal engine tiers are not tried for a model that has no media executors.
+    private var textOnlyModel = false
 
     // What the loaded engine was actually initialised with. Image/audio parts are refused (not dropped) when false.
     private var visionEnabled = false
@@ -61,11 +63,23 @@ class NativeBridgeAI(
         "qwen3-0.6B" to ModelEntry(
             url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm",
             filename = "Qwen3-0.6B.litertlm",
-            sizeHint = 613_722_264L
+            sizeHint = 613_722_264L,
+            textOnly = true,
+            legacyFilenames = listOf("Qwen3-0.6B-it-int4.litertlm", "qwen3_0_6b_mixed_int4.litertlm"),
         ),
     )
 
-    data class ModelEntry(val url: String, val filename: String, val sizeHint: Long)
+    /**
+     * [textOnly]: the model has no vision or audio executors, so the multimodal engine tiers are skipped (each failed attempt costs a full
+     * initialisation). [legacyFilenames]: files an earlier version stored this model under; removed once the current file is in place.
+     */
+    data class ModelEntry(
+        val url: String,
+        val filename: String,
+        val sizeHint: Long,
+        val textOnly: Boolean = false,
+        val legacyFilenames: List<String> = emptyList(),
+    )
 
     /**
      * Returns false if init was already in progress (duplicate guard).
@@ -189,6 +203,7 @@ class NativeBridgeAI(
         val modelKey = options.optString("model", "gemma-4-E2B")
         val entry = MODEL_REGISTRY[modelKey]
             ?: throw Exception("Unknown model '$modelKey'. Available: ${MODEL_REGISTRY.keys.joinToString()}")
+        textOnlyModel = entry.textOnly
         log("Model registry lookup: $modelKey")
         progress("lookup", 0, 0, 0, modelKey)
         return downloadModel(entry, DownloadPolicy.from(options.optJSONObject("download")))
@@ -233,7 +248,9 @@ class NativeBridgeAI(
             Attempt("CPU text-only", Backend.CPU(), null, null),
         )
         var last: Exception? = null
-        for (a in attempts) {
+        // A text-only model has no vision or audio executors: the first two tiers can only fail, and each failure is a full initialisation.
+        val usable = if (textOnlyModel) attempts.filter { it.vision == null } else attempts
+        for (a in usable) {
             log("[tryCreateEngine] Attempting ${a.label}...")
             try {
                 val config = EngineConfig(
@@ -317,6 +334,8 @@ class NativeBridgeAI(
             modelFile.delete()
             if (!tempFile.renameTo(modelFile)) throw Exception("could not move the model into place")
             etagFile.delete()
+            // The replacement is in place: only now are the files of earlier versions (hundreds of megabytes) safe to delete.
+            LegacyModelFiles.remove(modelsDir, entry.legacyFilenames).forEach { log("Removed an old copy of the model: $it") }
             log("Download complete: ${size / 1_000_000}MB saved to ${modelFile.absolutePath}")
             progress("download", 100, size, size, "complete")
         } catch (e: Exception) {
