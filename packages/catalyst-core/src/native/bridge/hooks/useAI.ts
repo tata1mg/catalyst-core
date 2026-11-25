@@ -202,10 +202,7 @@ export function useAI(options: any = {}) {
 
     if (typeof window === "undefined") return emptyHook()
 
-    if (!_pkg) {
-        console.error("\n[catalyst-core] useAI requires catalyst-ai.\n" + "Run: npm install catalyst-ai\n")
-        return emptyHook()
-    }
+    if (!_pkg) return notInstalledHook()
 
     if (auto) {
         // The routing decision for one call: availability, privacy, preference. `live` is for a caller that listens to the
@@ -285,6 +282,23 @@ export function useAI(options: any = {}) {
 }
 
 // Returned when catalyst-ai is missing — keeps hook shape stable so callers don't crash
+const NOT_INSTALLED = "useAI requires catalyst-ai, which is not installed. Run: npm install catalyst-ai"
+let notInstalledLogged = false
+
+/**
+ * What useAI returns when catalyst-ai is not installed. Importing the hooks and using everything else in catalyst-core works without it;
+ * only an AI call needs the package. The hook reports the problem through `error`, and generate() answers with the same error instead of
+ * doing nothing, so the app sees what to install wherever it looks.
+ */
+function notInstalledHook() {
+    if (!notInstalledLogged) {
+        notInstalledLogged = true
+        console.error(`\n[catalyst-core] ${NOT_INSTALLED}\n`)
+    }
+    const error = Object.assign(new Error(NOT_INSTALLED), { code: "CATALYST_AI_NOT_INSTALLED" })
+    return { ...emptyHook(), error, generate: async () => ({ output: "", error }) }
+}
+
 function emptyHook() {
     return {
         output: "",

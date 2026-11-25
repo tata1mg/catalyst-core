@@ -18,26 +18,29 @@ const loadPackage = (): any =>
 
 const _pkg = loadPackage()
 
-const missing = (name: string) =>
-    new Error(`${name} needs a catalyst-ai version that provides it (and AI support enabled in this build). Update catalyst-ai.`)
+// Two different problems, two different instructions: the package is not there at all (install it), or it is there but too old / compiled out.
+const missing = (name: string, getPkg: () => any = () => _pkg) =>
+    getPkg()
+        ? new Error(`${name} needs a catalyst-ai version that provides it (and AI support enabled in this build). Update catalyst-ai.`)
+        : Object.assign(new Error(`${name} requires catalyst-ai, which is not installed. Run: npm install catalyst-ai`), { code: "CATALYST_AI_NOT_INSTALLED" })
 
 /** Builds the wrappers over a package getter. Exported for tests; apps use the bound exports below. */
 export function createGenerationApi(getPkg: () => any) {
     const idle = (name: string, extra: Record<string, unknown>) => {
-        const fail = async () => ({ ...extra, error: missing(name).message })
+        const fail = async () => ({ ...extra, error: missing(name, getPkg).message })
         return { loading: false, error: null, usage: null, generate: fail, speak: fail, cancel() {}, reset() {} }
     }
     return {
         /** POST {basePath}/{provider}/image. Resolves { images: [{ mimeType, data, url }], usage, model, cost, costPartial }. */
         async requestImage(args: Record<string, unknown>) {
             const pkg = getPkg()
-            if (!pkg?.requestImage) throw missing("requestImage")
+            if (!pkg?.requestImage) throw missing("requestImage", getPkg)
             return pkg.requestImage(args)
         },
         /** POST {basePath}/{provider}/speech. Resolves { audio: { mimeType, data, url }, usage, model }. */
         async requestSpeech(args: Record<string, unknown>) {
             const pkg = getPkg()
-            if (!pkg?.requestSpeech) throw missing("requestSpeech")
+            if (!pkg?.requestSpeech) throw missing("requestSpeech", getPkg)
             return pkg.requestSpeech(args)
         },
         /** { generate(prompt, overrides), images, loading, error, usage, cancel, reset }. */
@@ -53,7 +56,7 @@ export function createGenerationApi(getPkg: () => any) {
         /** { available, reason? }: whether on-device image generation can run here (WebGPU + a registered engine). */
         async deviceImageSupport(): Promise<{ available: boolean; reason?: string }> {
             const pkg = getPkg()
-            return pkg?.deviceImageSupport ? pkg.deviceImageSupport() : { available: false, reason: missing("deviceImageSupport").message }
+            return pkg?.deviceImageSupport ? pkg.deviceImageSupport() : { available: false, reason: missing("deviceImageSupport", getPkg).message }
         },
         /** Frees the on-device image model from GPU/RAM (cached files stay). generate() already does this after each picture unless keepLoaded is set. */
         async unloadDeviceImage(): Promise<void> {
@@ -62,7 +65,7 @@ export function createGenerationApi(getPkg: () => any) {
         /** Decodes one recorded clip and returns it as 16 kHz mono WAV chunks that each fit an on-device encoder: { chunks: [{ data, startSec, endSec, silent }], durationSec, truncated }. */
         async prepareAudioChunks(dataUrl: string, options: { chunkSeconds?: number; maxSeconds?: number } = {}): Promise<{ chunks: { data: string; startSec: number; endSec: number; silent: boolean }[]; durationSec: number; truncated: boolean }> {
             const pkg = getPkg()
-            if (!pkg?.prepareAudioChunks) throw missing("prepareAudioChunks")
+            if (!pkg?.prepareAudioChunks) throw missing("prepareAudioChunks", getPkg)
             return pkg.prepareAudioChunks(dataUrl, options)
         },
         /** Live speech-to-text over the Gemini Live API: { start, stop, cancel, state, listening, partial, text, level, seconds, error }. */
@@ -70,7 +73,7 @@ export function createGenerationApi(getPkg: () => any) {
             const pkg = getPkg()
             return pkg?.useLiveTranscribe
                 ? pkg.useLiveTranscribe(options)
-                : { ...idle("useLiveTranscribe", {}), state: "idle", listening: false, partial: "", text: "", level: 0, seconds: 0, error: missing("useLiveTranscribe").message, start: async () => {}, stop: async () => "" }
+                : { ...idle("useLiveTranscribe", {}), state: "idle", listening: false, partial: "", text: "", level: 0, seconds: 0, error: missing("useLiveTranscribe", getPkg).message, start: async () => {}, stop: async () => "" }
         },
         /** { speak(text, overrides), audio, url, loading, error, usage, cancel, reset }. */
         useSpeech(options: Record<string, unknown> = {}): any {
