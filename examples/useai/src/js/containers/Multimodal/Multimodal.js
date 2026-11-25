@@ -227,6 +227,12 @@ export default function Multimodal() {
 
     // Identifies the pipeline run in progress. Stop (and a newer run) changes it, so a run that was stopped cannot go on to the next step.
     const pipelineRun = useRef(0)
+    // Switching tab changes which model `ai` talks to (the pipeline's second step would then go to the new one, possibly the cloud, with the
+    // transcript the first step produced on the device). A change of provider therefore ends any pipeline run in progress.
+    useEffect(() => {
+        pipelineRun.current++
+        setPipe((p) => (p && (p.step === "transcribing" || p.step === "structuring") ? { ...p, step: "stopped" } : p))
+    }, [provider])
     const runPipeline = async () => {
         const mine = ++pipelineRun.current
         if (!audio) {
