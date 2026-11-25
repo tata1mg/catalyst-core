@@ -15,13 +15,13 @@ described in section 4 for any FAIL, and a screenshot or short screen recording 
 | Network | Wi-Fi you can switch off. Airplane mode is used in tests 6 and 7. |
 | Mac | Xcode with your signing team set, the device connected by cable and trusted. |
 | Code | Branch `integration/ai-review-batch-2` (PR #636, based on #635). |
-| Keys | Only tests 12 and 13 need cloud keys (OpenAI or Gemini). Everything else runs without any key. |
+| Keys | Only tests 20 and 21 need cloud keys (OpenAI or Gemini). Everything else runs without any key. |
 
 **Build and run the example app on the device**
 
 1. In `examples/useai`, copy `config/config.template.json` to `config/config.json` and set `WEBVIEW_CONFIG.ios.appBundleId`/`appName` to values your signing team can use.
    Keep `WEBVIEW_CONFIG.ai.enabled: true`. Set `LOCAL_IP` to your Mac's LAN IP (not `localhost`) so the phone can reach the dev server, and add
-   `http://<that IP>:3005` to `allowedUrls`. For tests 12 and 13 add API keys under `AI_CONFIG.providers`.
+   `http://<that IP>:3005` to `allowedUrls`. For tests 20 and 21 add API keys under `AI_CONFIG.providers`.
 2. Run `npm install`, then `npm run buildApp:ios`. If the CLI only targets the simulator, open the generated Xcode project, choose your device and press Run.
 3. Start the web server (`npm start`) and keep the phone on the same Wi-Fi.
 4. Open the app. The pages used below are reached by URL path: `/ai-test`, `/multimodal`, `/pipeline-lab`, `/ai-playground`, and the camera page from the home menu.

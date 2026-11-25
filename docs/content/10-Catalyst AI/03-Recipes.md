@@ -161,9 +161,16 @@ const stages = [
 ];
 const pipeline = usePipeline(stages, { maxCostUsd: 0.1, cloudPolicy: "ask" });
 
-const result = await pipeline.run(recording);
-// Read the returned result: `pipeline.status` is the value from the render before the run, and is stale here.
-if (result.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" }); // after the person agreed
+const [held, setHeld] = useState(null);
+
+const start = async () => {
+  const result = await pipeline.run(recording);
+  // Read the returned result: `pipeline.status` is the value from the render before the run, and is stale here.
+  if (result.status === "needs-consent") setHeld(recording); // keep the recording and show an "Allow the cloud" button
+};
+
+// Only the person's tap runs it again, with the cloud allowed:
+const approve = () => pipeline.run(held, { cloudPolicy: "allow" });
 ```
 
 A stage whose output type does not match the next stage's input is caught before the run starts. Stages marked `cloud: true` (the JSON stage and

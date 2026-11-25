@@ -32,6 +32,8 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
     const [seconds, setSeconds] = useState(0)
     const [error, setError] = useState(null)
     const live = useRef(null)
+    const requestSeq = useRef(0) // each start() takes a number; cancel() moves it on, so a start still waiting for the microphone permission is void
+    const starting = useRef(false) // a start() is waiting for the microphone
     const reading = useRef(null) // the recording that was stopped and is being turned into a data URL
     const onRecordedRef = useRef(onRecorded)
     onRecordedRef.current = onRecorded
@@ -52,7 +54,23 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
         if (r && r.state !== "inactive") r.stop()
     }, [])
 
+    // Frees what `session` holds. Only when it is still the live one does it touch the shared state: a stop event can arrive after this
+    // recording was cancelled and a new one started, and release() (which works on `live.current`) would end the new one.
+    const releaseSession = useCallback(
+        (session) => {
+            if (live.current === session) {
+                release()
+                return
+            }
+            clearInterval(session.timer)
+            session.stream?.getTracks().forEach((t) => t.stop())
+            session.context?.close?.().catch(() => {})
+        },
+        [release]
+    )
+
     const cancel = useCallback(() => {
+        requestSeq.current++
         if (live.current) live.current.discard = true
         // A recording already stopped and being read is no longer `live`, but it can still be discarded.
         if (reading.current) reading.current.discard = true
@@ -61,7 +79,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
     }, [stop, release])
 
     const start = useCallback(async () => {
-        if (live.current) return
+        if (live.current || starting.current) return
         setError(null)
         setSeconds(0)
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -69,10 +87,19 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             return
         }
         let stream
+        const mine = ++requestSeq.current
+        starting.current = true
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
         } catch (err) {
-            setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
+            starting.current = false
+            if (mine === requestSeq.current) setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
+            return
+        }
+        starting.current = false
+        // cancel() (or leaving the page) while the permission prompt was open: there is no session to discard, so the stream is closed here.
+        if (mine !== requestSeq.current) {
+            stream.getTracks().forEach((t) => t.stop())
             return
         }
         const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t))
@@ -94,7 +121,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
         recorder.onstop = async () => {
             const { heardSpeech } = session
             const secs = Math.round((Date.now() - startedAt) / 100) / 10
-            release()
+            releaseSession(session)
             if (session.discard) return
             if (!heardSpeech && analyser) {
                 setError("I did not hear any speech. Check the microphone and try again.")
@@ -129,9 +156,17 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             if (elapsed >= MAX_SECONDS) stop()
         }, TICK_MS)
 
-        recorder.start(250)
+        try {
+            recorder.start(250)
+        } catch (err) {
+            // A stream that went inactive before this point makes start() throw. No stop event will follow, so the normal cleanup never runs.
+            session.discard = true
+            releaseSession(session)
+            setError(`Could not start recording: ${err?.message || err}`)
+            return
+        }
         setState("listening")
-    }, [autoStop, release, stop])
+    }, [autoStop, release, releaseSession, stop])
 
     useEffect(() => () => cancel(), [cancel])
 

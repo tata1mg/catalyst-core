@@ -243,19 +243,24 @@ export default function Multimodal() {
         ai.reset?.()
         const t0 = performance.now()
         setPipe({ step: "transcribing", transcript: null, asrMs: null, structMs: null })
-        const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
-        if (pipelineRun.current !== mine) return
-        const transcript = heard?.output?.trim()
-        if (!transcript) {
-            setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
-            return
+        try {
+            const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
+            if (pipelineRun.current !== mine) return
+            const transcript = heard?.output?.trim()
+            if (!transcript) {
+                setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
+                return
+            }
+            const asrMs = Math.round(performance.now() - t0)
+            setPipe({ step: "structuring", transcript, asrMs, structMs: null })
+            const t1 = performance.now()
+            await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
+            if (pipelineRun.current !== mine) return
+            setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
+        } catch (err) {
+            // generate() normally resolves with its failure, but a model download or a worker that cannot start can still reject: end the run visibly.
+            if (pipelineRun.current === mine) setPipe((p) => ({ ...(p || {}), step: "failed", error: err?.message || String(err) }))
         }
-        const asrMs = Math.round(performance.now() - t0)
-        setPipe({ step: "structuring", transcript, asrMs, structMs: null })
-        const t1 = performance.now()
-        await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
-        if (pipelineRun.current !== mine) return
-        setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
     }
 
     const stop = () => {

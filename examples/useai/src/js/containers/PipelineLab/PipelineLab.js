@@ -145,7 +145,13 @@ export default function PipelineLab() {
     // Speech to text on the device: Whisper in the browser, the platform model in the native app.
     const hearOnDevice = async (data, signal) => {
         if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }], signal)
-        const heard = await asrRef.current.transcribe(data)
+        const detach = cancelOnAbort(asrRef, signal) // Stop ends the browser transcription too, not only the stage's wait for it
+        let heard
+        try {
+            heard = await asrRef.current.transcribe(data)
+        } finally {
+            detach()
+        }
         if (!heard) throw asrRef.current.lastError() ?? new Error("The recording could not be transcribed")
         if (heard.truncated) console.warn(`[pipeline-lab] recording exceeded the ${heard.durationSec}s transcription limit; only the first ${heard.durationSec}s were transcribed`)
         return heard.text

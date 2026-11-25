@@ -58,7 +58,9 @@ marked "renders" never throw and report `isNative: false` / `isWeb: true`.
 | `useNativeTransition` | A router (`<Router>`) | Throws if there is no router | Plain navigation |
 | `useMicrophone` | Microphone permission; the native shell adds the permission prompt | Renders; `supported: false` when the browser cannot record | Browser `getUserMedia` |
 | `useSpeechRecognition` | The native app | Renders; `supported: false` | None |
-| `useAI`, `useVision`, `useTranscribe`, `useAgent`, `useImageGen`, `useSpeech`, `useLiveTranscribe`, `requestImage`, `requestSpeech` | `catalyst-ai` | `error` with code `AI-010` that says `npm install catalyst-ai`; actions return that error | Depends on the provider: see [AI Hooks](/content/Catalyst%20AI/choosing-a-hook) |
+| `useAI`, `useVision`, `useTranscribe`, `useAgent` | `catalyst-ai` | `error` is a registry error with code `AI-010` that says `npm install catalyst-ai`; the action (`generate`, `scan`, `transcribe`, `run`) returns that error | Depends on the provider: see [Choosing a Hook](/content/Catalyst%20AI/choosing-a-hook) |
+| `useImageGen`, `useSpeech`, `useLiveTranscribe` | `catalyst-ai` | `error` is a plain string that says `npm install catalyst-ai`; `generate` / `speak` resolve with that string in `error` | Depends on the provider |
+| `requestImage`, `requestSpeech` | `catalyst-ai` | The call rejects with the `AI-010` error | None |
 
 A missing requirement is either a documented throw (the rows above that throw) or an `error` value with a message that says what to do.
 
@@ -1124,14 +1126,21 @@ import { requestImage, imageCost } from "catalyst-ai"
 
 const stages = [   // keep this stable: module level or useMemo
     transcribeStage((audio) => voice.transcribe(audio).then((r) => r?.text ?? "")),
-    jsonStage({ schema, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
+    // `cloud: true` on every stage that may send the transcript away; a stage without it is not held back by cloudPolicy
+    jsonStage({ schema, cloud: true, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
     imageStage({ requestImage, prompt: (json) => json.scene, cost: (r) => r.usage && imageCost(r.usage).cost }),
 ]
-const pipeline = usePipeline(stages, { maxCostUsd: 0.1 })
+// For data that came from a recording the default is "deny"; "ask" makes the run stop with needs-consent instead.
+const pipeline = usePipeline(stages, { maxCostUsd: 0.1, cloudPolicy: "ask" })
 
-const result = await pipeline.run(recording)
-// Read the returned result: `pipeline.status` is the value from the render before this run, so it is stale right after the await.
-if (result.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" })   // after the person agreed
+const [held, setHeld] = useState(null)
+const start = async () => {
+    const result = await pipeline.run(recording)
+    // Read the returned result: `pipeline.status` is the value from the render before this run, so it is stale right after the await.
+    if (result.status === "needs-consent") setHeld(recording)
+}
+// Only the person's tap runs it again, with the cloud allowed:
+const approve = () => pipeline.run(held, { cloudPolicy: "allow" })
 ```
 
 | Option | Description |
