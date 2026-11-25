@@ -87,8 +87,8 @@ export function checkType(type: PipelineType, value: unknown): string | null {
         case "json":
             if (value === undefined || typeof value === "function" || typeof value === "symbol") return `expected json, got ${describe(value)}`
             try {
-                JSON.stringify(value)
-                return null
+                // JSON.stringify does not throw for everything it cannot represent: a toJSON() that returns undefined gives undefined.
+                return JSON.stringify(value) === undefined ? "expected json, got a value that serialises to nothing" : null
             } catch (_) {
                 return "expected json, got a value that cannot be serialised"
             }
@@ -179,6 +179,10 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 export async function runPipeline(stages: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
     validatePipeline(stages)
     const { signal, onStep, maxCostUsd, cloudPolicy } = options
+    // A cap that is not a real number would be silently ignored (NaN compares false) or stop the run before it began (negative).
+    if (maxCostUsd !== undefined && !(typeof maxCostUsd === "number" && Number.isFinite(maxCostUsd) && maxCostUsd >= 0)) {
+        throw new RangeError("maxCostUsd must be a finite number of USD, zero or more")
+    }
     const steps: PipelineStep[] = []
     let spentUsd = 0
     const record = (step: PipelineStep) => {
@@ -209,7 +213,8 @@ export async function runPipeline(stages: Stage[], input: unknown, options: RunP
             record({ type: "blocked", index, stage: stage.name, reason: "max-spend" })
             return finish("max-spend", { stage: stage.name })
         }
-        if (stage.input === "audio") audioDerived = true
+        // "audio-out" is audio too: a cloud stage that consumes it sees a voice recording, so it gets the same default as "audio".
+        if (stage.input === "audio" || stage.input === "audio-out") audioDerived = true
 
         if (stage.cloud) {
             const policy: CloudPolicy = cloudPolicy ?? (audioDerived ? "deny" : "allow")

@@ -296,3 +296,41 @@ describe("a tool result cannot close its own fence", () => {
         }
     })
 })
+
+describe("runAgent: limits, names and a tool that never returns", () => {
+    const final = { output: '{"final":"done"}', route: { action: "run" } }
+
+    it("refuses a limit that would weaken its guard, with a clear error and no model call", async () => {
+        const generate = vi.fn(async () => final)
+        const bad: any[] = [{ maxSteps: Infinity }, { maxSteps: 0 }, { maxSteps: 1.5 }, { maxInvalid: Infinity }, { maxInvalid: -1 }, { maxResultChars: -5 }, { maxSpendUsd: NaN }, { maxSpendUsd: -1 }]
+        for (const limits of bad) {
+            const r = await runAgent({ goal: "g", tools: [], generate, limits })
+            expect(r.status, JSON.stringify(limits)).toBe("error")
+            expect(r.error?.message).toMatch(/limits\./)
+        }
+        expect(generate).not.toHaveBeenCalled()
+        expect((await runAgent({ goal: "g", tools: [], generate, limits: { maxSteps: 3, maxSpendUsd: 0.5 } })).status).toBe("done")
+    })
+
+    it("refuses two tools with the same name", async () => {
+        const a: AgentTool = { name: "dup", description: "one", run: async () => 1 }
+        const b: AgentTool = { name: "dup", description: "two", run: async () => 2 }
+        const generate = vi.fn(async () => final)
+        const r = await runAgent({ goal: "g", tools: [a, b], generate })
+        expect(r.status).toBe("error")
+        expect(r.error?.message).toMatch(/two tools are named "dup"/)
+        expect(generate).not.toHaveBeenCalled()
+    })
+
+    it("a cancel returns control even when the running tool ignores its signal and never settles", async () => {
+        const controller = new AbortController()
+        const tool: AgentTool = { name: "hang", description: "Never returns", run: () => new Promise(() => {}) }
+        const generate = vi.fn().mockResolvedValueOnce({ output: '{"tool":"hang"}', route: { action: "run" } }).mockResolvedValue(final)
+        const pending = runAgent({ goal: "g", tools: [tool], generate, signal: controller.signal })
+        await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1))
+        controller.abort()
+        const r = await pending
+        expect(r.status).toBe("cancelled")
+        expect(r.steps[0]).toMatchObject({ type: "tool", tool: "hang", outcome: "error" })
+    })
+})

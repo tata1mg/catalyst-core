@@ -143,6 +143,8 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
             } catch (cause) {
                 return fail(new VisionError((cause as Error).message, "VISION_SOURCE"))
             }
+            // Converting a photo takes time. A newer scan or clear() may have taken over meanwhile: this one must not start a model call.
+            if (id !== requestId.current) return null
 
             const base = [
                 {
@@ -157,7 +159,9 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
             let raw = ""
             let problems: string[] = []
 
-            for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt++) {
+            // Not Infinity (never stops), NaN (never starts) or a fraction: a whole number of at least 1, else the default.
+            const tries = Number.isFinite(maxAttempts) ? Math.max(1, Math.floor(maxAttempts)) : 2
+            for (let attempt = 1; attempt <= tries; attempt++) {
                 const result = await aiRef.current.generate({ messages }, consent)
                 if (id !== requestId.current) return null // superseded by a newer scan, or unmounted
                 if (!result) return fail(new VisionError("The AI engine is not available (is catalyst-ai installed?)", "VISION_UNAVAILABLE"), raw, attempt)
@@ -180,7 +184,7 @@ export function useVision<T = unknown>(options: UseVisionOptions): UseVisionResu
                 update(id, { raw, attempts: attempt })
                 messages = [...base, { role: "assistant", content: raw || "(empty)" }, { role: "user", content: correctionPrompt(problems) }]
             }
-            return fail(new VisionError(`The model's answer did not match the schema: ${problems.slice(0, 3).join("; ")}`, "VISION_INVALID_OUTPUT", problems), raw, maxAttempts)
+            return fail(new VisionError(`The model's answer did not match the schema: ${problems.slice(0, 3).join("; ")}`, "VISION_INVALID_OUTPUT", problems), raw, tries)
         },
         [update]
     )

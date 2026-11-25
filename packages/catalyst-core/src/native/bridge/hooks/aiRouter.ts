@@ -296,7 +296,15 @@ export function normalizeRouting(
     override: any = null,
     warn: (m: string) => void = (m) => console.warn(`[catalyst-core] ${m}`)
 ): { policy: Policy; candidates: Candidate[] } {
-    const base = { ...(raw?.policy || {}), ...(override || {}) }
+    // The override wins field by field. `constraints` and `weights` are objects of their own, so they are merged too: an override of
+    // { constraints: { maxCostUsd } } must not drop the configured maxLatencyMs and minTps.
+    const configured = raw?.policy || {}
+    const base = {
+        ...configured,
+        ...(override || {}),
+        constraints: { ...(configured.constraints || {}), ...(override?.constraints || {}) },
+        weights: { ...(configured.weights || {}), ...(override?.weights || {}) },
+    }
     const objective: Objective = base.objective in OBJECTIVES ? base.objective : "balanced"
     const weights = { ...OBJECTIVES[objective] }
     for (const k of ["cost", "latency", "tps"] as const) {

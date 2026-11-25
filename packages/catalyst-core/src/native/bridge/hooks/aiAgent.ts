@@ -132,10 +132,26 @@ function resultMessage(tool: string, body: string): string {
 export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     const { goal, tools, generate, confirm, instructions, signal, onStep } = options
     const limits = { ...DEFAULTS, ...options.limits }
-    const byName = new Map(tools.map((t) => [t.name, t]))
     const steps: AgentStep[] = []
     let spentUsd = 0
     let invalidInARow = 0
+    const refuse = (message: string): AgentResult => ({ status: "error", output: "", steps, spentUsd, error: new Error(message) })
+
+    // A limit that is not a real number would weaken the guard it stands for: Infinity never stops the loop, NaN makes the spend
+    // comparison always false, a negative size clips everything. Say so instead of running with it.
+    const whole = (value: unknown, min: number) => typeof value === "number" && Number.isInteger(value) && value >= min
+    if (!whole(limits.maxSteps, 1)) return refuse("limits.maxSteps must be a whole number, 1 or more")
+    if (!whole(limits.maxInvalid, 0)) return refuse("limits.maxInvalid must be a whole number, 0 or more")
+    if (!whole(limits.maxResultChars, 0)) return refuse("limits.maxResultChars must be a whole number, 0 or more")
+    if (limits.maxSpendUsd !== undefined && !(typeof limits.maxSpendUsd === "number" && Number.isFinite(limits.maxSpendUsd) && limits.maxSpendUsd >= 0)) {
+        return refuse("limits.maxSpendUsd must be a finite number of USD, zero or more")
+    }
+    // Two tools with one name would both be described to the model while only the last would ever run.
+    const byName = new Map<string, AgentTool>()
+    for (const tool of tools) {
+        if (byName.has(tool.name)) return refuse(`two tools are named "${tool.name}": names must be unique`)
+        byName.set(tool.name, tool)
+    }
 
     // One user message: not every engine carries a system role through to the model, and the protocol and the goal both
     // come from the app, not from a tool result.
@@ -207,6 +223,20 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     return finish("max-steps")
 }
 
+/** Settles with the tool's outcome, or rejects as soon as the signal aborts (the tool's own promise is left to finish on its own). */
+function raceToolAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    promise.catch(() => {}) // a late failure after we stopped waiting is not an unhandled rejection
+    return new Promise<T>((resolve, reject) => {
+        const onAbort = () => reject(new Error("The run was cancelled while this tool was running; the tool may still finish in the background."))
+        if (signal.aborted) return onAbort()
+        signal.addEventListener("abort", onAbort, { once: true })
+        promise.then(
+            (v) => { signal.removeEventListener("abort", onAbort); resolve(v) },
+            (e) => { signal.removeEventListener("abort", onAbort); reject(e) }
+        )
+    })
+}
+
 async function executeTool(
     tool: AgentTool,
     args: unknown,
@@ -231,7 +261,10 @@ async function executeTool(
         return { step: { outcome: "declined" }, message: "The run was cancelled before this action ran, so it was not done." }
     }
     try {
-        const value = await tool.run(args, { signal: ctx.signal ?? new AbortController().signal })
+        const running = Promise.resolve().then(() => tool.run(args, { signal: ctx.signal ?? new AbortController().signal }))
+        // A tool that ignores its signal and never settles must not keep a cancel from returning. The tool itself still keeps
+        // running (code cannot stop it); the run just no longer waits for it.
+        const value = await (ctx.signal ? raceToolAbort(running, ctx.signal) : running)
         return { step: { outcome: "ok", result: value }, message: clip(stringify(value), ctx.maxResultChars) }
     } catch (cause) {
         const message = (cause as Error)?.message || String(cause)

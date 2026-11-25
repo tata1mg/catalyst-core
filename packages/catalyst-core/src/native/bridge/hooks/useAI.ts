@@ -5,6 +5,7 @@ import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolve
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
 import { ERROR_CODES, createError } from "../../../errors/index.js"
+import { createPendingSlot } from "./aiPending.js"
 import { chooseCandidate, GENERATE_TASKS, modalitiesOf, recordObserved, routingFor, taskOf } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
@@ -113,7 +114,9 @@ export function useAI(options: any = {}) {
     // nothing downloads) until a call is routed to it.
     const [selected, setSelected] = useState<Candidate | null>(null)
     const [route, setRoute] = useState<RouteDecision | null>(null)
-    const pending = useRef<{ args: any; id: string; settle: (result: any) => void } | null>(null)
+    const pending = useRef(createPendingSlot())
+    // The error the hooks already carried when a call was parked: only a NEW error means the model it waits for failed to start.
+    const errorWhenParked = useRef<unknown>(null)
     const loadedId = useRef<string | null>(null)
     const observed = useRef<Record<string, Observed> | null>(null)
     const lastMetrics = useRef<any>(null)
@@ -161,12 +164,17 @@ export function useAI(options: any = {}) {
     const nativeReadyFor = (key: string | null) => !!nativeResult.modelReady && nativeResult.readyKey === key
     const ready = nativeSel ? nativeReadyFor(nativeKey) : true
     useEffect(() => {
-        const p = pending.current
-        if (!p || selected?.id !== p.id || !ready) return
-        pending.current = null
-        loadedId.current = selected.target === "onDevice" ? selected.id : loadedId.current
-        Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
+        const p = pending.current.takeIfReady(selected?.id, ready)
+        if (p) {
+            loadedId.current = selected?.target === "onDevice" ? selected.id : loadedId.current
+            Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
+            return
+        }
+        // The model it waits for failed to start: the call ends with that error, not never.
+        if (!ready && active?.error && active.error !== errorWhenParked.current) pending.current.fail(selected?.id, active.error)
     })
+    // Unmounting must not leave a parked call (and the images it holds) waiting for a model that will never be asked for it.
+    useEffect(() => () => pending.current.cancel(), [])
 
     // Feed each finished call's metrics (the same ones useAI reports) back into the router.
     const metrics = active?.metrics
@@ -241,13 +249,18 @@ export function useAI(options: any = {}) {
             }
             // The hooks are configured from `selected`; switch it and run once the new model is ready.
             // A call still waiting for an earlier switch is superseded, not left hanging.
-            pending.current?.settle({ output: "", error: null })
             return new Promise((resolve) => {
-                pending.current = { args, id: chosen.id, settle: (result) => resolve(withRoute(result)) }
+                errorWhenParked.current = nativeResult.error ?? webResult.error ?? cloudResult.error ?? null
+                pending.current.park({ args, id: chosen.id, settle: (result) => resolve(withRoute(result)) })
                 setSelected(chosen)
             })
         }
-        return { ...active, unload: active.unload ?? (() => {}), decide, generate, route, generateWithConsent: generate }
+        // cancel() also ends a call parked for a model switch: otherwise it would still run, with its media, once the model arrived.
+        const cancel = () => {
+            pending.current.cancel()
+            active.cancel?.()
+        }
+        return { ...active, unload: active.unload ?? (() => {}), decide, generate, route, generateWithConsent: generate, cancel }
     }
 
     // unload() frees an in-browser model from GPU/RAM; the other engines hold nothing in the page, so it is a no-op there.

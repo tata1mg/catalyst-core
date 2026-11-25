@@ -190,6 +190,19 @@ describe("useSpeechRecognition", () => {
         expect(bridge.speech.start).not.toHaveBeenCalled()
     })
 
+    it("a start command that throws releases the session, so another component is not told BUSY afterwards", async () => {
+        const first = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        bridge.speech.start.mockImplementationOnce(() => { throw new Error("bridge exploded") })
+        let started: any
+        await act(async () => { started = await first.result.current.start() })
+        expect(started).toMatchObject({ started: false, code: "UNKNOWN" })
+        const second = renderHook(() => useSpeechRecognition())
+        emit("SPEECH_RECOGNITION_SUPPORT", { available: true, onDevice: true, language: "en-US" })
+        await act(async () => { started = await second.result.current.start() })
+        expect(started).toEqual({ started: true })
+    })
+
     it("a shell that never answers ends the wait as unavailable, so start() cannot hang", async () => {
         vi.useFakeTimers()
         const { result } = renderHook(() => useSpeechRecognition())

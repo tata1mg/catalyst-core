@@ -537,3 +537,13 @@ describe("web models are downloaded one at a time", () => {
         expect(d.action).toBe("run")
     })
 })
+
+describe("a per-hook routing override", () => {
+    it("merges constraints and weights field by field instead of replacing them", () => {
+        const configured = { policy: { constraints: { maxLatencyMs: 5000, minTps: 10 }, weights: { cost: 3, latency: 1, tps: 1 } }, onDevice: { ios: [{ id: "a", engine: "litert", modalities: ["text"] }] } }
+        const r = setup("ios", { constraints: { maxCostUsd: 0.01 }, weights: { cost: 9 } }, configured)
+        expect(r.policy.constraints).toEqual({ maxLatencyMs: 5000, minTps: 10, maxCostUsd: 0.01 })
+        expect(r.policy.weights.cost).toBe(9)
+        expect(r.policy.weights.latency).toBe(1)
+    })
+})

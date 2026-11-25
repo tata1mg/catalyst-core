@@ -104,3 +104,27 @@ describe("a cancel from the start event stops the stage before it begins", () =>
         expect(run).not.toHaveBeenCalled()
     })
 })
+
+describe("pipeline option and value checks", () => {
+    it("rejects a spend cap that is not a finite non-negative number instead of silently ignoring it", async () => {
+        const stage = codeStage("s", "text", "text", (x: string) => x)
+        for (const bad of [NaN, -1, Infinity, "5" as any]) {
+            await expect(runPipeline([stage], "x", { maxCostUsd: bad }), String(bad)).rejects.toThrow(RangeError)
+        }
+        expect((await runPipeline([stage], "x", { maxCostUsd: 1 })).status).toBe("done")
+    })
+
+    it("treats a stage that takes audio-out as audio-derived, so a cloud stage there is denied by default", async () => {
+        const run = vi.fn(async (x: any) => "heard")
+        const cloudStage = { name: "cloud", input: "audio-out" as const, output: "text" as const, cloud: true, run }
+        const result = await runPipeline([cloudStage], new Uint8Array([1, 2, 3]))
+        expect(result.status).toBe("denied")
+        expect(run).not.toHaveBeenCalled()
+    })
+
+    it("does not accept a json value that serialises to nothing", async () => {
+        const { checkType } = await import("../../src/native/bridge/hooks/aiPipeline")
+        expect(checkType("json", { toJSON: () => undefined })).toMatch(/serialises to nothing/)
+        expect(checkType("json", { a: 1 })).toBeNull()
+    })
+})

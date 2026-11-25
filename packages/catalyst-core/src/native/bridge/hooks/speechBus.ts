@@ -144,7 +144,14 @@ export function requestSupport(listener: SpeechListener): boolean {
 export function startSession(listener: SpeechListener): boolean | "busy" {
     if (owner && owner !== listener) return "busy"
     owner = listener
-    const started = nativeBridge.speech.start(JSON.stringify({ language: listener.language() }))
+    let started
+    try {
+        started = nativeBridge.speech.start(JSON.stringify({ language: listener.language() }))
+    } catch (error) {
+        // Ownership was claimed before the call: if it throws there is no session, and a leftover owner would answer BUSY to everyone else.
+        owner = null
+        throw error
+    }
     if (started === false) {
         owner = null
         return false
