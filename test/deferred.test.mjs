@@ -14,6 +14,7 @@ import {
     DEFERRED_STATE_MERGE,
     createFlushScheduler,
     insertAfterOpenTag,
+    createOpenTagInserter,
 } from "../src/server/renderer/deferred.js"
 
 // Runs generated inline scripts against a fake window and returns it.
@@ -349,6 +350,20 @@ test("inserting the reveal script leaves a multi-byte character split across chu
     const out = insertAfterOpenTag(cut, script)
     assert.deepEqual(out.subarray(out.length - 8), cut.subarray(cut.length - 8))
     assert.equal(out.length, cut.length + Buffer.byteLength(script))
+})
+
+test("the reveal script still goes in when the head tag is split across chunks", () => {
+    const html = "<html><head lang=en><title>t</title>"
+    const expected = "<html><head lang=en><s><title>t</title>"
+    for (const cut of [5, 8, 11, 13, 18]) {
+        const inserter = createOpenTagInserter("<s>")
+        const parts = [inserter.write(html.slice(0, cut)), inserter.write(html.slice(cut)), inserter.end()]
+        assert.equal(Buffer.concat(parts.filter(Boolean)).toString(), expected, `cut at ${cut}`)
+    }
+    // A page without the tags passes through whole.
+    const none = createOpenTagInserter("<s>")
+    const out = [none.write("<div>a</div><"), none.write("p>b"), none.end()]
+    assert.equal(Buffer.concat(out.filter(Boolean)).toString(), "<div>a</div><p>b")
 })
 
 test("the response is flushed once per event-loop turn, and not after it ended", async () => {

@@ -52,7 +52,7 @@ import {
     RENDER_STOPPED,
     isDeferAbort,
     createFlushScheduler,
-    insertAfterOpenTag,
+    createOpenTagInserter,
 } from "./deferred.js"
 import path from "path"
 import crypto from "node:crypto"
@@ -395,8 +395,10 @@ const _renderMarkUp = async (
         // holds anything that lands between 2.0 s and 2.3 s until 2.3 s. For a deferred section that
         // only delays the content replacing its fallback, so the throttle is turned off, as on PPR
         // shells (PPR_REVEAL_THROTTLE=true keeps it). The script must run before React's own.
-        let revealScript = isStreaming && !isRevealThrottleEnabled() ? noRevealThrottleScript(appNonce) : null
-        let scannedBytes = 0
+        const revealInserter =
+            isStreaming && !isRevealThrottleEnabled()
+                ? createOpenTagInserter(noRevealThrottleScript(appNonce))
+                : null
         const scheduleFlush = isStreaming ? createFlushScheduler(res) : null
 
         return new Promise((resolve, reject) => {
@@ -408,16 +410,12 @@ const _renderMarkUp = async (
             // (see issue #320).
             const tail = new Transform({
                 transform(chunk, _enc, cb) {
-                    if (revealScript) {
-                        const withScript = insertAfterOpenTag(chunk, revealScript)
-                        scannedBytes += chunk.length
-                        if (withScript) chunk = withScript
-                        // The head is in the first bytes; give up rather than scan the whole page.
-                        if (withScript || scannedBytes > 64 * 1024) revealScript = null
-                    }
-                    cb(null, chunk)
+                    const out = revealInserter ? revealInserter.write(chunk) : chunk
+                    cb(null, out.length ? out : undefined)
                 },
                 flush(cb) {
+                    const held = revealInserter?.end()
+                    if (held?.length) this.push(held)
                     // Deferred assets — injected after body (non-blocking)
                     const deferredAssets = chunkExtractor
                         ? chunkExtractor.getDeferredAssets()

@@ -89,6 +89,47 @@ export const insertAfterOpenTag = (chunk, text) => {
     return null
 }
 
+/**
+ * insertAfterOpenTag across a stream: a chunk that ends inside a possible opening tag ("<he", or
+ * "<head" before its ">") holds that part back and joins it to the next chunk, so the text still
+ * goes in when the tag is split across chunks. Gives up after `limit` bytes. end() returns what
+ * is still held back.
+ */
+export const createOpenTagInserter = (text, limit = 64 * 1024) => {
+    let held = null
+    let scanned = 0
+    let finished = false
+    return {
+        write(chunk) {
+            let buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+            if (finished) return buf
+            scanned += buf.length
+            if (held) {
+                buf = Buffer.concat([held, buf])
+                held = null
+            }
+            const withText = insertAfterOpenTag(buf, text)
+            // The head is in the first bytes; give up rather than scan the whole page.
+            if (withText || scanned > limit) {
+                finished = true
+                return withText || buf
+            }
+            const lt = buf.lastIndexOf(0x3c)
+            if (lt !== -1 && buf.indexOf(GT, lt) === -1) {
+                held = buf.subarray(lt)
+                return buf.subarray(0, lt)
+            }
+            return buf
+        },
+        end() {
+            finished = true
+            const rest = held
+            held = null
+            return rest
+        },
+    }
+}
+
 // A deferred redirect runs as a script navigation, which would also run these schemes. This is
 // not an open-redirect check: the URL comes from the app's own onError, which is trusted.
 // Browsers ignore whitespace and control characters inside the scheme ("java\tscript:").
