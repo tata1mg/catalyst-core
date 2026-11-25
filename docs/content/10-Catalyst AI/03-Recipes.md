@@ -31,17 +31,29 @@ Five things people build with Catalyst AI, each with the config and the code. Ev
 ```
 
 ```javascript
+import { useState } from "react";
 import { useAI } from "catalyst-core/hooks";
 
 function Chat() {
   const ai = useAI({ provider: "auto" });
-  const send = async (text) => {
-    const result = await ai.generate({ messages: [{ role: "user", content: text }] });
-    if (result.route?.action === "ask") {
-      // The policy said "ask" and only the cloud can answer: show a button, then ai.generate(..., { cloud: true })
-    }
+  const [text, setText] = useState("");
+  const [waiting, setWaiting] = useState(null); // a question the person has not answered yet
+
+  const send = async (consent) => {
+    const args = waiting ?? { messages: [{ role: "user", content: text }] };
+    const result = await ai.generate(args, consent);
+    // The policy said "ask" and only the cloud can answer: keep the question and show a button.
+    setWaiting(result.route?.action === "ask" ? args : null);
   };
-  return <p>{ai.output}</p>;
+
+  return (
+    <>
+      <input value={text} onChange={(e) => setText(e.target.value)} />
+      <button onClick={() => send()}>Send</button>
+      {waiting && <button onClick={() => send({ cloud: true })}>Allow the cloud for this question</button>}
+      <p>{ai.output}</p>
+    </>
+  );
 }
 ```
 
@@ -74,7 +86,7 @@ function ScanReceipt() {
   return (
     <>
       <button onClick={() => camera.execute()}>Take photo</button>
-      {status === "needs-consent" && <p>Only a cloud model can read this. Ask the person first.</p>}
+      {status === "denied" && <p>Only a cloud model could read this, and your policy does not allow photos to leave the device.</p>}
       {data && <p>{data.merchant}: {data.total} {data.currency}</p>}
       {error && <p role="alert">{error.message}</p>}
     </>
@@ -84,7 +96,8 @@ function ScanReceipt() {
 
 `useVision` does not open the camera itself: capture with `useCamera` (or a file input) and pass the result to `scan`.
 The reply is checked against `schema`. If it is unusable the model is told what was wrong and tried again (`maxAttempts`, default 2).
-With `cloudMedia: "deny"`, a cloud model never sees the photo unless the person approves it.
+With `cloudMedia: "deny"` (as in recipe 1) a photo never goes to the cloud: if only a cloud model could read it, the scan ends as `denied`. With
+`cloudMedia: "ask"` it stops at `needs-consent` instead, and `approve({ cloud: true })` runs the same scan again.
 
 ## 3. Turn a voice note into a summary, on the phone
 
@@ -129,7 +142,8 @@ await agent.run("Scan this report and fill in the form");
 // agent.pendingConfirmation is { tool: "submit_form", ... }: show a button, then agent.approve() or agent.deny()
 ```
 
-A tool marked `sideEffect` never runs without `approve()`. `maxSteps` and `maxSpendUsd` are enforced in code, not left to the prompt.
+A tool marked `sideEffect` never runs without `approve()`. `maxSteps` is a hard limit enforced in code. `maxSpendUsd` is a soft budget: it is checked between model turns against estimated prices, so a run can
+end a little above it.
 
 ## 5. Voice to picture, as one flow
 
@@ -142,17 +156,19 @@ import { requestImage, imageCost } from "catalyst-ai";
 
 const stages = [
   transcribeStage((audio) => voice.transcribe(audio).then((r) => r?.text ?? "")),
-  jsonStage({ schema, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
+  jsonStage({ schema, cloud: true, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
   imageStage({ requestImage, prompt: (json) => json.scene, cost: (r) => r.usage && imageCost(r.usage).cost }),
 ];
-const pipeline = usePipeline(stages, { maxCostUsd: 0.1 });
+const pipeline = usePipeline(stages, { maxCostUsd: 0.1, cloudPolicy: "ask" });
 
-await pipeline.run(recording);
-if (pipeline.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" }); // after the person agreed
+const result = await pipeline.run(recording);
+// Read the returned result: `pipeline.status` is the value from the render before the run, and is stale here.
+if (result.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" }); // after the person agreed
 ```
 
-A stage whose output type does not match the next stage's input is caught before the run starts, and a transcript of a person speaking is
-not sent to a cloud stage unless you allow it.
+A stage whose output type does not match the next stage's input is caught before the run starts. Stages marked `cloud: true` (the JSON stage and
+the picture stage here) do not run on a transcript of a person speaking unless `cloudPolicy` allows it: the default is `"deny"`, and `"ask"`, used
+above, stops with `needs-consent` so you can ask first.
 
 ## Where next
 

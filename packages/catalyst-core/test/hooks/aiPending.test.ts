@@ -55,9 +55,8 @@ describe("createGenerationGuard", () => {
         const guard = createGenerationGuard()
         const routing = guard.begin()
         guard.cancel() // cancel() while the first call is still being routed
-        expect(guard.cancelledSince(routing)).toBe(true)
-        const next = guard.begin()
-        expect(guard.cancelledSince(next)).toBe(false)
+        expect(guard.stale(routing)).toBe(true)
+        expect(guard.stale(guard.begin())).toBe(false)
     })
 
     it("one cancel ends every call that started before it", () => {
@@ -65,6 +64,14 @@ describe("createGenerationGuard", () => {
         const a = guard.begin()
         const b = guard.begin()
         guard.cancel()
-        expect([a, b].map(guard.cancelledSince)).toEqual([true, true])
+        expect([a, b].map(guard.stale)).toEqual([true, true])
+    })
+
+    it("the newest call wins: an older call that finishes routing later is stale", () => {
+        const guard = createGenerationGuard()
+        const older = guard.begin()
+        const newer = guard.begin()
+        expect(guard.stale(newer)).toBe(false)
+        expect(guard.stale(older)).toBe(true)
     })
 })

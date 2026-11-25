@@ -6,7 +6,9 @@ id: errors
 
 # Errors
 
-The AI hooks report a problem through `error`, with a code you can test and a message that says what to do. This page lists what you can see
+`useAI`, `useVision`, `useTranscribe` and `useAgent` report a problem through `error`: a registry error with a `code` you can test and a `message` that says what to do.
+`useImageGen`, `useSpeech` and `useLiveTranscribe` report a plain string in `error` instead (the string still says what to do), and `requestImage` and `requestSpeech`
+throw. This page lists what you can see
 and why.
 
 ## When something is missing
@@ -37,7 +39,7 @@ These are checked by tests for the AI hooks:
 
 1. **Importing does not need the package.** Only calling an AI hook does.
 2. **A missing requirement is reported, not thrown during render.** The hook returns `error` (a registry error with a code and a suggested
-   action) and its action (`generate`, `scan`, `transcribe`, `run`) returns an error result.
+   action, or a string for the picture, speech and live hooks) and its action (`generate`, `scan`, `transcribe`, `run`) returns an error result.
 3. **Fallbacks are chosen by you, not by surprise.** Where a fallback exists (`auto` routing picks another model) it is named in
    [Choosing a Hook](/content/Catalyst%20AI/choosing-a-hook). Nothing leaves the device unless your policy allows it.
 4. **`cancel()` stops the work**, and a call that was replaced does not overwrite the newer one.

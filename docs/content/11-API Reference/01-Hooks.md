@@ -1066,7 +1066,7 @@ await scan(photo); // a captured photo, a File or Blob, or a data:, blob: or htt
 | `route` | Which model was picked and why, or why nothing ran |
 | `error`, `attempts`, `partial`, `clear()` | Last error (`VisionError` with `code` and `problems` for an unusable answer), tries used, text arriving while running, reset |
 
-Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
+Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the status depends on the policy: with `cloudMedia: "deny"` the scan ends `denied` (nothing is held for approval), and with `cloudMedia: "ask"` it stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. When no model can run, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
 
 Small on-device models sometimes answer with prose or a wrong field. The reply is parsed leniently (bare JSON, a fenced block, or the first JSON value inside prose) and validated; an unusable reply is retried with the specific problems, up to `maxAttempts` tries in all, and when the last one is also unusable it is reported as a `VisionError` with code `VISION_INVALID_OUTPUT`, `problems`, and the raw reply in `raw`.
 
@@ -1130,7 +1130,8 @@ const stages = [   // keep this stable: module level or useMemo
 const pipeline = usePipeline(stages, { maxCostUsd: 0.1 })
 
 const result = await pipeline.run(recording)
-if (pipeline.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" })   // after the person agreed
+// Read the returned result: `pipeline.status` is the value from the render before this run, so it is stale right after the await.
+if (result.status === "needs-consent") await pipeline.run(recording, { cloudPolicy: "allow" })   // after the person agreed
 ```
 
 | Option | Description |
@@ -1163,10 +1164,11 @@ Speech to text, from a recording or from the microphone. `transcribe(source)` ta
 ```jsx
 import { useTranscribe } from "catalyst-core/hooks"
 
-const voice = useTranscribe({ language: "en-US", routing: { cloud: "deny", cloudMedia: "deny" } })
+const voice = useTranscribe({ language: "en-US", routing: { cloud: "deny", cloudMedia: "ask" } })
 
 const heard = await voice.listen()      // { text, engine, durationSec, ... } or null when it did not finish
-if (voice.status === "needs-consent") await voice.approve({ cloud: true })
+// With cloudMedia "ask" and no on-device engine, listen() resolves null and voice.status becomes "needs-consent" on the next render:
+// show a button there that calls voice.approve({ cloud: true }). With "deny" the status is "denied" and nothing can be approved.
 ```
 
 | Option | Description |

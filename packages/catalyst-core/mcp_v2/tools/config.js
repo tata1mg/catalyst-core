@@ -749,7 +749,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                     heldRetrySec: [5, 600],
                 }
                 for (const key of Object.keys(dl)) {
-                    if (!(key in limits)) {
+                    if (!Object.prototype.hasOwnProperty.call(limits, key)) {
                         warnings.push({
                             field: `AI_CONFIG.browser.download.${key}`,
                             message: `Unknown key "${key}", ignored. Use ${Object.keys(limits).join(", ")}.`,

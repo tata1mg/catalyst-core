@@ -419,6 +419,12 @@ describe("check_config: AI_CONFIG.browser.download", () => {
         expect(run([1]).issues.some((i) => i.field === "AI_CONFIG.browser.download")).toBe(true)
         expect(run({ windowSec: "20" }).issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
     })
+    it("treats names that exist on every object (constructor, toString) as unknown keys instead of throwing", () => {
+        const r = run({ constructor: 1, toString: 2 })
+        const w = r.warnings.map((x) => x.field)
+        expect(w).toContain("AI_CONFIG.browser.download.constructor")
+        expect(w).toContain("AI_CONFIG.browser.download.toString")
+    })
     it("warns about out-of-range values (clamped) and unknown keys (ignored)", () => {
         const r = run({ windowSec: 1, maxIdleRetries: 999, heldRetrySec: 1, minBytesPerSecond: 5 })
         const w = r.warnings.map((x) => x.field)

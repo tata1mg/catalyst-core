@@ -10,7 +10,7 @@ Catalyst's AI hooks let one app use cloud models, models built into the browser,
 hooks. They live in `catalyst-core/hooks` and are powered by the optional `catalyst-ai` package.
 
 `catalyst-core` works without `catalyst-ai`. You can import every hook, and everything that is not AI keeps working. The moment an AI hook is
-used without the package, it tells you what to install (see [When something is missing](#when-something-is-missing)).
+used without the package, it tells you what to install (see [When something is missing](/content/Catalyst%20AI/errors#when-something-is-missing)).
 
 ## Set up
 
@@ -24,7 +24,7 @@ See the [Quick Start](/content/Catalyst%20AI/quick-start) for installation and c
 import { useAI } from "catalyst-core/hooks";
 
 function Ask() {
-  const { generate, output, loading, error } = useAI({ provider: "openai" });
+  const { generate, output, loading, error } = useAI({ provider: "gemini" }); // the provider set up in the Quick Start
 
   return (
     <>
@@ -74,8 +74,9 @@ the device (`cloud: "ask"`). Hooks that have a `status` (`useVision`, `useTransc
 
 ## Pictures, speech and live transcription
 
-These hooks call your server's `/ai` route (or, for pictures, the device), so they need `catalyst-ai` and a provider key unless noted. Their
-`error` is a plain string.
+These hooks call your server's `/ai` route (or, for pictures, the device), so they need `catalyst-ai` and a provider key unless noted, plus an
+`imageModel` or `speechModel` set for that provider in `AI_CONFIG.providers`. Their `error` is a plain string, not the registry error object that
+`useAI`, `useVision`, `useTranscribe` and `useAgent` give.
 
 ```javascript
 import { useImageGen, useSpeech } from "catalyst-core/hooks";

@@ -176,7 +176,9 @@ export function useAI(options: any = {}) {
     // Run a call that was waiting for its model to be configured/initialised.
     // The native model must be the one that was selected, not just any that is ready: after a switch the old one can still be ready for a render.
     const nativeKey = nativeSel ? `${nativeSel.engine ?? ""}|${nativeSel.model ?? ""}|${nativeSel.modelPath ?? ""}` : null
-    const nativeReadyFor = (key: string | null) => !!nativeResult.modelReady && nativeResult.readyKey === key
+    // A catalyst-ai that predates `readyKey` reports only modelReady: then readiness cannot be tied to one model, and modelReady has to do
+    // (otherwise every native call would wait for a key that never comes).
+    const nativeReadyFor = (key: string | null) => !!nativeResult.modelReady && (nativeResult.readyKey === undefined || nativeResult.readyKey === key)
     const ready = nativeSel ? nativeReadyFor(nativeKey) : true
     useEffect(() => {
         const p = pending.current.takeIfReady(selected?.id, ready)
@@ -252,10 +254,10 @@ export function useAI(options: any = {}) {
                 })
                 return { output: "", error, route: null }
             }
-            const started = guard.current.begin()
+            const ticket = guard.current.begin()
             const decision = await decideFor(args, consent, false)
-            // cancel() (or unmount) while routing was still deciding: nothing is parked yet for it to end, so the call ends here.
-            if (guard.current.cancelledSince(started)) return { output: "", error: null, route: decision }
+            // cancel() (or unmount) while routing was still deciding, or a newer call began: nothing is parked yet for this one to end, so it ends here.
+            if (guard.current.stale(ticket)) return { output: "", error: null, route: decision }
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.

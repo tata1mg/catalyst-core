@@ -46,17 +46,18 @@ export function createPendingSlot() {
 }
 
 /**
- * Tells a call that is still being routed that it was cancelled. Routing is asynchronous and cancel() has nothing to cancel yet (no call is
- * parked), so without this the call would park and run after the person pressed cancel. Each cancel (and unmount) ends every call that
- * started before it; a call started after it is unaffected.
+ * Tells a call that is still being routed whether it still matters. Routing is asynchronous, so two things can happen before it ends:
+ * cancel() has nothing to cancel yet (no call is parked), and an older call can finish routing AFTER a newer one. A call is stale when
+ * a cancel (or unmount) happened since it started, or when a newer call has started: the newest call wins, as for a parked one.
  */
 export function createGenerationGuard() {
     let epoch = 0
+    let serial = 0
     return {
         /** Take at the start of a call. */
-        begin: () => epoch,
-        /** True when a cancel happened since `begin()` returned `started`. */
-        cancelledSince: (started: number) => started !== epoch,
+        begin: () => ({ epoch, serial: ++serial }),
+        /** True when a cancel happened since `begin()` returned `ticket`, or a newer call has begun. */
+        stale: (ticket: { epoch: number; serial: number }) => ticket.epoch !== epoch || ticket.serial !== serial,
         cancel: () => {
             epoch++
         },
