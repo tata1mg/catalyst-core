@@ -96,8 +96,14 @@ export function useWebAI({
     const conversationIdRef = useRef(null)
 
     useEffect(() => () => {
+        // Unmounting is a cancel: a call still preparing its media is abandoned, and the pending generate() promise settles.
+        // Terminating the worker does not emit "done" or "error", so without this the caller would wait forever.
+        runToken.current++
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        const resolve = settleRef.current
+        settleRef.current = null
+        if (resolve) resolve()
     }, [])
 
     const formatPromptRef = useRef(formatPrompt)

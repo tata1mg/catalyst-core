@@ -1,3 +1,4 @@
+const { upstreamSignal, TOKEN_MS } = require("./upstream")
 // Gemini Live API, server side: mint a short-lived ephemeral token so the browser can open the WebSocket itself without
 // ever seeing the API key. Models come from config (`liveModel`), never hardcoded. CJS, loaded by route.js.
 
@@ -16,7 +17,7 @@ function liveSetup(model, languageCodes = []) {
     }
 }
 
-async function createLiveToken({ apiKey, model, now = Date.now(), throwProviderError }) {
+async function createLiveToken({ apiKey, model, now = Date.now(), throwProviderError, signal }) {
     const body = {
         uses: 1,
         expireTime: new Date(now + SESSION_MS).toISOString(),
@@ -25,6 +26,7 @@ async function createLiveToken({ apiKey, model, now = Date.now(), throwProviderE
         bidiGenerateContentSetup: liveSetup(model),
     }
     const response = await fetch(TOKEN_URL, {
+        signal: upstreamSignal(TOKEN_MS, signal),
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify(body),

@@ -3,6 +3,12 @@
 Multi-provider AI integration for catalyst-core apps — OpenAI/Gemini SSE routes plus
 `useCloudAI`, `useWebAI`, and `useNativeAI` React hooks.
 
+## Timeouts and disconnects
+
+Every call the server makes to a provider has a deadline (120 s for text, 180 s for images and speech, 30 s for the Live token)
+and is cancelled when the browser disconnects, so a stalled provider cannot keep a request, its parsed media and the provider
+connection alive. The streaming routes already stopped on disconnect.
+
 ## Security: authentication and rate limiting
 
 The Express router exposed by this package (`src/route.js`, mounted at `AI_CONFIG.basePath`
@@ -106,7 +112,8 @@ inferred from `defaultModel`, because image model names change often. `openai` a
   `400`, not a silent default. It answers `{ images: [{ mimeType, data }], usage, model }` with `data` as base64.
 - **Editing.** Add `images` (1 to 4 inputs) to edit or transform instead of generate. Each is `{ mimeType, data }` with raw
   base64 `data` (the client helpers also accept `data:` URLs and strip the prefix), `mimeType` is `image/png`, `image/jpeg` or
-  `image/webp`, and each image may decode to at most 8 MB. The server re-checks all of it. OpenAI uses its image edits
+  `image/webp`, and each image may decode to at most 8 MB, with 14 MiB in total across the inputs (the same budget as chat media,
+  so a request that passes also fits the 20 MB body limit). The server re-checks all of it. OpenAI uses its image edits
   endpoint, without a mask (masks are not supported); Gemini takes the images as inputs to the same call.
 - **Client.** `requestImage({ basePath, provider, prompt, n, size, model, images, signal })` is a plain async function that
   resolves `{ images: [{ mimeType, data, url }], usage, model, cost, costPartial }` (`url` is a `data:` URL for `<img src>`;

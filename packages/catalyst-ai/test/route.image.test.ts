@@ -179,3 +179,21 @@ describe("the default request is valid for every provider", () => {
         }
     })
 })
+
+describe("limits that agree on both sides", () => {
+    it("image edits are bounded in total, like chat media, so an accepted request fits the body parser", () => {
+        const img: any = require("../src/imageGen.js")
+        const { DEFAULT_LIMITS } = require("../src/cloudMedia.js")
+        const b64 = (bytes: number) => "A".repeat(Math.ceil((bytes * 4) / 3))
+        const one = { mimeType: "image/png", data: b64(6 * 1024 * 1024) }
+        expect(img.validateImageRequest({ prompt: "p", images: [one, one] })).toBeNull() // 12 MiB: fits
+        expect(img.validateImageRequest({ prompt: "p", images: [one, one, one] })).toMatch(/too large together/) // 18 MiB: over the 14 MiB budget
+        expect(DEFAULT_LIMITS.totalBytes).toBe(14 * 1024 * 1024)
+    })
+
+    it("the client refuses audio over what the server would refuse", () => {
+        const client: any = require("../src/contentParts.js")
+        const server = require("../src/cloudMedia.js")
+        return import("../src/contentParts.js").then((c) => expect(c.DEFAULT_LIMITS.audioBytes).toBe(server.DEFAULT_LIMITS.audioBytes))
+    })
+})

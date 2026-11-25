@@ -860,7 +860,7 @@ generate({
 });
 ```
 
-- **Limits.** Per request: up to 4 images and 2 audio clips, images up to 8 MB and audio up to 10 MB each (decoded). The cloud route checks them again; a request over the limit fails with a typed error (`too-many`, `too-large`, `invalid-part`, `unsupported-modality`, `unsupported-format`). `catalyst-core` raises the JSON body limit to 20 MB on the AI path only (`AI_CONFIG.maxRequestMB`, 1 to 100).
+- **Limits.** Per request: up to 4 images and 2 audio clips, images up to 8 MB and audio up to 10 MB each (decoded), and 14 MiB of media in total (base64 inflates it by a third, which keeps the request under the 20 MB body limit). The cloud route checks them again; a request over the limit fails with a typed error (`too-many`, `too-large`, `invalid-part`, `unsupported-modality`, `unsupported-format`). `catalyst-core` raises the JSON body limit to 20 MB on the AI path only (`AI_CONFIG.maxRequestMB`, 1 to 100).
 - **Cloud needs an explicit choice.** `useAI({ provider: "openai" | "gemini" | "anthropic" })` may send media to that provider. If you asked for a native or web engine and it is unavailable, `useAI` falls back to cloud for text only and refuses media with `cloud-media-not-allowed`, so a photo or voice clip never leaves the device by accident. With `provider: "auto"` the same rule is `policy.cloudMedia` (default `deny`).
 - **What each provider endpoint accepts** (anything else is refused with `unsupported-modality` before any provider call):
 

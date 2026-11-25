@@ -3,6 +3,7 @@ const media = require("./cloudMedia")
 const imageGen = require("./imageGen")
 const liveGen = require("./liveGen")
 const speechGen = require("./speechGen")
+const { upstreamSignal, clientGoneSignal, GENERATE_MS, MEDIA_MS, TOKEN_MS } = require("./upstream")
 
 const router = express.Router()
 
@@ -274,7 +275,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful, signal }) {
     if (stateful) {
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
@@ -287,6 +288,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             ...(genConfig?.topP != null && { top_p: genConfig.topP }),
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
@@ -306,6 +308,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             ...(genConfig?.topP != null && { top_p: genConfig.topP }),
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
@@ -446,7 +449,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful, signal }) {
     if (stateful) {
         // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -465,6 +468,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             },
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
@@ -488,6 +492,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             },
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
@@ -615,8 +620,9 @@ async function anthropicStream({ apiKey, model, messages, genConfig, res, signal
     res.end()
 }
 
-async function anthropicGenerate({ apiKey, model, messages, genConfig }) {
+async function anthropicGenerate({ apiKey, model, messages, genConfig, signal }) {
     const response = await fetch(ANTHROPIC_ENDPOINT, {
+        signal: upstreamSignal(GENERATE_MS, signal),
         method: "POST",
         headers: anthropicHeaders(apiKey),
         body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: false })),
@@ -763,7 +769,7 @@ router.post("/:provider/generate", async (req, res) => {
     try {
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         // nosemgrep: javascript.express.security.express-wkhtml-injection.express-wkhtmltoimage-injection - false positive: no wkhtmltoimage/PhantomJS is used; see the note above on adapter.generate.
-        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
+        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful, signal: clientGoneSignal(res) })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -814,7 +820,7 @@ router.post("/:provider/image", async (req, res) => {
 
     const { prompt, n, size, images } = req.body
     try {
-        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images })
+        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images, signal: clientGoneSignal(res) })
         res.json({ ...result, model })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -862,7 +868,7 @@ router.post("/:provider/speech", async (req, res) => {
 
     const { text, voice, format } = req.body
     try {
-        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format })
+        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format, signal: clientGoneSignal(res) })
         res.json({ ...result, model })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -899,7 +905,7 @@ router.post("/gemini/live-token", async (req, res) => {
         return
     }
     try {
-        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError }))
+        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError, signal: clientGoneSignal(res) }))
     } catch (err) {
         const { CatalystError } = await loadErrors()
         const code = err instanceof CatalystError ? err.code : undefined

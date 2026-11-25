@@ -2,6 +2,8 @@
 // Server-side only (CJS, loaded by route.js). Models come from config (`speechModel`) or the request, never hardcoded
 // here and never the chat `defaultModel`. Audio comes back as base64 in JSON.
 
+const { upstreamSignal, MEDIA_MS } = require("./upstream")
+
 const MAX_TEXT_CHARS = 4000
 const VOICE_RE = /^[a-zA-Z0-9._-]+$/
 const FORMATS = ["mp3", "wav", "opus"]
@@ -67,9 +69,10 @@ function normalizeSpeechUsage(model, characters, usageMetadata) {
 
 /** Builds the adapters around route.js's throwProviderError so provider failures keep the AI-000 shape. */
 function createSpeechAdapters({ throwProviderError, createError }) {
-    async function openaiSpeech({ apiKey, model, text, voice, format }) {
+    async function openaiSpeech({ apiKey, model, text, voice, format, signal }) {
         const fmt = format || "mp3"
         const response = await fetch("https://api.openai.com/v1/audio/speech", {
+            signal: upstreamSignal(MEDIA_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({ model, input: text, voice: voice || DEFAULT_OPENAI_VOICE, response_format: fmt }),
@@ -86,12 +89,13 @@ function createSpeechAdapters({ throwProviderError, createError }) {
         }
     }
 
-    async function geminiSpeech({ apiKey, model, text, voice, format }) {
+    async function geminiSpeech({ apiKey, model, text, voice, format, signal }) {
         // Gemini TTS returns raw PCM, which we wrap as WAV; other containers would need server-side transcoding.
         if (format && format !== "wav") throw createError("gemini speech is returned as wav; omit format or use wav")
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE before the handler calls this; the host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(MEDIA_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify({

@@ -3,6 +3,7 @@
 // provider image model names change often. Images come back as base64 in JSON; we never fetch or proxy provider URLs.
 
 const { DEFAULT_LIMITS, isValidBase64, decodedBytes } = require("./cloudMedia")
+const { upstreamSignal, MEDIA_MS } = require("./upstream")
 
 const MAX_PROMPT_CHARS = 4000
 const MAX_IMAGES = 4
@@ -23,12 +24,18 @@ function validateImageRequest(body) {
         // Input images turn the request into an edit. Re-validated here with cloudMedia's caps; client-side checks are not trusted.
         if (!Array.isArray(images) || images.length === 0) return "images must be a non-empty array"
         if (images.length > DEFAULT_LIMITS.maxImages) return `images must have at most ${DEFAULT_LIMITS.maxImages} items`
+        let total = 0
         for (const img of images) {
             if (!img || typeof img !== "object") return "each image must be { mimeType, data }"
             if (typeof img.mimeType !== "string" || !MIME_RE.test(img.mimeType)) return "image mimeType must be image/png, image/jpeg or image/webp"
             if (!isValidBase64(img.data)) return "image data must be a base64 string"
-            if (decodedBytes(img.data) > DEFAULT_LIMITS.imageBytes) return `image is too large (limit ${DEFAULT_LIMITS.imageBytes} bytes)`
+            const bytes = decodedBytes(img.data)
+            if (bytes > DEFAULT_LIMITS.imageBytes) return `image is too large (limit ${DEFAULT_LIMITS.imageBytes} bytes)`
+            total += bytes
         }
+        // The body parser limit is the real ceiling, and base64 inflates by a third: the same total budget as chat media applies, so a
+        // combination this accepts is one the parser will also let through.
+        if (total > DEFAULT_LIMITS.totalBytes) return `images are too large together (limit ${DEFAULT_LIMITS.totalBytes} bytes in total)`
     }
     return null
 }
@@ -76,7 +83,7 @@ function normalizeGeminiImageUsage(usageMetadata, model, count, inputImages = 0)
 
 /** Builds the adapters around route.js's throwProviderError so provider failures keep the AI-000 shape. */
 function createImageAdapters({ throwProviderError, createError }) {
-    async function openaiImage({ apiKey, model, prompt, n = 1, size, images: inputs = [] }) {
+    async function openaiImage({ apiKey, model, prompt, n = 1, size, images: inputs = [], signal }) {
         let response
         if (inputs.length > 0) {
             // Edit: multipart/form-data. No Content-Type header; fetch sets it with the boundary.
@@ -90,12 +97,14 @@ function createImageAdapters({ throwProviderError, createError }) {
                 form.append("image[]", blob, `image-${i}.${EXT[img.mimeType]}`)
             })
             response = await fetch("https://api.openai.com/v1/images/edits", {
+                signal: upstreamSignal(MEDIA_MS, signal),
                 method: "POST",
                 headers: { Authorization: `Bearer ${apiKey}` },
                 body: form,
             })
         } else {
             response = await fetch("https://api.openai.com/v1/images/generations", {
+                signal: upstreamSignal(MEDIA_MS, signal),
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
                 body: JSON.stringify({ model, prompt, n, ...(size && { size }) }),
@@ -108,12 +117,13 @@ function createImageAdapters({ throwProviderError, createError }) {
         return { images, usage: normalizeOpenAIImageUsage(data.usage, model, images.length, inputs.length) }
     }
 
-    async function geminiImage({ apiKey, model, prompt, n = 1, images: inputs = [] }) {
+    async function geminiImage({ apiKey, model, prompt, n = 1, images: inputs = [], signal }) {
         // generateContent returns one image per call; ask for more via the caller rather than looping paid calls here.
         if (n > 1) throw createError("gemini image generation returns one image per request; use n: 1")
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE before the handler calls this; the host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(MEDIA_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify({

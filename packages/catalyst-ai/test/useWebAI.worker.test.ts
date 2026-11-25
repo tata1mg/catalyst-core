@@ -218,3 +218,26 @@ describe("useWebAI runs speech-to-text models (Whisper, Moonshine)", () => {
         expect(instances).toHaveLength(0)
     })
 })
+
+describe("useWebAI unmounting", () => {
+    beforeEach(() => {
+        instances = []
+        FakeWorker.autoFinish = true
+        vi.stubGlobal("Worker", FakeWorker)
+        vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:fake" }))
+    })
+    afterEach(() => vi.unstubAllGlobals())
+
+    it("settles a generate() that is still running instead of leaving the caller waiting forever", async () => {
+        const { useWebAI } = await mod
+        FakeWorker.autoFinish = false
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let pending!: Promise<any>
+        act(() => { pending = hook.result.current.generate({ messages: ask }) })
+        await waitFor(() => expect(instances).toHaveLength(1))
+        hook.unmount()
+        const result = await Promise.race([pending, new Promise((r) => setTimeout(() => r("hung"), 1000))])
+        expect(result).not.toBe("hung")
+        expect(instances[0].terminated).toBe(true)
+    })
+})

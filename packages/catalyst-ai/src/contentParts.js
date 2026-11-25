@@ -6,7 +6,8 @@
 
 export const DEFAULT_LIMITS = {
     imageBytes: 8 * 1024 * 1024,
-    audioBytes: 20 * 1024 * 1024,
+    // The server refuses audio over 10 MiB (cloudMedia DEFAULT_LIMITS), so a bigger clip would be encoded, uploaded and rejected.
+    audioBytes: 10 * 1024 * 1024,
     maxImages: 4,
 }
 
