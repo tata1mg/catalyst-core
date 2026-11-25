@@ -1,0 +1,19 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_f9b68111c2008f::t_1ec6bb367683ca 575-579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "350793e60b3f2bbd94776ee74b08f48f35e6456d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

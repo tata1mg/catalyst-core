@@ -1,0 +1,20 @@
+packages/catalyst-core/test/hooks/aiPipeline.branches.test.ts
+  s_f9b68111c2008f::t_5d7bdcad7fd1c2 1-74,76-85,87,89-90
+  s_f9b68111c2008f::t_ea1202a7244c60 75,86,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e15d683ab960f22b23351060504c3b55aecadaf0",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

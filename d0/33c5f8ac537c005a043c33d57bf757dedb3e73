@@ -1,0 +1,33 @@
+packages/catalyst-core/test/hooks/useMicrophone.test.ts
+  s_f9b68111c2008f::t_e854ceab8087dd 115-136
+packages/catalyst-core/test/hooks/useTranscribe.listen.test.ts
+  s_f9b68111c2008f::t_e854ceab8087dd 229-236,238-241
+  s_f9b68111c2008f::t_2db8eef7dd9021 237
+packages/catalyst-core/src/native/bridge/hooks/useTranscribe.ts
+  s_f9b68111c2008f::t_0d5dabf904d635 34-35,38,432-437,445
+  s_f9b68111c2008f::t_ccecda5b3789aa 438-444
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_f9b68111c2008f::t_e854ceab8087dd 152-206
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_f9b68111c2008f::t_0d5dabf904d635 158-163,165-178,222-227
+packages/catalyst-core/test/hooks/useAI.helpers.test.ts
+  s_f9b68111c2008f::t_e854ceab8087dd 17-20
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_f9b68111c2008f::t_ba5f7c00c8576a 114-122,128,136-138,189-193,214,235-243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d033c5f8ac537c005a043c33d57bf757dedb3e73",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,98 @@
+benchmarks/harness/package.json
+  s_c90446c13dcb57::t_369ac153dc88ff 1-17
+benchmarks/harness/lighthouse.mjs
+  s_c90446c13dcb57::t_a76dbea762378b 1-84
+benchmarks/harness/run.mjs
+  s_c90446c13dcb57::t_d4debcea25b58c 1-45
+  s_c90446c13dcb57::t_f13cadf427bf2b 46
+benchmarks/harness/record.mjs
+  s_c90446c13dcb57::t_685e626a53a9bc 1-131
+benchmarks/harness/summary.mjs
+  s_c90446c13dcb57::t_3d59dff4c00ce9 1-104
+  s_c90446c13dcb57::t_02f5c01d34ed7c 105-118
+benchmarks/harness/early-input.mjs
+  s_c90446c13dcb57::t_e9c0103bd37df1 1-93
+benchmarks/harness/lib.mjs
+  s_c90446c13dcb57::t_edcb39ea39e2ac 1-70
+benchmarks/harness/navigation.mjs
+  s_c90446c13dcb57::t_7d866044664ad8 1-106
+benchmarks/README.md
+  s_c90446c13dcb57::t_651098fbad535e 1-51
+  s_c90446c13dcb57::t_763b78a1a4ac18 52-54
+benchmarks/DISCUSSION.md
+  s_c90446c13dcb57::t_bcbfb6f92d7f5b 1-7,9-85
+  s_c90446c13dcb57::t_4ad249b84c94f2 8
+  s_c90446c13dcb57::t_cd20f78dccf306 86-89
+benchmarks/harness/.gitignore
+  s_c90446c13dcb57::t_7f0e89d4d2d507 1-2
+benchmarks/pokedex/.gitignore
+  s_c90446c13dcb57::t_0711eef76d1c5f 1-4
+benchmarks/pokedex/app/.gitignore
+  s_c90446c13dcb57::t_3fae9524897aa3 1-4
+benchmarks/pokedex/app/api.js
+  s_c90446c13dcb57::t_22a461a335d42a 1-15
+benchmarks/pokedex/app/client/index.js
+  s_c90446c13dcb57::t_3384707aafb25e 1-23
+benchmarks/pokedex/app/client/styles.js
+  s_c90446c13dcb57::t_c2e057f1016754 1-3
+benchmarks/pokedex/app/config/config.json
+  s_c90446c13dcb57::t_7b5e568aa33566 1-10
+benchmarks/pokedex/app/package.json
+  s_c90446c13dcb57::t_d1833fdd429b11 1-31
+benchmarks/pokedex/app/server/document.js
+  s_c90446c13dcb57::t_60a90ed96d40c4 1-14
+benchmarks/pokedex/app/server/index.js
+  s_c90446c13dcb57::t_967e3315cc5f8f 1-2
+benchmarks/pokedex/app/server/pokemon.json
+  s_c90446c13dcb57::t_47036bb4cf24b1 1
+benchmarks/pokedex/app/server/server.js
+  s_c90446c13dcb57::t_1789675a1ef8fa 1-11
+benchmarks/pokedex/app/src/js/containers/App/index.js
+  s_c90446c13dcb57::t_1f71d70b2591d9 1-16
+benchmarks/pokedex/app/src/js/layouts/MainLayout/MainLayout.js
+  s_c90446c13dcb57::t_721db55c13a18b 1-10
+benchmarks/pokedex/app/src/js/pages/Home/Home.js
+  s_c90446c13dcb57::t_7afdde70548b77 1-51
+benchmarks/pokedex/app/src/js/pages/Pokemon/Pokemon.js
+  s_c90446c13dcb57::t_d4cf5679b5c6a6 1-28
+benchmarks/pokedex/app/src/js/routes/index.js
+  s_c90446c13dcb57::t_337c88bb837fc1 1-7
+benchmarks/pokedex/app/src/js/routes/utils.js
+  s_c90446c13dcb57::t_74d7caa8eeb68f 1-42
+benchmarks/pokedex/app/src/static/css/base/index.scss
+  s_c90446c13dcb57::t_999c81b1c18e8d 1-10
+benchmarks/pokedex/app/src/static/css/base/styles.scss
+  s_c90446c13dcb57::t_248251e99457cd 1-3
+benchmarks/pokedex/app/webpackConfig.js
+  s_c90446c13dcb57::t_90176e71d84f29 1-6
+benchmarks/pokedex/fetch.mjs
+  s_c90446c13dcb57::t_5f30d463d49ff3 1-35
+benchmarks/pokedex/results/README.md
+  s_c90446c13dcb57::t_9d2c3977539689 1-66
+benchmarks/pokedex/results/data/early-input.json
+  s_c90446c13dcb57::t_8abc17a3c93143 1-101
+benchmarks/pokedex/static-server.mjs
+  s_c90446c13dcb57::t_1adf7dab976dd5 1-27
+benchmarks/pokedex/results/gifs/recorded-events.json
+  s_c90446c13dcb57::t_33cb437040c5b1 1-16
+benchmarks/pokedex/results/data/lighthouse.json
+  s_c90446c13dcb57::t_dae03f215066bd 1-439
+benchmarks/pokedex/results/data/navigation.json
+  s_c90446c13dcb57::t_e9bd257df5dca5 1-1257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aab92871c6482676d0454483892ce8cad985ed2e",
+  "prompts": {},
+  "sessions": {
+    "s_c90446c13dcb57": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7434ed21-4f9a-4cdc-adcd-173a087a825f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}

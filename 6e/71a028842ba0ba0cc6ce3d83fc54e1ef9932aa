@@ -1,0 +1,21 @@
+.github/workflows/node.js.yml
+  s_ca46e09f3bacb9::t_5fd605419f9d1e 1580-1589
+docs/server/server.js
+  s_ca46e09f3bacb9::t_9d10a02427fb4f 12-25,32-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e71a028842ba0ba0cc6ce3d83fc54e1ef9932aa",
+  "prompts": {},
+  "sessions": {
+    "s_ca46e09f3bacb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a41169c4-ac1e-4342-a8c8-4d212a9e340b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}

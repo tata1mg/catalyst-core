@@ -1,0 +1,24 @@
+packages/catalyst-core/test/cli/themeHelpers.test.ts
+  s_f9b68111c2008f::t_71bdfe8b5fa5a9 1-136
+packages/catalyst-core/test/hooks/useNetworkStatus.web.test.ts
+  s_f9b68111c2008f::t_71bdfe8b5fa5a9 1-50
+packages/catalyst-core/test/native/nativeInterfaces.test.ts
+  s_f9b68111c2008f::t_71bdfe8b5fa5a9 1-29
+  s_f9b68111c2008f::t_9fc24e5a067801 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "936777cbb0ec6e1356326f33cca67b13da81673f",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

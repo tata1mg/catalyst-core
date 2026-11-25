@@ -1,0 +1,39 @@
+packages/catalyst-ai/src/contentParts.js
+  s_f9b68111c2008f::t_7fe66fe7736a54 32-39,55
+packages/catalyst-ai/test/contentParts.test.ts
+  s_f9b68111c2008f::t_02a2052dee02fb 42-58
+packages/catalyst-ai/test/useWebAI.messages.test.ts
+  s_f9b68111c2008f::t_e76d802d115eae 6-16,212-280
+  s_f9b68111c2008f::t_bfa4e3363965af 281
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_31e6374d8c3741 91-93,120
+  s_f9b68111c2008f::t_50353eec0bdf15 177,180-182,237,303,320,367,375,381,393,405,413
+  s_f9b68111c2008f::t_7a30f785347f2f 351-352,355-357
+packages/catalyst-ai/src/resumableFetch.js
+  s_f9b68111c2008f::t_9d706216947d30 94-99,187,237-241,244
+packages/catalyst-ai/src/useNativeAI.js
+  s_f9b68111c2008f::t_7fe66fe7736a54 88-90,208-212,225-228,231-232,396,403
+packages/catalyst-ai/test/resumableFetch.test.ts
+  s_f9b68111c2008f::t_9d706216947d30 292-339
+packages/catalyst-ai/test/useNativeAI.hook.test.ts
+  s_f9b68111c2008f::t_c4d3b8f8517031 23-30,295-343
+  s_f9b68111c2008f::t_e9191da1deb5a9 344
+packages/catalyst-ai/src/webWorkerScript.js
+  s_f9b68111c2008f::t_31e6374d8c3741 279-283,290-291,319-322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91690006f735baaf5f2141eab7e3efd80ea8ec54",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
