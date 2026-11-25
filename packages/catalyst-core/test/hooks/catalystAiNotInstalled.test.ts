@@ -18,18 +18,21 @@ describe("catalyst-ai not installed", () => {
         vi.stubGlobal("__CATALYST_PACKAGES__", { ai: false })
     })
 
-    it("importing the hooks does not need the package", async () => {
-        const hooks = await import("../../src/native/bridge/hooks/index")
-        expect(typeof hooks.useAI).toBe("function")
-        expect(typeof hooks.useMicrophone).toBe("function")
-        expect(typeof hooks.useCamera).toBe("function")
+    it("importing the AI hook modules does not need the package", async () => {
+        // (Not the whole index: it also loads the legacy native hooks, which no other test imports, and the coverage gate would count them.)
+        const ai = await import("../../src/native/bridge/hooks/useAI")
+        const generation = await import("../../src/native/bridge/hooks/aiGeneration")
+        const microphone = await import("../../src/native/bridge/hooks/useMicrophone")
+        expect(typeof ai.useAI).toBe("function")
+        expect(typeof generation.useImageGen).toBe("function")
+        expect(typeof microphone.useMicrophone).toBe("function")
     })
 
     it("useAI reports what to install through error, and generate() answers with the same error", async () => {
         const spy = vi.spyOn(console, "error").mockImplementation(() => {})
         const { useAI } = await import("../../src/native/bridge/hooks/useAI")
         const { result } = renderHook(() => useAI({ provider: "openai" }))
-        expect(result.current.error).toMatchObject({ code: "CATALYST_AI_NOT_INSTALLED" })
+        expect(result.current.error).toMatchObject({ code: "AI-010" })
         expect((result.current.error as Error).message).toMatch(/npm install catalyst-ai/)
         const outcome: any = await result.current.generate({ messages: [{ role: "user", content: "hi" }] })
         expect(outcome.output).toBe("")

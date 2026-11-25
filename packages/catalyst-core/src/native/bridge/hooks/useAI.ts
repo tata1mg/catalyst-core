@@ -295,7 +295,7 @@ function notInstalledHook() {
         notInstalledLogged = true
         console.error(`\n[catalyst-core] ${NOT_INSTALLED}\n`)
     }
-    const error = Object.assign(new Error(NOT_INSTALLED), { code: "CATALYST_AI_NOT_INSTALLED" })
+    const error = createError(ERROR_CODES.AI_PACKAGE_NOT_INSTALLED, { message: NOT_INSTALLED })
     return { ...emptyHook(), error, generate: async () => ({ output: "", error }) }
 }
 

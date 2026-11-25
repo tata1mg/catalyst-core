@@ -37,6 +37,31 @@ Catalyst exposes two groups of hooks:
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
+### Requirements and fallbacks
+
+What each hook needs, what you get when it is missing, and what it falls back to. In a plain browser without `WebBridge`, hooks that
+register native callbacks throw when `WebBridge` is not initialized (call `WebBridge.init()` at startup, as the app shell does); hooks
+marked "renders" never throw and report `isNative: false` / `isWeb: true`.
+
+| Hook | Needs | Without it | Web fallback |
+|------|-------|------------|--------------|
+| `useCamera`, `useCameraPermission` | Native bridge for the native camera | Renders; `isWeb: true`, native calls dispatch nothing | Browser capture where supported (`Partial`) |
+| `useFilePicker` | Native bridge for the native picker | Renders; `isWeb: true` | Hidden file input; `fileSrc` is an object URL |
+| `useHapticFeedback` | Native bridge | Renders; `isAvailable: false`; `execute` rejects `Native bridge not available` | None |
+| `useIntent`, `useGoogleSignIn` | Native shell and `WebBridge` | Throws `WebBridge is not initialized` during render | None |
+| `useNotification`, `useNotificationPermission` | Native shell and `WebBridge` | Throws `WebBridge is not initialized` during render | None |
+| `useNetworkStatus` | Nothing (native adds the network type) | Renders; uses the browser's online state | Browser online state |
+| `useDeviceInfo` | Nothing (native adds device details) | Renders; `isWeb: true` | Browser-derived info, can be turned off with `setWebFallback` |
+| `useDataProtection` | Native bridge | Renders; calls do nothing on web | None |
+| `useSafeArea` | Native bridge with edge-to-edge on | Renders; insets are `0` | `0` insets |
+| `useVideoStream` | Native bridge for native preview | Renders; `isWeb: true` | Browser camera stream (`mediaStream`) |
+| `useNativeTransition` | A router (`<Router>`) | Throws if there is no router | Plain navigation |
+| `useMicrophone` | Microphone permission; the native shell adds the permission prompt | Renders; `supported: false` when the browser cannot record | Browser `getUserMedia` |
+| `useSpeechRecognition` | The native app | Renders; `supported: false` | None |
+| `useAI`, `useVision`, `useTranscribe`, `useAgent`, `useImageGen`, `useSpeech`, `useLiveTranscribe`, `requestImage`, `requestSpeech` | `catalyst-ai` | `error` with code `AI-010` that says `npm install catalyst-ai`; actions return that error | Depends on the provider: see [AI Hooks](/content/API%20Reference/ai) |
+
+A hook never fails silently: a missing requirement is a thrown, documented error or an `error` value with a message that says what to do.
+
 ## Route Hooks
 
 ### `useRouterData`
@@ -704,7 +729,7 @@ Several hooks carry alias keys kept from earlier releases. Both names work and r
 
 `useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
 
-`useAI`'s and `useVision`'s shapes — including their error handling — are owned by the `catalyst-ai` package and are outside this contract.
+`useAI`'s and `useVision`'s shapes are owned by the `catalyst-ai` package and are outside this contract, but their errors are registry errors too (`AI-0xx`; see [AI Hooks](/content/API%20Reference/ai)).
 
 ### Hooks and bridge methods with the same name
 
@@ -932,7 +957,7 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 
 #### Requirements
 
-Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
+Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs one console error and returns a hook whose `error` is the registry error [`AI-010`](https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-010.md) ("useAI requires catalyst-ai, which is not installed. Run: npm install catalyst-ai"); `generate()` resolves with `{ output: "", error }` using that same error. `cancel`/`reset` are no-ops. The AI hooks built on `useAI` (`useVision`, `useTranscribe`, `useAgent`) report the same error through their own `error`. See [AI Hooks](/content/API%20Reference/ai).
 
 `useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.
 

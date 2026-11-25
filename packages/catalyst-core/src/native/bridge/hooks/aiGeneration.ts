@@ -1,3 +1,4 @@
+import { ERROR_CODES as SHARED_ERROR_CODES, createError } from "../../../errors/index.js"
 // image.generate / speech.synthesize for apps, which reach catalyst-ai only through catalyst-core/hooks.
 // Same guarded, client-only load of catalyst-ai as useAI (see the note there on SSR and __CATALYST_PACKAGES__).
 // The wrappers add nothing to the contract: they forward to catalyst-ai's requestImage/useImageGen/requestSpeech/
@@ -22,7 +23,7 @@ const _pkg = loadPackage()
 const missing = (name: string, getPkg: () => any = () => _pkg) =>
     getPkg()
         ? new Error(`${name} needs a catalyst-ai version that provides it (and AI support enabled in this build). Update catalyst-ai.`)
-        : Object.assign(new Error(`${name} requires catalyst-ai, which is not installed. Run: npm install catalyst-ai`), { code: "CATALYST_AI_NOT_INSTALLED" })
+        : createError(SHARED_ERROR_CODES.AI_PACKAGE_NOT_INSTALLED, { message: `${name} requires catalyst-ai, which is not installed. Run: npm install catalyst-ai` })
 
 /** Builds the wrappers over a package getter. Exported for tests; apps use the bound exports below. */
 export function createGenerationApi(getPkg: () => any) {

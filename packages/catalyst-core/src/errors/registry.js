@@ -102,6 +102,7 @@ export const ERROR_CODES = {
     AI_NATIVE_CALLBACK_ERROR: "AI-007",
     AI_WEB_WORKER_UNAVAILABLE: "AI-008",
     AI_WEB_WORKER_CRASHED: "AI-009",
+    AI_PACKAGE_NOT_INSTALLED: "AI-010",
 }
 
 // One entry per catalyst-owned code. Foreign/wrapped errors (see wrapForeignError)
@@ -741,6 +742,15 @@ export const ERROR_DEFINITIONS = {
             "Constructing the module Worker for in-browser AI failed — module workers may be unsupported in this browser.",
         suggestedAction: "Use a browser with module Worker support, or fall back to useCloudAI/useNativeAI.",
     },
+    [ERROR_CODES.AI_PACKAGE_NOT_INSTALLED]: {
+        category: "AI",
+        defaultMessage: "catalyst-ai is not installed",
+        defaultDetails:
+            "An AI hook or request (useAI, useTranscribe, useVision, useAgent, useImageGen, useSpeech, requestImage and the like) was used, but the optional catalyst-ai package cannot be loaded. The rest of catalyst-core works without it.",
+        suggestedAction:
+            "Run `npm install catalyst-ai` in your app, then rebuild. If it is already installed, check that AI support is enabled in the build (AI_CONFIG.enabled) and that the installed version provides the hook you are calling.",
+    },
+
     [ERROR_CODES.AI_WEB_WORKER_CRASHED]: {
         category: "AI",
         defaultMessage: "Web AI worker crashed",
