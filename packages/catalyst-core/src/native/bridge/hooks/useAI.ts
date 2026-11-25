@@ -258,13 +258,17 @@ export function useAI(options: any = {}) {
             const decision = await decideFor(args, consent, false)
             // cancel() (or unmount) while routing was still deciding, or a newer call began: nothing is parked yet for this one to end, so it ends here.
             if (guard.current.stale(ticket)) return { output: "", error: null, route: decision }
+            // This is now the newest call, whatever it decides (run, ask or deny): a call still parked for a model switch belongs to the past
+            // and must not be dispatched when that model becomes ready.
+            pending.current.cancel()
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
             const withRoute = (result: any) => ({ ...(result || { output: "", error: null }), route: decision })
             if (decision.action !== "run" || !decision.candidate) return withRoute(null)
             const chosen = decision.candidate
-            const same = selected?.id === chosen.id
+            // The same candidate id is not enough: the routing policy can change which provider or model an id stands for.
+            const same = selected?.id === chosen.id && selected?.provider === chosen.provider && selected?.model === chosen.model
             const chosenKey = `${chosen.engine ?? ""}|${chosen.model ?? ""}|${chosen.modelPath ?? ""}`
             if (same && (chosen.mode !== "native" || nativeReadyFor(chosenKey))) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current

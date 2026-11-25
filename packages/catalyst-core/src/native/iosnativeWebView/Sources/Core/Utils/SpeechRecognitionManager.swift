@@ -26,6 +26,8 @@ final class SpeechRecognitionManager {
     /// Which start() a speech-authorization answer belongs to. stop() and cleanup() move it on, so an answer that arrives
     /// after the caller stopped (or the bridge went away) is ignored instead of starting recognition.
     private var generation = 0
+    /// Moves on with every recognition task that begins; a callback from an earlier task is recognised by an older number and ignored.
+    private var taskSerial = 0
     private var authorizationPending = false
     private struct SavedSession {
         let category: AVAudioSession.Category
@@ -74,7 +76,9 @@ final class SpeechRecognitionManager {
     // MARK: - Session
 
     func start(language: String) {
-        guard task == nil else {
+        // Busy also while the Speech permission prompt is open: `task` is still nil then, and a second start() would advance `generation`,
+        // so the first one's answer would be thrown away without ever reporting a result.
+        guard task == nil, !authorizationPending else {
             fail(SpeechRecognitionPolicy.Code.busy, "Speech recognition is already running")
             return
         }
@@ -123,14 +127,25 @@ final class SpeechRecognitionManager {
 
             let input = audioEngine.inputNode
             input.removeTap(onBus: 0)
-            input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
+            // Microphone permission does not guarantee a usable input: with no input (or one that reports no format) installing a tap raises
+            // an Objective-C exception that a Swift catch cannot handle. Check the format first and fail like any other audio problem.
+            let format = input.outputFormat(forBus: 0)
+            guard format.sampleRate > 0, format.channelCount > 0 else { throw NoAudioInput() }
+            input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 request.append(buffer)
             }
             audioEngine.prepare()
             try audioEngine.start()
 
+            taskSerial += 1
+            let serial = taskSerial
             task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                DispatchQueue.main.async { self?.handle(result: result, error: error) }
+                // A callback queued by an earlier task can run after a newer task has begun (it resets `finished`): it must not publish its
+                // text as the new session's or tear the new session down.
+                DispatchQueue.main.async {
+                    guard let self = self, serial == self.taskSerial else { return }
+                    self.handle(result: result, error: error)
+                }
             }
             send("SPEECH_RECOGNITION_STATE", SpeechRecognitionPolicy.statePayload("listening"))
         } catch {
@@ -215,6 +230,10 @@ final class SpeechRecognitionManager {
         teardown()
     }
 
+    private struct NoAudioInput: LocalizedError {
+        var errorDescription: String? { "No microphone input is available right now" }
+    }
+
     private func teardown() {
         silenceTimer?.invalidate()
         silenceTimer = nil
@@ -232,8 +251,10 @@ final class SpeechRecognitionManager {
     private func activateSession() throws {
         let session = AVAudioSession.sharedInstance()
         savedSession = SavedSession(category: session.category, mode: session.mode, options: session.categoryOptions)
-        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try session.setActive(true, options: .notifyOthersOnDeactivation)
+        // `.duckOthers` is not valid with the `.record` category (it belongs to playback-style categories) and the system may reject the pair, and
+        // `.notifyOthersOnDeactivation` is only for deactivating. Plain record: other audio is interrupted for the session either way.
+        try session.setCategory(.record, mode: .measurement, options: [])
+        try session.setActive(true)
     }
 
     private func restoreSession() {

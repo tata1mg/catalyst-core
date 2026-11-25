@@ -364,13 +364,17 @@ function usesNativeHooks(source) {
  * "Cannot read properties of null (reading 'useContext')". It belongs inside hydrationReady().then(...) just
  * before hydrateRoot.
  */
+// Comments out, so a commented-out `// WebBridge.init()` does not count as the call. (Textual, not a parser: a `//` right after a `:` is
+// left alone so URLs in strings survive.)
+const withoutComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1")
+
 function inspectWebBridgeInit(root) {
     const { grepSrc, readText } = makeProjectHelpers(root)
     const hookFiles = grepSrc(/catalyst-core\/hooks/).filter((f) => usesNativeHooks(readText(f) || ""))
     const entry = CLIENT_ENTRY_CANDIDATES.find((f) => readText(f) !== null && readText(f) !== undefined)
     const base = { hookFiles, entry: entry || null }
     if (!entry) return { ...base, state: hookFiles.length ? "no-entry" : "no-hooks" }
-    const src = readText(entry) || ""
+    const src = withoutComments(readText(entry) || "")
     const initAt = src.search(/WebBridge\s*\.\s*init\s*\(/)
     if (initAt === -1) return { ...base, state: hookFiles.length ? "missing-init" : "no-hooks" }
     // The check is about apps that use native hooks. A project without any can call WebBridge.init() however it likes.

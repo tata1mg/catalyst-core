@@ -93,8 +93,13 @@ function Poster() {
 }
 
 function Reader({ text }) {
-  const { speak, audio, loading, error } = useSpeech({ provider: "openai", voice: "alloy" });
-  return <button disabled={loading} onClick={() => speak(text)}>Read aloud</button>;
+  const { speak, loading, error } = useSpeech({ provider: "openai", voice: "alloy" });
+  // speak() makes the audio; playing it is up to you: audio.url is a data: URL that new Audio(url) can play.
+  const read = async () => {
+    const result = await speak(text);
+    if (result.audio) new Audio(result.audio.url).play();
+  };
+  return <button disabled={loading} onClick={read}>Read aloud</button>;
 }
 ```
 
@@ -111,7 +116,7 @@ Set `provider: "device"` to make the picture in the browser with SD-Turbo on Web
 installed with `catalyst-ai`; your app owns it and registers it once:
 
 ```bash
-npm install web-txt2img onnxruntime-web @huggingface/transformers
+npm install web-txt2img onnxruntime-web @xenova/transformers
 ```
 
 ```javascript

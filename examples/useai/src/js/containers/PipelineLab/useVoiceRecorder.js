@@ -102,15 +102,26 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             stream.getTracks().forEach((t) => t.stop())
             return
         }
-        const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t))
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        let recorder
+        let context
+        let analyser
         const chunks = []
-        const Context = window.AudioContext || window.webkitAudioContext
-        const context = Context ? new Context() : null
-        const analyser = context?.createAnalyser()
-        if (analyser) {
-            analyser.fftSize = 1024
-            context.createMediaStreamSource(stream).connect(analyser)
+        try {
+            const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t))
+            recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            const Context = window.AudioContext || window.webkitAudioContext
+            context = Context ? new Context() : null
+            analyser = context?.createAnalyser()
+            if (analyser) {
+                analyser.fftSize = 1024
+                context.createMediaStreamSource(stream).connect(analyser)
+            }
+        } catch (err) {
+            // The microphone is already open: close it, or it stays on after the error.
+            stream.getTracks().forEach((t) => t.stop())
+            context?.close?.().catch(() => {})
+            setError(`Could not set up recording: ${err?.message || err}`)
+            return
         }
         const buffer = analyser ? new Uint8Array(analyser.fftSize) : null
         const startedAt = Date.now()
@@ -166,7 +177,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             return
         }
         setState("listening")
-    }, [autoStop, release, releaseSession, stop])
+    }, [autoStop, releaseSession, stop])
 
     useEffect(() => () => cancel(), [cancel])
 

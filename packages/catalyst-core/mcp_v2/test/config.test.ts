@@ -889,6 +889,10 @@ describe("check_config: review backlog", () => {
         expect(inspect({ "client/index.js": `import WebBridge from "x"\nhydrationReady().then(() => WebBridge.init())` }).state).toBe("no-hooks")
     })
 
+    it("a commented-out WebBridge.init() is not the call", () => {
+        const body = `hydrationReady().then(() => {\n    // WebBridge.init()\n    /* WebBridge.init() */\n    hydrateRoot(el, app)\n})`
+        expect(inspect({ ...hooks, "client/index.js": entry(body) }).state).toBe("missing-init")
+    })
     it("init that comes after hydrateRoot is misplaced: the first render has already run without the bridge", () => {
         expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { hydrateRoot(el, app); WebBridge.init() })`) }).state).toBe("misplaced")
         expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) })`) }).state).toBe("ok")
