@@ -115,4 +115,16 @@ describe("on-device image generation", () => {
         expect(out.images).toHaveLength(1)
         expect(out.cost).toBe(0)
     })
+
+    it("tells the developer what to install when the optional package is missing, and retries once it is there", async () => {
+        let installed = false
+        const lib = fakeLib()
+        registerDeviceImageEngine(async () => {
+            if (!installed) throw new Error("Cannot find module 'web-txt2img'")
+            return lib as any
+        })
+        await expect(generateOnDevice({ prompt: "a boat" })).rejects.toThrow(/npm i web-txt2img/)
+        installed = true
+        await expect(generateOnDevice({ prompt: "a boat" })).resolves.toBeDefined()
+    })
 })
