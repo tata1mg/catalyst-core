@@ -1,0 +1,28 @@
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/ShellCapabilities.swift
+  s_f9b68111c2008f::t_56e624e54407c4 1-17
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/ShellCapabilitiesTests.swift
+  s_f9b68111c2008f::t_56e624e54407c4 1-18
+packages/catalyst-core/src/native/bridge/hooks/microphonePermission.ts
+  s_f9b68111c2008f::t_56e624e54407c4 12,37-43
+packages/catalyst-core/test/hooks/microphonePermission.test.ts
+  s_f9b68111c2008f::t_56e624e54407c4 7,27-28,34-50
+  s_f9b68111c2008f::t_3f8e4df36b1fe3 51
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_f9b68111c2008f::t_56e624e54407c4 62-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65fafaf54af1d6ccbcee50d5bc30cce384773245",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
