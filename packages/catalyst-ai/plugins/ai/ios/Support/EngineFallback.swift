@@ -36,6 +36,9 @@ enum EngineFallback {
 struct FallbackConversation {
     private(set) var exposedId: String?
     private(set) var innerId: String?
+    /// Moves on with every reset. A recovery that began before a clearConversation() holds the old number, so it cannot rebind the
+    /// conversation the page started after the clear.
+    private(set) var generation = 0
 
     /// The id to hand the engine for a request that arrived carrying `incoming`.
     func innerId(forIncoming incoming: String?) -> String? {
@@ -55,7 +58,8 @@ struct FallbackConversation {
     }
 
     /// The engine behind the conversation changed; the page keeps its id.
-    mutating func rebind(innerId newId: String) {
+    mutating func rebind(innerId newId: String, ifGeneration expected: Int) {
+        guard expected == generation else { return }
         innerId = newId
     }
 
@@ -69,5 +73,6 @@ struct FallbackConversation {
     mutating func reset() {
         exposedId = nil
         innerId = nil
+        generation += 1
     }
 }

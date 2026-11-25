@@ -37,6 +37,8 @@ describe("useCloudAI streaming", () => {
         const out = await gen(hook)
         await waitFor(() => expect(hook.result.current.metrics).not.toBeNull())
         expect(out.error).toBeNull()
+        // The counts come from the provider's usage frame (10/5/15), not from counting the two token events.
+        expect(hook.result.current.metrics).toMatchObject({ promptTokens: 10, completionTokens: 5, totalTokens: 15 })
         expect(hook.result.current.output).toContain("Hello ")
         expect(hook.result.current.output).toContain("\u0000SATTACH:")
         expect(hook.result.current.streaming).toBe(false)

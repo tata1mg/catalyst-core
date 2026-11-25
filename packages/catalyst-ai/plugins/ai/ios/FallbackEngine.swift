@@ -67,7 +67,7 @@ final class FallbackEngine: NativeAIEngine {
     }
 
     func supply(prompt: String, genConfig: [String: Any], conversationId incomingId: String?) async throws -> NativeAIStream {
-        let (active, innerId) = lock.withLock { (fallback, conversation.innerId(forIncoming: incomingId)) }
+        let (active, innerId, generation) = lock.withLock { (fallback, conversation.innerId(forIncoming: incomingId), conversation.generation) }
         if let active {
             let inner = try await active.supply(prompt: adapt(prompt, for: active), genConfig: genConfig, conversationId: innerId)
             let exposedId = lock.withLock { conversation.record(incoming: incomingId, returned: inner.conversationId) }
@@ -92,8 +92,9 @@ final class FallbackEngine: NativeAIEngine {
                 lock.withLock { conversation.forgetInner(ifStill: stale) }
                 throw error
             }
-            // The page keeps the id it holds; only the engine behind it changes.
-            let exposed = lock.withLock { conversation.record(incoming: incomingId, returned: recovered.conversationId) }
+            // The page keeps the id it holds; only the engine behind it changes. If the conversation was cleared meanwhile, the answer still
+            // goes back but the new conversation is left alone.
+            let exposed = lock.withLock { generation == conversation.generation ? conversation.record(incoming: incomingId, returned: recovered.conversationId) : recovered.conversationId }
             return (exposed, recovered.tokens)
         }
         let exposedId = lock.withLock { conversation.record(incoming: incomingId, returned: inner.conversationId) }
@@ -108,7 +109,7 @@ final class FallbackEngine: NativeAIEngine {
                     }
                     continuation.finish()
                 } catch {
-                    await self.recover(from: error, produced: produced, prompt: prompt, genConfig: genConfig, into: continuation)
+                    await self.recover(from: error, produced: produced, prompt: prompt, genConfig: genConfig, generation: generation, into: continuation)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -161,7 +162,14 @@ final class FallbackEngine: NativeAIEngine {
                 lock.withLock {
                     fallback = prepared
                     activation = nil
-                    if resetConversation { conversation.reset() }
+                    if resetConversation {
+                        conversation.reset()
+                    } else {
+                        // From this moment requests reach the fallback. The id in the map still belongs to the failed engine, so it is
+                        // dropped here, in the same critical section: a request for the same page id that arrives before the recovery
+                        // has bound the fallback's own id must start a fresh conversation, not be handed an id the fallback never issued.
+                        conversation.forgetInner(ifStill: conversation.innerId)
+                    }
                 }
                 return prepared
             } catch {
@@ -176,6 +184,7 @@ final class FallbackEngine: NativeAIEngine {
         produced: Bool,
         prompt: String,
         genConfig: [String: Any],
+        generation: Int,
         into continuation: AsyncThrowingStream<String, Error>.Continuation
     ) async {
         guard allowsFallback(for: error, produced: produced) else {
@@ -187,8 +196,17 @@ final class FallbackEngine: NativeAIEngine {
                 continuation.finish(throwing: error)
                 return
             }
-            let inner = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
-            lock.withLock { conversation.rebind(innerId: inner.conversationId) }
+            let stale = lock.withLock { conversation.innerId }
+            let inner: NativeAIStream
+            do {
+                inner = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
+            } catch {
+                // The fallback could not set the request up: the id the map holds still belongs to the failed engine. Forget it, so the next
+                // request starts a fresh conversation instead of handing the fallback an id it has never seen.
+                lock.withLock { conversation.forgetInner(ifStill: stale) }
+                throw error
+            }
+            lock.withLock { conversation.rebind(innerId: inner.conversationId, ifGeneration: generation) }
             for try await token in inner.tokens { continuation.yield(token) }
             continuation.finish()
         } catch {

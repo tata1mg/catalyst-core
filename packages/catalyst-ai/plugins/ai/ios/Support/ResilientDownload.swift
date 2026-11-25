@@ -71,7 +71,11 @@ final class ResilientDownload {
 
             var reason: PauseReason = .error
             do {
-                return try await attempt()
+                let size = try await attempt()
+                // Cancelled after the last byte was written but before the attempt returned: the caller would otherwise install the model
+                // and record it as downloaded for a download that was abandoned.
+                try Task.checkCancellation()
+                return size
             } catch let interrupted as DownloadInterrupted {
                 switch interrupted.kind {
                 case .paused:

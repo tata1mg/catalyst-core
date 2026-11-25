@@ -94,3 +94,11 @@ describe("estimateCloudEquivalent (on-device runs)", () => {
         expect(estimateCloudEquivalent({ inputTokens: 10, outputTokens: 10 }, "no-such-model")).toBeNull()
     })
 })
+
+describe("computeMetrics with a usage frame that leaves a field out", () => {
+    it("totals what is there instead of NaN", async () => {
+        const m: any = await cm({ provider: "openai", model: "m", promptTokens: 10, completionTokens: 5 }, { ttftMs: 1, genMs: 100 })
+        expect(m.totalTokens).toBe(15)
+    })
+})
+

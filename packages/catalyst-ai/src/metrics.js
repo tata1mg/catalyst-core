@@ -94,7 +94,8 @@ export function computeMetrics(usage, timing = {}) {
     const audioCostUnknown = audioTokens > 0 && price.audioInput == null
     const billedInputTokens = Math.max(0, usage.promptTokens - usage.cachedTokens - audioTokens)
     const billedOutputTokens = usage.completionTokens + usage.reasoningTokens
-    const totalTokens = usage.promptTokens + usage.completionTokens + usage.reasoningTokens
+    // A field a provider leaves out counts as 0: undefined would turn the whole total (and the session totals built from it) into NaN.
+    const totalTokens = (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0) + (usage.reasoningTokens ?? 0)
 
     const cost = !tokenRatesKnown
         ? null

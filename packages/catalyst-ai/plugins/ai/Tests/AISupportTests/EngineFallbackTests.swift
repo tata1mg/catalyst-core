@@ -58,7 +58,7 @@ final class FallbackConversationTests: XCTestCase {
     func testThePageKeepsItsIdAfterTheEngineBehindItChanges() {
         var convo = FallbackConversation()
         _ = convo.record(incoming: nil, returned: "fm-1")
-        convo.rebind(innerId: "lite-9")
+        convo.rebind(innerId: "lite-9", ifGeneration: convo.generation)
         XCTAssertEqual(convo.innerId(forIncoming: "fm-1"), "lite-9", "next turn continues the LiteRT conversation")
         XCTAssertEqual(convo.record(incoming: "fm-1", returned: "lite-9"), "fm-1", "the page is never handed a new id")
     }
@@ -82,7 +82,7 @@ final class FallbackConversationTests: XCTestCase {
         let exposed = conversation.record(incoming: nil, returned: "litert-1")
         XCTAssertEqual(exposed, "litert-1")
         // the stream failed before its first token and the fallback took over: rebind, never reset
-        conversation.rebind(innerId: "fm-9")
+        conversation.rebind(innerId: "fm-9", ifGeneration: conversation.generation)
         XCTAssertEqual(conversation.exposedId, "litert-1")
         XCTAssertEqual(conversation.innerId(forIncoming: "litert-1"), "fm-9", "the next turn carrying the page's id continues the mapped session")
         XCTAssertEqual(conversation.record(incoming: "litert-1", returned: "fm-9"), "litert-1")
@@ -110,8 +110,44 @@ final class FallbackConversationTests: XCTestCase {
         var conversation = FallbackConversation()
         _ = conversation.record(incoming: nil, returned: "litert-1")
         // another request already bound the fallback's id while this one was failing
-        conversation.rebind(innerId: "fm-5")
+        conversation.rebind(innerId: "fm-5", ifGeneration: conversation.generation)
         conversation.forgetInner(ifStill: "litert-1")
         XCTAssertEqual(conversation.innerId(forIncoming: "litert-1"), "fm-5")
     }
 }
+
+final class FallbackConversationRaceTests: XCTestCase {
+    func testARecoveryThatBeganBeforeAClearCannotRebindTheNewConversation() {
+        var convo = FallbackConversation()
+        _ = convo.record(incoming: nil, returned: "lite-1")
+        let recoveryStartedAt = convo.generation // a recovery for the first conversation begins
+        convo.reset() // clearConversation(): the page starts over
+        _ = convo.record(incoming: nil, returned: "lite-2") // the new conversation
+        convo.rebind(innerId: "fm-1", ifGeneration: recoveryStartedAt) // the stale recovery finishes
+        XCTAssertEqual(convo.innerId, "lite-2", "the new conversation keeps its own id")
+    }
+
+    func testARecoveryInTheSameGenerationStillRebinds() {
+        var convo = FallbackConversation()
+        _ = convo.record(incoming: nil, returned: "lite-1")
+        convo.rebind(innerId: "fm-1", ifGeneration: convo.generation)
+        XCTAssertEqual(convo.innerId, "fm-1")
+    }
+
+    func testForgettingTheInnerIdKeepsThePagesIdAndStartsFreshBehindIt() {
+        var convo = FallbackConversation()
+        let exposed = convo.record(incoming: nil, returned: "lite-1")
+        convo.forgetInner(ifStill: convo.innerId)
+        XCTAssertNil(convo.innerId(forIncoming: exposed), "the next request for the page's id gets no engine id")
+        XCTAssertEqual(convo.exposedId, exposed)
+    }
+
+    func testForgettingDoesNotRemoveAnIdAnotherRequestBoundMeanwhile() {
+        var convo = FallbackConversation()
+        _ = convo.record(incoming: nil, returned: "lite-1")
+        convo.rebind(innerId: "fm-2", ifGeneration: convo.generation)
+        convo.forgetInner(ifStill: "lite-1")
+        XCTAssertEqual(convo.innerId, "fm-2")
+    }
+}
+

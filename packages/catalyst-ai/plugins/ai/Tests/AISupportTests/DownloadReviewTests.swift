@@ -95,4 +95,25 @@ final class DownloadReviewTests: XCTestCase {
         XCTAssertTrue(LegacyModelFiles.remove(in: dir, names: ["../keep.txt"]).isEmpty)
         XCTAssertTrue(FileManager.default.fileExists(atPath: parent.appendingPathComponent("keep.txt").path))
     }
+
+    // MARK: cancellation
+
+    func testADownloadCancelledJustBeforeItsAttemptReturnsDoesNotReportSuccess() async {
+        let resilient = ResilientDownload(policy: .default, gate: DownloadGate(), partialSize: { 0 }, onLog: { _ in }) { _ in }
+        let task = Task { () -> Int64 in
+            try await resilient.run {
+                withUnsafeCurrentTask { $0?.cancel() } // cancelled after the last byte, before the attempt hands back its size
+                return 1_000
+            }
+        }
+        do {
+            _ = try await task.value
+            XCTFail("a cancelled download must not return a size")
+        } catch is CancellationError {
+            // expected
+        } catch {
+            XCTFail("unexpected error \(error)")
+        }
+    }
 }
+
