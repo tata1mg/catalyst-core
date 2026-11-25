@@ -61,8 +61,9 @@ struct FallbackConversation {
 
     /// The engine's own id is no longer valid (its engine failed or was replaced) but the page's id is: the next request starts a
     /// fresh inner conversation behind the same exposed id.
-    mutating func forgetInner() {
-        innerId = nil
+    /// Only if it is still `stale`: when another request has bound a newer id meanwhile, that one stays.
+    mutating func forgetInner(ifStill stale: String?) {
+        if innerId == stale { innerId = nil }
     }
 
     mutating func reset() {
