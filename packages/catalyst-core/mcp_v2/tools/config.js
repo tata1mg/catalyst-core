@@ -975,9 +975,9 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
                     err(`${at}.engine`, `Unknown web engine "${m.engine}". Use prompt-api (Chrome's built-in model) or transformers.`)
                 } else if (m.engine === "prompt-api" && platformKey === "web-mobile") {
                     warn(`${at}.engine`, "prompt-api is desktop-only; this web-mobile entry is dropped and will never run.")
-                } else if (m.engine === "prompt-api" && Array.isArray(m.modalities) && m.modalities.some((x) => x !== "text")) {
-                    warn(`${at}.modalities`, "Chrome's built-in model takes text only here; image/audio calls will not be routed to it correctly.")
                 }
+                // No modality warning for prompt-api: the engine builds image and audio inputs for Chrome's model (expectedInputs), so
+                // declaring them is valid. Whether the user's Chrome supports them is answered at run time by the availability check.
             } else if (m.engine !== undefined && !["auto", "litert", "foundation-models", "platform-speech"].includes(m.engine)) {
                 err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert, foundation-models or platform-speech (the phone's own speech recogniser).`)
             } else if (m.engine === "foundation-models" && platformKey === "android") {

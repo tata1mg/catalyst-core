@@ -180,6 +180,16 @@ describe("useSpeechRecognition", () => {
         expect(bridge.speech.start).toHaveBeenCalledTimes(1)
     })
 
+    it("an app without the support command answers at once: start() ends as unavailable instead of waiting for a reply that cannot come", async () => {
+        bridge.speech.getSupport.mockImplementation(() => { throw new Error("no such command") }) // the shell has no such command
+        const { result } = renderHook(() => useSpeechRecognition())
+        let started: any
+        await act(async () => { started = await result.current.start() })
+        expect(started.started).toBe(false)
+        expect(result.current.supported).toBe(false)
+        expect(bridge.speech.start).not.toHaveBeenCalled()
+    })
+
     it("a shell that never answers ends the wait as unavailable, so start() cannot hang", async () => {
         vi.useFakeTimers()
         const { result } = renderHook(() => useSpeechRecognition())

@@ -80,7 +80,15 @@ final class FallbackEngine: NativeAIEngine {
             // a failure before the first token, so it falls back like one that happens later; anything else is rethrown as is.
             guard allowsFallback(for: error, produced: false),
                   let engine = try await activateFallback(after: error, resetConversation: false) else { throw error }
-            let recovered = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
+            let recovered: NativeAIStream
+            do {
+                recovered = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
+            } catch {
+                // The fallback is now the active engine, but the id the map holds is still the failed engine's. Forget it, so the next
+                // request starts a fresh conversation instead of handing the fallback an id it has never seen.
+                lock.withLock { conversation.forgetInner() }
+                throw error
+            }
             // The page keeps the id it holds; only the engine behind it changes.
             let exposed = lock.withLock { conversation.record(incoming: incomingId, returned: recovered.conversationId) }
             return (exposed, recovered.tokens)

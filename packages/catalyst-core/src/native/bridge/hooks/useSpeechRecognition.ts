@@ -197,8 +197,9 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             markSupport({ available: false, onDevice: false, language, reason: "NO_RESPONSE" })
         }, SUPPORT_WAIT_MS)
         if (!requestSupport(listener)) {
+            // The shell has no such command: that is a definite answer, so anything already waiting for one is released too.
             clearTimeout(supportTimer.current)
-            setSupported(false)
+            markSupport({ available: false, onDevice: false, language, reason: "UNSUPPORTED" })
         }
         return () => {
             clearTimeout(supportTimer.current)

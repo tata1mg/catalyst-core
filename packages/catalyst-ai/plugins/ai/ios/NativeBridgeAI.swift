@@ -100,7 +100,13 @@ final class NativeBridgeAI: NativeAIEngine {
 
         // Text-only turns are unchanged. Media (genConfig.inputParts) goes to temp files and is sent ahead of
         // the text as image/audio contents; the files are removed when the stream ends or is cancelled.
-        let mediaFiles = try writeMediaFiles(try AIInputParts.parse(genConfig))
+        // A request the caller got wrong is the caller's to fix: coded as an invalid request, so it is not retried on another engine
+        // (which would answer the text and silently drop the media).
+        let parts: [AIInputPart]
+        do { parts = try AIInputParts.parse(genConfig) } catch {
+            throw NativeAIError(message: error.localizedDescription, code: NativeAIErrorCode.invalidRequestBody)
+        }
+        let mediaFiles = try writeMediaFiles(parts)
         let cleanup = { for item in mediaFiles { try? FileManager.default.removeItem(atPath: item.path) } }
         let message: Message
         if mediaFiles.isEmpty {
@@ -109,7 +115,7 @@ final class NativeBridgeAI: NativeAIEngine {
             let blocked = mediaFiles.first { ($0.kind == .image && !visionEnabled) || ($0.kind == .audio && !audioEnabled) }
             if let blocked = blocked {
                 cleanup()
-                throw NativeAIError(message: "The loaded model does not support \(blocked.kind.rawValue) input")
+                throw NativeAIError(message: "The loaded model does not support \(blocked.kind.rawValue) input", code: NativeAIErrorCode.invalidRequestBody)
             }
             let media: [Content] = mediaFiles.map { $0.kind == .image ? .imageFile($0.path) : .audioFile($0.path) }
             message = Message(contents: media + [.text(prompt)])

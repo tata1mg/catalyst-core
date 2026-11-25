@@ -220,3 +220,16 @@ describe("the combined media budget", () => {
         expect(budgetBase64).toBeLessThan(20 * 1024 * 1024)
     })
 })
+
+describe("a PDF never reaches a provider that cannot take one", () => {
+    it("openai (Chat Completions and Responses) and gemini refuse a document part before any mapping, so it is never sent as an image", () => {
+        const doc = [user([{ type: "text", text: "summarise" }, { type: "document", data: "data:application/pdf;base64,JVBERi0=" }])]
+        const normalized = m.validateMessages(doc) as any // the route normalises first, then checks the endpoint's capabilities
+        for (const provider of ["openai", "gemini"]) {
+            for (const stateful of [false, true]) {
+                expect(() => m.assertSupported(normalized, m.capabilitiesFor({ provider, stateful, model: "m" }) as any), `${provider} stateful=${stateful}`).toThrow(/does not support document/)
+            }
+        }
+        expect(() => m.assertSupported(normalized, m.capabilitiesFor({ provider: "anthropic", stateful: false, model: "m" }) as any)).not.toThrow()
+    })
+})

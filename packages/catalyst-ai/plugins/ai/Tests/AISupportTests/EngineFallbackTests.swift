@@ -94,4 +94,15 @@ final class FallbackConversationTests: XCTestCase {
         conversation.reset()
         XCTAssertNil(conversation.innerId(forIncoming: "litert-1"))
     }
+
+    func testAFailedFallbackRequestLeavesNoStaleEngineIdBehind() {
+        var conversation = FallbackConversation()
+        _ = conversation.record(incoming: nil, returned: "litert-1")
+        // the fallback took over but its first request failed: the page keeps its id, the dead engine's id must not be handed on
+        conversation.forgetInner()
+        XCTAssertEqual(conversation.exposedId, "litert-1")
+        XCTAssertNil(conversation.innerId(forIncoming: "litert-1"), "the next request starts a fresh inner conversation")
+        XCTAssertEqual(conversation.record(incoming: "litert-1", returned: "fm-2"), "litert-1", "and the page still sees one stable id")
+        XCTAssertEqual(conversation.innerId(forIncoming: "litert-1"), "fm-2")
+    }
 }

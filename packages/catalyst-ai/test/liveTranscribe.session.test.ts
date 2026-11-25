@@ -350,4 +350,39 @@ describe("useLiveTranscribe", () => {
         expect(hook.result.current.listening).toBe(false)
         expect(hook.result.current.error).toMatch(/closed unexpectedly/)
     })
+
+    it("the connection closing while the microphone is still opening: the microphone is released and listening never starts", async () => {
+        const audio = stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let started: Promise<void> = Promise.resolve()
+        act(() => { started = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        await act(async () => {
+            await FakeSocket.last.serve({ setupComplete: {} })
+            FakeSocket.last.onclose() // the provider hangs up before the microphone has finished opening
+            await started
+        })
+        expect(audio.stopTrack).toHaveBeenCalled()
+        expect(hook.result.current.state).toBe("idle")
+        expect(hook.result.current.listening).toBe(false)
+        expect(hook.result.current.error).toBeTruthy()
+    })
+
+    it("a cancelled startup cannot write its transcript or error into the one that replaced it", async () => {
+        stubAudio({ worklet: true })
+        const hook = renderHook(() => useLiveTranscribe())
+        let first: Promise<void> = Promise.resolve()
+        act(() => { first = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last?.sent.length).toBe(1))
+        const stale = FakeSocket.last
+        act(() => hook.result.current.cancel())
+        let second: Promise<void> = Promise.resolve()
+        act(() => { second = hook.result.current.start() })
+        await vi.waitFor(() => expect(FakeSocket.last).not.toBe(stale)) // the second start has its own socket
+        await act(async () => { await stale.serve({ setupComplete: {} }); await first }) // the old startup finishes late and is dropped
+        expect(stale.closed).toBe(true)
+        expect(hook.result.current.error).toBeNull()
+        act(() => hook.result.current.cancel())
+        await act(async () => { await FakeSocket.last.serve({ setupComplete: {} }); await second })
+    })
 })

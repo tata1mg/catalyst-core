@@ -169,3 +169,13 @@ describe("POST /:provider/image", () => {
         expect(fetchMock).not.toHaveBeenCalled()
     })
 })
+
+describe("the default request is valid for every provider", () => {
+    it("{ prompt } alone (what requestImage sends) passes both validators, so omitted options are never rejected", () => {
+        const img: any = require("../src/imageGen.js")
+        for (const provider of ["openai", "gemini"]) {
+            expect(img.validateImageRequest({ prompt: "A red square" }), provider).toBeNull()
+            expect(img.validateProviderRequest(provider, { prompt: "A red square" }), provider).toBeNull()
+        }
+    })
+})

@@ -200,6 +200,13 @@ export async function startLiveTranscription({ basePath = "/ai", model, onPartia
         ws.close()
         throw err
     }
+    if (ended) {
+        // The connection closed while the microphone was still opening: settle() ran with no microphone to release, so this one
+        // has to be released here, and the caller must not be handed a session that is already over.
+        try { closeMic?.() } catch { /* already stopped */ }
+        closeMic = null
+        throw new Error("The live connection closed before listening could start")
+    }
     onStatus?.("listening")
 
     return {
@@ -268,12 +275,15 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
             const s = await startLiveTranscription({
                 basePath,
                 model,
-                onPartial: setPartial,
+                // Every callback is tied to this start: a cancelled or replaced startup can still be connecting, and must not
+                // write into the state of the one that replaced it.
+                onPartial: (t) => { if (mine === startId.current) setPartial(t) },
                 onFinal: (t) => {
+                    if (mine !== startId.current) return
                     setText(t)
                     setPartial("")
                 },
-                onLevel: setLevel,
+                onLevel: (l) => { if (mine === startId.current) setLevel(l) },
                 onStatus: (st) => {
                     if (mine !== startId.current) return
                     // "closed" is how an unexpected close (the provider hung up) reaches us: stop the clock and go idle, keeping the error.
@@ -284,7 +294,7 @@ export function useLiveTranscribe({ basePath = "/ai", model, onFinished } = {}) 
                         setState("idle")
                     } else setState(st)
                 },
-                onError: (e) => setError(e.message || String(e)),
+                onError: (e) => { if (mine === startId.current) setError(e.message || String(e)) },
             })
             if (mine !== startId.current || !mounted.current) {
                 // cancelled, replaced or unmounted while connecting: do not install it, and do not leave it running

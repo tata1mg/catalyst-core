@@ -429,11 +429,19 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
             const session = sessionRef.current
             if (!session || session.kind !== "recorder" || session.id !== requestId.current) return
             void (async () => {
+                // execute() takes the next request id synchronously, so this is the id that belongs to THIS recording.
+                const promise = execute(clip, { ...session.consent, ...(session.chosenId && { pin: session.chosenId }) } as TranscribeConsent, { engine: "recorder" })
+                const ownId = requestId.current
                 try {
                     // The clip goes to the engine the router chose, with the same consent; execute() takes it from here.
-                    const result = await execute(clip, { ...session.consent, ...(session.chosenId && { pin: session.chosenId }) } as TranscribeConsent, { engine: "recorder" })
+                    const result = await promise
                     if (sessionRef.current === session) endSession(result)
                 } catch (cause) {
+                    // A newer request (transcribe(B), a new listen()) owns the state now: an older recording's failure is not B's.
+                    if (ownId !== requestId.current) {
+                        if (sessionRef.current === session) endSession(null) // its listen() still has to settle, without touching the newer state
+                        return
+                    }
                     // execute() reports its own failures, but anything it lets escape must still end the session: otherwise listen()
                     // never settles and the rejection goes unhandled. execute() has moved the request id on, so this reports against the
                     // current one, the same as a normal finish does.

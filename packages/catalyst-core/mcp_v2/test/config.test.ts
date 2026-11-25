@@ -606,10 +606,10 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[0].engine")
         expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[1].engine")
     })
-    it("warns that prompt-api is desktop-only and text-only", () => {
+    it("warns that prompt-api is desktop-only, and accepts image/audio modalities for it (the engine takes them)", () => {
         const r = run({ providers, routing: { onDevice: { "web-mobile": [{ id: "m", engine: "prompt-api" }], web: [{ id: "i", engine: "prompt-api", modalities: ["text", "image"] }] } } })
         expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web-mobile[0].engine")).toBe(true)
-        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web[0].modalities")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web[0].modalities")).toBe(false)
     })
     it("rejects a non-object routing block and negative numbers", () => {
         expect(run({ providers, routing: [] }).issues.some((i) => i.field === "AI_CONFIG.routing")).toBe(true)

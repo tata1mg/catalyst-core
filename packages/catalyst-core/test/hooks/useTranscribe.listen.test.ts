@@ -239,6 +239,25 @@ describe("useTranscribe.listen: nothing heard, and the controls", () => {
         expect(hook.result.current.listening).toBe(false)
     })
 
+    it("an older recording that fails after a newer transcription started does not put its error on the newer one, and its listen() still settles", async () => {
+        ai.decide.mockResolvedValue(gemma)
+        let failFirst!: (e: Error) => void
+        ai.generate
+            .mockImplementationOnce(() => new Promise((_, reject) => { failFirst = reject }))
+            .mockResolvedValueOnce(said("second clip"))
+        const hook = renderHook(() => useTranscribe())
+        const first = listenOnce(hook)
+        await vi.waitFor(() => expect(mic.start).toHaveBeenCalledTimes(1))
+        act(() => micOpts.onRecorded(CLIP, { seconds: 3 })) // recording A is being transcribed
+        await vi.waitFor(() => expect(ai.generate).toHaveBeenCalledTimes(1))
+        await act(async () => { await hook.result.current.transcribe(CLIP) }) // B takes over
+        expect(hook.result.current.text).toBe("second clip")
+        await act(async () => { failFirst(new Error("A crashed")) })
+        expect(await first).toBeNull()
+        expect(hook.result.current.status).not.toBe("error")
+        expect(hook.result.current.error).toBeNull()
+    })
+
     it("stopListening ends the recogniser's session or the recording, whichever is running", async () => {
         ai.decide.mockResolvedValueOnce(platform)
         const first = renderHook(() => useTranscribe())
