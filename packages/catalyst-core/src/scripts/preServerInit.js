@@ -1,3 +1,4 @@
+import fs from "fs"
 import path from "path"
 import { createRequire } from "module"
 import loadEnvironmentVariables from "./loadEnvironmentVariables.js"
@@ -72,8 +73,16 @@ try {
             `[catalyst-core] server/index.js has ${ignored.join(", ")} inside \`export default\`, which Catalyst ignores. Export each by name instead, e.g. \`export const ${ignored[0]} = ...\``
         )
     }
-} catch {
-    // No hooks file — preServerInit remains undefined
+} catch (error) {
+    // No hooks file is fine: preServerInit stays undefined. A hooks file that
+    // exists but fails to import used to be skipped the same way, so the app
+    // started without its preServerInit and nothing said why.
+    if (fs.existsSync(path.join(appRoot, "server/index.js"))) {
+        failStartup(
+            `server/index.js could not be imported, so preServerInit cannot run: ${error?.message || error}`,
+            "Fix the error in server/index.js or in a module it imports."
+        )
+    }
 }
 try {
     await loadEnvironmentVariables()

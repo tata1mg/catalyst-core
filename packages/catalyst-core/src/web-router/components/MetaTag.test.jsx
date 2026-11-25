@@ -1,6 +1,5 @@
 import React from "react"
-import { renderToString } from "react-dom/server"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import { render, waitFor, act, cleanup } from "@testing-library/react"
 import { MemoryRouter, Routes, Route, useLocation, useNavigate } from "react-router"
 import { MetaTag } from "./MetaTag.jsx"
@@ -107,6 +106,37 @@ describe("MetaTag", () => {
         })
     })
 
+    describe("title", () => {
+        afterEach(() => {
+            cleanup()
+            document.head.innerHTML = ""
+            document.title = ""
+        })
+
+        it("joins a title with several children without separators", async () => {
+            const name = "Aspirin"
+            const matchedRoutes = [
+                { route: { component: { setMetaData: () => [<title key="t">{name} | 1mg</title>] } } },
+            ]
+            renderMetaTag({ matchedRoutes })
+
+            await waitFor(() => expect(document.title).toBe("Aspirin | 1mg"))
+        })
+
+        it("ignores conditional children that render nothing", async () => {
+            const matchedRoutes = [
+                {
+                    route: {
+                        component: { setMetaData: () => [<title key="t">{false}Aspirin{null}</title>] },
+                    },
+                },
+            ]
+            renderMetaTag({ matchedRoutes })
+
+            await waitFor(() => expect(document.title).toBe("Aspirin"))
+        })
+    })
+
     describe("server-rendered head tags", () => {
         afterEach(() => {
             cleanup()
@@ -116,7 +146,6 @@ describe("MetaTag", () => {
         const pageMeta = (page) => [
             <title key="t">{`Page ${page}`}</title>,
             <meta key="d" name="description" content={`about ${page}`} />,
-            <script key="ld" type="application/ld+json">{`{"page":"${page}"}`}</script>,
         ]
         const routesFor = (pathname) => [
             { route: { component: { setMetaData: () => pageMeta(pathname === "/a" ? "a" : "b") } } },
@@ -136,38 +165,27 @@ describe("MetaTag", () => {
                 </OneMgRouterContext.Provider>
             )
         }
-        const tree = (
-            <MemoryRouter initialEntries={["/a"]}>
-                <App />
-            </MemoryRouter>
-        )
 
-        it("hydrates without a mismatch and replaces the server's JSON-LD, title and meta on navigation", async () => {
-            // What Head.tsx streams for /a: getMetaData output stamped data-catalyst.
-            document.head.innerHTML = renderToString(<>{pageMeta("a")}</>).replace(
-                /<(title|meta|script)/g,
-                '<$1 data-catalyst="true"'
+        it("keeps a single title and a single description across navigation", async () => {
+            // Head.tsx renders only the title; MetaTag owns every other tag.
+            document.head.innerHTML = '<title data-catalyst="true">Page a</title>'
+
+            const { container } = render(
+                <MemoryRouter initialEntries={["/a"]}>
+                    <App />
+                </MemoryRouter>
             )
-            const container = document.createElement("div")
-            container.innerHTML = renderToString(tree)
-            document.body.appendChild(container)
-            const onRecoverableError = vi.fn()
-
-            await act(async () => {
-                render(tree, { container, hydrate: true, onRecoverableError })
-            })
-            expect(onRecoverableError).not.toHaveBeenCalled()
+            await waitFor(() => expect(document.title).toBe("Page a"))
+            expect(document.querySelectorAll("title")).toHaveLength(1)
+            expect(
+                Array.from(document.querySelectorAll('meta[name="description"]'), (el) => el.content)
+            ).toEqual(["about a"])
 
             await act(async () => {
                 container.querySelector("button").click()
             })
 
-            await waitFor(() => {
-                expect(document.title).toBe("Page b")
-            })
-            const jsonLd = document.querySelectorAll('script[type="application/ld+json"]')
-            expect(Array.from(jsonLd, (el) => el.textContent)).toEqual(['{"page":"b"}'])
-            expect(document.head.querySelector('script[type="application/ld+json"]')).toBeNull()
+            await waitFor(() => expect(document.title).toBe("Page b"))
             expect(document.querySelectorAll("title")).toHaveLength(1)
             expect(
                 Array.from(document.querySelectorAll('meta[name="description"]'), (el) => el.content)
@@ -176,12 +194,13 @@ describe("MetaTag", () => {
     })
 
     // split() copies setMetaData onto the route component only when the chunk
-    // loads. In dev nothing prefetches it before hydration, so MetaTag's first
-    // pass used to find no tags and delete the server's <title>.
+    // loads, which nothing guarantees happens before MetaTag first renders.
+    // MetaTag awaits load() itself and re-renders once it settles.
     describe("split() routes", () => {
         afterEach(() => {
             cleanup()
             document.head.innerHTML = ""
+            document.title = ""
         })
 
         const deferred = () => {
@@ -191,7 +210,10 @@ describe("MetaTag", () => {
         }
         const pageModule = (name) => {
             const Page = () => <p>{name}</p>
-            Page.setMetaData = () => [<title key="t">{`Page ${name}`}</title>]
+            Page.setMetaData = () => [
+                <title key="t">{`Page ${name}`}</title>,
+                <meta key="d" name="description" content={`about ${name}`} />,
+            ]
             return { default: Page }
         }
         const serverTitle = (text) => {
@@ -199,7 +221,7 @@ describe("MetaTag", () => {
             return document.head.querySelector("title")
         }
 
-        it("keeps the server-rendered tags while the route's chunk is still loading", async () => {
+        it("keeps the server-rendered title and adds no tags while the chunk is still loading", async () => {
             const serverEl = serverTitle("Page a")
             const chunk = deferred()
             const PageA = split(() => chunk.promise)
@@ -210,10 +232,11 @@ describe("MetaTag", () => {
             expect(PageA.setMetaData).toBeUndefined()
             expect(serverEl.isConnected).toBe(true)
             expect(document.title).toBe("Page a")
+            expect(document.head.querySelector('meta[name="description"]')).toBeNull()
         })
 
-        it("renders the route's tags once its chunk loads and drops the server copies", async () => {
-            const serverEl = serverTitle("Page a")
+        it("renders the route's tags once its chunk loads after the first render", async () => {
+            serverTitle("Stale title")
             const chunk = deferred()
             const PageA = split(() => chunk.promise)
 
@@ -222,9 +245,9 @@ describe("MetaTag", () => {
                 chunk.resolve(pageModule("a"))
             })
 
-            await waitFor(() => expect(serverEl.isConnected).toBe(false))
-            expect(document.title).toBe("Page a")
+            await waitFor(() => expect(document.title).toBe("Page a"))
             expect(document.querySelectorAll("title")).toHaveLength(1)
+            expect(document.head.querySelector('meta[name="description"]').content).toBe("about a")
         })
 
         it("replaces the tags when navigating to a split route that has not loaded yet", async () => {
@@ -258,7 +281,7 @@ describe("MetaTag", () => {
             await act(async () => {
                 container.querySelector("button").click()
             })
-            // Page a's tags stay until page b's chunk arrives, rather than blanking.
+            // Page a's title stays until page b's chunk arrives, rather than blanking.
             expect(document.title).toBe("Page a")
 
             await act(async () => {
@@ -266,6 +289,7 @@ describe("MetaTag", () => {
             })
             await waitFor(() => expect(document.title).toBe("Page b"))
             expect(document.querySelectorAll("title")).toHaveLength(1)
+            expect(document.head.querySelector('meta[name="description"]').content).toBe("about b")
         })
     })
 })

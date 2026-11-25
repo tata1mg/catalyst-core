@@ -16,6 +16,7 @@ export function Head(props) {
         metaTags,
         isBot,
         publicAssetPath,
+        nonce,
         children,
     } = props
 
@@ -23,14 +24,17 @@ export function Head(props) {
         <head>
             <meta charSet="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-            {process.env.NODE_ENV === "development" && <FastRefresh />}
+            {process.env.NODE_ENV === "development" && <FastRefresh nonce={nonce} />}
 
             {publicAssetPath && <link rel="preconnect" href={publicAssetPath} />}
             {publicAssetPath && <link rel="dns-prefetch" href={publicAssetPath} />}
             {!isBot && criticalPreloadLinks}
             {/* Warm-cache modulepreloads from prior SSRs (URLs not in critical scripts) */}
             {!isBot && deferredPreloadLinks}
-            {metaTags && metaTags}
+            {/* Only the title is owned here. Non-title tags are rendered by <MetaTag /> inside the app tree,
+                which React 19 hoists into <head>; rendering them here too would duplicate them and leave
+                stale copies after client navigation (the client only hydrates #app). */}
+            {Array.isArray(metaTags) && metaTags.filter((tag) => tag?.type === "title")}
 
             {/* Inline critical CSS — prevents FOUC/CLS */}
             {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - inlineCss is compiled CSS read from disk (readCssFromDisk), sourced from the app's own build output, never from request/user input. */}
