@@ -91,6 +91,10 @@ export const serverDataFetcher = async (serverFetchDataProps, fetcherArgs) => {
     return routesData
 }
 
+// defer() is a server feature (the SSR handler passes its own); elsewhere it hands the promise
+// back, so a fetcher shared by serverFetcher and clientFetcher runs unchanged on the client.
+const passThroughDefer = (_name, promise) => promise
+
 /**
  * @description call this function to fetch data using fetchers defined in [page].fetcher.js
  * @param {RouterFetcherProps} routerProps
@@ -121,7 +125,11 @@ const fetchRouteData = async (routerProps, fetcherArgs, refetchArgs) => {
     if (fetcher && typeof fetcher === "function") {
         routeData.fetcherNotAvailable = false
         try {
-            const res = await fetcher(routerProps, fetcherArgs, refetchArgs)
+            const args =
+                typeof fetcherArgs?.defer === "function"
+                    ? fetcherArgs
+                    : { ...fetcherArgs, defer: passThroughDefer }
+            const res = await fetcher(routerProps, args, refetchArgs)
             routeData.data = res
         } catch (error) {
             // @ts-ignore
