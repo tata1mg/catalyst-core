@@ -4,8 +4,10 @@ import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
 import { useAI, useTranscribe, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
-// Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
-// a voice recording's words must not reach a provider silently. requestImage comes from catalyst-core/hooks.
+// In the cloud mode every model stage is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
+// a voice recording's words must not reach a provider silently. In the on-device mode the text and speech stages run on the
+// phone's own model and recogniser, so no consent step applies to them (a stage that is marked `cloud` still asks).
+// requestImage comes from catalyst-core/hooks.
 
 const SCENE_SCHEMA = {
     type: "object",

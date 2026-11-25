@@ -166,6 +166,16 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     })
 }
 
+/**
+ * Runs the stages in order, passing each output to the next stage, and resolves with a `PipelineResult`.
+ *
+ * Throws (rejects) only for a malformed pipeline: the stage chain does not line up, so `validatePipeline` names both stages.
+ * Everything that can happen while it runs comes back as a terminal `status` instead: "done", "error", "cancelled",
+ * "max-spend", "needs-consent" or "denied", with the events in `steps`.
+ *
+ * Cancellation is cooperative. `options.signal` is raced against the running stage, so the result settles as "cancelled"
+ * and no later stage starts, but a stage that has already started keeps running unless it observes `ctx.signal`.
+ */
 export async function runPipeline(stages: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
     validatePipeline(stages)
     const { signal, onStep, maxCostUsd, cloudPolicy } = options

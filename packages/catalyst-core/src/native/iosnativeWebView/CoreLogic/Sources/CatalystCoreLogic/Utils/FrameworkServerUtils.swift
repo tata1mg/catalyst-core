@@ -146,7 +146,11 @@ public class FrameworkServerUtils {
     // MARK: - Public API
 
     /**
-     * Initialize and start the framework server
+     * Initialize and start the framework server.
+     *
+     * The server listens on the loopback interface only. Clients must connect through `localhost`: both `127.0.0.1` and
+     * `::1` work. Addresses on the local network (the device's Wi-Fi or cellular IP) are intentionally unreachable, so nothing
+     * else on the network can talk to it.
      * @return Boolean indicating success/failure of server startup
      */
     public func startServer() -> Bool {

@@ -374,10 +374,11 @@ function inspectWebBridgeInit(root) {
 const WEBBRIDGE_INIT_SNIPPET = `window.addEventListener("load", () => {
     hydrationReady().then(() => {
         // ...store / router / Application as before...
-        WebBridge.init()   // inside hydrationReady, just before hydrateRoot
+        WebBridge.init()   // inside the readiness callback, just before hydrateRoot
         hydrateRoot(document.getElementById("app"), Application)
     })
-})`
+})
+// catalyst-core 0.3.x and later. On 0.2.x the readiness callback is loadableReady(() => { ... }) from @loadable/component.`
 
 module.exports = {
     inspectWebBridgeInit,

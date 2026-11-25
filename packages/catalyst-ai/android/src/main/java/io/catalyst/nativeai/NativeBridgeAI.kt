@@ -240,6 +240,8 @@ class NativeBridgeAI(
                 last = e
             }
         }
+        // Each attempt above is logged at debug level; the outcome that matters must survive a production log filter.
+        Log.e(TAG, "[AI] Engine initialization failed after ${attempts.size} configurations: ${last?.javaClass?.simpleName}: ${last?.message}", last)
         throw last ?: IllegalStateException("No engine configuration succeeded")
     }
 

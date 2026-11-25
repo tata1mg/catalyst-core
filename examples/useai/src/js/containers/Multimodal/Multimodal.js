@@ -6,8 +6,9 @@ import { renderOutput } from "../../utils/ai"
 // Verifies image/audio input through useAI (catalyst-ai content parts) on a real device.
 // Native and web run Gemma 4 on the device. Cloud sends the image/audio to the chosen provider, only on this explicit tab.
 
-// Same rule as catalyst-ai's isNativeAIAvailable(), so the page never asks for "native" when useAI would fall back to
-// cloud. Kept inline: the app reaches catalyst-ai only through catalyst-core/hooks.
+// Must stay in step with `isNativeAIAvailable()` in packages/catalyst-ai/src/nativeTransport.js (the source of truth, also
+// exported from catalyst-ai), so the page never asks for "native" when useAI would fall back to cloud. Kept inline: the
+// app reaches catalyst-ai only through catalyst-core/hooks.
 const nativeAIAvailable = () => {
     const bridge = window.NativeBridge
     if (bridge && typeof bridge.isAIAvailable === "function") return !!bridge.isAIAvailable()

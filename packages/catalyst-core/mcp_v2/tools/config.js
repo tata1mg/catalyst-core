@@ -800,10 +800,11 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
 // Native hooks silently run with isNative=false in the WebView when WebBridge.init() is missing from the client entry.
 function _checkWebBridgeInit(root, warnings, passed) {
     const r = inspectWebBridgeInit(root)
-    const field = "client/index.js: WebBridge.init()"
+    // The detector accepts client/index.{js,jsx,ts,tsx} and returns the one it used, so name that one.
+    const field = `${r.entry ?? "client entry (client/index.js, .jsx, .ts or .tsx)"}: WebBridge.init()`
     const used = `${r.hookFiles.length} file(s) import native hooks from catalyst-core/hooks (e.g. ${r.hookFiles[0]})`
     if (r.state === "ok") passed.push({ field, note: `present in ${r.entry}, inside hydrationReady` })
-    else if (r.state === "no-entry") warnings.push({ field, message: `${used} but no client entry (client/index.js) was found, so WebBridge.init() cannot run. Native hooks will report isNative=false.` })
+    else if (r.state === "no-entry") warnings.push({ field, message: `${used} but no client entry was found (looked for client/index.js, client/index.jsx, client/index.ts and client/index.tsx), so WebBridge.init() cannot run. Native hooks will report isNative=false.` })
     else if (r.state === "missing-init") warnings.push({ field, message: `${used}, but ${r.entry} never calls WebBridge.init(). Native hooks silently run with isNative=false in the Android/iOS WebView. Add it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })
     else if (r.state === "missing-import") warnings.push({ field, message: `${r.entry} calls WebBridge.init() but does not import WebBridge. Add: import WebBridge from "catalyst-core/WebBridge"` })
     else if (r.state === "misplaced") warnings.push({ field, message: `${r.entry} calls WebBridge.init() before hydrationReady(). At module scope it can throw "Cannot read properties of null (reading 'useContext')" during hydration. Move it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })

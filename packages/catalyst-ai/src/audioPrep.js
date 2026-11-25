@@ -2,7 +2,8 @@
 // Normalises audio for on-device models: any format the platform can decode -> 16 kHz mono 16-bit WAV, capped in
 // length. Done in JS so Android and iOS get identical input regardless of what the file picker or recorder produced
 // (m4a, 3gp, 44.1 kHz stereo, ...). If the browser cannot decode a file, the original is sent unchanged and the
-// native engine decides; the failure is reported through `onError`, never swallowed.
+// native engine decides. The failure is reported through `onError` when the caller passes one; `onError` is optional, and
+// without it the fallback is silent, so a caller that needs to know must supply it.
 
 export const TARGET_RATE = 16000
 // Gemma-family audio encoders take short clips; longer input is truncated rather than rejected.

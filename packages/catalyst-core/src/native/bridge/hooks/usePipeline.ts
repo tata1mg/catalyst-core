@@ -17,8 +17,15 @@ export interface UsePipelineOptions {
 export interface UsePipelineResult {
     /** Runs the pipeline. Pass { cloudPolicy: "allow" } to retry after the user agreed to a "needs-consent" stop. */
     run: (input: unknown, overrides?: UsePipelineOptions) => Promise<PipelineResult>
+    /**
+     * Cooperative: the run settles as "cancelled" and no later stage starts, but a stage (or the provider call inside it) that
+     * has already started keeps going unless it observes `ctx.signal`. "cancelled" is not proof that provider work stopped.
+     */
     cancel: () => void
-    /** Start / end / error events, growing while the run progresses. */
+    /**
+     * Events, growing while the run progresses: "start", "end", "error", and "blocked". "blocked" says why execution stopped
+     * before a stage began (`reason`: "needs-consent", "denied" or "max-spend"); it is emitted instead of that stage's "start".
+     */
     steps: PipelineStep[]
     output: unknown
     status: UsePipelineStatus

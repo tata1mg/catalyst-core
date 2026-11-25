@@ -237,8 +237,8 @@ describe("assertCloudMediaAllowed (no silent cloud fallback)", () => {
     })
 })
 
-// ---- Layers still to specify as implementation reaches them (each becomes real tests, not prose) ----
-describe("scope not yet implemented", () => {
+// ---- Implemented paths whose tests still need a device or emulator (each becomes a real test, not prose) ----
+describe("native and device paths: implemented, tests pending", () => {
     // Native: decode `parts` -> temp files -> Content.ImageFile/AudioFile; set vision/audio backends only when asked.
     it.todo("android: NativeBridgeAI maps parts to Content.ImageFile/AudioFile and enables vision/audio backends (device spike 0.2)")
     it.todo("ios: AIRequest parses `parts`; EngineConfig sets visionBackend/audioBackend; missing backend is a clear error, not `null` (spike 0.1)")

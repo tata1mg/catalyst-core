@@ -77,6 +77,18 @@ interface Session {
     lastLoud: number
 }
 
+/**
+ * Click-to-talk recording for web pages: `MediaRecorder` makes the clip, `level` shows how loud it is, and the recording
+ * stops by itself after `silenceMs` of quiet once speech was heard, or at `maxSeconds`. The clip is handed to `onRecorded`
+ * as a data URL and stays on the page.
+ *
+ * - **Web only.** `supported` is false where the page cannot record (no `MediaRecorder` or `getUserMedia`, e.g. a non-secure page).
+ * - `start()` resolves `{ started: true }`, or `{ started: false, error }` when the microphone cannot be used (permission refused,
+ *   no device, a recorder that cannot be built); it does not throw. Inside the apps the shell is asked for the microphone first.
+ * - `stop()` delivers the clip to `onRecorded`; `cancel()` drops it. A `start()` you cancel, or that outlives its component,
+ *   releases the microphone instead of recording.
+ * - `onError(message)` reports a recording that failed or ended with no speech.
+ */
 export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophoneResult {
     const { autoStop = true, silenceMs = 2000, maxSeconds = 120 } = options
     const [state, setState] = useState<"idle" | "listening">("idle")

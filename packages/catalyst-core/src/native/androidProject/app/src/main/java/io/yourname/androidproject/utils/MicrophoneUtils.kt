@@ -36,7 +36,8 @@ object MicrophoneUtils {
         if (isGranted) {
             BridgeUtils.logDebug(TAG, "Microphone permission granted")
         } else {
-            BridgeUtils.logError(TAG, "Microphone permission denied")
+            // An ordinary answer from the user, not a failure: debug level, the same as the iOS shell logs it.
+            BridgeUtils.logDebug(TAG, "Microphone permission denied by the user")
         }
         BridgeUtils.notifyWeb(
             webView,

@@ -637,6 +637,16 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
     }
     const hooks = { "src/js/Page.js": `import { useCamera } from "catalyst-core/hooks"\n` }
 
+    it("names the entry file it actually checked, not always client/index.js", () => {
+        const ok = bridge({ ...hooks, "client/index.tsx": inside })
+        expect(ok.ok?.field).toBe("client/index.tsx: WebBridge.init()")
+        const bad = bridge({ ...hooks, "client/index.ts": entry("hydrateRoot(el, app)") })
+        expect(bad.warn?.field).toBe("client/index.ts: WebBridge.init()")
+        const none = bridge({ ...hooks })
+        expect(none.warn?.field).toContain("client entry")
+        expect(none.warn?.message).toContain("client/index.tsx")
+    })
+
     it("passes when init is inside hydrationReady", () => {
         const r = bridge({ ...hooks, "client/index.js": inside })
         expect(r.warn).toBeUndefined()

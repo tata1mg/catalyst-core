@@ -140,7 +140,7 @@ export function requestSupport(listener: SpeechListener): boolean {
     }
 }
 
-/** Starts a session owned by this subscriber. false = the shell has no such command, or another subscriber has a session. */
+/** Starts a session owned by this subscriber. `false` = the shell has no such command; `"busy"` = another subscriber owns the session; `true` = started. */
 export function startSession(listener: SpeechListener): boolean | "busy" {
     if (owner && owner !== listener) return "busy"
     owner = listener

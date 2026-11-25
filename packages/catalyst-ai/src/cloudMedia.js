@@ -1,7 +1,9 @@
 // Server-side media handling for the cloud route. Clients can bypass the caps in contentParts.js, and this server
 // spends paid API keys, so every media part is re-validated here before any provider is called. Four pure mappers turn
 // the canonical parts ({type:"text"|"image"|"audio"}, media as base64 data URLs) into each provider API shape.
-// Text-only requests are returned exactly as they came in. Never log request bodies from this module.
+// Text-only requests keep their shape on the OpenAI mappers (they return the messages as they came in). The Gemini mappers
+// always rebuild the request (`mapGeminiContents` filters and reshapes the messages; `mapGeminiInteractionsInput` keeps only
+// the last user input), so do not assume every adapter preserves the original message list. Never log request bodies here.
 //
 // Formats confirmed against provider docs: OpenAI Chat Completions (image_url, input_audio wav/mp3 on audio models),
 // OpenAI Responses (input_image), Gemini generateContent (inlineData), Gemini Interactions (typed image block),
