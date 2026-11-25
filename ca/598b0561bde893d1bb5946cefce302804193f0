@@ -1,0 +1,34 @@
+"docs/content/10-Catalyst AI/03-Hooks-and-Errors.md"
+  s_f9b68111c2008f::t_383893a4f6b25e 75-104,106-127
+  s_f9b68111c2008f::t_2387b930970a42 105
+  s_f9b68111c2008f::t_85e03f6ada4636 130,152,154-155,159
+"docs/content/10-Catalyst AI/01-What-is-Catalyst-AI.md"
+  s_f9b68111c2008f::t_85e03f6ada4636 9,11-15,21-33,58,69-70,83,85-91
+docs/src/js/layouts/DocsLayout.js
+  s_f9b68111c2008f::t_0698a8687c9c67 13-15,143-145,150-151,155,162-173,180-184
+docs/src/js/search.js
+  s_f9b68111c2008f::t_394d8637ee9675 12-13
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_85e03f6ada4636 63
+docs/scripts/generate-docs-manifest.mjs
+  s_f9b68111c2008f::t_394d8637ee9675 162-171,191
+  s_f9b68111c2008f::t_33d67c4f8d4e2a 330
+  s_f9b68111c2008f::t_0a77feb2516932 158-161,172-190,192-194,196-198,254,372-373,383-385
+  s_f9b68111c2008f::t_85e03f6ada4636 195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca598b0561bde893d1bb5946cefce302804193f0",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
