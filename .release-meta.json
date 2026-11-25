@@ -1,7 +1,8 @@
 {
-  "branch": "feat/app-info-open-in-browser",
+  "branch": "release/1.3.0",
   "packages": {
-    "catalyst-core": "1.2.1",
-    "create-catalyst-app": "1.2.1"
+    "catalyst-core": "1.3.0",
+    "create-catalyst-app": "1.3.0",
+    "catalyst-ai": "1.3.0"
   }
 }

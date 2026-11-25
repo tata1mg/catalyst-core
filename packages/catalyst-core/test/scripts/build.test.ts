@@ -120,6 +120,7 @@ describe("catalyst build failure output", () => {
         expect(text).toMatch(/Expected ';' but found 'x'/)
         expect(text).toMatch(/The client bundle failed/)
         expect(text).toMatch(/something the patterns do not know/)
+        expect(text).toMatch(/Run with --verbose for the full bundler output/)
     })
 
     it("shows the tail of a failed offline manifest step", async () => {
@@ -169,6 +170,30 @@ describe("catalyst build failure reporting", () => {
         expect(text).toMatch(/The client bundle failed/)
         expect(text).toMatch(/Full output:/)
         expect(text).toMatch(/\[client\]/)
+        expect(text).not.toMatch(/Run with --verbose/)
+    })
+
+    it("reports Vite's error during build block once for both bundles, with app paths shortened", async () => {
+        const output = [
+            "✗ Build failed in 263ms",
+            "error during build:",
+            `[vite]: Rollup failed to resolve import "not-a-real-pkg" from "${appDir}/src/js/containers/Home/Home.js".`,
+            "This is most likely unintended because it can break your application at runtime.",
+            "    at viteLog (file:///abs/app/node_modules/vite/dist/node/chunks/dep.js:46345:15)",
+            "",
+        ].join("\n")
+        steps.server = { output, code: 1 }
+        steps.client = { output, code: 1 }
+
+        expect(await runBuild()).toBe(1)
+        const text = plain(stderr)
+        expect(text.match(/Rollup failed to resolve import/g)).toHaveLength(1)
+        expect(text).toMatch(/server \+ client bundle/)
+        expect(text).toContain('from "src/js/containers/Home/Home.js"')
+        expect(text).not.toContain(appDir)
+        expect(text).toMatch(/This is most likely unintended/)
+        expect(text).toMatch(/npm install not-a-real-pkg/)
+        expect(text).not.toMatch(/at viteLog/)
     })
 
     it("includes the environment under --debug", async () => {
@@ -186,8 +211,8 @@ describe("catalyst build failure reporting", () => {
         }
 
         expect(await runBuild()).toBe(1)
-        // A spawn error carries no bundle label, so the report stays generic.
-        expect(plain(stderr)).toMatch(/The production bundle failed/)
+        // The spawn error carries the step's label, so the report names the bundle.
+        expect(plain(stderr)).toMatch(/The server bundle failed/)
     })
 })
 

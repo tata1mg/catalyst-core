@@ -66,6 +66,20 @@ The manifest contains:
 The build id namespaces caches by `origin + buildId`, so new builds naturally create a fresh cache
 space while older snapshots can remain as last-known-good data until cleanup.
 
+## Turning It Off
+
+Route offline snapshots are on by default. An app that ships its own service worker at scope `/`
+should turn them off, because two workers cannot share a scope and the last one registered wins:
+
+```json title="config/config.json"
+{
+  "OFFLINE_SNAPSHOTS_ENABLE": false
+}
+```
+
+With the key set to `false`, the build skips `catalyst-offline-manifest.json` and `catalyst-sw.js`,
+and the browser client never registers the worker. `offline` flags on routes are then ignored.
+
 ## Web Runtime
 
 The browser client registers `/catalyst-sw.js` only in production web builds, not inside native
