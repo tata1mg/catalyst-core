@@ -245,7 +245,7 @@ function isLooping(text) {
 async function generateWithMedia(model, messages, genConfig, media) {
     await loadGemma(model);
     const { processor, model: net, load_image } = gemma;
-    const prompt = processor.apply_chat_template(messages, { enable_thinking: false, add_generation_prompt: true });
+    const prompt = processor.apply_chat_template(messages, { enable_thinking: false, add_generation_prompt: true, tokenize: false });
     const image = media.images[0] ? await load_image(media.images[0]) : null;
     const audio = media.audios[0] ? await wavToFloat32(media.audios[0]) : null;
     const inputs = await processor(prompt, image, audio, { add_special_tokens: false });

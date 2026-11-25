@@ -240,12 +240,14 @@ class NativeBridgeAI(
     private fun tryCreateEngine(modelPath: String): Engine {
         log("[tryCreateEngine] modelPath=$modelPath")
         val cacheDir = File(context.cacheDir, "litertlm").also { it.mkdirs() }.absolutePath
-        data class Attempt(val label: String, val main: Backend, val vision: Backend?, val audio: Backend?)
+        // The backends are built inside the attempt's try, not while this list is assembled: a backend factory that throws (a GPU the device
+        // does not have) must count as that attempt failing, and the next one must still be tried.
+        data class Attempt(val label: String, val main: () -> Backend, val vision: (() -> Backend)?, val audio: (() -> Backend)?)
         val attempts = listOf(
-            Attempt("GPU+vision+audio", Backend.GPU(), Backend.GPU(), Backend.CPU()),
-            Attempt("CPU+vision+audio", Backend.CPU(), Backend.CPU(), Backend.CPU()),
-            Attempt("GPU text-only", Backend.GPU(), null, null),
-            Attempt("CPU text-only", Backend.CPU(), null, null),
+            Attempt("GPU+vision+audio", { Backend.GPU() }, { Backend.GPU() }, { Backend.CPU() }),
+            Attempt("CPU+vision+audio", { Backend.CPU() }, { Backend.CPU() }, { Backend.CPU() }),
+            Attempt("GPU text-only", { Backend.GPU() }, null, null),
+            Attempt("CPU text-only", { Backend.CPU() }, null, null),
         )
         var last: Exception? = null
         // A text-only model has no vision or audio executors: the first two tiers can only fail, and each failure is a full initialisation.
@@ -255,9 +257,9 @@ class NativeBridgeAI(
             try {
                 val config = EngineConfig(
                     modelPath = modelPath,
-                    backend = a.main,
-                    visionBackend = a.vision,
-                    audioBackend = a.audio,
+                    backend = a.main(),
+                    visionBackend = a.vision?.invoke(),
+                    audioBackend = a.audio?.invoke(),
                     cacheDir = cacheDir,
                 )
                 val eng = Engine(config)
