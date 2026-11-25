@@ -41,7 +41,7 @@ Enable it via `CSP_NONCE_ENABLE` in `config/config.json`:
 
 It's off by default — no tags change unless you turn it on.
 
-When enabled, Catalyst generates one nonce per request and stores it on `res.locals.cspNonce`. Read it from your own middleware (registered in `addMiddlewares`) to set a matching header:
+When enabled, Catalyst generates one nonce per request and stores it on `res.locals.cspNonce` before your middlewares run. Read it from your own middleware (registered in `addMiddlewares`) to set a matching header:
 
 ```javascript title="server/server.js"
 export const addMiddlewares = (app) => {
@@ -55,7 +55,9 @@ export const addMiddlewares = (app) => {
 };
 ```
 
-Middleware runs before the document renders, so if you'd rather generate the nonce yourself (e.g. to reuse one already produced by `helmet` or another library), set `res.locals.cspNonce` before the request reaches the renderer — Catalyst reuses it instead of generating a new one, keeping the header and the rendered tags in sync.
+If you'd rather generate the nonce yourself (e.g. to reuse one already produced by `helmet` or another library), set `res.locals.cspNonce` in your middleware. Catalyst uses your value for the rendered tags, so the header and the tags stay in sync.
+
+In 1.3.0 the nonce was generated after the app's middlewares, so the example above sent `'nonce-undefined'` in the header. Upgrade to a later release, or set `res.locals.cspNonce` yourself as described here.
 
 Any custom script you add in `server/document.js` needs the same nonce applied by hand — see the `nonce` prop in [Customising Shell](/content/Guides%20and%20Tutorials/customising-shell#props-reference).
 

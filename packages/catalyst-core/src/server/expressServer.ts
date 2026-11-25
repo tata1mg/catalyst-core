@@ -11,6 +11,7 @@ import fs from "fs"
 import { toMountPathPrefix } from "../vite/resolveDevServerConfig.js"
 import { validateMiddleware, handleError, safeCall } from "./utils/validator.js"
 import { botDetectionMiddleware } from "./utils/botDetectionMiddleware.js"
+import { cspNonceMiddleware } from "./utils/cspNonce.js"
 import { cjsRequire } from "./utils/cjsRequire.js"
 
 const { header, row, glyph, t, GUTTER, duration } = cjsRequire("../../cli/theme.js")
@@ -248,6 +249,11 @@ async function createServer() {
 
     // This middleware is being used to parse cookies!
     app.use(cookieParser())
+
+    // Before the app's middlewares, so they can read res.locals.cspNonce and
+    // set a matching Content-Security-Policy header (no-op unless
+    // CSP_NONCE_ENABLE is on).
+    app.use(cspNonceMiddleware)
 
     // All the middlewares defined by the user will run here.
     {
