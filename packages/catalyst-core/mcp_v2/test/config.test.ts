@@ -803,3 +803,64 @@ describe("which hook imports count as native hook use", () => {
         for (let i = 0; i < 3; i++) for (const [source, expected] of cases) expect(usesNativeHooks(source)).toBe(expected)
     })
 })
+
+describe("check_config: the 1.3.0 switches (CSP nonce, offline snapshots, location)", () => {
+    function projectWith(config: Record<string, unknown>): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-flags-"))
+        fs.mkdirSync(path.join(root, "config"))
+        fs.writeFileSync(path.join(root, "config", "config.json"), JSON.stringify(config))
+        return root
+    }
+    const check = (config: Record<string, unknown>, platform: "android" | "ios" | "both" = "both") => {
+        const r = handle_check_config({ project_path: projectWith({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11" }, ...config }), platform } as any)
+        const find = (field: string) => ({ warn: r.warnings.find((w) => w.field === field), ok: r.passed.find((p) => p.field === field) })
+        return { r, find }
+    }
+
+    it("CSP_NONCE_ENABLE: true passes; the string \"true\" is called out because it leaves the nonce OFF", () => {
+        expect(check({ CSP_NONCE_ENABLE: true }).find("CSP_NONCE_ENABLE").ok).toBeTruthy()
+        expect(check({ CSP_NONCE_ENABLE: false }).find("CSP_NONCE_ENABLE")).toEqual({ warn: undefined, ok: undefined })
+        const bad = check({ CSP_NONCE_ENABLE: "true" }).find("CSP_NONCE_ENABLE")
+        expect(bad.warn?.message).toMatch(/Only the boolean true turns the CSP nonce on, so it stays OFF/)
+        expect(check({ CSP_NONCE_ENABLE: 1 }).find("CSP_NONCE_ENABLE").warn).toBeTruthy()
+        expect(check({}).find("CSP_NONCE_ENABLE")).toEqual({ warn: undefined, ok: undefined }) // absent is fine
+    })
+
+    it("OFFLINE_SNAPSHOTS_ENABLE: booleans and \"false\" are fine; a value that would leave the worker ON is called out", () => {
+        for (const ok of [true, false, "false", "true"]) expect(check({ OFFLINE_SNAPSHOTS_ENABLE: ok }).find("OFFLINE_SNAPSHOTS_ENABLE").warn, String(ok)).toBeUndefined()
+        for (const bad of [0, "no", null, "off"]) {
+            expect(check({ OFFLINE_SNAPSHOTS_ENABLE: bad }).find("OFFLINE_SNAPSHOTS_ENABLE").warn?.message, String(bad)).toMatch(/leaves them ON/)
+        }
+    })
+
+    it("location.enabled: a string, even \"false\", is called out because the build would turn location ON", () => {
+        const wrong = check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: "false" } } }).find("WEBVIEW_CONFIG.location.enabled")
+        expect(wrong.warn?.message).toMatch(/even "false", turns location ON/)
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: 1 } } }).find("WEBVIEW_CONFIG.location.enabled").warn).toBeTruthy()
+    })
+
+    it("location: a non-object, and a usageDescription that is not text, are reported", () => {
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: true } }).find("WEBVIEW_CONFIG.location").warn?.message).toMatch(/should be an object/)
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true, usageDescription: 5 } } }).find("WEBVIEW_CONFIG.location.usageDescription").warn?.message).toMatch(/should be a string/)
+    })
+
+    it("location enabled with text passes; without text, iOS (not Android-only) is told it will use the generic default", () => {
+        const withText = check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true, usageDescription: "Show stores near you" } } })
+        expect(withText.find("WEBVIEW_CONFIG.location").ok).toBeTruthy()
+        expect(withText.find("WEBVIEW_CONFIG.location.usageDescription").warn).toBeUndefined()
+        const noText = { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true } } }
+        expect(check(noText, "ios").find("WEBVIEW_CONFIG.location.usageDescription").warn?.message).toMatch(/generic default text/)
+        expect(check(noText, "android").find("WEBVIEW_CONFIG.location.usageDescription").warn).toBeUndefined()
+    })
+
+    it("location off or absent says nothing", () => {
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: false } } }).find("WEBVIEW_CONFIG.location")).toEqual({ warn: undefined, ok: undefined })
+        expect(check({}).find("WEBVIEW_CONFIG.location")).toEqual({ warn: undefined, ok: undefined })
+    })
+
+    it("the web switches are still checked when WEBVIEW_CONFIG is missing", () => {
+        const r = handle_check_config({ project_path: projectWith({ CSP_NONCE_ENABLE: "true" }) } as any)
+        expect(r.issues.some((i) => i.field === "WEBVIEW_CONFIG")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "CSP_NONCE_ENABLE")).toBe(true)
+    })
+})

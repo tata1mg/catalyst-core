@@ -243,6 +243,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         })
         // The routing check does not depend on WEBVIEW_CONFIG: report its errors too, so one missing block does not hide the rest.
         _checkRouting(config, {}, platform, issues, warnings, passed)
+        _checkReleaseFlags(config, {}, platform, warnings, passed)
         return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
     } else {
         passed.push({ field: "WEBVIEW_CONFIG", note: "block present" })
@@ -793,8 +794,67 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
     _checkPricing(config, root, issues, warnings, passed)
     _checkImageModels(config, issues, warnings, passed)
     _checkWebBridgeInit(root, warnings, passed)
+    _checkReleaseFlags(config, wc, platform, warnings, passed)
 
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+}
+
+/**
+ * The on/off switches added in catalyst-core 1.3.0 (CSP_NONCE_ENABLE, OFFLINE_SNAPSHOTS_ENABLE, WEBVIEW_CONFIG.location). Each is read
+ * loosely by the framework, so a value of the wrong type does not fail: it quietly does the opposite of what was meant. That is
+ * what this reports. `wc` is WEBVIEW_CONFIG ({} when it is missing).
+ */
+function _checkReleaseFlags(config, wc, platform, warnings, passed) {
+    const show = (v) => JSON.stringify(v)
+
+    if (config.CSP_NONCE_ENABLE !== undefined) {
+        // The renderer compares with `=== true`.
+        if (config.CSP_NONCE_ENABLE === true) passed.push({ field: "CSP_NONCE_ENABLE", note: "on: every script and modulepreload link gets a per-request nonce" })
+        else if (config.CSP_NONCE_ENABLE !== false) {
+            warnings.push({
+                field: "CSP_NONCE_ENABLE",
+                message: `CSP_NONCE_ENABLE is ${show(config.CSP_NONCE_ENABLE)}. Only the boolean true turns the CSP nonce on, so it stays OFF. Use true, without quotes.`,
+            })
+        }
+    }
+
+    if (config.OFFLINE_SNAPSHOTS_ENABLE !== undefined) {
+        const v = config.OFFLINE_SNAPSHOTS_ENABLE
+        // Only false (or the string "false") turns it off; everything else leaves Catalyst's service worker on.
+        if (typeof v !== "boolean" && v !== "false" && v !== "true") {
+            warnings.push({
+                field: "OFFLINE_SNAPSHOTS_ENABLE",
+                message: `OFFLINE_SNAPSHOTS_ENABLE is ${show(v)}. Only false turns Catalyst's service worker and offline manifest off; any other value leaves them ON.`,
+            })
+        }
+    }
+
+    if (wc.location !== undefined) {
+        const loc = wc.location
+        if (loc === null || typeof loc !== "object" || Array.isArray(loc)) {
+            warnings.push({ field: "WEBVIEW_CONFIG.location", message: `WEBVIEW_CONFIG.location should be an object like { "enabled": true, "usageDescription": "..." }, got ${show(loc)}. It is ignored.` })
+        } else {
+            if (loc.enabled !== undefined && typeof loc.enabled !== "boolean") {
+                // The build reads it by truthiness: any non-empty string, even "false", turns location ON.
+                warnings.push({
+                    field: "WEBVIEW_CONFIG.location.enabled",
+                    message: `location.enabled is ${show(loc.enabled)}. The build reads it as true or false by truthiness, so ${typeof loc.enabled === "string" && loc.enabled ? "any non-empty string, even \"false\", turns location ON" : "this is not what you meant"}. Use true or false, without quotes.`,
+                })
+            }
+            if (loc.usageDescription !== undefined && typeof loc.usageDescription !== "string") {
+                warnings.push({ field: "WEBVIEW_CONFIG.location.usageDescription", message: `location.usageDescription should be a string (the iOS permission prompt text), got ${show(loc.usageDescription)}.` })
+            }
+            if (loc.enabled === true) {
+                passed.push({ field: "WEBVIEW_CONFIG.location", note: "on: Android location permissions and the geolocation prompt, iOS NSLocationWhenInUseUsageDescription" })
+                if (platform !== "android" && typeof loc.usageDescription !== "string") {
+                    warnings.push({
+                        field: "WEBVIEW_CONFIG.location.usageDescription",
+                        message: "location.enabled is true but usageDescription is not set: the iOS prompt will use the generic default text. Set a specific reason for the user.",
+                    })
+                }
+            }
+        }
+    }
 }
 
 // Native hooks silently run with isNative=false in the WebView when WebBridge.init() is missing from the client entry.

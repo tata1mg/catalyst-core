@@ -1833,5 +1833,151 @@
         "layer": "Runtime",
         "source": "static",
         "tags": "usetranscribe,usemicrophone,usespeechrecognition,voice,speech,speech to text,transcribe,listen,microphone,platform-speech,on-device,partial,streaming,chunking,whisper,gemma,consent,needs-consent,privacy,auto routing,catalyst-ai,ON_DEVICE_UNAVAILABLE"
+    },
+    {
+        "section": "version_migration",
+        "title": "Upgrading catalyst-core 1.2.x to 1.3.0",
+        "layer": "Framework",
+        "source": "extracted:changelog",
+        "content": "1.3.0 adds server features and fixes preServerInit being skipped since 1.1.0. There are no breaking changes to the public API, but three behaviours change. Read the installed catalyst-core version from package.json first.\n\n1. DEPENDENCIES: set catalyst-core to 1.3.0 and reinstall (catalyst-ai, if the app uses it, is 1.3.0 too). Web-only apps need nothing else.\n\n2. BEHAVIOUR CHANGES to check in the app: (a) a server/index.js that exists but fails to import now STOPS startup with the import error; it used to be skipped silently, so an app that was running without its server hooks will now fail loudly until the import is fixed. (b) <script type=\"application/ld+json\"> from setMetaData now renders in the page body, where MetaTag sits, not in <head>. (c) Route-data cache keys are HTML-escaped ('&' becomes '&amp;'); server and client compute them the same way, so this matters only to code that builds a key by hand.\n\n3. FIXES you get without changes: preServerInit runs again for apps whose server/index.js imports an alias from _moduleAliases (since 1.1.0 the module loader was registered after server/index.js was imported, so the import failed and the hook was skipped without a message); MetaTag is the only owner of the setMetaData tags apart from the title, so they are no longer rendered twice and the previous page's description and canonical no longer stay after a client navigation; a failed catalyst build prints the bundler's own error (missing package, missing export, Sass error) instead of only BUNDLE-000; SSR builds resolve the module-sync condition, which fixes two copies of react-router being loaded on Node 22.\n\n4. NEW, OPT-IN (each has its own entry): CSP nonce (CSP_NONCE_ENABLE, see 'CSP nonce'); OpenTelemetry error sampling (see 'OpenTelemetry error sampling'); OFFLINE_SNAPSHOTS_ENABLE: false (see 'OFFLINE_SNAPSHOTS_ENABLE'); runInParallel in App.serverSideFunction (see 'runInParallel'); native WEBVIEW_CONFIG.location (see 'WEBVIEW_CONFIG.location').\n\nFull list: packages/catalyst-core/changelog.md.",
+        "tags": [
+            "migration",
+            "upgrade",
+            "update",
+            "bump",
+            "1.3.0",
+            "1.2.1",
+            "1.2.0",
+            "minor",
+            "csp",
+            "nonce",
+            "opentelemetry",
+            "errorSampling",
+            "offline",
+            "runInParallel",
+            "location",
+            "geolocation",
+            "preServerInit",
+            "ld+json",
+            "latest"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md"
+        ]
+    },
+    {
+        "section": "security",
+        "title": "CSP nonce \u2014 CSP_NONCE_ENABLE and res.locals.cspNonce",
+        "layer": "Server",
+        "source": "extracted:changelog",
+        "content": "Set \"CSP_NONCE_ENABLE\": true in config/config.json (default false) and every <script> Catalyst renders, plus every modulepreload link, carries a per-request nonce: critical and deferred JS, the SSR bot/component markers, FastRefresh and the serialized initial state. Styles are NOT nonced. Catalyst generates one nonce per request and stores it on res.locals.cspNonce, so a middleware registered in addMiddlewares can send a matching header, for example script-src 'self' 'nonce-${res.locals.cspNonce}'. To use your own nonce (one already produced by helmet or another library), set res.locals.cspNonce in a middleware BEFORE the document renders; a value outside the base64 alphabet is replaced with a generated one. A custom <script> added in server/document.js needs the nonce applied by hand with the nonce prop. Docs: docs/content/14-Best Practices/04-CSRF.md (section 'Content-Security-Policy Nonce'), docs/content/11-API Reference/02-Configuration.mdx. Added in catalyst-core 1.3.0.",
+        "tags": [
+            "csp",
+            "nonce",
+            "content-security-policy",
+            "CSP_NONCE_ENABLE",
+            "cspNonce",
+            "res.locals",
+            "script-src",
+            "security",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/14-Best Practices/04-CSRF.md",
+            "docs/content/11-API Reference/02-Configuration.mdx"
+        ]
+    },
+    {
+        "section": "observability",
+        "title": "OpenTelemetry error sampling \u2014 Otel.init({ errorSampling })",
+        "layer": "Observability",
+        "source": "extracted:changelog",
+        "content": "Head sampling decides whether to keep a trace when the request starts, before anyone knows it will fail, so with a low samplingRate most error traces are dropped with everything else. Otel.init({ samplingRate: 0.05, errorSampling: { ENABLED: true } }) keeps unsampled traces in memory until the request ends and exports the ones that failed. Every errorSampling key is optional; defaults: RATE_5XX 1.0 (promote 5xx roots and roots with an OTel ERROR status), RATE_4XX = samplingRate (a share of 4xx roots), EXPORT_FULL_TRACE_ON_ERROR false (on promotion export every buffered span, not just the root and error spans), PROMOTE_HANDLED_ERRORS false (also promote 2xx roots whose child spans errored), REPORT_ACTUAL_PROMOTION_RATE false (put the promotion rate, not samplingRate, in the exported sample_rate), SKIP_PROMOTION_CODES [408, 504, 524, 598, 599] (never promoted), PROMOTE_BOT_TRAFFIC false (bot traffic, http.response.is_bot, is not promoted). While it is on the server also logs a memory heartbeat every diagnosticsIntervalMillis (default 60000) with RSS, heap and trace buffer size, and warns when memory is close to the container limit; enableMemoryDiagnostics (default true) controls that and needs errorSampling.ENABLED. Buffered traces cost memory, so size the container for it. Docs: docs/content/02-Guides and Tutorials/06-Observability.md. Added in catalyst-core 1.3.0.",
+        "tags": [
+            "opentelemetry",
+            "otel",
+            "errorSampling",
+            "error sampling",
+            "tracing",
+            "samplingRate",
+            "RATE_5XX",
+            "RATE_4XX",
+            "memory heartbeat",
+            "enableMemoryDiagnostics",
+            "observability",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/02-Guides and Tutorials/06-Observability.md"
+        ]
+    },
+    {
+        "section": "native_offline",
+        "title": "OFFLINE_SNAPSHOTS_ENABLE: false \u2014 turn off Catalyst's service worker and offline manifest",
+        "layer": "Build",
+        "source": "extracted:changelog",
+        "content": "Route offline snapshots are on by default. Set \"OFFLINE_SNAPSHOTS_ENABLE\": false in config/config.json (default true) for an app that ships its own service worker at the same scope. With it false the build skips catalyst-offline-manifest.json and catalyst-sw.js, the browser client never registers the worker, and the 'offline' flags on routes are ignored. The value is exposed to the client as a real boolean (process.env.OFFLINE_SNAPSHOTS_ENABLE), so the string \"false\" is also treated as off. Docs: docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md, docs/content/11-API Reference/02-Configuration.mdx. Added in catalyst-core 1.3.0.",
+        "tags": [
+            "offline",
+            "offline snapshots",
+            "service worker",
+            "catalyst-sw.js",
+            "catalyst-offline-manifest.json",
+            "OFFLINE_SNAPSHOTS_ENABLE",
+            "pwa",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md",
+            "docs/content/11-API Reference/02-Configuration.mdx"
+        ]
+    },
+    {
+        "section": "server_structure",
+        "title": "runInParallel \u2014 run work alongside the route serverFetcher",
+        "layer": "Server",
+        "source": "extracted:changelog",
+        "content": "App.serverSideFunction receives runInParallel(...promises) next to store, req and res: App.serverSideFunction = ({ store, req, res, runInParallel }) => { runInParallel(store.dispatch(loadUser(req))) }. Work passed to it starts right away and keeps running while the matched route's serverFetcher runs; Catalyst waits for both before the store is serialized. Order of a request: onRouteMatch, then serverSideFunction, then the route's serverFetcher (alongside the registered promises), then render. If a registered promise rejects, the request takes the same path as a rejected serverSideFunction and onAppServerSideError is called, unless a fetcher already sent a response such as a redirect. Docs: docs/content/11-API Reference/04-SSR-Lifecycle.md. Added in catalyst-core 1.3.0.",
+        "tags": [
+            "runInParallel",
+            "serverSideFunction",
+            "serverFetcher",
+            "ssr",
+            "parallel",
+            "onAppServerSideError",
+            "data fetching",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/11-API Reference/04-SSR-Lifecycle.md"
+        ]
+    },
+    {
+        "section": "webview_config",
+        "title": "WEBVIEW_CONFIG.location \u2014 navigator.geolocation in the native apps",
+        "layer": "Native",
+        "source": "extracted:changelog",
+        "content": "Set \"location\": { \"enabled\": true, \"usageDescription\": \"We use your location to show delivery options near you\" } under WEBVIEW_CONFIG to let web content use navigator.geolocation inside the universal app. It is OFF by default, so apps that do not need location do not declare the permission. enabled adds ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION to the Android manifest and NSLocationWhenInUseUsageDescription to the iOS Info.plist (usageDescription is the iOS prompt text). On Android the WebView asks for the runtime permission the first time a page calls navigator.geolocation and passes the result to the page: it allows at once when a location permission is already held, denies at once when it cannot ask, and a newer prompt denies the one still waiting so no page hangs. iOS shows its own prompt. With enabled off, location requests are denied. If location is enabled and the Android build cannot add the permissions to AndroidManifest.xml the build stops with an error. Docs: docs/content/11-API Reference/02-Configuration.mdx (section 'Location'). Added in catalyst-core 1.3.0.",
+        "tags": [
+            "location",
+            "geolocation",
+            "navigator.geolocation",
+            "ACCESS_FINE_LOCATION",
+            "ACCESS_COARSE_LOCATION",
+            "NSLocationWhenInUseUsageDescription",
+            "usageDescription",
+            "permissions",
+            "webview_config",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/11-API Reference/02-Configuration.mdx",
+            "packages/catalyst-core/src/native/buildAndroid/location.js"
+        ]
     }
 ]
