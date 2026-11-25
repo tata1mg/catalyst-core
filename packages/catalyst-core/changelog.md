@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.3.0] - 2026-11-20
+## [1.3.0] - 2026-11-25
 
 This release adds the server features that 1mg's mweb app ran on its own branch, and fixes `preServerInit` being skipped for some apps since 1.1.0. There are no breaking changes to the public API. Three behaviour changes are listed below.
 
