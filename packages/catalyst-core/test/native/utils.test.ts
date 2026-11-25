@@ -458,10 +458,15 @@ describe("the Gradle wrapper", () => {
 
         const child = fakeChild()
         mockedSpawn.mockImplementationOnce(() => child as any)
-        const done = onPlatform("win32", () => runInteractiveCommand("C:/sdk/platform-tools/adb.exe", ["devices"]))
+        const done = onPlatform("win32", () =>
+            runInteractiveCommand("C:/sdk/platform-tools/adb.exe", ["devices"])
+        )
         child.emit("close", 0)
         await done
-        expect(mockedSpawn.mock.calls.at(-1)!.slice(0, 2)).toEqual(["C:/sdk/platform-tools/adb.exe", ["devices"]])
+        expect(mockedSpawn.mock.calls.at(-1)!.slice(0, 2)).toEqual([
+            "C:/sdk/platform-tools/adb.exe",
+            ["devices"],
+        ])
     })
 })
 

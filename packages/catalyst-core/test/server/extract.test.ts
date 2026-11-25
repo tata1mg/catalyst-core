@@ -11,17 +11,16 @@ import {
     registerDeferredAssetsForRoute,
 } from "../../src/server/renderer/extract.js"
 
-
 // Pure asset-string / deferred-route-registry helpers pulled in by
 // handler.jsx and _renderMarkUp (#348 coverage). The registry lives on
 // process.deferredAssetsByRoute (module-level Map) — cleared between
 // tests so cases don't leak.
 
 beforeEach(() => {
-    (process as any).deferredAssetsByRoute = new Map()
+    ;(process as any).deferredAssetsByRoute = new Map()
 })
 afterEach(() => {
-    (process as any).deferredAssetsByRoute = new Map()
+    ;(process as any).deferredAssetsByRoute = new Map()
 })
 
 describe("getDeferredRouteKey", () => {
@@ -96,14 +95,12 @@ describe("HTML / React element generators", () => {
 
     it("generateCssLinkStrings builds deduped <link rel=stylesheet> strings", () => {
         expect(generateCssLinkStrings(["a.css", "a.css", "b.css"])).toBe(
-            '<link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css">',
+            '<link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css">'
         )
     })
 
     it("generateScriptStrings builds deduped module <script> strings", () => {
-        expect(generateScriptStrings(["a.js", "a.js"])).toBe(
-            '<script type="module" src="a.js"></script>',
-        )
+        expect(generateScriptStrings(["a.js", "a.js"])).toBe('<script type="module" src="a.js"></script>')
     })
 })
 
@@ -121,7 +118,7 @@ describe("readCssFromDisk", () => {
         // http-prefixed -> not read from disk; duplicate -> read once.
         const out = readCssFromDisk(
             ["https://cdn.example.com/x.css", "dup.css", "dup.css", ""],
-            "/tmp/nonexistent-build-dir",
+            "/tmp/nonexistent-build-dir"
         )
         expect(out).toBe("")
     })

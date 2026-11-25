@@ -5,6 +5,7 @@ const path = require("path")
 const { checkAppIcon } = require("../appIcon.js")
 const splashConfig = require("../splashConfig.js")
 const { copyWebBuild } = require("../projectFiles.js")
+const { processLocation: processLocationIn } = require("./location.js")
 
 function createAssetsPhase(ctx) {
     const { configPath, publicPath, pwd, progress } = ctx
@@ -681,6 +682,8 @@ function createAssetsPhase(ctx) {
         }
     }
 
+    const processLocation = (WEBVIEW_CONFIG) => processLocationIn({ pwd, progress }, WEBVIEW_CONFIG)
+
     return {
         copyBuildAssets,
         copySplashscreenAssets,
@@ -689,6 +692,7 @@ function createAssetsPhase(ctx) {
         copyIconAssets,
         configureAppName,
         processNotifications,
+        processLocation,
     }
 }
 

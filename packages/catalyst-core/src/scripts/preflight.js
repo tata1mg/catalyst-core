@@ -1,11 +1,7 @@
 import { readFileSync, writeFileSync } from "fs"
 import path from "path"
 import { createRequire } from "module"
-import {
-    validateConfigFile,
-    validatePackageJson,
-    validateModuleAlias,
-} from "../server/utils/validator.js"
+import { validateConfigFile, validatePackageJson, validateModuleAlias } from "../server/utils/validator.js"
 import { formatError, createError, ERROR_CODES } from "../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "./scriptUtils.js"
 

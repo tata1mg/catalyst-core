@@ -25,6 +25,13 @@ These keys are part of the core web runtime:
 
 Application-specific values such as `API_URL` can also live in this file. They are available on the server through `process.env`.
 
+These keys are optional:
+
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `CSP_NONCE_ENABLE` | `boolean` | `false` | Adds a per-request CSP nonce to every script tag Catalyst renders (not CSS). See [Security](/content/Best%20Practices/security) |
+| `OFFLINE_SNAPSHOTS_ENABLE` | `boolean` | `true` | Set to `false` to skip Catalyst's service worker and offline manifest, e.g. when the app ships its own service worker. See [Route Offline Snapshots](/content/Core%20Concepts/route-offline-snapshots) |
+
 ## Client-Exposed Environment Variables
 
 Catalyst does not expose every config key to browser code automatically. Add the keys you want available on the client to `CLIENT_ENV_VARIABLES`.
@@ -139,6 +146,28 @@ Place splash assets at:
 - `public/splashscreen.html` (optional, shared by both platforms)
 
 When `splashScreen` is set and `public/splashscreen.html` exists, the app shows the native image first, then the HTML splash, and switches to the app once its first page has loaded and `minDuration` has passed. The HTML splash is dismissed after 10 seconds even if the page is still loading. New apps ship an HTML splash with `minDuration` set to `7000` so its animation can finish; lower it for a shorter splash, or set it to `0` to dismiss the splash as soon as the page loads. The file must be self-contained, with inline CSS and JavaScript and images as `data:` URIs. It has no access to the native bridge and should not make network requests, which Android blocks. Remove the file to go back to the image-only splash. See [Universal App Configuration](/content/02-Guides%20and%20Tutorials/02-First%20Universal%20App/03-Configuration.mdx) for the full rules and an example.
+
+## Location
+
+Set `WEBVIEW_CONFIG.location.enabled` to let web content use `navigator.geolocation` inside the universal app. It is off by default, so apps that don't need location don't declare the permission.
+
+```json
+{
+  "WEBVIEW_CONFIG": {
+    "location": {
+      "enabled": true,
+      "usageDescription": "We use your location to show delivery options near you"
+    }
+  }
+}
+```
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `enabled` | `boolean` | Adds `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` to the Android manifest and `NSLocationWhenInUseUsageDescription` to the iOS Info.plist |
+| `usageDescription` | `string` | iOS permission prompt text. Defaults to a generic message |
+
+When a page calls `navigator.geolocation`, Android asks for the runtime permission the first time and passes the result to the page. iOS shows its own prompt using `usageDescription`. With `enabled` off, location requests are denied.
 
 ## Validation Notes
 

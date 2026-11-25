@@ -165,7 +165,12 @@ describe("registry", () => {
     it("updateToolSpec is a no-op when nothing actually changed", () => {
         const k = newOwnerKey()
         const schema = { type: "object", properties: {} }
-        registerTool(k, "/cart", { name: "checkout", description: "d", inputSchema: schema, execute: async () => "ok" })
+        registerTool(k, "/cart", {
+            name: "checkout",
+            description: "d",
+            inputSchema: schema,
+            execute: async () => "ok",
+        })
         const idBefore = inspect().tools.find((t) => t.name === "checkout").receiptId
 
         updateToolSpec(k, { description: "d", inputSchema: schema })
@@ -199,7 +204,9 @@ describe("registry in-memory fallback backend (no document.modelContext)", () =>
         const before = inspect().tools[0].receiptId
         updateToolSpec(k, { inputSchema: JSON.parse(JSON.stringify(schema)) })
         expect(inspect().tools[0].receiptId).toBe(before)
-        updateToolSpec(k, { inputSchema: { type: "object", properties: { a: { type: "string" }, b: { type: "number" } } } })
+        updateToolSpec(k, {
+            inputSchema: { type: "object", properties: { a: { type: "string" }, b: { type: "number" } } },
+        })
         expect(inspect().tools[0].receiptId).not.toBe(before)
     })
 

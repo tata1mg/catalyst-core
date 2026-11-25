@@ -168,7 +168,8 @@ export function registerTool(ownerKey, routePath, spec) {
                 ok: false,
                 error: new WebMcpError(WEBMCP_ERROR_CODES.DUPLICATE_TOOL, {
                     message: `Tool "${spec.name}" is already registered by route "${entry.routePath || "?"}".`,
-                    details: "Two components asked for the same tool name at the same time. Rename one, or scope it per route.",
+                    details:
+                        "Two components asked for the same tool name at the same time. Rename one, or scope it per route.",
                 }),
             }
         }
@@ -412,7 +413,12 @@ export async function invokeTool(name, args = {}) {
     const err = new WebMcpError(WEBMCP_ERROR_CODES.TOOL_NOT_FOUND, {
         message: `No tool named "${name}" is registered.`,
     })
-    emit("webmcp:execute:end", { callId: `call_${(++_callSeq).toString(36)}`, name, ok: false, error: { message: err.message, code: err.code } })
+    emit("webmcp:execute:end", {
+        callId: `call_${(++_callSeq).toString(36)}`,
+        name,
+        ok: false,
+        error: { message: err.message, code: err.code },
+    })
     throw err
 }
 

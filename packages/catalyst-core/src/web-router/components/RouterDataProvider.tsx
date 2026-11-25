@@ -10,7 +10,7 @@ import {
 } from "react-router"
 import type { Location, NavigateFunction, Params, RouteMatch, RouteObject } from "react-router"
 import { OneMgRouterContext } from "../context.jsx"
-// import sanitizeHtml from "sanitize-html"
+import sanitizeHtml from "sanitize-html"
 
 /**
  * Data a route fetcher produced, as exposed by useCurrentRouteData / useRouterData.
@@ -196,8 +196,10 @@ const getMatchedRoutes = ({ matches, outlet }: any): any[] => {
  */
 const generateRouteKey = (match: RouteMatch, searchParamsString = ""): string => {
     const { pathname, route } = match
-    const sanitizedPathname = pathname
-    const sanitizedParams = searchParamsString
+    // The key ends up JSON-serialized into an inline SSR <script> (fetcherData),
+    // so strip markup from the request-controlled pathname and query string.
+    const sanitizedPathname = sanitizeHtml(pathname)
+    const sanitizedParams = sanitizeHtml(searchParamsString)
     if (route.children) {
         return `index${sanitizedPathname}${sanitizedParams}`
     }
@@ -265,9 +267,12 @@ export const RouterDataProvider = ({
         (wait: any = 0) => {
             // TODO :: Need to think this use case
             // eslint-disable-next-line no-unused-vars
-            const timeout = setTimeout(() => {
-                setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
-            }, [wait] as any)
+            const timeout = setTimeout(
+                () => {
+                    setRouteData((prevData) => ({ ...prevData, [routeKey]: { ...INITIAL_DATA_STATE } }))
+                },
+                [wait] as any
+            )
         }
 
     const [routeData, setRouteData] = useState<RoutesData>(initialState)
@@ -307,7 +312,9 @@ export const RouterDataProvider = ({
     }, [match.pathname, match.params])
 
     return (
-        <OneMgRouterContext.Provider value={{ matchedRoutes, refetchData, clear, location, params, navigate }}>
+        <OneMgRouterContext.Provider
+            value={{ matchedRoutes, refetchData, clear, location, params, navigate }}
+        >
             <RouterContext.Provider value={{ ...routeData, refetch: refetchData } as any}>
                 {children}
             </RouterContext.Provider>

@@ -107,6 +107,7 @@ function createAndroidBuild(
         copyIconAssets,
         configureAppName,
         processNotifications,
+        processLocation,
     } = createAssetsPhase(ctx)
     const { handleEmulatorSetup, buildApp, launchApp, buildSignedAAB } = createBuildPhase(ctx)
 
@@ -301,6 +302,7 @@ function createAndroidBuild(
                 log: (message, status = "info") => progress.log(message, status),
             })
             await processNotifications(wvConfig)
+            await processLocation(wvConfig)
             progress.log(`Build optimization: ${buildOptimisation ? "Enabled" : "Disabled"}`, "info")
             syncAIPackageIfEnabled(wvConfig, progress)
             progress.complete("copyAssets")
@@ -433,6 +435,7 @@ function createAndroidBuild(
                 log: (message, status = "info") => progress.log(message, status),
             })
             await processNotifications(wvConfig)
+            await processLocation(wvConfig)
             syncAIPackageIfEnabled(wvConfig, progress)
 
             progress.log("buildAndroidForTesting complete — project ready for gradlew test", "success")

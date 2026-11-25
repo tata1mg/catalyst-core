@@ -98,7 +98,8 @@ function runBuildStep(args, options, label = "Build step") {
                 )
             }
         })
-        child.on("error", reject)
+        // A spawn failure still names its bundle and keeps what it printed.
+        child.on("error", (error) => reject(Object.assign(error, { label, output })))
     })
 }
 
@@ -128,7 +129,7 @@ function fencedTail(output, lines = 8) {
         : ""
 }
 
-function reportBundleFailures(failures, cwd) {
+function reportBundleFailures(failures, cwd, mode = "default") {
     // Every bundle failure is the registry's upstream wrapper: its code and
     // docs head each block, as they did before the extracted-error view.
     const code = ERROR_CODES.BUNDLE_UPSTREAM_ERROR
@@ -160,6 +161,8 @@ function reportBundleFailures(failures, cwd) {
                     message: `The ${failure.label || "production"} bundle failed`,
                     code,
                     scope: "production build",
+                    // The tail is only the end; --verbose already prints the rest.
+                    hint: mode === "default" ? "Run with --verbose for the full bundler output." : undefined,
                     docs,
                     cwd,
                 }) + fencedTail(failure.output)
@@ -173,6 +176,7 @@ function reportBundleFailures(failures, cwd) {
         .map((cause) =>
             diagnostic({
                 message: shortenPaths(cause.message, cwd),
+                details: cause.details ? shortenPaths(cause.details, cwd) : undefined,
                 code,
                 scope: `${cause.bundles.join(" + ")} bundle`,
                 // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - cause.file is a build-tool diagnostic path, only used to display a location.
@@ -333,7 +337,7 @@ async function build() {
 
     if (failures.length > 0) {
         bundling.stop("fail", "Build failed")
-        process.stderr.write(reportBundleFailures(failures, appDir))
+        process.stderr.write(reportBundleFailures(failures, appDir, outputMode))
         // --verbose/--debug add the registry code and the bundler's full
         // output under the extracted errors.
         if (outputMode !== "default") {
@@ -367,31 +371,39 @@ async function build() {
     // Lets `serve` refuse a build that no longer matches config/config.json.
     writeBuildInfo(appDir, configJSON, argumentsObject)
 
-    const manifest = new Spinner().start("Generating offline manifest")
-    try {
-        await runBuildStep(
-            ["./dist/scripts/generateOfflineManifest.js"],
-            { ...spawnBase, env: baseEnv },
-            "Generating the offline manifest"
+    // Same rule as isOfflineSnapshotsEnabled in vite.config.js.
+    const offlineSnapshotsDisabled = [false, "false"].includes(configJSON.OFFLINE_SNAPSHOTS_ENABLE)
+    if (offlineSnapshotsDisabled) {
+        console.log(
+            `${GUTTER}${t.dim(glyph.info)} ${t.dim("Skipped offline manifest (OFFLINE_SNAPSHOTS_ENABLE is false)")}`
         )
-    } catch (error) {
-        manifest.stop("fail", "Generating offline manifest failed")
-        // Without this the manifest step fell through to the top-level handler,
-        // which prints a raw stack trace. The step's output is captured, so
-        // show its tail -- the exit code alone says nothing about why -- and
-        // all of it under --verbose/--debug.
-        process.stderr.write(
-            diagnostic({
-                message: `Generating the offline manifest failed: ${error.message}`,
-                scope: "offline manifest",
-            }) + (outputMode === "default" ? fencedTail(error.output) : "")
-        )
-        if (outputMode !== "default") {
-            process.stderr.write(verboseOutput({ output: error.output, mode: outputMode, error }))
+    } else {
+        const manifest = new Spinner().start("Generating offline manifest")
+        try {
+            await runBuildStep(
+                ["./dist/scripts/generateOfflineManifest.js"],
+                { ...spawnBase, env: baseEnv },
+                "Generating the offline manifest"
+            )
+        } catch (error) {
+            manifest.stop("fail", "Generating offline manifest failed")
+            // Without this the manifest step fell through to the top-level handler,
+            // which prints a raw stack trace. The step's output is captured, so
+            // show its tail -- the exit code alone says nothing about why -- and
+            // all of it under --verbose/--debug.
+            process.stderr.write(
+                diagnostic({
+                    message: `Generating the offline manifest failed: ${error.message}`,
+                    scope: "offline manifest",
+                }) + (outputMode === "default" ? fencedTail(error.output) : "")
+            )
+            if (outputMode !== "default") {
+                process.stderr.write(verboseOutput({ output: error.output, mode: outputMode, error }))
+            }
+            process.exit(exitCodeFrom(error))
         }
-        process.exit(exitCodeFrom(error))
+        manifest.stop("done", "Generated offline manifest")
     }
-    manifest.stop("done", "Generated offline manifest")
 
     printAssetTable(buildOutputPath, configJSON.BUILD_OUTPUT_PATH || "build")
 

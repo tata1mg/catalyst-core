@@ -22,7 +22,9 @@ describe("declarative helpers", () => {
         expect(paramNames("/product/:id")).toEqual(["id"])
         expect(fillPath("/product/:id", { id: "trail-runner-x" })).toBe("/product/trail-runner-x")
         expect(() => fillPath("/product/:id", {})).toThrow(/missing required path param/)
-        expect(() => fillPath("/product/:id", {})).toThrow(expect.objectContaining({ code: "WEBMCP_INVALID_ARGS" }))
+        expect(() => fillPath("/product/:id", {})).toThrow(
+            expect.objectContaining({ code: "WEBMCP_INVALID_ARGS" })
+        )
     })
 
     it("builds an inputSchema: params required, searchParams optional", () => {
@@ -60,12 +62,7 @@ describe("declarative helpers", () => {
 
     it("frameworkTools: navigate enum excludes parameterised routes; rejects unknown", async () => {
         const navigate = vi.fn()
-        const routes = [
-            { path: "/" },
-            { path: "/products" },
-            { path: "/product/:id" },
-            { path: "/cart" },
-        ]
+        const routes = [{ path: "/" }, { path: "/products" }, { path: "/product/:id" }, { path: "/cart" }]
         const [nav] = frameworkTools(routes, navigate, () => ({}))
         expect(nav.inputSchema.properties.path.enum).toEqual(["/", "/products", "/cart"])
 
@@ -77,7 +74,12 @@ describe("declarative helpers", () => {
     it("frameworkTools: navigate gives a distinct, actionable error for a route excluded via filterNavigable", async () => {
         const navigate = vi.fn()
         const navigableRoutes = [{ path: "/" }, { path: "/errors" }]
-        const allRoutes = [{ path: "/" }, { path: "/errors" }, { path: "/content/foo" }, { path: "/content/bar" }]
+        const allRoutes = [
+            { path: "/" },
+            { path: "/errors" },
+            { path: "/content/foo" },
+            { path: "/content/bar" },
+        ]
         const [nav] = frameworkTools(navigableRoutes, navigate, () => ({}), allRoutes)
 
         // A genuinely unknown path still gets the generic "not a navigable page" message.
@@ -87,8 +89,12 @@ describe("declarative helpers", () => {
         // A real route that was deliberately excluded gets a DIFFERENT, more
         // useful message — pointing the agent at get_current_route instead of
         // implying the page doesn't exist.
-        await expect(nav.execute({ path: "/content/foo" })).rejects.toMatchObject({ code: "WEBMCP_INVALID_ARGS" })
-        await expect(nav.execute({ path: "/content/foo" })).rejects.toThrow(/exists but isn't a navigate\(\) destination/)
+        await expect(nav.execute({ path: "/content/foo" })).rejects.toMatchObject({
+            code: "WEBMCP_INVALID_ARGS",
+        })
+        await expect(nav.execute({ path: "/content/foo" })).rejects.toThrow(
+            /exists but isn't a navigate\(\) destination/
+        )
         expect(navigate).not.toHaveBeenCalled()
     })
 })

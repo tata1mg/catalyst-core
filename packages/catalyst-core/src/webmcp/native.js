@@ -25,7 +25,11 @@ export function nativeModelContext() {
     if (typeof document !== "undefined" && document.modelContext && !document.modelContext.__isWebMcpShim) {
         return document.modelContext
     }
-    if (typeof navigator !== "undefined" && navigator.modelContext && !navigator.modelContext.__isWebMcpShim) {
+    if (
+        typeof navigator !== "undefined" &&
+        navigator.modelContext &&
+        !navigator.modelContext.__isWebMcpShim
+    ) {
         return navigator.modelContext
     }
     return null

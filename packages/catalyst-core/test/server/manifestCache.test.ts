@@ -51,7 +51,7 @@ describe("manifestCache (production load path)", () => {
         fs.writeFileSync(path.join(vite, "manifest.json"), JSON.stringify({ "entry.js": { file: "e.js" } }))
         fs.writeFileSync(
             path.join(vite, "asset-categories.json"),
-            JSON.stringify({ essential: { e: { file: "e.js" } } }),
+            JSON.stringify({ essential: { e: { file: "e.js" } } })
         )
 
         const mod = await import("../../src/server/manifestCache.js")
@@ -75,10 +75,7 @@ describe("manifestCache (production load path)", () => {
         fs.writeFileSync(path.join(vite, "manifest.json"), "invalid json{")
         const mod = await import("../../src/server/manifestCache.js")
         expect(mod.getManifest()).toBeNull()
-        expect(warn).toHaveBeenCalledWith(
-            "Could not load build manifests:",
-            expect.any(String),
-        )
+        expect(warn).toHaveBeenCalledWith("Could not load build manifests:", expect.any(String))
         warn.mockRestore()
     })
 })

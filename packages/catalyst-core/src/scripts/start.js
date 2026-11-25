@@ -50,9 +50,12 @@ async function start() {
         scope: "dev server",
     })
 
+    // The loader goes first: register() only applies to modules imported
+    // after it, and preServerInit imports server/index.js, which may use the
+    // app's aliases.
     const child = spawn(
         process.execPath,
-        ["--import", preInitUrl, "--import", loaderImportArg(loaderPath), "./dist/server/expressServer.js"],
+        ["--import", loaderImportArg(loaderPath), "--import", preInitUrl, "./dist/server/expressServer.js"],
         {
             cwd: dirname,
             stdio: ["inherit", "pipe", "pipe"],

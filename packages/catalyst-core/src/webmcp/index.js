@@ -36,5 +36,12 @@ export { WebMcpProvider, flattenRoutes } from "./WebMcpProvider.jsx"
 export { useTool } from "./useTool.js"
 export { WebMcpError, WEBMCP_ERROR_CODES } from "./errors.js"
 export { inspect, invokeTool, isNative } from "./registry.js"
-export { declarativeToolFor, frameworkTools, toolNameFromPath, paramNames, fillPath, buildInputSchema } from "./declarative.js"
+export {
+    declarativeToolFor,
+    frameworkTools,
+    toolNameFromPath,
+    paramNames,
+    fillPath,
+    buildInputSchema,
+} from "./declarative.js"
 export { pageInfoTool, flattenHeadElements } from "./pageInfo.js"

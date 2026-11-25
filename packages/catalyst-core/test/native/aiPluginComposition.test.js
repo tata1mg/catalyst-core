@@ -9,7 +9,10 @@ import { fileURLToPath } from "url"
 // src/native is a CommonJS subtree (see its package.json); load it with require from this ESM test.
 const require = createRequire(import.meta.url)
 const { composeIosPlugins } = require("../../src/native/pluginComposerIos.js")
-const { resolveAIPluginSource, resolveInternalPluginsRoot } = require("../../src/native/internalPluginUtils.js")
+const {
+    resolveAIPluginSource,
+    resolveInternalPluginsRoot,
+} = require("../../src/native/internalPluginUtils.js")
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, "../../../..")
@@ -145,7 +148,10 @@ test("local-path iOS dependencies: must stay inside the plugin dir and exist", (
     assert.equal(ok.ios.dependencies[0].requirement.type, "path")
     assert.equal(ok.ios.dependencies[0].package, "Local")
 
-    assert.throws(() => parsePluginManifest(write({ path: "../outside", products: ["X"] })), /must stay within the plugin directory/)
+    assert.throws(
+        () => parsePluginManifest(write({ path: "../outside", products: ["X"] })),
+        /must stay within the plugin directory/
+    )
     assert.throws(() => parsePluginManifest(write({ path: "Missing", products: ["X"] })), /does not exist/)
 
     // A symlink inside the plugin that points outside it must be rejected (lexically it looks contained).
@@ -157,5 +163,8 @@ test("local-path iOS dependencies: must stay inside the plugin dir and exist", (
     manifest.ios.dependencies = [{ path: "Link", products: ["X"] }]
     fs.writeFileSync(manifestPath, JSON.stringify(manifest))
     assert.throws(() => parsePluginManifest(escapeDir), /resolves outside the plugin directory/)
-    assert.throws(() => parsePluginManifest(write({ path: "Local", from: "1.0.0", products: ["X"] })), /must not also set/)
+    assert.throws(
+        () => parsePluginManifest(write({ path: "Local", from: "1.0.0", products: ["X"] })),
+        /must not also set/
+    )
 })

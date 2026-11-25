@@ -27,7 +27,9 @@ describe("useAI provider resolution", () => {
 
     it("'native' leaves the choice to the platform unless config or an option names an engine", () => {
         expect(resolveNativeEngine("native", undefined, undefined)).toBeUndefined()
-        expect(resolveNativeEngine("native", undefined, { engine: "foundation-models" })).toBe("foundation-models")
+        expect(resolveNativeEngine("native", undefined, { engine: "foundation-models" })).toBe(
+            "foundation-models"
+        )
         expect(resolveNativeEngine("native", "litert", { engine: "foundation-models" })).toBe("litert")
     })
 })

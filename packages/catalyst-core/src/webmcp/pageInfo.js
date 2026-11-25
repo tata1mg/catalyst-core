@@ -35,7 +35,15 @@ function readEl(el) {
  * plain, agent-friendly object.
  */
 export function flattenHeadElements(elements) {
-    const out = { title: null, description: null, canonical: null, keywords: null, og: {}, twitter: {}, other: {} }
+    const out = {
+        title: null,
+        description: null,
+        canonical: null,
+        keywords: null,
+        og: {},
+        twitter: {},
+        other: {},
+    }
     const walk = (node) => {
         if (Array.isArray(node)) return node.forEach(walk)
         const el = readEl(node)
@@ -46,7 +54,7 @@ export function flattenHeadElements(elements) {
             out.title = childText(props.children)
             return
         }
-        if (type === "link" && (props.rel === "canonical")) {
+        if (type === "link" && props.rel === "canonical") {
             out.canonical = props.href || null
             return
         }

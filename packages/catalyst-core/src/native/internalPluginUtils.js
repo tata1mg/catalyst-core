@@ -82,7 +82,9 @@ function readLocalIosDependency(entry, entryField, sourcePath) {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - containment within pluginDir is enforced immediately below.
     const resolved = path.resolve(pluginDir, relativePath)
     if (resolved !== pluginDir && !resolved.startsWith(`${pluginDir}${path.sep}`)) {
-        throw new Error(`'${entryField}.path' must stay within the plugin directory: ${relativePath} in ${sourcePath}`)
+        throw new Error(
+            `'${entryField}.path' must stay within the plugin directory: ${relativePath} in ${sourcePath}`
+        )
     }
     if (!isDir(resolved)) {
         throw new Error(`'${entryField}.path' does not exist: ${relativePath} in ${sourcePath}`)
@@ -92,10 +94,14 @@ function readLocalIosDependency(entry, entryField, sourcePath) {
     const realPluginDir = fs.realpathSync(pluginDir)
     const realResolved = fs.realpathSync(resolved)
     if (realResolved !== realPluginDir && !realResolved.startsWith(`${realPluginDir}${path.sep}`)) {
-        throw new Error(`'${entryField}.path' resolves outside the plugin directory: ${relativePath} in ${sourcePath}`)
+        throw new Error(
+            `'${entryField}.path' resolves outside the plugin directory: ${relativePath} in ${sourcePath}`
+        )
     }
     if (entry.from != null || entry.exact != null || entry.url != null) {
-        throw new Error(`'${entryField}' with 'path' must not also set 'url', 'from' or 'exact' in ${sourcePath}`)
+        throw new Error(
+            `'${entryField}' with 'path' must not also set 'url', 'from' or 'exact' in ${sourcePath}`
+        )
     }
 
     const products = readStringArray(entry.products, `${entryField}.products`, sourcePath, {
@@ -353,7 +359,10 @@ function resolveAIPluginSource(WEBVIEW_CONFIG, projectRoot, log = () => {}) {
     // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fixed package-relative path under the app's node_modules.
     const aiPluginsRoot = path.join(projectRoot, "node_modules", "catalyst-ai", "plugins")
     if (!isDir(aiPluginsRoot)) {
-        log("ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI plugin", "warning")
+        log(
+            "ai.enabled=true but catalyst-ai not found in node_modules — skipping native AI plugin",
+            "warning"
+        )
         return { roots: [], toggles: {} }
     }
 

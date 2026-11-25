@@ -79,7 +79,10 @@ it("loads its startup module by URL, which a Windows path is not", async () => {
     await vi.waitFor(() => expect(spawned).toHaveLength(1))
 
     const { args } = spawned[0]
-    expect(args[args.indexOf("--import") + 1]).toMatch(/^file:\/\/\/.*preServerInit\.js$/)
+    const imports = args.filter((_arg, i) => args[i - 1] === "--import")
+    // The loader goes first, so the startup module is the second import.
+    expect(imports).toHaveLength(2)
+    expect(imports[1]).toMatch(/^file:\/\/\/.*preServerInit\.js$/)
 })
 
 it("says to build first when there is no production build", async () => {
@@ -109,4 +112,18 @@ it("passes --inspect through to the server", async () => {
         process.argv = argv
     }
     expect(spawned[0].args[0]).toBe("--inspect")
+})
+
+it("registers the module loader before preServerInit imports server/index.js", async () => {
+    await serve()
+    await vi.waitFor(() => expect(spawned).toHaveLength(1))
+
+    // register() only applies to modules imported after it, so with the loader
+    // second, an alias import in server/index.js failed and preServerInit
+    // silently never ran.
+    const { args } = spawned[0]
+    const loader = args.findIndex((arg) => arg.startsWith("data:text/javascript,"))
+    const preInit = args.findIndex((arg) => arg.endsWith("preServerInit.js"))
+    expect(loader).toBeGreaterThan(-1)
+    expect(preInit).toBeGreaterThan(loader)
 })

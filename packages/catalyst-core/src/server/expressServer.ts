@@ -50,7 +50,9 @@ function reportRuntimeError({ error, code, docs, scope }: any) {
     }
     const fingerprint = `${code}|${error?.message ?? String(error)}|${String(error?.stack || "").split("\n")[1] || ""}`
     if (fingerprint === lastReport && outputMode === "default") {
-        process.stderr.write(`${GUTTER}${t.bad(glyph.fail)} ${t.dim(`Same error again${scope ? `  ${scope}` : ""}`)}\n`)
+        process.stderr.write(
+            `${GUTTER}${t.bad(glyph.fail)} ${t.dim(`Same error again${scope ? `  ${scope}` : ""}`)}\n`
+        )
         return
     }
     lastReport = fingerprint
@@ -62,10 +64,7 @@ function reportRuntimeError({ error, code, docs, scope }: any) {
             docs,
             scope,
             mode: outputMode,
-            env:
-                outputMode === "debug"
-                    ? { node: process.version, platform: process.platform }
-                    : undefined,
+            env: outputMode === "debug" ? { node: process.version, platform: process.platform } : undefined,
             cwd: process.env.src_path || process.cwd(),
         })
     )
@@ -194,7 +193,10 @@ process.on("uncaughtException", (err, origin) => {
         process.exit(1)
     }
 
-    reportRuntimeError({ error: err, scope: origin === "unhandledRejection" ? "unhandled rejection" : "uncaught exception" })
+    reportRuntimeError({
+        error: err,
+        scope: origin === "unhandledRejection" ? "unhandled rejection" : "uncaught exception",
+    })
 })
 
 process.on("unhandledRejection", (err: any) => {
@@ -223,13 +225,7 @@ const __dirname = path.dirname(__filename)
 
 const isProduction = process.env.NODE_ENV === "production"
 
-function serveBuildFile(
-    app: any,
-    buildPath: string,
-    urlPath: string,
-    fileName: string,
-    headers: any = {}
-) {
+function serveBuildFile(app: any, buildPath: string, urlPath: string, fileName: string, headers: any = {}) {
     app.get(urlPath, (_req: any, res: any, next: any) => {
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - fileName is always a hardcoded literal passed at each serveBuildFile call site, never derived from the request.
         const filePath = path.join(buildPath, fileName)
@@ -416,7 +412,9 @@ async function createServer() {
         // lines unreliable, and the guesswork mis-filed the rule and the URL.
         const wrapped = process.env.CATALYST_WRAPPED === "1"
         if (wrapped) process.stdout.write(`${BANNER_START}\n`)
-        process.stdout.write(header(`catalyst ${isDev ? "start" : "serve"}`, isDev ? "development" : "production"))
+        process.stdout.write(
+            header(`catalyst ${isDev ? "start" : "serve"}`, isDev ? "development" : "production")
+        )
         console.log(`${GUTTER}${t.ok(glyph.done)} Ready in ${t.bold(duration(elapsed))}\n`)
 
         // An app can bind to a LAN address rather than localhost, in which case

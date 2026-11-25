@@ -82,10 +82,13 @@ async function startProd() {
         process.execPath,
         [
             ...inspectArgs,
-            "--import",
-            preInitUrl,
+            // The loader goes first: register() only applies to modules
+            // imported after it, and preServerInit imports server/index.js,
+            // which may use the app's aliases.
             "--import",
             loaderImportArg(loaderPath),
+            "--import",
+            preInitUrl,
             "./dist/server/expressServer.js",
         ],
         {

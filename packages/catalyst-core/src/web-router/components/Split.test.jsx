@@ -122,7 +122,9 @@ describe("split()", () => {
         const setMetaData = () => {}
         const importFn = vi
             .fn()
-            .mockResolvedValue({ default: Object.assign(() => <span>c</span>, { clientFetcher, setMetaData }) })
+            .mockResolvedValue({
+                default: Object.assign(() => <span>c</span>, { clientFetcher, setMetaData }),
+            })
         const LazyThing = split(importFn, {})
         await LazyThing.load()
         expect(LazyThing.clientFetcher).toBe(clientFetcher)
