@@ -9,6 +9,7 @@ import {
     isDeferredStreamingEnabled,
     isDeferAbort,
     DEFER_TIMED_OUT,
+    DEFER_TIMEOUT_MS,
     DEFER_CLIENT_GONE,
     RENDER_STOPPED,
     DEFERRED_STATE_MERGE,
@@ -326,6 +327,69 @@ test("abandon() still reports failures of a blocking registry, now or later", as
     assert.equal(registry.size, 3)
 })
 
+test("a streaming registry reports each failure once, also after reportPending() or abandon()", async () => {
+    const reported = []
+    const registry = createDeferredRegistry({
+        store: storeWith({}),
+        onSettledError: (name, error) => reported.push([name, error.message]),
+        logger: silent,
+    })
+    registry.defer("failed", Promise.reject(new Error("a")))
+    registry.defer(
+        "slow",
+        delay(20).then(() => Promise.reject(new Error("b")))
+    )
+    await turn()
+    registry.reportPending(new Error(DEFER_TIMED_OUT))
+    registry.abandon()
+    await delay(40)
+    assert.deepEqual(reported, [
+        ["failed", "a"],
+        ["slow", DEFER_TIMED_OUT],
+    ])
+})
+
+test("reportPending() leaves a blocking registry to the fetcher error path", () => {
+    const reported = []
+    const registry = createDeferredRegistry({
+        store: storeWith({}),
+        blocking: true,
+        onSettledError: (name) => reported.push(name),
+        logger: silent,
+    })
+    registry.defer("slow", new Promise(() => {}))
+    registry.reportPending(new Error(DEFER_TIMED_OUT))
+    assert.deepEqual(reported, [])
+})
+
+test("only real redirect statuses are kept for a mapped redirect", async () => {
+    const registry = createDeferredRegistry({ store: storeWith({}), logger: silent })
+    const statuses = [300, 301, 302, 303, 304, 305, 306, 307, 308]
+    for (const status of statuses) {
+        registry.defer("s" + status, Promise.reject(new Error("x")), {
+            onError: () => ({ redirect: "/x", status }),
+        })
+    }
+    const results = await registry.settleAll()
+    assert.deepEqual(
+        results.map((r) => r.status),
+        [null, 301, 302, 303, null, null, null, 307, 308]
+    )
+})
+
+test("DEFER_TIMEOUT_MS is capped where setTimeout would fire after 1 ms", () => {
+    const before = process.env.DEFER_TIMEOUT_MS
+    try {
+        process.env.DEFER_TIMEOUT_MS = "9999999999"
+        assert.equal(DEFER_TIMEOUT_MS(), 2147483647)
+        process.env.DEFER_TIMEOUT_MS = "0"
+        assert.equal(DEFER_TIMEOUT_MS(), 15000)
+    } finally {
+        if (before === undefined) delete process.env.DEFER_TIMEOUT_MS
+        else process.env.DEFER_TIMEOUT_MS = before
+    }
+})
+
 test("a plain value can be deferred", async () => {
     const registry = createDeferredRegistry({ store: storeWith({}), logger: silent })
     registry.defer("value", 42, { stateKeys: [] })
@@ -364,6 +428,12 @@ test("the reveal script still goes in when the head tag is split across chunks",
     const none = createOpenTagInserter("<s>")
     const out = [none.write("<div>a</div><"), none.write("p>b"), none.end()]
     assert.equal(Buffer.concat(out.filter(Boolean)).toString(), "<div>a</div><p>b")
+    // Only a possible head or body tag is held back, not any "<" (e.g. in an inline script).
+    const script = createOpenTagInserter("<s>")
+    assert.equal(script.write("<script>if(a<b)go()").toString(), "<script>if(a<b)go()")
+    const partial = createOpenTagInserter("<s>")
+    assert.equal(partial.write("<html><bo").toString(), "<html>")
+    assert.equal(partial.write("dy>x").toString(), "<body><s>x")
 })
 
 test("the response is flushed once per event-loop turn, and not after it ended", async () => {

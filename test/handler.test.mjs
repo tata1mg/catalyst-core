@@ -363,6 +363,87 @@ test("PPR: defer() after the serverFetcher returned is ignored with a warning", 
     }
 })
 
+test("a section that timed out is not reported again when its work fails later", async () => {
+    T.fetcher = (_props, { defer }) => {
+        defer(
+            "orders",
+            delay(600).then(() => Promise.reject(new Error("api down"))),
+            { stateKeys: ["orders"] }
+        )
+        return {}
+    }
+    const r = await get("/orders")
+    assert.ok(!r.hung, "response ended")
+    await delay(300)
+    assert.deepEqual(hookCalls("onDeferredError"), [["onDeferredError", "Deferred data timed out"]])
+})
+
+test("a cookie set by deferred work after the shell is written in the page", async () => {
+    T.fetcher = ({ res }, { store, defer }) => {
+        defer(
+            "orders",
+            delay(100).then(() => {
+                res.cookie("seen", "1")
+                store.dispatch({ type: "orders", list: [1] })
+            }),
+            { stateKeys: ["orders"] }
+        )
+        return {}
+    }
+    const r = await get("/orders")
+    assert.ok(r.html.includes("orders:1"))
+    assert.ok(/document.cookie="seen=1/.test(r.html), "replayed in the page")
+    assert.equal(r.headers["set-cookie"], undefined)
+    assert.deepEqual(hookCalls("onDeferredError"), [])
+})
+
+test("an async onDeferredError that fails is not an unhandled rejection", async () => {
+    const unhandled = []
+    const onUnhandled = (reason) => unhandled.push(reason)
+    process.on("unhandledRejection", onUnhandled)
+    try {
+        T.hooks.onDeferredError = async () => {
+            throw new Error("hook down")
+        }
+        T.fetcher = (_props, { defer }) => {
+            defer(
+                "orders",
+                delay(50).then(() => Promise.reject(new Error("api down"))),
+                { stateKeys: ["orders"] }
+            )
+            return {}
+        }
+        const r = await get("/orders")
+        await delay(50)
+        assert.ok(!r.hung, "response ended")
+        assert.deepEqual(hookCalls("onDeferredError"), [["onDeferredError", "api down"]])
+        assert.deepEqual(unhandled, [])
+    } finally {
+        process.off("unhandledRejection", onUnhandled)
+    }
+})
+
+test("PPR: a section still pending at the resume timeout is reported", async () => {
+    process.env.PPR_ENABLE = "true"
+    process.env.PPR_RESUME_TIMEOUT_MS = "300"
+    try {
+        T.renderMode = "ppr"
+        T.fetcher = (_props, { defer }) => {
+            defer("orders", NEVER, { stateKeys: ["orders"] })
+            return {}
+        }
+        await get("/orders") // builds the shell
+        T.calls = []
+        const r = await get("/orders")
+        assert.match(String(r.headers["x-rendering-mode"]), /^ppr-/)
+        assert.ok(!r.hung, "response ended")
+        assert.deepEqual(hookCalls("onDeferredError"), [["onDeferredError", "Deferred data timed out"]])
+    } finally {
+        delete process.env.PPR_ENABLE
+        delete process.env.PPR_RESUME_TIMEOUT_MS
+    }
+})
+
 test("static: the page renders complete and is cached", async () => {
     T.renderMode = "static"
     T.fetcher = deferOrders(50, [1, 2])

@@ -31,7 +31,8 @@ export const isDeferredStreamingEnabled = () =>
 // routes use PPR_RESUME_TIMEOUT_MS for their sections.
 export const DEFER_TIMEOUT_MS = () => {
     const n = Number(process.env.DEFER_TIMEOUT_MS)
-    return Number.isFinite(n) && n > 0 ? n : 15000
+    // setTimeout runs a delay above 2^31-1 ms after 1 ms instead, so a larger value is capped.
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 2147483647) : 15000
 }
 // Reasons Catalyst aborts a render with; each is reported once where it happens.
 export const DEFER_TIMED_OUT = "Deferred data timed out"
@@ -95,6 +96,15 @@ export const insertAfterOpenTag = (chunk, text) => {
  * goes in when the tag is split across chunks. Gives up after `limit` bytes. end() returns what
  * is still held back.
  */
+// True when `tail` (from a "<" to the end of a chunk) can be the start of an opening head or body
+// tag, so only that is held back (not, say, "a<b" in an inline script).
+const mayBeOpenTag = (tail) =>
+    getOpenTags().some((tag) => {
+        const n = Math.min(tail.length, tag.length)
+        if (!tail.subarray(0, n).equals(tag.subarray(0, n))) return false
+        return tail.length <= tag.length || isTagNameEnd(tail[tag.length])
+    })
+
 export const createOpenTagInserter = (text, limit = 64 * 1024) => {
     let held = null
     let scanned = 0
@@ -115,7 +125,7 @@ export const createOpenTagInserter = (text, limit = 64 * 1024) => {
                 return withText || buf
             }
             const lt = buf.lastIndexOf(0x3c)
-            if (lt !== -1 && buf.indexOf(GT, lt) === -1) {
+            if (lt !== -1 && buf.indexOf(GT, lt) === -1 && mayBeOpenTag(buf.subarray(lt))) {
                 held = buf.subarray(lt)
                 return buf.subarray(0, lt)
             }
@@ -140,15 +150,14 @@ export const isSafeRedirect = (url) =>
     !UNSAFE_SCHEME.test(url.replace(/[\u0000- \u007f-\u009f]/g, ""))
 
 // onError may return a URL, or { redirect, mode, status }. "assign" keeps the page in history
-// (and is what opens app deep links in a WebView); "replace" is the default. `status` (300-308)
-// is used when the redirect can still be a real one (a blocking request); 302 otherwise.
+// (and is what opens app deep links in a WebView); "replace" is the default. `status` (301, 302,
+// 303, 307 or 308) is used when the redirect can still be a real one (a blocking request); 302
+// otherwise. Other 3xx codes are not redirects: a 304 would leave the browser on a blank page.
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const toRedirect = (mapped) => {
     if (typeof mapped === "string") return { redirect: mapped, mode: "replace", status: null }
     if (mapped && typeof mapped.redirect === "string") {
-        const status =
-            Number.isInteger(mapped.status) && mapped.status >= 300 && mapped.status <= 308
-                ? mapped.status
-                : null
+        const status = REDIRECT_STATUSES.has(mapped.status) ? mapped.status : null
         return { redirect: mapped.redirect, mode: mapped.mode === "assign" ? "assign" : "replace", status }
     }
     return { redirect: null, mode: "replace", status: null }
@@ -235,7 +244,12 @@ export const createDeferredRegistry = ({
     let sealed = false
     let snapshot = null
     const warned = new Set()
+    // Each section is reported once: one reported as timed out is not reported again when its work
+    // fails later, and abandon() does not repeat what the settled handler already reported.
+    const reported = new Set()
     const report = (name, error) => {
+        if (reported.has(name)) return
+        reported.add(name)
         try {
             onSettledError?.(name, error)
         } catch (hookError) {
@@ -307,6 +321,11 @@ export const createDeferredRegistry = ({
         entries.set(name, { name, stateKeys: keys, result: track(settled) })
         return promise
     }
+
+    const pending = () =>
+        Array.from(entries.values())
+            .filter((entry) => entry.result.status === "pending")
+            .map((entry) => entry.name)
 
     // Slices listed by some deferred work, so the client gets them.
     const listedKeys = () => new Set(Array.from(entries.values(), (entry) => entry.stateKeys).flat())
@@ -402,10 +421,15 @@ export const createDeferredRegistry = ({
         },
         scriptFor,
         /** Names whose work has not settled yet. */
-        pending: () =>
-            Array.from(entries.values())
-                .filter((entry) => entry.result.status === "pending")
-                .map((entry) => entry.name),
+        pending,
+        /**
+         * Reports every section still pending as failed with `error`: the response no longer waits
+         * for it. A blocking request reports through the fetcher error path instead.
+         */
+        reportPending(error) {
+            if (blocking) return
+            for (const name of pending()) report(name, error)
+        },
         /** Every deferred result (they never reject), in the order they were deferred. */
         settleAll: () => Promise.all(Array.from(entries.values(), (entry) => entry.result)),
     }

@@ -400,6 +400,10 @@ const _renderMarkUp = async (
                 ? createOpenTagInserter(noRevealThrottleScript(appNonce))
                 : null
         const scheduleFlush = isStreaming ? createFlushScheduler(res) : null
+        // Deferred work runs after the headers are out. A late res.cookie / res.redirect is replayed
+        // in the page at the end of the response, as on PPR, instead of working or throwing
+        // depending on whether the shell was already sent.
+        const guard = isStreaming ? guardLateResponseCalls(res, getLogger()) : null
 
         return new Promise((resolve, reject) => {
             // Single completion path: React's pipe() auto-ends `tail`, and
@@ -446,6 +450,7 @@ const _renderMarkUp = async (
                     if (newCssPaths.length) {
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
+                    if (guard) this.push(guard.scripts(appNonce))
                     if (!isBot) {
                         this.push(generateScriptStrings(deferredAssets.js, nonce, integrityManifest))
                     }
@@ -468,6 +473,7 @@ const _renderMarkUp = async (
                 if (settled) return
                 settled = true
                 clearTimeout(deferredTimer)
+                guard?.restore()
                 settle(value)
             }
 
@@ -480,9 +486,7 @@ const _renderMarkUp = async (
                 deferredTimer = setTimeout(() => {
                     if (settled) return
                     getLogger().warn?.(`[defer] ${req.originalUrl} timed out; the rest renders on the client`)
-                    for (const name of deferred.pending()) {
-                        reportDeferredError({ req, res, store, name, error: new Error(DEFER_TIMED_OUT) })
-                    }
+                    deferred.reportPending(new Error(DEFER_TIMED_OUT))
                     abortRender(new Error(DEFER_TIMED_OUT))
                 }, DEFER_TIMEOUT_MS())
             }
@@ -1151,6 +1155,8 @@ const _renderMarkUpPPR = async ({
         // On timeout React marks what is still pending for client rendering and ends.
         timeout = setTimeout(() => {
             getLogger().warn?.(`[PPR] Resume of ${req.originalUrl} timed out; the rest renders on the client`)
+            // Deferred sections still pending are reported, as on the streaming path.
+            deferred?.reportPending(new Error(DEFER_TIMED_OUT))
             abort(new Error("PPR resume timed out"))
         }, PPR_RESUME_TIMEOUT_MS())
     })
@@ -1189,8 +1195,14 @@ const asRenderFailure = (error) => {
 const isRenderFailure = (error) => Boolean(error) && typeof error === "object" && renderFailures.has(error)
 
 const reportDeferredError = ({ req, res, store, error, name }) => {
-    if (typeof onDeferredError === "function")
-        return safeCall(onDeferredError, { req, res, store, error, name })
+    if (typeof onDeferredError === "function") {
+        const result = safeCall(onDeferredError, { req, res, store, error, name })
+        // An async hook that fails must not become an unhandled rejection (it would end the process).
+        if (result && typeof result.then === "function") {
+            result.then(undefined, (hookError) => console.error("Error in user hook:", hookError))
+        }
+        return
+    }
     console.error(`[defer] "${name}" failed for ${req.originalUrl}:`, error)
 }
 
@@ -1205,6 +1217,11 @@ const settleBlockingDeferred = async ({ req, res, store, deferred }) => {
     if (!deferred?.blocking) return null
     deferred.seal()
     if (!deferred.size) return null
+    // The client left while the fetchers ran (its close event has already fired): do not wait.
+    if (res.destroyed) {
+        deferred.abandon()
+        return { gone: true }
+    }
     let timer
     let onClose
     const outcome = await Promise.race([
