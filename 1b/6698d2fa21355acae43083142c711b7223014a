@@ -1,0 +1,21 @@
+packages/catalyst-ai/src/deviceImage.js
+  s_f9b68111c2008f::t_88bb5a2d49fa5e 22-27
+packages/catalyst-ai/test/deviceImage.test.ts
+  s_f9b68111c2008f::t_d9ea0d34e600af 118-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b6698d2fa21355acae43083142c711b7223014a",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
