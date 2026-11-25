@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.0] - 2026-11-25
+
+This release adds the server features that 1mg's mweb app ran on its own branch, and fixes `preServerInit` being skipped for some apps since 1.1.0. There are no breaking changes to the public API. Three behaviour changes are listed below.
+
+### Added
+
+- CSP nonce. With `CSP_NONCE_ENABLE: true` in `config/config.json`, every script and modulepreload link Catalyst renders carries a per-request nonce. Set `res.locals.cspNonce` in a middleware to use your own; a value outside the base64 alphabet is replaced with a generated one. Styles are not nonced.
+- OpenTelemetry error sampling. `Otel.init({ errorSampling: { ENABLED: true } })` keeps unsampled traces in memory until the request ends and exports the ones that failed. While it is on, the server logs a memory heartbeat. See the Observability guide for the options.
+- `OFFLINE_SNAPSHOTS_ENABLE: false` turns off Catalyst's service worker and offline manifest, for apps that ship their own worker.
+- `App.serverSideFunction` receives `runInParallel(...promises)`. Work passed to it runs alongside the route's `serverFetcher`, and both finish before the store is serialized.
+- Native: `WEBVIEW_CONFIG.location.enabled` adds the Android location permissions and the WebView geolocation prompt, and `NSLocationWhenInUseUsageDescription` on iOS (`location.usageDescription` sets the text).
+
+### Fixes
+
+- `preServerInit` runs again for apps whose `server/index.js` imports an alias from `_moduleAliases`. Since 1.1.0 the module loader was registered after `server/index.js` was imported, so the import failed and the hook was skipped without a message.
+- `MetaTag` is the only owner of the tags from `setMetaData`, apart from the title. The server no longer renders them twice, and the previous page's description and canonical no longer stay after a client navigation.
+- A failed `catalyst build` prints the bundler's own error (missing package, missing export, Sass error and so on) instead of only `BUNDLE-000` and stack frames.
+- SSR builds resolve the `module-sync` condition, which fixes two copies of react-router being loaded on Node 22.
+
+### Behaviour changes
+
+- A `server/index.js` that exists but fails to import now stops startup with the import error. It used to be skipped.
+- `<script type="application/ld+json">` from `setMetaData` renders in the page body, where `MetaTag` sits, instead of in `<head>`.
+- Route-data cache keys are HTML-escaped (`&` becomes `&amp;`). Server and client compute them the same way, so this matters only to code that builds a key by hand.
+
 ## [1.2.1] - 2026-11-17
 
 - `useIntent()` adds `openInBrowser(url)`, which opens a link outside the WebView: in the default browser, or in the app that owns the link when one is installed. Only `http` and `https` URLs are accepted; any other scheme fails with an error.
