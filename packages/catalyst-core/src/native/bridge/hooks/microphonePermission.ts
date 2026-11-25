@@ -9,7 +9,7 @@ const NO_ANSWER_MS = 30_000
  *
  * Resolves "GRANTED" once the app holds it, and rejects when the user refuses. Resolves null when there is nothing to ask
  * or nobody answers: a plain browser (it prompts by itself), a page where WebBridge is not set up, or a shell built before
- * the command existed (Android reports that at once; iOS stays silent, so the wait ends after 30 s). In those cases
+ * the command existed (Android reports that at once; an iOS shell announces its commands in `window.CatalystShell.capabilities`, and one without the entry is not waited for). In those cases
  * getUserMedia decides.
  */
 export const requestMicrophonePermission = (): Promise<string | null> => {
@@ -34,6 +34,13 @@ const requestOnce = (): Promise<string | null> => {
         }
         try {
             if (!nativeBridge.isAvailable()) {
+                resolve(null)
+                return
+            }
+
+            // An iOS shell cannot say that it does not know a command: the message is dropped and nothing answers. Shells that have
+            // the command announce it before the page runs; one that does not is recognised here instead of after the 30 s wait.
+            if ((nativeBridge as any).isIOS && !(window as any).CatalystShell?.capabilities?.microphonePermission) {
                 resolve(null)
                 return
             }

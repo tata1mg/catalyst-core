@@ -59,6 +59,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        // Tells the page what this shell can do, so it never waits for an answer an older shell would not give.
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: ShellCapabilities.scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+
         #if DEBUG
         if ConfigConstants.Profiler.enabled {
             configuration.userContentController.addUserScript(

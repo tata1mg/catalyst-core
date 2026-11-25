@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const bridge = vi.hoisted(() => ({
     isAvailable: vi.fn(() => true),
     isAndroid: true,
+    isIOS: false,
     microphone: { requestPermission: vi.fn<() => boolean | void>(() => true) },
 }))
 vi.mock("../../src/native/bridge/utils/NativeBridge.js", () => ({ default: bridge }))
@@ -23,10 +24,30 @@ beforeEach(() => {
     webBridge.unregister.mockClear()
     bridge.isAvailable.mockReturnValue(true)
     bridge.isAndroid = true
+    bridge.isIOS = false
+    delete (window as any).CatalystShell
     bridge.microphone.requestPermission.mockReset().mockReturnValue(true)
     ;(window as any).WebBridge = webBridge
 })
 afterEach(() => { delete (window as any).WebBridge })
+
+describe("requestMicrophonePermission on iOS", () => {
+    beforeEach(() => { bridge.isAndroid = false; bridge.isIOS = true })
+
+    it("does not ask or wait when the shell does not announce the command (an older shell)", async () => {
+        await expect(requestMicrophonePermission()).resolves.toBeNull()
+        expect(bridge.microphone.requestPermission).not.toHaveBeenCalled()
+        expect(webBridge.register).not.toHaveBeenCalled()
+    })
+
+    it("asks when the shell announces the command", async () => {
+        ;(window as any).CatalystShell = { capabilities: { microphonePermission: true } }
+        const pending = requestMicrophonePermission()
+        expect(bridge.microphone.requestPermission).toHaveBeenCalledTimes(1)
+        handlers[EVENT]("GRANTED")
+        await expect(pending).resolves.toBe("GRANTED")
+    })
+})
 
 describe("requestMicrophonePermission", () => {
     it("asks the shell, then resolves GRANTED when the shell says so", async () => {
