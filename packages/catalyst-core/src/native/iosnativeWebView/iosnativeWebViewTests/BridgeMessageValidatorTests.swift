@@ -112,6 +112,17 @@ final class BridgeMessageValidatorTests: XCTestCase {
         XCTAssertTrue(BridgeMessageValidator.validate(message: nullPayload).isValid, "A null payload should pass validation")
     }
 
+    func testValidateMessage_RequestMicrophonePermission_RejectsEveryOtherPayloadType() {
+        // A command that takes nothing must not wave an array, a number, a boolean or a string through with a warning
+
+        let payloads: [Any] = [[1, 2] as [Any], 7, true, "x"]
+        for data in payloads {
+            let result = BridgeMessageValidator.validate(message: createMockMessage(body: ["command": "requestMicrophonePermission", "data": data]))
+            XCTAssertFalse(result.isValid, "\(data) should be rejected")
+            XCTAssertEqual(result.error?.code, "INVALID_PARAMS")
+        }
+    }
+
     func testValidateMessage_SpeechRecognitionCommands_ValidMessages() {
         // The page sends the options as a JSON string (like the Android bridge); an object and no payload are fine too
 

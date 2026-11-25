@@ -27,6 +27,8 @@ final class FallbackEngine: NativeAIEngine {
     private let lock = NSLock()
     private var options: AIOptions?
     private var fallback: NativeAIEngine?
+    /// The fallback being prepared right now; later failures join it instead of preparing the same engine again.
+    private var activation: Task<NativeAIEngine, Error>?
     private var conversation = FallbackConversation()
 
     init(
@@ -44,7 +46,7 @@ final class FallbackEngine: NativeAIEngine {
     }
 
     func prepare(options: AIOptions) async throws {
-        lock.withLock { self.options = options; fallback = nil; conversation.reset() }
+        lock.withLock { self.options = options; fallback = nil; activation = nil; conversation.reset() }
         do {
             try await primary.prepare(options: options)
             lock.withLock { serverSystemPrompt = primary.serverSystemPrompt }
@@ -127,18 +129,46 @@ final class FallbackEngine: NativeAIEngine {
     /// `resetConversation` is true only while preparing, when there is no conversation yet. When a live request falls back, the id
     /// the page was already given must survive: the caller rebinds just the engine behind it.
     private func activateFallback(after error: Error, resetConversation: Bool) async throws -> NativeAIEngine? {
-        guard let options = lock.withLock({ self.options }), let engine = makeFallback() else { return nil }
-        onLog("\(primary.kind.rawValue) failed (\(error.localizedDescription)); using \(engine.kind.rawValue) instead")
-        do {
-            try await engine.prepare(options: options)
-        } catch {
-            throw NativeAIError(message: "\(primary.kind.rawValue) failed and so did \(engine.kind.rawValue): \(error.localizedDescription)")
+        // Decided under one lock so concurrent failures share a single preparation instead of each preparing the same engine.
+        enum Step { case ready(NativeAIEngine), join(Task<NativeAIEngine, Error>), start(Task<NativeAIEngine, Error>, NativeAIEngine), none }
+        let step: Step = lock.withLock {
+            if let fallback { return .ready(fallback) }
+            if let activation { return .join(activation) }
+            guard let options, let engine = makeFallback() else { return .none }
+            let primaryName = primary.kind.rawValue
+            let task = Task<NativeAIEngine, Error> {
+                do {
+                    try await engine.prepare(options: options)
+                    return engine
+                } catch {
+                    throw NativeAIError(message: "\(primaryName) failed and so did \(engine.kind.rawValue): \(error.localizedDescription)")
+                }
+            }
+            activation = task
+            return .start(task, engine)
         }
-        lock.withLock {
-            fallback = engine
-            if resetConversation { conversation.reset() }
+        switch step {
+        case .none:
+            return nil
+        case .ready(let engine):
+            return engine
+        case .join(let task):
+            return try await task.value
+        case .start(let task, let engine):
+            onLog("\(primary.kind.rawValue) failed (\(error.localizedDescription)); using \(engine.kind.rawValue) instead")
+            do {
+                let prepared = try await task.value
+                lock.withLock {
+                    fallback = prepared
+                    activation = nil
+                    if resetConversation { conversation.reset() }
+                }
+                return prepared
+            } catch {
+                lock.withLock { activation = nil }
+                throw error
+            }
         }
-        return engine
     }
 
     private func recover(

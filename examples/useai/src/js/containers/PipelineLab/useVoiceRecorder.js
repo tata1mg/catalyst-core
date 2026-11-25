@@ -32,6 +32,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
     const [seconds, setSeconds] = useState(0)
     const [error, setError] = useState(null)
     const live = useRef(null)
+    const reading = useRef(null) // the recording that was stopped and is being turned into a data URL
     const onRecordedRef = useRef(onRecorded)
     onRecordedRef.current = onRecorded
 
@@ -53,6 +54,8 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
 
     const cancel = useCallback(() => {
         if (live.current) live.current.discard = true
+        // A recording already stopped and being read is no longer `live`, but it can still be discarded.
+        if (reading.current) reading.current.discard = true
         stop()
         release()
     }, [stop, release])
@@ -89,17 +92,21 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
 
         recorder.ondataavailable = (e) => e.data?.size && chunks.push(e.data)
         recorder.onstop = async () => {
-            const { discard, heardSpeech } = session
+            const { heardSpeech } = session
             const secs = Math.round((Date.now() - startedAt) / 100) / 10
             release()
-            if (discard) return
+            if (session.discard) return
             if (!heardSpeech && analyser) {
                 setError("I did not hear any speech. Check the microphone and try again.")
                 return
             }
             try {
+                reading.current = session
                 const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
-                onRecordedRef.current?.(await readAsDataUrl(blob), { seconds: secs })
+                const data = await readAsDataUrl(blob).finally(() => { if (reading.current === session) reading.current = null })
+                // The session object outlives release(): a cancel() that came in while the blob was being read still discards it.
+                if (session.discard) return
+                onRecordedRef.current?.(data, { seconds: secs })
             } catch (err) {
                 setError(`Could not read the recording: ${err?.message || err}`)
             }

@@ -114,7 +114,8 @@ final class CatalystAIBridge: AIBridge {
                 primary: native,
                 requested: options.engine,
                 fallbackAvailable: { FoundationModelsSupport.isAvailable },
-                makeFallback: { self.engine(for: .foundationModels) },
+                // Weak: the bridge keeps this engine as its active one, and the engine keeps this closure; a strong self would be a cycle.
+                makeFallback: { [weak self] in self?.engine(for: .foundationModels) },
                 onLog: log
             )
             : native

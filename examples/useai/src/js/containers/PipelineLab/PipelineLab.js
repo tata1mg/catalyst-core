@@ -43,6 +43,9 @@ const nativeAIAvailable = () => {
     return typeof window !== "undefined" && !!window.webkit?.messageHandlers?.PluginBridge && Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"])
 }
 
+// The same limit catalyst-ai applies to an audio clip before it prepares it.
+const MAX_AUDIO_FILE_BYTES = 20 * 1024 * 1024
+
 export default function PipelineLab() {
     const [engine, setEngine] = useState("cloud") // "cloud" | "device"
     const [skipImage, setSkipImage] = useState(false) // device only: stop after the JSON scene so nothing leaves the device
@@ -100,7 +103,23 @@ export default function PipelineLab() {
     const asrRef = useRef(asr)
     asrRef.current = asr
 
-    const ask = async (content) => {
+    // Stop (the stage's signal) also stops the request in flight: the hook's own cancel() ends the generation instead of letting it finish unseen.
+    const cancelOnAbort = (hookRef, signal) => {
+        if (!signal) return () => {}
+        const stop = () => hookRef.current?.cancel?.()
+        if (signal.aborted) stop()
+        else signal.addEventListener("abort", stop, { once: true })
+        return () => signal.removeEventListener("abort", stop)
+    }
+    const ask = async (content, signal) => {
+        const detach = cancelOnAbort(aiRef, signal)
+        try {
+            return await askInner(content)
+        } finally {
+            detach()
+        }
+    }
+    const askInner = async (content) => {
         const result = await aiRef.current.generate({ messages: [{ role: "user", content }] })
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
@@ -108,15 +127,23 @@ export default function PipelineLab() {
 
     // Lifecycle: downloads stay cached, but a model only stays in GPU/RAM while its stage runs. Gemma (~3.4 GB), Whisper and
     // SD-Turbo (~2.3 GB) together ran the tab out of memory, so each is released as soon as its stage is done.
-    const askDevice = async (content) => {
+    const askDevice = async (content, signal) => {
+        const detach = cancelOnAbort(deviceRef, signal)
+        try {
+            return await askDeviceInner(content)
+        } finally {
+            detach()
+        }
+    }
+    const askDeviceInner = async (content) => {
         const result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
         deviceRef.current.unload?.()
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }
     // Speech to text on the device: Whisper in the browser, the platform model in the native app.
-    const hearOnDevice = async (data) => {
-        if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }])
+    const hearOnDevice = async (data, signal) => {
+        if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }], signal)
         const heard = await asrRef.current.transcribe(data)
         if (!heard) throw asrRef.current.lastError() ?? new Error("The recording could not be transcribed")
         if (heard.truncated) console.warn(`[pipeline-lab] recording exceeded the ${heard.durationSec}s transcription limit; only the first ${heard.durationSec}s were transcribed`)
@@ -128,7 +155,7 @@ export default function PipelineLab() {
             schema: SCENE_SCHEMA,
             cloud: true,
             instructions: "Turn the text into a scene to illustrate.",
-            generate: async (prompt) => ask(prompt),
+            generate: async (prompt, ctx) => ask(prompt, ctx?.signal),
         })
         const draw = imageStage({
             requestImage: async (args) => {
@@ -145,12 +172,12 @@ export default function PipelineLab() {
         // stage, so no consent is needed. runPipeline reads `cloud` at run time, hence a getter.
         Object.defineProperty(draw, "cloud", { enumerable: true, get: () => providerRef.current !== "device" })
         const hear = transcribeStage(
-            (data) => ask([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }]),
+            (data, ctx) => ask([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }], ctx?.signal),
             { cloud: true }
         )
         // Same chain on the device: speech and text stay local (cloud: false); only the picture stage can leave it.
-        const toJsonDevice = jsonStage({ schema: SCENE_SCHEMA, cloud: false, instructions: "Turn the text into a scene to illustrate.", generate: async (prompt) => askDevice(prompt) })
-        const hearDevice = transcribeStage((data) => hearOnDevice(data), { cloud: false })
+        const toJsonDevice = jsonStage({ schema: SCENE_SCHEMA, cloud: false, instructions: "Turn the text into a scene to illustrate.", generate: async (prompt, ctx) => askDevice(prompt, ctx?.signal) })
+        const hearDevice = transcribeStage((data, ctx) => hearOnDevice(data, ctx?.signal), { cloud: false })
         return { fromText: [toJson, draw], fromAudio: [hear, toJson, draw], deviceFromText: [toJsonDevice, draw], deviceFromAudio: [hearDevice, toJsonDevice, draw] }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -204,7 +231,12 @@ export default function PipelineLab() {
     // unavailable mid-session and useTranscribe falls back to its recorder, platformSpeech flips to false, but the
     // session (its text, state and stop) still belongs to `voice`, so the controls must not switch to the cloud hook.
     const voiceOwnsSession = voice.status === "running" || voice.listening
-    const liveSrc = nativeSpeech || voiceOwnsSession ? voiceLiveSrc : live
+    // On the device the live source is always the router-backed one: the cloud `live` hook must never carry a run described as on-phone.
+    const liveSrc = onDevice || voiceOwnsSession ? voiceLiveSrc : live
+    // When the phone's recogniser is not available the live option is hidden; a "live" mode chosen earlier falls back to text.
+    useEffect(() => {
+        if (onDevice && mode === "live" && !voice.platformSpeech && !voiceOwnsSession) setMode("text")
+    }, [onDevice, mode, voice.platformSpeech, voiceOwnsSession])
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -241,6 +273,8 @@ export default function PipelineLab() {
         const file = e.target.files?.[0]
         if (!file) return
         if (!file.type.startsWith("audio/")) return setPickError(`Expected an audio file, got ${file.type || "unknown"}`)
+        // Audio is decoded in full before its 30 s cap applies, so an oversized file is refused before it is read into memory.
+        if (file.size > MAX_AUDIO_FILE_BYTES) return setPickError(`That recording is ${Math.round(file.size / 1048576)} MB; the limit is ${MAX_AUDIO_FILE_BYTES / 1048576} MB.`)
         setPickError(null)
         try {
             setAudio({ name: file.name, data: await readAsDataUrl(file) })

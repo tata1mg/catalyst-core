@@ -140,6 +140,8 @@ class BridgeCommandHandler {
     }
 
     deinit {
+        // A recognition still running when the bridge goes away must stop, and the shared audio session must be given back.
+        speechRecognitionStore?.cleanup()
         commandLogger.debug("BridgeCommandHandler deallocated")
     }
 
@@ -222,8 +224,15 @@ class BridgeCommandHandler {
 
     // MARK: Speech recognition (the platform recognizer, on-device only)
 
-    private lazy var speechRecognition = SpeechRecognitionManager { [weak self] event, payload in
-        self?.delegate?.sendJSONCallback(eventName: event, data: payload)
+    // Created on first use. Kept in an optional so teardown can tell whether one exists without creating it.
+    private var speechRecognitionStore: SpeechRecognitionManager?
+    private var speechRecognition: SpeechRecognitionManager {
+        if let existing = speechRecognitionStore { return existing }
+        let created = SpeechRecognitionManager { [weak self] event, payload in
+            self?.delegate?.sendJSONCallback(eventName: event, data: payload)
+        }
+        speechRecognitionStore = created
+        return created
     }
 
     func getSpeechRecognitionSupport(config: String? = nil) {
