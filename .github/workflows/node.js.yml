@@ -659,7 +659,7 @@ jobs:
             # always(): a job that failed after Gradle ran still has outputs
             # worth keeping for the next pull requests.
             - name: Save the Gradle build cache (main only)
-              if: always() # TEMP: measure warm caches on this PR
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.gradle/caches/build-cache-1
@@ -738,7 +738,7 @@ jobs:
             # always(): a job that failed after Gradle ran still has outputs
             # worth keeping for the next pull requests.
             - name: Save the Gradle build cache (main only)
-              if: always() # TEMP: measure warm caches on this PR
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.gradle/caches/build-cache-1
@@ -840,7 +840,7 @@ jobs:
             # always(): a job that failed after Gradle ran still has outputs
             # worth keeping for the next pull requests.
             - name: Save the Gradle build cache (main only)
-              if: always() # TEMP: measure warm caches on this PR
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.gradle/caches/build-cache-1
@@ -1056,7 +1056,7 @@ jobs:
             # always(): a job that failed after Gradle ran still has outputs
             # worth keeping for the next pull requests.
             - name: Save the Gradle build cache (main only)
-              if: always() # TEMP: measure warm caches on this PR
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.gradle/caches/build-cache-1
@@ -1176,7 +1176,7 @@ jobs:
             # always(): a job that failed after Gradle ran still has outputs
             # worth keeping for the next pull requests.
             - name: Save the Gradle build cache (main only)
-              if: always() # TEMP: measure warm caches on this PR
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.gradle/caches/build-cache-1
@@ -1558,7 +1558,7 @@ jobs:
             # Saved before the coverage gate below so a coverage failure on
             # main does not also cost the next pull requests their cache.
             - name: Save the compilation cache (main only)
-              if: success() # TEMP: measure warm caches on this PR
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ${{ env.XCODE_CAS_DIR }}
