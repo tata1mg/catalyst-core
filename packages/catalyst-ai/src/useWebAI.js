@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
+import { assertEngineSupports, getModalities } from "./contentParts.js"
 import { aggregateWebSessionMetrics } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
 
@@ -215,6 +216,13 @@ export function useWebAI({
 
     const generate = useCallback(
         ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
+            // Media is not wired for web engines yet: fail loudly instead of sending "[object Object]".
+            try {
+                assertEngineSupports(getModalities(messages), { text: true }, "web")
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
             if (workerRef.current) {
                 workerRef.current.terminate()
                 workerRef.current = null

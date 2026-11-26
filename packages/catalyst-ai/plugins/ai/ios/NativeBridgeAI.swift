@@ -81,6 +81,10 @@ final class NativeBridgeAI: NativeAIEngine {
         try await ensureEngine(modelPath: modelPath)
     }
 
+    /// What the loaded engine was initialised with. Image/audio parts are refused (not dropped) when false.
+    private var visionEnabled = false
+    private var audioEnabled = false
+
     func clearConversation() {
         lock.withLock { conversation = nil; conversationId = nil }
         onLog("Native conversation cleared — next call starts a fresh session")
@@ -94,8 +98,25 @@ final class NativeBridgeAI: NativeAIEngine {
 
         let (active, activeId) = try await currentConversation(on: loaded, reusing: incomingId)
 
-        // genConfig is ignored, matching Android's ConversationConfig() defaults.
-        let updates = active.sendMessageStream(Message(prompt))
+        // Text-only turns are unchanged. Media (genConfig.inputParts) goes to temp files and is sent ahead of
+        // the text as image/audio contents; the files are removed when the stream ends or is cancelled.
+        let mediaFiles = try writeMediaFiles(try AIInputParts.parse(genConfig))
+        let cleanup = { for item in mediaFiles { try? FileManager.default.removeItem(atPath: item.path) } }
+        let message: Message
+        if mediaFiles.isEmpty {
+            message = Message(prompt)
+        } else {
+            let blocked = mediaFiles.first { ($0.kind == .image && !visionEnabled) || ($0.kind == .audio && !audioEnabled) }
+            if let blocked = blocked {
+                cleanup()
+                throw NativeAIError(message: "The loaded model does not support \(blocked.kind.rawValue) input")
+            }
+            let media: [Content] = mediaFiles.map { $0.kind == .image ? .imageFile($0.path) : .audioFile($0.path) }
+            message = Message(contents: media + [.text(prompt)])
+            onLog("Multimodal turn: \(mediaFiles.count) media part(s) + text")
+        }
+        // genConfig sampling keys are ignored, matching Android's ConversationConfig() defaults.
+        let updates = active.sendMessageStream(message)
 
         let tokens = AsyncThrowingStream<String, Error> { continuation in
             let task = Task {
@@ -112,6 +133,7 @@ final class NativeBridgeAI: NativeAIEngine {
                 }
             }
             continuation.onTermination = { reason in
+                cleanup()
                 if case .cancelled = reason {
                     try? active.cancel() // client went away: stop decoding
                 }
@@ -175,32 +197,57 @@ final class NativeBridgeAI: NativeAIEngine {
         onProgress("engine_init", 100, 0, 0, "ready")
     }
 
-    /// GPU (Metal) first, CPU as the fallback — same order as Android's tryCreateEngine.
+    private struct MediaFile { let kind: AIInputPart.Kind; let path: String }
+
+    private func writeMediaFiles(_ parts: [AIInputPart]) throws -> [MediaFile] {
+        guard !parts.isEmpty else { return [] }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("catalyst-ai-input", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var written: [MediaFile] = []
+        do {
+            for part in parts {
+                let url = dir.appendingPathComponent("\(UUID().uuidString).\(part.fileExtension)")
+                try part.data.write(to: url)
+                written.append(MediaFile(kind: part.kind, path: url.path))
+            }
+        } catch {
+            for item in written { try? FileManager.default.removeItem(atPath: item.path) }
+            throw error
+        }
+        return written
+    }
+
+    /// Multimodal first (vision + audio executors), then text-only so text-only models and devices without those
+    /// executors still load. Within each tier: GPU (Metal) first, CPU as the fallback — same order as Android.
     private func tryCreateEngine(modelPath: String) async throws -> Engine {
         let cacheDir = (FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
             .appendingPathComponent("catalyst-ai", isDirectory: true).path) ?? NSTemporaryDirectory()
         try? FileManager.default.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
 
         onLog("[tryCreateEngine] modelPath=\(modelPath)")
-        onLog("[tryCreateEngine] Attempting Backend.gpu...")
-        do {
-            let created = Engine(engineConfig: try EngineConfig(modelPath: modelPath, backend: .gpu, cacheDir: cacheDir))
-            try await created.initialize()
-            onLog("[tryCreateEngine] GPU engine initialized successfully")
-            return created
-        } catch {
-            onLog("[tryCreateEngine] GPU failed: \(error.localizedDescription)")
-            onLog("[tryCreateEngine] Falling back to Backend.cpu...")
+        let attempts: [(label: String, main: Backend, vision: Backend?, audio: Backend?)] = [
+            ("GPU+vision+audio", .gpu, .gpu, .cpu()),
+            ("CPU+vision+audio", .cpu(), .cpu(), .cpu()),
+            ("GPU text-only", .gpu, nil, nil),
+            ("CPU text-only", .cpu(), nil, nil),
+        ]
+        var lastError: Error?
+        for attempt in attempts {
+            onLog("[tryCreateEngine] Attempting \(attempt.label)...")
             do {
-                let created = Engine(engineConfig: try EngineConfig(modelPath: modelPath, backend: .cpu(), cacheDir: cacheDir))
+                let created = Engine(engineConfig: try EngineConfig(
+                    modelPath: modelPath, backend: attempt.main, visionBackend: attempt.vision,
+                    audioBackend: attempt.audio, cacheDir: cacheDir))
                 try await created.initialize()
-                onLog("[tryCreateEngine] CPU engine initialized successfully")
+                lock.withLock { visionEnabled = attempt.vision != nil; audioEnabled = attempt.audio != nil }
+                onLog("[tryCreateEngine] \(attempt.label) initialized")
                 return created
             } catch {
-                onLog("[tryCreateEngine] CPU also failed: \(error.localizedDescription)")
-                throw error
+                onLog("[tryCreateEngine] \(attempt.label) failed: \(error.localizedDescription)")
+                lastError = error
             }
         }
+        throw lastError ?? NativeAIError(message: "No engine configuration succeeded")
     }
 
     private func downloadModel(_ entry: ModelEntry) async throws -> String {
