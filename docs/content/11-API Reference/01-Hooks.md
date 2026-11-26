@@ -58,7 +58,7 @@ marked "renders" never throw and report `isNative: false` / `isWeb: true`.
 | `useNativeTransition` | A router (`<Router>`) | Throws if there is no router | Plain navigation |
 | `useMicrophone` | Microphone permission; the native shell adds the permission prompt | Renders; `supported: false` when the browser cannot record | Browser `getUserMedia` |
 | `useSpeechRecognition` | The native app | Renders; `supported: false` | None |
-| `useAI`, `useVision`, `useTranscribe`, `useAgent` | `catalyst-ai` | `error` is a registry error with code `AI-010` that says `npm install catalyst-ai`; the action (`generate`, `scan`, `transcribe`, `run`) returns that error | Depends on the provider: see [Choosing a Hook](/content/Catalyst%20AI/choosing-a-hook) |
+| `useAI`, `useVision`, `useTranscribe`, `useAgent` | `catalyst-ai` | `error` is a registry error with code `AI-010` that says `npm install catalyst-ai`. `generate` resolves `{ output: "", error }` and `run` resolves an error result with it; `scan` and `transcribe` resolve `null` and the hook's `error` holds it | Depends on the provider: see [Choosing a Hook](/content/Catalyst%20AI/choosing-a-hook) |
 | `useImageGen`, `useSpeech`, `useLiveTranscribe` | `catalyst-ai` | `error` is a plain string that says `npm install catalyst-ai`; `generate` / `speak` resolve with that string in `error` | Depends on the provider |
 | `requestImage`, `requestSpeech` | `catalyst-ai` | The call rejects with the `AI-010` error | None |
 
@@ -731,7 +731,7 @@ Several hooks carry alias keys kept from earlier releases. Both names work and r
 
 `useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
 
-`useAI`'s and `useVision`'s shapes are owned by the `catalyst-ai` package and are outside this contract, but their errors are registry errors too (`AI-0xx`; see [AI Hooks](/content/Catalyst%20AI/choosing-a-hook)).
+`useAI`'s and `useVision`'s shapes are owned by the `catalyst-ai` package and are outside this contract, but their errors follow the registry too: `useAI` reports `AI-0xx` codes, and `useVision` reports its own `VisionError` (`VISION_*` codes) next to them; see [Errors](/content/Catalyst%20AI/errors).
 
 ### Hooks and bridge methods with the same name
 
@@ -1089,8 +1089,10 @@ const agent = useAgent({
     ],
 })
 
-await agent.run("Scan this report and fill in the form")
-// agent.pendingConfirmation → { tool: "submit_form", ... }: show a button, then agent.approve() or agent.deny()
+const done = agent.run("Scan this report and fill in the form")   // pending until the run ends: do not await it before the UI exists
+// While it is pending, render the approval from state: agent.pendingConfirmation is { tool: "submit_form", ... } once the model
+// asks for it. Show a button that calls agent.approve() or agent.deny(); the run then continues.
+const result = await done
 ```
 
 | Option | Description |
@@ -1125,7 +1127,13 @@ import { usePipeline, transcribeStage, jsonStage, imageStage } from "catalyst-co
 import { requestImage, imageCost } from "catalyst-ai"
 
 const stages = [   // keep this stable: module level or useMemo
-    transcribeStage((audio) => voice.transcribe(audio).then((r) => r?.text ?? "")),
+    // voice = useTranscribe({ routing: { cloud: "deny", cloudMedia: "deny" } }): the recording stays on the device, so this stage is not `cloud`.
+    // If the hook may use a cloud model, pass { cloud: true } as the second argument so cloudPolicy holds the stage back.
+    transcribeStage(async (audio) => {
+        const heard = await voice.transcribe(audio)
+        if (!heard) throw voice.error ?? new Error("The recording could not be transcribed") // stop the run: do not feed an empty transcript to the next stage
+        return heard.text
+    }),
     // `cloud: true` on every stage that may send the transcript away; a stage without it is not held back by cloudPolicy
     jsonStage({ schema, cloud: true, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
     imageStage({ requestImage, prompt: (json) => json.scene, cost: (r) => r.usage && imageCost(r.usage).cost }),

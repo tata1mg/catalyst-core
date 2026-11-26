@@ -708,28 +708,10 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         }
     }
 
-    // ── ai (optional, on-device AI via catalyst-ai) ───────────────────────────
-    if (wc.ai && wc.ai.enabled) {
-        const aiPkg = path.join(root, "node_modules", "catalyst-ai", "package.json")
-        if (!fs.existsSync(aiPkg)) {
-            issues.push({
-                field: "WEBVIEW_CONFIG.ai",
-                severity: "error",
-                message:
-                    "ai.enabled=true but catalyst-ai is not installed. The native AI plugin is silently skipped and on-device AI will not work. Run: npm install catalyst-ai",
-            })
-        } else {
-            passed.push({ field: "WEBVIEW_CONFIG.ai", note: "enabled=true and catalyst-ai installed" })
-        }
+    // The model download policy is read by the in-browser engine too, so it is checked for every project that has one, not only when the
+    // native AI plugin is switched on.
+    {
         const browser = (config.AI_CONFIG && config.AI_CONFIG.browser) || {}
-        const engine = browser.engine
-        if (engine !== undefined && !["auto", "litert", "foundation-models"].includes(engine)) {
-            issues.push({
-                field: "AI_CONFIG.browser.engine",
-                severity: "error",
-                message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
-            })
-        }
         // AI_CONFIG.browser.download tunes the model download on a weak or lost connection. The runtime clamps bad
         // values silently, so a typo would just run on the defaults; catch it here.
         if (browser.download !== undefined) {
@@ -771,6 +753,30 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                     }
                 }
             }
+        }
+    }
+
+    // ── ai (optional, on-device AI via catalyst-ai) ───────────────────────────
+    if (wc.ai && wc.ai.enabled) {
+        const aiPkg = path.join(root, "node_modules", "catalyst-ai", "package.json")
+        if (!fs.existsSync(aiPkg)) {
+            issues.push({
+                field: "WEBVIEW_CONFIG.ai",
+                severity: "error",
+                message:
+                    "ai.enabled=true but catalyst-ai is not installed. The native AI plugin is silently skipped and on-device AI will not work. Run: npm install catalyst-ai",
+            })
+        } else {
+            passed.push({ field: "WEBVIEW_CONFIG.ai", note: "enabled=true and catalyst-ai installed" })
+        }
+        const browser = (config.AI_CONFIG && config.AI_CONFIG.browser) || {}
+        const engine = browser.engine
+        if (engine !== undefined && !["auto", "litert", "foundation-models"].includes(engine)) {
+            issues.push({
+                field: "AI_CONFIG.browser.engine",
+                severity: "error",
+                message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
+            })
         }
         if (browser.provider === "foundation-models" && platform === "android") {
             warnings.push({

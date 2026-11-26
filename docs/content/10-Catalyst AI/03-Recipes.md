@@ -138,8 +138,10 @@ const agent = useAgent({
   ],
 });
 
-await agent.run("Scan this report and fill in the form");
-// agent.pendingConfirmation is { tool: "submit_form", ... }: show a button, then agent.approve() or agent.deny()
+const done = agent.run("Scan this report and fill in the form"); // pending until the run ends
+// While it is pending, render the approval from state: agent.pendingConfirmation is { tool: "submit_form", ... } once the model asks
+// for it. Show a button that calls agent.approve() or agent.deny(); the run then continues.
+const result = await done;
 ```
 
 A tool marked `sideEffect` never runs without `approve()`. `maxSteps` is a hard limit enforced in code. `maxSpendUsd` is a soft budget: it is checked between model turns against estimated prices, so a run can
@@ -155,7 +157,13 @@ import { usePipeline, transcribeStage, jsonStage, imageStage } from "catalyst-co
 import { requestImage, imageCost } from "catalyst-ai";
 
 const stages = [
-  transcribeStage((audio) => voice.transcribe(audio).then((r) => r?.text ?? "")),
+  // voice = useTranscribe({ routing: { cloud: "deny", cloudMedia: "deny" } }): the recording stays on the device, so this stage is not `cloud`.
+  // If the hook may use a cloud model, pass { cloud: true } as the second argument so cloudPolicy holds the stage back.
+  transcribeStage(async (audio) => {
+    const heard = await voice.transcribe(audio);
+    if (!heard) throw voice.error ?? new Error("The recording could not be transcribed"); // stop the run: no empty transcript for the next stage
+    return heard.text;
+  }),
   jsonStage({ schema, cloud: true, generate: (prompt) => ai.generate({ messages: [{ role: "user", content: prompt }] }) }),
   imageStage({ requestImage, prompt: (json) => json.scene, cost: (r) => r.usage && imageCost(r.usage).cost }),
 ];

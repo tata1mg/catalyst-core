@@ -428,6 +428,11 @@ describe("check_config: AI_CONFIG.browser.download", () => {
         expect(run([1]).issues.some((i) => i.field === "AI_CONFIG.browser.download")).toBe(true)
         expect(run({ windowSec: "20" }).issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
     })
+    it("is checked for a web-only project too (native AI switched off)", () => {
+        const r = handle_check_config({ project_path: makeProject({ enabled: false }, { browser: { provider: "transformers", download: { windowSec: "20", minBytesPerSce: 5 } } }, true) })
+        expect(r.issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.browser.download.minBytesPerSce")).toBe(true)
+    })
     it("treats names that exist on every object (constructor, toString) as unknown keys instead of throwing", () => {
         const r = run({ constructor: 1, toString: 2 })
         const w = r.warnings.map((x) => x.field)
