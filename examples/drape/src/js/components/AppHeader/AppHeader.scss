@@ -1,0 +1,73 @@
+// Header sticks to the top of the scrollable body so it's always visible.
+// On mobile / native, padding-top respects safe-area-inset-top so the back button
+// doesn't hide behind the system status bar / notch.
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-14);
+    padding: var(--space-8) 0;
+    position: sticky;
+    top: 0;
+    background-color: var(--color-surface);
+    z-index: 10;
+}
+
+@media (max-width: 599px) {
+    .header {
+        padding-top: max(var(--space-8), env(safe-area-inset-top, 0));
+    }
+}
+
+.left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-14);
+}
+
+.right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-18);
+}
+
+.iconButton {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.titleStack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.3px;
+}
+
+.stepBadge {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--color-text-secondary);
+    background-color: var(--color-canvas);
+    border-radius: var(--radius-sm);
+    padding: var(--space-6) var(--space-10);
+}

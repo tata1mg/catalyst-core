@@ -1,0 +1,207 @@
+// Upload Attire — frame yTtlh in design/drape.pen
+// Spec: docs/UPLOAD-ATTIRE-IDEAS.md (Variation A: Contact Sheet)
+
+.body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+    padding: var(--space-4) var(--page-padding) 0 var(--page-padding);
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.sectionTitle {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+// Upload tile —————————————————————————————————————————————————————
+
+.uploadTile,
+.thumbAdd,
+.fieldRow {
+    transition: var(--transition-tap);
+}
+
+.uploadTile:active,
+.thumbAdd:active,
+.fieldRow:active {
+    transform: scale(0.99);
+}
+
+.uploadTile:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.uploadTile:disabled:active {
+    transform: none;
+}
+
+.uploadTile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    width: 100%;
+    height: 160px;
+    padding: 0 var(--space-20);
+    background-color: var(--color-canvas);
+    border: var(--stroke-soft) solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.uploadIconBg {
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-2);
+}
+
+.uploadPrimary {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.uploadSecondary {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+// Thumbnail strip ——————————————————————————————————————————————————
+
+.thumbStrip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-10);
+}
+
+.thumbCell {
+    position: relative;
+}
+
+.thumb {
+    height: 78px;
+    border-radius: var(--radius-xs);
+    background-color: var(--color-surface-soft);
+}
+
+.thumbRemove {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 11px;
+    background-color: rgba(26, 26, 26, 0.78);
+    color: var(--color-text-on-dark);
+    cursor: pointer;
+    transition: var(--transition-tap);
+}
+
+.thumbRemove:active {
+    transform: scale(0.92);
+}
+
+.thumbAdd {
+    height: 78px;
+    border: var(--stroke-thin) solid var(--color-border-subtle);
+    border-radius: var(--radius-xs);
+    background-color: transparent;
+    color: var(--color-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+// Field rows ———————————————————————————————————————————————————————
+
+.fieldList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-10);
+}
+
+.fieldRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 56px;
+    padding: 0 var(--space-18);
+    background-color: var(--color-surface);
+    border: var(--stroke-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+}
+
+.fieldStack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.fieldLabel {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+.fieldValue {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.fieldChevron {
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+// Continue area ————————————————————————————————————————————————————
+
+.continueArea {
+    padding: var(--space-12) var(--page-padding);
+    flex-shrink: 0;
+}
+
+// On mobile reserve space below the CTA so the floating TabBar doesn't
+// hide it when scrolled to the page bottom.
+@media (max-width: 599px) {
+    .continueArea {
+        margin-bottom: var(--tab-bar-height);
+    }
+}
