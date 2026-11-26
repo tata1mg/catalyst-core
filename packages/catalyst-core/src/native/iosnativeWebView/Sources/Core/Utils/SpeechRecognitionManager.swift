@@ -219,6 +219,9 @@ final class SpeechRecognitionManager {
             audioEngine.inputNode.removeTap(onBus: 0)
         }
         request?.endAudio()
+        // endAudio() says no more buffers are coming; finish() asks the task to complete what it has. Together they make the terminal callback
+        // certain, so `task` is never held (and new starts refused as busy) waiting for one that does not come.
+        task?.finish()
     }
 
     func cleanup() {

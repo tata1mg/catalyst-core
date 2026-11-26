@@ -976,13 +976,16 @@ function _checkRouting(config, wc, platform, issues, warnings, passed) {
         }
         return value
     }
+    // A bad value can be anything JSON allows, including an object whose toString is null: interpolating it would throw and the tool would
+    // return no report at all.
+    const showValue = (v) => (typeof v === "string" ? `"${v}"` : JSON.stringify(v))
     const policy = nested(routing.policy, "AI_CONFIG.routing.policy", "with objective, order, cloud, cloudMedia, weights and constraints")
     if (policy.objective !== undefined && !ROUTING_OBJECTIVES.includes(policy.objective)) {
-        err("AI_CONFIG.routing.policy.objective", `Unknown objective "${policy.objective}". Use ${ROUTING_OBJECTIVES.join(", ")}.`)
+        err("AI_CONFIG.routing.policy.objective", `Unknown objective ${showValue(policy.objective)}. Use ${ROUTING_OBJECTIVES.join(", ")}.`)
     }
     for (const key of ["cloud", "cloudMedia"]) {
         if (policy[key] !== undefined && !ROUTING_POLICIES.includes(policy[key])) {
-            err(`AI_CONFIG.routing.policy.${key}`, `"${policy[key]}" is not valid. Use allow, ask or deny.`)
+            err(`AI_CONFIG.routing.policy.${key}`, `${showValue(policy[key])} is not valid. Use allow, ask or deny.`)
         }
     }
     // Media leaves silently only when BOTH effective policies allow it: cloudMedia defaults to deny, and cloudMedia "allow" cannot

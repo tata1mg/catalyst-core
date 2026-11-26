@@ -101,6 +101,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
     const onEnd = useRef(options.onEnd)
     onEnd.current = options.onEnd
     const discard = useRef(false)
+    const listeningRef = useRef(false) // the shell says a session of this hook is recording
     // Bumped by cancel(), stop() and unmount, so a start() still waiting for the microphone permission can tell it
     // was abandoned and must not begin recognising when the answer arrives.
     const startToken = useRef(0)
@@ -141,6 +142,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
                 markSupport(reply)
             },
             onState: (next) => {
+                listeningRef.current = next === "listening"
                 if (next === "listening") setState("listening")
                 if (next === "idle") setState("idle")
             },
@@ -160,6 +162,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
                 onEnd.current?.(finalText)
             },
             onError: (code, message) => {
+                listeningRef.current = false
                 setState("idle")
                 setPartial("")
                 if (code === "CANCELLED") {
@@ -233,6 +236,8 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
             return { started: false, code }
         }
         if (!inApp()) return refuse("UNSUPPORTED", "Speech recognition by the phone is only available inside the app.")
+        // Already listening: a second start() must not reset the state to "idle" under a recording that is still going on.
+        if (listeningRef.current) return { started: true }
         if (supportedRef.current === null) {
             // Not asked yet, or not answered yet. Starting now could post a command the shell never acknowledges and leave the session
             // "starting" for good, so wait for the answer. It is bounded: with no reply the support timer marks it unavailable.

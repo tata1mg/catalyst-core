@@ -255,6 +255,9 @@ export function useAI(options: any = {}) {
                 return { output: "", error, route: null }
             }
             const ticket = guard.current.begin()
+            // A call that is still parked for a model switch belongs to the past from this moment, not only once routing has decided: the
+            // model can become ready while this call is still being routed, and the old call would start generating first.
+            pending.current.cancel()
             const decision = await decideFor(args, consent, false)
             // cancel() (or unmount) while routing was still deciding, or a newer call began: nothing is parked yet for this one to end, so it ends here.
             if (guard.current.stale(ticket)) return { output: "", error: null, route: decision }

@@ -402,6 +402,15 @@ describe("check_config: app id and LAN address", () => {
     })
 })
 
+describe("check_config: routing policy values that are not strings", () => {
+    it("reports an object-valued objective instead of throwing", () => {
+        const r = handle_check_config({ project_path: makeProject({ enabled: true }, { routing: { policy: { objective: { toString: null }, cloud: ["allow"] } } }, true) })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.policy.objective")
+        expect(fields).toContain("AI_CONFIG.routing.policy.cloud")
+    })
+})
+
 describe("check_config: AI_CONFIG.browser.download", () => {
     const run = (download: unknown) =>
         handle_check_config({ project_path: makeProject({ enabled: true }, { browser: { provider: "native", download } }, true) })

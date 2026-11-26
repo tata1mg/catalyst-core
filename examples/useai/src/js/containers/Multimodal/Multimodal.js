@@ -254,8 +254,13 @@ export default function Multimodal() {
             const asrMs = Math.round(performance.now() - t0)
             setPipe({ step: "structuring", transcript, asrMs, structMs: null })
             const t1 = performance.now()
-            await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
+            const structured = await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
             if (pipelineRun.current !== mine) return
+            if (structured?.error) {
+                // generate() resolves with its failure: a failed structuring step is not a finished run.
+                setPipe({ step: "failed", transcript, asrMs, structMs: Math.round(performance.now() - t1), error: String(structured.error?.message ?? structured.error) })
+                return
+            }
             setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
         } catch (err) {
             // generate() normally resolves with its failure, but a model download or a worker that cannot start can still reject: end the run visibly.

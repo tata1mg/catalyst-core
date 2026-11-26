@@ -137,8 +137,13 @@ export default function PipelineLab() {
         }
     }
     const askDeviceInner = async (content) => {
-        const result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
-        await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
+        let result
+        try {
+            result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
+        } finally {
+            // Also when generate() rejects: the model must not stay in GPU memory for the next stage (or a retry) to trip over.
+            await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
+        }
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }
@@ -279,12 +284,13 @@ export default function PipelineLab() {
     const onFile = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
+        // Every new selection first retires the one still being read, even if this one is then refused: a slower earlier read must not
+        // become the chosen clip after the person picked something else.
+        const mine = ++pickSeq.current
         if (!file.type.startsWith("audio/")) return setPickError(`Expected an audio file, got ${file.type || "unknown"}`)
         // Audio is decoded in full before its 30 s cap applies, so an oversized file is refused before it is read into memory.
         if (file.size > MAX_AUDIO_FILE_BYTES) return setPickError(`That recording is ${Math.round(file.size / 1048576)} MB; the limit is ${MAX_AUDIO_FILE_BYTES / 1048576} MB.`)
         setPickError(null)
-        // Only the latest selection may write its result: an earlier, slower read must not replace a newer pick.
-        const mine = ++pickSeq.current
         try {
             const data = await readAsDataUrl(file)
             if (pickSeq.current === mine) setAudio({ name: file.name, data })

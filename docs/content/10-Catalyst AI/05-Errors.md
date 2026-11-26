@@ -6,7 +6,9 @@ id: errors
 
 # Errors
 
-`useAI`, `useVision`, `useTranscribe` and `useAgent` report a problem through `error`: a registry error with a `code` you can test and a `message` that says what to do.
+`useAI`, `useVision`, `useTranscribe` and `useAgent` report a problem through `error`. Problems the framework recognises (a missing package, a bad request, a native or
+worker failure) are registry errors with a `code` you can test and a `message` that says what to do. A cloud request that the server rejects, or that fails on the
+network, arrives as a plain error whose message holds the HTTP status and the reason, without a `code`: show the message.
 `useImageGen`, `useSpeech` and `useLiveTranscribe` report a plain string in `error` instead (the string still says what to do), and `requestImage` and `requestSpeech`
 throw. This page lists what you can see
 and why.

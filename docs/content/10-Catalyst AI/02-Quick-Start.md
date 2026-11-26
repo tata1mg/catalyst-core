@@ -33,9 +33,14 @@ Add `AI_CONFIG` to your app's `config/config.json`. Keep keys out of source cont
 }
 ```
 
-- `providers`: the cloud providers you use and their keys. The server holds the keys; the browser only calls `/ai`.
+- `providers`: the cloud providers you use and their keys. The server holds the keys; the browser only calls `/ai`. Put the real `apiKey` in a config
+  file that is not committed (or generate it at deploy time from your secrets store). A provider with an empty key is reported as not configured, and the
+  Ask button below will show that error.
 - `browser`: the model used for `provider: "transformers"` (runs in the browser).
 - `routing`: the policy for `provider: "auto"` (where models may run, what may leave the device, cost limits).
+
+> **Protect the route before you deploy it.** `/ai` has no sign-in or rate limiting of its own: anyone who can reach it can spend your provider
+> account. Put it behind your own authentication and a rate limit.
 
 ## 3. Ask
 
@@ -43,11 +48,11 @@ Add `AI_CONFIG` to your app's `config/config.json`. Keep keys out of source cont
 import { useAI } from "catalyst-core/hooks";
 
 export default function Ask() {
-  const { generate, output, loading, error } = useAI({ provider: "gemini" });
+  const { generate, output, loading, streaming, error } = useAI({ provider: "gemini" });
 
   return (
     <>
-      <button disabled={loading} onClick={() => generate({ messages: [{ role: "user", content: "Say hello" }] })}>
+      <button disabled={loading || streaming} onClick={() => generate({ messages: [{ role: "user", content: "Say hello" }] })}>
         Ask
       </button>
       {error && <p role="alert">{error.message}</p>}
@@ -69,15 +74,19 @@ Change one option:
 | `provider: "native"` | Runs on the phone inside the app (Gemma 4 on iOS and Android, Apple's model as the iOS fallback). Requires `WEBVIEW_CONFIG.ai.enabled` |
 | `provider: "auto"` | Picks for you: on the device first, then by speed and cost, within your `routing` policy |
 
-On the device the first use downloads the model (Gemma 4 E2B is about 2.6 GB). The download can be paused, and resumes from where it stopped.
+On the device the first use downloads the model (Gemma 4 E2B is about 2.6 GB). The download can be paused, and resumes from where it stopped. With
+`native`, the first call waits for the model: read `modelReady` and `downloadProgress` from the hook to keep the button disabled and show progress.
 
 ## 5. Handle what can go wrong
 
-Every failure arrives as `error`, with a `code` you can test and a `message` you can show:
+Failures arrive as `error` with a `message` you can show. Failures the framework recognises carry a `code` you can test; a cloud request that the
+server rejects (a bad key, a rate limit, a provider outage) arrives as a plain error whose message holds the status and the server's reason, with no `code`:
 
 ```javascript
 if (error?.code === "AI-010") {
   // catalyst-ai is not installed
+} else if (error) {
+  // show error.message: it says what happened
 }
 ```
 
@@ -89,5 +98,5 @@ The full list of cases, and what each one means, is in [Errors](/content/Catalys
 
 ## Try it on a phone
 
-The `examples/useai` app in the repository has working pages for text, images and audio, a camera scanner, and a pipeline lab. The
-[iOS device test guide](https://github.com/tata1mg/catalyst-core/blob/main/examples/useai/IOS_DEVICE_TEST.md) walks through running it on a real iPhone.
+The `examples/useai` app in the repository has working pages for text, images and audio, a camera scanner, and a pipeline lab. Its
+`IOS_DEVICE_TEST.md` (in `examples/useai`) walks through running it on a real iPhone.
