@@ -3,6 +3,8 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import pkg from "../../package.json"
+
 import spinnerImported from "../../src/cli/spinner.js"
 import themeImported from "../../src/cli/theme.js"
 
@@ -40,13 +42,14 @@ describe("theme helpers", () => {
 
     it("version() is the package's own version and is cached", () => {
         const v = theme.version()
-        expect(typeof v === "string" || v === null).toBe(true)
+        expect(v).toBe(pkg.version) // this package's own version, not null and not another package's
         expect(theme.version()).toBe(v)
     })
 
     it("header shows title, version and subtitle; row aligns the key", () => {
         const h = plain(theme.header("catalyst build", "production"))
         expect(h).toContain("catalyst build")
+        expect(h).toContain(String(pkg.version)) // the header shows the version
         expect(h).toContain("production")
         expect(plain(theme.header("only title"))).not.toContain("production")
         expect(plain(theme.row("Port", "3005"))).toMatch(/Port\s+3005/)
@@ -120,7 +123,10 @@ describe("Spinner edge cases", () => {
         const s = new Spinner(plainStream.stream).start("x")
         s.pause()
         s.resume()
+        const afterPauseResume = plainStream.writes.slice()
         s.stop()
+        // Nothing that moves the cursor or clears a line on a stream that is not a terminal (colour codes are a separate matter and are not asserted here).
+        expect(afterPauseResume.some((w: string) => w.includes("\r") || w.includes("\u001b[2K") || /\u001b\[\d*[ABCDGHJK]/.test(w))).toBe(false)
         const tty = fake(true)
         const idle = new Spinner(tty.stream)
         idle.pause()

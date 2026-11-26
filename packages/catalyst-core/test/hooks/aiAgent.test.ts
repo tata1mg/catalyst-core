@@ -324,13 +324,70 @@ describe("runAgent: limits, names and a tool that never returns", () => {
 
     it("a cancel returns control even when the running tool ignores its signal and never settles", async () => {
         const controller = new AbortController()
-        const tool: AgentTool = { name: "hang", description: "Never returns", run: () => new Promise(() => {}) }
+        const run = vi.fn(() => new Promise<never>(() => {}))
+        const tool: AgentTool = { name: "hang", description: "Never returns", run }
         const generate = vi.fn().mockResolvedValueOnce({ output: '{"tool":"hang"}', route: { action: "run" } }).mockResolvedValue(final)
         const pending = runAgent({ goal: "g", tools: [tool], generate, signal: controller.signal })
-        await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1))
+        await vi.waitFor(() => expect(run).toHaveBeenCalled()) // the tool is really running before the cancel
         controller.abort()
         const r = await pending
         expect(r.status).toBe("cancelled")
         expect(r.steps[0]).toMatchObject({ type: "tool", tool: "hang", outcome: "error" })
     })
 })
+
+describe("runAgent: a run that is cancelled while it waits", () => {
+    it("a model call that never settles does not keep cancel() from returning", async () => {
+        const controller = new AbortController()
+        const generate = vi.fn(() => new Promise<any>(() => {}))
+        const pending = runAgent({ goal: "g", tools: [], generate, signal: controller.signal })
+        controller.abort()
+        const r = await Promise.race([pending, new Promise((res) => setTimeout(() => res("still waiting"), 500))])
+        expect(r).toMatchObject({ status: "cancelled" })
+    })
+
+    it("an approval nobody answers does not keep cancel() from returning, and the tool does not run", async () => {
+        const controller = new AbortController()
+        const run = vi.fn(async () => "submitted")
+        const { generate } = reply({ tool: "submit", args: { to: "x" } })
+        const pending = runAgent({ goal: "g", tools: [submit(run)], generate, signal: controller.signal, confirm: () => new Promise(() => {}) })
+        await new Promise((r) => setTimeout(r, 20))
+        controller.abort()
+        const r = await Promise.race([pending, new Promise((res) => setTimeout(() => res("still waiting"), 500))])
+        expect(r).toMatchObject({ status: "cancelled" })
+        expect(run).not.toHaveBeenCalled()
+    })
+
+    it("an abort that arrives right after the approval still stops the tool", async () => {
+        const controller = new AbortController()
+        const run = vi.fn(async () => "submitted")
+        const { generate } = reply({ tool: "submit", args: { to: "x" } })
+        const r = await runAgent({
+            goal: "g", tools: [submit(run)], generate, signal: controller.signal,
+            confirm: async () => { queueMicrotask(() => controller.abort()); return true }, // approved, and cancelled a moment later
+        })
+        expect(run).not.toHaveBeenCalled()
+        expect(r.status).toBe("cancelled")
+    })
+})
+
+describe("runAgent: what happens after a tool has finished", () => {
+    it("a result that cannot be turned into text is not reported to the model as a failure", async () => {
+        const hostile: any = Object.create(null)
+        hostile.self = hostile // a cycle with no prototype: both serialisation attempts throw
+        const tool: AgentTool = { name: "make", description: "Make a record", run: async () => hostile }
+        const { generate, calls } = reply({ tool: "make" }, { final: "ok" })
+        const r = await runAgent({ goal: "g", tools: [tool], generate })
+        expect(r.steps[0]).toMatchObject({ type: "tool", tool: "make", outcome: "ok" })
+        expect(calls[1].at(-1).content).toContain("finished")
+        expect(calls[1].at(-1).content).not.toContain("failed")
+    })
+
+    it("a step listener that throws does not turn a finished step into a rejected run", async () => {
+        const { generate } = reply({ tool: "echo", args: { text: "hi" } }, { final: "done" })
+        const r = await runAgent({ goal: "g", tools: [echo], generate, onStep: () => { throw new Error("listener bug") } })
+        expect(r).toMatchObject({ status: "done", output: "done" })
+        expect(r.steps.map((s) => s.type)).toEqual(["tool", "final"])
+    })
+})
+

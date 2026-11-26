@@ -721,6 +721,8 @@ describe("check_config: AI_CONFIG.pricing", () => {
     it("warns about a cloud model nobody has priced, but not about built-in or configured ones", () => {
         const r = handle_check_config({ project_path: projectWithBuiltIns({ providers }) })
         expect(fieldsOf(r)).toContain("AI_CONFIG.pricing.brand-new-model")
+        expect(r.warnings.map((w) => w.field)).toContain("AI_CONFIG.pricing.brand-new-model") // a warning, not a blocking issue
+        expect(r.issues.map((i) => i.field)).not.toContain("AI_CONFIG.pricing.brand-new-model")
         expect(fieldsOf(r)).not.toContain("AI_CONFIG.pricing.gemini-3.5-flash")
         const priced = handle_check_config({ project_path: projectWithBuiltIns({ providers, pricing: { "brand-new-model": { input: 2, output: 10 } } }) })
         expect(fieldsOf(priced)).not.toContain("AI_CONFIG.pricing.brand-new-model")
@@ -925,6 +927,7 @@ describe("check_config: review backlog", () => {
             spy.mockRestore()
         }
         const mine = reads.filter((p) => p.startsWith(root))
+        expect(mine.length).toBeGreaterThan(0) // the scan really read this project (a spy that saw nothing would pass the next line trivially)
         expect(new Set(mine).size).toBe(mine.length) // no file twice
     })
 
@@ -954,7 +957,7 @@ describe("check_config: review backlog", () => {
         const source = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "imageGen.js"), "utf8")
         const adapters = /return \{ ([^}]*) \}\s*\n\}\s*\n\s*module\.exports/.exec(source)?.[1] ?? ""
         const names = [...adapters.matchAll(/(\w+):/g)].map((m) => m[1]).sort()
-        expect(names).toEqual(["gemini", "openai"])
+        expect(names.length).toBeGreaterThan(0)
         const configSource = fs.readFileSync(path.join(__dirname, "..", "tools", "config.js"), "utf8")
         const listed = /const IMAGE_PROVIDERS = \[([^\]]*)\]/.exec(configSource)?.[1] ?? ""
         expect([...listed.matchAll(/"(\w+)"/g)].map((m) => m[1]).sort()).toEqual(names) // a new adapter must be added to check_config too

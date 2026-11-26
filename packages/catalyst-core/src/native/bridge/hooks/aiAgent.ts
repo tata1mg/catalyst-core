@@ -158,7 +158,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     const messages: { role: string; content: string }[] = [{ role: "user", content: `${buildAgentPrompt(tools, instructions)}\n\nGoal:\n${goal}` }]
     const record = (step: AgentStep) => {
         steps.push(step)
-        onStep?.(step)
+        // A listener that throws must not turn a step that already happened (a tool that wrote something) into a rejected run.
+        try {
+            onStep?.(step)
+        } catch (_) {
+            /* the step is recorded; the listener's failure is its own */
+        }
     }
     const finish = (status: AgentStatus, extra: Partial<AgentResult> = {}): AgentResult => ({ status, output: "", steps, spentUsd, ...extra })
     const cancelled = () => !!signal?.aborted
@@ -169,7 +174,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
 
         let result: Awaited<ReturnType<typeof generate>>
         try {
-            result = await generate(messages)
+            // A generation that never settles must not keep a cancel from returning.
+            result = await (signal ? raceAbort(generate(messages), signal, "The run was cancelled while the model was answering.") : generate(messages))
         } catch (cause) {
             // A provider or native rejection must end the run as a normal result, not escape as an exception that leaves the hook "running".
             if (cancelled()) return finish("cancelled")
@@ -223,11 +229,11 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentResult> {
     return finish("max-steps")
 }
 
-/** Settles with the tool's outcome, or rejects as soon as the signal aborts (the tool's own promise is left to finish on its own). */
-function raceToolAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+/** Settles with the promise's outcome, or rejects as soon as the signal aborts (the promise itself is left to finish on its own). */
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal, message: string): Promise<T> {
     promise.catch(() => {}) // a late failure after we stopped waiting is not an unhandled rejection
     return new Promise<T>((resolve, reject) => {
-        const onAbort = () => reject(new Error("The run was cancelled while this tool was running; the tool may still finish in the background."))
+        const onAbort = () => reject(new Error(message))
         if (signal.aborted) return onAbort()
         signal.addEventListener("abort", onAbort, { once: true })
         promise.then(
@@ -245,7 +251,9 @@ async function executeTool(
     if (tool.sideEffect) {
         let allowed = false
         try {
-            allowed = ctx.confirm ? !!(await ctx.confirm({ tool: tool.name, args, description: tool.description })) : false
+            // An approval nobody answers must not keep a cancel from returning either.
+            const asking = ctx.confirm ? Promise.resolve(ctx.confirm({ tool: tool.name, args, description: tool.description })) : Promise.resolve(false)
+            allowed = !!(await (ctx.signal ? raceAbort(asking, ctx.signal, "The run was cancelled while waiting for approval.") : asking))
         } catch (_) {
             allowed = false
         }
@@ -260,14 +268,27 @@ async function executeTool(
     if (ctx.signal?.aborted) {
         return { step: { outcome: "declined" }, message: "The run was cancelled before this action ran, so it was not done." }
     }
+    let value: unknown
     try {
-        const running = Promise.resolve().then(() => tool.run(args, { signal: ctx.signal ?? new AbortController().signal }))
+        // The cancel check sits inside the deferred call: an abort that lands between the approval and this microtask still stops the tool.
+        const running = Promise.resolve().then(() => {
+            if (ctx.signal?.aborted) throw new Error("The run was cancelled before this action ran, so it was not done.")
+            return tool.run(args, { signal: ctx.signal ?? new AbortController().signal })
+        })
         // A tool that ignores its signal and never settles must not keep a cancel from returning. The tool itself still keeps
         // running (code cannot stop it); the run just no longer waits for it.
-        const value = await (ctx.signal ? raceToolAbort(running, ctx.signal) : running)
-        return { step: { outcome: "ok", result: value }, message: clip(stringify(value), ctx.maxResultChars) }
+        value = await (ctx.signal ? raceAbort(running, ctx.signal, "The run was cancelled while this tool was running; the tool may still finish in the background.") : running)
     } catch (cause) {
         const message = (cause as Error)?.message || String(cause)
         return { step: { outcome: "error", error: message }, message: clip(`The tool failed: ${message}`, ctx.maxResultChars) }
     }
+    // The tool has finished. If what it returned cannot be turned into text for the model (a cycle with no prototype, say), that is a problem
+    // with the report, not with the action: do not tell the model it failed (it would do it again).
+    let shown: string
+    try {
+        shown = clip(stringify(value), ctx.maxResultChars)
+    } catch (_) {
+        shown = "The tool finished, but its result could not be shown here."
+    }
+    return { step: { outcome: "ok", result: value }, message: shown }
 }

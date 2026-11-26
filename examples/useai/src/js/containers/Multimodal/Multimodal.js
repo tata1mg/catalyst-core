@@ -212,7 +212,9 @@ export default function Multimodal() {
                 setPickError(null)
                 ;(kind === "image" ? setImage : setAudio)({ name: file.name, data })
             })
-            .catch((err) => setPickError(`Could not read the picked file: ${err.message}`))
+            .catch((err) => {
+                if (!cancelled) setPickError(`Could not read the picked file: ${err.message}`) // an obsolete selection's failure is not the current one's
+            })
         return () => {
             cancelled = true
         }
@@ -227,6 +229,8 @@ export default function Multimodal() {
 
     // Identifies the pipeline run in progress. Stop (and a newer run) changes it, so a run that was stopped cannot go on to the next step.
     const pipelineRun = useRef(0)
+    // Leaving the page ends a running pipeline: its next step must not start after the component is gone.
+    useEffect(() => () => { pipelineRun.current++ }, [])
     // Switching tab changes which model `ai` talks to (the pipeline's second step would then go to the new one, possibly the cloud, with the
     // transcript the first step produced on the device). A change of provider therefore ends any pipeline run in progress.
     useEffect(() => {

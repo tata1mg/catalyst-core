@@ -242,8 +242,9 @@ final class SpeechRecognitionManager {
         silenceTimer = nil
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
         }
+        // The tap is installed before the engine starts, so a start that threw leaves a tap on an engine that is not running: always remove it.
+        audioEngine.inputNode.removeTap(onBus: 0)
         request = nil
         task = nil
         restoreSession()
