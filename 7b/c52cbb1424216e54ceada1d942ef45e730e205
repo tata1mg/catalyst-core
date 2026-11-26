@@ -1,0 +1,57 @@
+"docs/content/10-Catalyst AI/02-Quick-Start.md"
+  s_9ac4708a3dac9c::t_03d3edda4a9c0f 73,78
+docs/scripts/generate-docs-manifest.mjs
+  s_9ac4708a3dac9c::t_684c491e0ccecb 167,169-172
+examples/useai/IOS_DEVICE_TEST.md
+  s_9ac4708a3dac9c::t_9f234a5793c50c 24
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_9ac4708a3dac9c::t_060891a534e8b6 139,141,147-149,225-227,229,231,255-257,277,332,371,409,412,414,419,426-427
+examples/useai/src/js/containers/PipelineLab/useVoiceRecorder.js
+  s_9ac4708a3dac9c::t_0893900afd991d 37,76,142,144
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_9ac4708a3dac9c::t_a377f6bdb5554c 83-87,90-91,107,119,150-164,167,183,193,205
+packages/catalyst-ai/scripts/pricing-cli.js
+  s_9ac4708a3dac9c::t_e5a1e1796e109c 208-213
+packages/catalyst-ai/src/resumableFetch.js
+  s_9ac4708a3dac9c::t_dfebf3d7e65e9a 543-544
+packages/catalyst-ai/src/useCloudAI.js
+  s_9ac4708a3dac9c::t_f85857bcd00ea9 294-295
+packages/catalyst-ai/src/useNativeAI.js
+  s_9ac4708a3dac9c::t_b4dd919c165e57 216-218,418-419
+packages/catalyst-ai/src/useWebAI.js
+  s_9ac4708a3dac9c::t_89c13c34ec58aa 127-135,225
+packages/catalyst-ai/src/webWorkerScript.js
+  s_9ac4708a3dac9c::t_a42daf632a287d 30
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SpeechRecognitionManager.kt
+  s_9ac4708a3dac9c::t_e436ad23791963 28-32,48,139-140,142,169-176,187
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_9ac4708a3dac9c::t_6c394a96a1cef2 274-282
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_9ac4708a3dac9c::t_75a329fda749d0 142-144
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_9ac4708a3dac9c::t_734ee01414d484 210-216
+packages/catalyst-core/src/native/bridge/hooks/useTranscribe.ts
+  s_9ac4708a3dac9c::t_599f30a78eff93 364-365,379,507-516
+packages/catalyst-core/src/native/buildIos/config.js
+  s_9ac4708a3dac9c::t_9da1148f731b04 443-444
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_9ac4708a3dac9c::t_f5afe56680695a 229-230,234-243
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_9ac4708a3dac9c::t_3b67a1e56c226f 56-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7bc52cbb1424216e54ceada1d942ef45e730e205",
+  "prompts": {},
+  "sessions": {
+    "s_9ac4708a3dac9c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d15cf701-6fbd-4ff0-9958-732976753fc9",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
