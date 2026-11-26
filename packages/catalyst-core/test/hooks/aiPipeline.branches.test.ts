@@ -1,7 +1,7 @@
 // Branch coverage for the pipeline runner: value previews, validation errors, aborts, cancellation mid-run and the
 // transcribe stage's two result shapes.
 import { describe, expect, it, vi } from "vitest"
-import { codeStage, preview, runPipeline, transcribeStage, validatePipeline } from "../../src/native/bridge/hooks/aiPipeline"
+import { codeStage, imageStage, preview, runPipeline, transcribeStage, validatePipeline } from "../../src/native/bridge/hooks/aiPipeline"
 
 describe("preview", () => {
     it("describes each type without dumping payloads", () => {
@@ -128,3 +128,32 @@ describe("pipeline option and value checks", () => {
         expect(checkType("json", { a: 1 })).toBeNull()
     })
 })
+
+describe("review round: pipeline edge cases", () => {
+    it("a media object whose mimeType is not a string still previews safely", () => {
+        const hostile = { url: "https://x/y.png", mimeType: Object.create(null) }
+        expect(() => preview("image", hostile)).not.toThrow()
+        expect(preview("image", { mimeType: "image/png" })).toBe("image (image/png)")
+    })
+
+    it("an image request is not sent for a run that was cancelled while its prompt was being prepared", async () => {
+        const controller = new AbortController()
+        const requestImage = vi.fn(async () => ({ images: [{ url: "x" }] }))
+        const stage = imageStage({ requestImage: requestImage as any, prompt: async () => { controller.abort(); return "a boat" } })
+        const result = await runPipeline([stage], { scene: "x" }, { signal: controller.signal, cloudPolicy: "allow" })
+        expect(result.status).toBe("cancelled")
+        expect(requestImage).not.toHaveBeenCalled()
+    })
+
+    it("replacing an entry of the stage array during a run does not change the chain that was validated", async () => {
+        const seen: string[] = []
+        const stages: any[] = [
+            codeStage("first", "text", "text", async (x: string) => { stages[1] = codeStage("swapped", "json", "json", (v: any) => v); return x }),
+            codeStage("second", "text", "text", (x: string) => { seen.push("second"); return x }),
+        ]
+        const result = await runPipeline(stages, "in")
+        expect(result.status).toBe("done")
+        expect(seen).toEqual(["second"])
+    })
+})
+

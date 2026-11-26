@@ -119,7 +119,7 @@ export function preview(type: PipelineType, value: unknown): string {
     if (typeof v === "string") return `${kind} (${v.startsWith("data:") ? "data URL" : "reference"}, ${v.length} chars)`
     if (v instanceof ArrayBuffer || ArrayBuffer.isView(v)) return `${kind} (${v.byteLength} bytes)`
     if (typeof Blob !== "undefined" && v instanceof Blob) return `${kind} (${v.size} bytes${v.type ? `, ${v.type}` : ""})`
-    if (isPlainObject(v)) return `${kind} (${v.mimeType ?? "object"})`
+    if (isPlainObject(v)) return `${kind} (${typeof v.mimeType === "string" ? v.mimeType : "object"})`
     return kind
 }
 
@@ -176,8 +176,10 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
  * Cancellation is cooperative. `options.signal` is raced against the running stage, so the result settles as "cancelled"
  * and no later stage starts, but a stage that has already started keeps running unless it observes `ctx.signal`.
  */
-export async function runPipeline(stages: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
-    validatePipeline(stages)
+export async function runPipeline(stagesInput: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
+    // A copy, checked and then used: if the caller replaces an entry of its array while an earlier stage is awaiting a model, the run still
+    // follows the chain that was validated.
+    const stages = validatePipeline([...stagesInput])
     const { signal, onStep, maxCostUsd, cloudPolicy } = options
     // A cap that is not a real number would be silently ignored (NaN compares false) or stop the run before it began (negative).
     if (maxCostUsd !== undefined && !(typeof maxCostUsd === "number" && Number.isFinite(maxCostUsd) && maxCostUsd >= 0)) {
@@ -363,6 +365,8 @@ export function imageStage(options: {
         run: async (json, ctx) => {
             const prompt = await options.prompt(json)
             const images = options.images ? await options.images(json) : undefined
+            // Cancelled while the prompt or the pictures were being prepared: nothing may be sent for a run that was stopped.
+            if (ctx.signal?.aborted) throw new Error("The run was cancelled before the image request was sent")
             // `images` decides whether this is an edit: a list means edit, an empty or missing list means generate. A leftover `images` in
             // requestOptions must not survive an empty answer, or stale pictures would be uploaded for an edit nobody asked for.
             const { images: _ignored, ...rest } = (options.requestOptions ?? {}) as Record<string, unknown>

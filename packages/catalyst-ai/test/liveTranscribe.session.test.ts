@@ -79,9 +79,10 @@ describe("startLiveTranscription lifecycle", () => {
         vi.useFakeTimers()
         const finished = session.stop()
         expect(closeMic).toHaveBeenCalled()
-        expect(session.stop()).resolves.toBe("One.")
+        const again = session.stop() // a repeated stop() returns the text so far
         await vi.advanceTimersByTimeAsync(2000)
         expect(await finished).toBe("One.")
+        await expect(again).resolves.toBe("One.")
         expect(FakeSocket.last.closed).toBe(true)
     })
 

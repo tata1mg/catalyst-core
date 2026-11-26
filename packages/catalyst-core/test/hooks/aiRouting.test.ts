@@ -547,3 +547,27 @@ describe("a per-hook routing override", () => {
         expect(r.policy.weights.latency).toBe(1)
     })
 })
+
+describe("review round: router edge cases", () => {
+    it("an objective that is only an inherited property name falls back to balanced", () => {
+        expect(setup("ios", { objective: "constructor" }).policy).toMatchObject({ objective: "balanced" })
+        expect(setup("ios", { objective: { toString: null } }).policy).toMatchObject({ objective: "balanced" })
+    })
+
+    it("a call with nothing measured is not counted as an observation", () => {
+        const first = recordObserved(undefined, { ttftMs: 500, tps: 20 })
+        expect(first?.n).toBe(1)
+        expect(recordObserved(first, { ttftMs: null, tps: null })).toBe(first) // same object: nothing new learned
+        expect(recordObserved(first, { ttftMs: 0, tps: -1 })).toBe(first)
+        expect(recordObserved(first, { ttftMs: 400, tps: null })?.n).toBe(2)
+    })
+
+    it("a cloud model that the cost limit refuses is not offered for consent", () => {
+        const only = { ...config, onDevice: { ios: [], android: [], web: [] }, cloud: [config.cloud[0]] }
+        const refused = pick(["text"], sig(), { constraints: { maxCostUsd: 0.0000001 } }, {}, {}, only)
+        expect(refused.action).not.toBe("ask") // asking would end with a yes for a model the limit then rejects
+        const allowed = pick(["text"], sig(), null, {}, {}, only)
+        expect(allowed.action).toBe("ask") // without the limit it is still asked for
+    })
+})
+

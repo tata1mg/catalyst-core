@@ -494,7 +494,11 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
         session.stopRequested = true
         if (session.kind === "platform") speechRef.current.stop()
         else if (session.kind === "recorder") micRef.current.stop()
-        else stopLive() // still deciding: nothing to wait for
+        else {
+            stopLive() // still deciding: nothing to wait for
+            // The listen() promise has settled with null; the hook's own state must not stay "running" for a session that never started.
+            if (mounted.current) setState(initial())
+        }
     }, [stopLive])
 
     const transcribe = useCallback((source: AudioSource) => execute(source, {}), [execute])

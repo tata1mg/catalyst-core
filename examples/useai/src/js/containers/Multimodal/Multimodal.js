@@ -441,6 +441,11 @@ export default function Multimodal() {
                     {" · "}step 2 · Gemma 4 E2B: {pipe.step === "structuring" ? `structuring${percent != null && percent < 100 ? ` (download ${percent}%)` : ""}…` : pipe.structMs != null ? `${(pipe.structMs / 1000).toFixed(1)} s` : pipe.step === "transcribing" ? "waiting" : pipe.step}
                 </div>
             )}
+            {pipe?.error && (
+                <div className="mt-2 text-[13px] text-red-400" data-testid="pipeline-error">
+                    {pipe.error}
+                </div>
+            )}
             {pipe?.transcript && (
                 <div className="mt-2 text-[12px]" data-testid="pipeline-transcript">
                     <div className="font-mono uppercase text-[11px]">Step 1 transcript (Whisper base)</div>

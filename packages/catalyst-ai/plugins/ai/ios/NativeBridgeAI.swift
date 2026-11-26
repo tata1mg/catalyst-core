@@ -99,7 +99,9 @@ final class NativeBridgeAI: NativeAIEngine {
     }
 
     func supply(prompt: String, genConfig: [String: Any], conversationId incomingId: String?) async throws -> NativeAIStream {
-        let loaded = lock.withLock { engine }
+        // The engine and the capabilities it was created with are read together: they are written together (under the lock) when it loads.
+        let (loadedEngine, visionAvailable, audioAvailable) = lock.withLock { (engine, visionEnabled, audioEnabled) }
+        let loaded = loadedEngine
         guard let loaded = loaded else {
             throw NativeAIError(message: "Engine not initialized — call init() first", code: NativeAIErrorCode.streamNotReady)
         }
@@ -120,7 +122,7 @@ final class NativeBridgeAI: NativeAIEngine {
         if mediaFiles.isEmpty {
             message = Message(prompt)
         } else {
-            let blocked = mediaFiles.first { ($0.kind == .image && !visionEnabled) || ($0.kind == .audio && !audioEnabled) }
+            let blocked = mediaFiles.first { ($0.kind == .image && !visionAvailable) || ($0.kind == .audio && !audioAvailable) }
             if let blocked = blocked {
                 cleanup()
                 throw NativeAIError(message: "The loaded model does not support \(blocked.kind.rawValue) input", code: NativeAIErrorCode.invalidRequestBody)

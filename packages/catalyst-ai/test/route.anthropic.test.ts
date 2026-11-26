@@ -156,7 +156,8 @@ describe("anthropic provider", () => {
     })
 
     it("sampling parameters are sent only to models that still accept them", async () => {
-        fetchMock.mockResolvedValue(ok({ content: [{ type: "text", text: "x" }], usage: {} }))
+        // A new Response for every call: a body can be read only once, so one shared object would make every call after the first fail.
+        fetchMock.mockImplementation(async () => ok({ content: [{ type: "text", text: "x" }], usage: {} }))
         const call = async (model: string) => {
             fetchMock.mockClear()
             await invoke(makeReq({ model, messages: [{ role: "user", content: "hi" }], genConfig: { temperature: 0.2, topP: 0.9, maxTokens: 512 } }, "generate"))

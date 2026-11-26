@@ -927,7 +927,8 @@ router.post("/gemini/live-token", async (req, res) => {
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] gemini live-token error:", code ? `[${code}] ${logSuffix}` : logSuffix)
+        // Provider response text can reach the message: logged through logSafe, like the image and speech handlers.
+        console.error("[catalyst-ai] gemini live-token error:", logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })

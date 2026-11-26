@@ -305,7 +305,7 @@ export function normalizeRouting(
         constraints: { ...(configured.constraints || {}), ...(override?.constraints || {}) },
         weights: { ...(configured.weights || {}), ...(override?.weights || {}) },
     }
-    const objective: Objective = base.objective in OBJECTIVES ? base.objective : "balanced"
+    const objective: Objective = typeof base.objective === "string" && Object.prototype.hasOwnProperty.call(OBJECTIVES, base.objective) ? base.objective : "balanced"
     const weights = { ...OBJECTIVES[objective] }
     for (const k of ["cost", "latency", "tps"] as const) {
         const w = num(base.weights?.[k])
@@ -340,6 +340,9 @@ export function recordObserved(prev: Observed | undefined, metrics: { ttftMs?: n
     const a = 0.3
     const mix = (old: number | undefined, v: number | null | undefined) =>
         typeof v === "number" && v > 0 ? (old === undefined ? v : old * (1 - a) + v * a) : old
+    // A call with nothing measured is not an observation: counting it would raise the weight of the old numbers without any new evidence.
+    const usable = (v: number | null | undefined) => typeof v === "number" && v > 0
+    if (!usable(metrics.ttftMs) && !usable(metrics.tps)) return prev
     const ttftMs = mix(prev?.ttftMs, metrics.ttftMs)
     const tps = mix(prev?.tps, metrics.tps)
     if (ttftMs === undefined && tps === undefined) return prev
@@ -475,12 +478,13 @@ export function chooseCandidate(
             if (!signals.online) { skipped.push({ id: c.id, why: "offline" }); continue }
             if (signals.cloudProviders && !signals.cloudProviders.includes(c.provider as string)) { skipped.push({ id: c.id, why: `provider "${c.provider}" not configured` }); continue }
             if (cloudPolicy === "deny") { skipped.push({ id: c.id, why: media ? "cloud denied for media" : "cloud denied" }); continue }
-            if (cloudPolicy === "ask" && !consent.cloud) { askCloud.push(c); skipped.push({ id: c.id, why: "needs consent" }); continue }
         }
         const e = estimate(c, policy, observed[c.id], signals.loadedId)
         // An in-browser model only gets here once its download was agreed to (or it is loaded), so its load is not held against the limit.
         const why = limitViolation(e, policy.constraints, c.mode === "local" ? loadMsOf(c, signals) : 0)
         if (why) { skipped.push({ id: c.id, why }); continue }
+        // Consent is asked for a model that could actually run: asking first would end with "yes" for one the limits then refuse.
+        if (c.mode === "cloud" && cloudPolicy === "ask" && !consent.cloud) { askCloud.push(c); skipped.push({ id: c.id, why: "needs consent" }); continue }
         viable.push({ c, e })
     }
 
