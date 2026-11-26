@@ -238,15 +238,15 @@ describe("SSR handler — critical asset collection", () => {
 })
 
 describe("SSR handler — deferred assets discovered during render", () => {
-    it("adds integrity and crossorigin to critical and deferred scripts listed in the app's integrity manifest", async () => {
+    it("adds integrity and crossorigin to critical and deferred scripts listed in the integrity manifest", async () => {
         const homeUrl = "http://localhost/assets/home.abc123.js"
         const widgetUrl = "http://localhost/assets/widget.def456.js"
         const homeHash = "sha384-nrRBJlKm9Dvo5pXLPVhxDdZA1L+cmiRxZeD4vsLg5KD91ezcV2K4jNTgM1coLR63"
         const widgetHash = "sha384-YxXJh6SJ9O4vCdR2fb9/lg26CbNfX98m5EldbvHRax5/NZz0AQ0ZED7fat7rrdCp"
         vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
         mockManifest({
-            [homeUrl]: { integrity: homeHash, crossOrigin: "anonymous" },
-            [widgetUrl]: { integrity: widgetHash, crossOrigin: "anonymous" },
+            [homeUrl]: homeHash,
+            [widgetUrl]: widgetHash,
         })
 
         const { default: handler } = await import("../../src/server/renderer/handler.jsx")

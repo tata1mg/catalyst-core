@@ -3,10 +3,23 @@ import path from "path"
 
 let manifest = null
 let assetManifest = null
-let routeManifest = null
+let integrityManifest: Record<string, string> = {}
 let loaded = false
 
 const isProduction = process.env.NODE_ENV === "production"
+const isScriptIntegrityEnabled = [true, "true"].includes(process.env.SCRIPT_INTEGRITY_ENABLE as any)
+
+// integrity.json is keyed by build file path. Scripts are rendered by URL, so
+// re-key it with the same public path ChunkExtractor uses to build those URLs.
+function toUrlKeys(files: Record<string, string>) {
+    const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`
+    const publicPath = `${baseUrl.replace(/\/+$/, "")}/`
+    const byUrl: Record<string, string> = {}
+    for (const [file, integrity] of Object.entries(files || {})) {
+        byUrl[`${publicPath}${file.replace(/^\/+/, "")}`] = integrity
+    }
+    return byUrl
+}
 
 function loadManifests() {
     if (loaded) return
@@ -17,7 +30,7 @@ function loadManifests() {
     try {
         const manifestPath = path.join(buildPath, ".vite", "manifest.json")
         const assetManifestPath = path.join(buildPath, ".vite", "asset-categories.json")
-        const routeManifestPath = path.join(buildPath, ".vite", "route-manifest.json")
+        const integrityPath = path.join(buildPath, ".vite", "integrity.json")
 
         if (fs.existsSync(manifestPath)) {
             manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
@@ -25,8 +38,8 @@ function loadManifests() {
         if (fs.existsSync(assetManifestPath)) {
             assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
         }
-        if (fs.existsSync(routeManifestPath)) {
-            routeManifest = JSON.parse(fs.readFileSync(routeManifestPath, "utf-8"))
+        if (isScriptIntegrityEnabled && fs.existsSync(integrityPath)) {
+            integrityManifest = toUrlKeys(JSON.parse(fs.readFileSync(integrityPath, "utf-8")))
         }
         loaded = true
     } catch (error) {
@@ -41,8 +54,8 @@ export const getManifest = () => manifest
 export const getAssetManifest = () => assetManifest
 
 /**
- * Subresource Integrity hashes keyed by asset URL, read from the optional
- * `integrity` section of an app-generated `.vite/route-manifest.json`.
- * Empty when the app does not write one.
+ * Subresource Integrity hashes keyed by script URL, from the build's
+ * `.vite/integrity.json`. Empty unless SCRIPT_INTEGRITY_ENABLE is true and the
+ * build wrote the file.
  */
-export const getIntegrityManifest = () => routeManifest?.integrity || {}
+export const getIntegrityManifest = () => integrityManifest

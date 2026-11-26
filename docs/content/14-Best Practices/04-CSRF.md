@@ -59,6 +59,28 @@ Middleware runs before the document renders, so if you'd rather generate the non
 
 Any custom script you add in `server/document.js` needs the same nonce applied by hand — see the `nonce` prop in [Customising Shell](/content/Guides%20and%20Tutorials/customising-shell#props-reference).
 
+## Subresource Integrity
+
+Catalyst can add an `integrity` hash to the scripts it renders. The browser then refuses to run a script whose content does not match the hash, which protects users if a file on your CDN is changed.
+
+Enable it via `SCRIPT_INTEGRITY_ENABLE` in `config/config.json`:
+
+```json title="config/config.json"
+{
+  "SCRIPT_INTEGRITY_ENABLE": true
+}
+```
+
+When enabled, `catalyst build` computes a sha384 hash of every built JS file and writes them to `build/.vite/integrity.json`. In production the server adds `integrity` and `crossorigin="anonymous"` to the `<script type="module">` tags and `modulepreload` links in the document, and to the scripts it streams after it. Rebuild after changing the flag.
+
+Things to know:
+
+- The files must reach the browser exactly as they were built. Turn off anything that rewrites JS after the build, such as a CDN's automatic minification, or the browser will block the scripts.
+- If assets are served from another origin, that origin must send CORS headers (`Access-Control-Allow-Origin`). Module scripts already need this.
+- Chunks loaded later through `import()`, such as a route loaded on client-side navigation, are not checked. Browsers do not support integrity for dynamic imports. CSS is not covered either.
+- Scripts you add yourself in `server/document.js` are not covered.
+- It has no effect in `catalyst start`.
+
 ## CSRF
 
 Protect every state-changing endpoint. If you use cookie-based auth or forms, apply CSRF protection and send the token back with each mutating request.

@@ -107,12 +107,11 @@ describe("HTML / React element generators", () => {
     })
 })
 
-describe("script integrity (SRI) from the app's integrity manifest", () => {
+describe("script integrity (SRI) from the integrity manifest", () => {
     const hash = "sha384-YxXJh6SJ9O4vCdR2fb9/lg26CbNfX98m5EldbvHRax5/NZz0AQ0ZED7fat7rrdCp"
     const integrityManifest = {
-        "https://cdn.test/a.js": { integrity: hash, crossOrigin: "anonymous" },
-        "https://cdn.test/creds.js": { integrity: hash, crossOrigin: "use-credentials" },
-        "https://cdn.test/bad.js": { integrity: 'x" onload="alert(1)' },
+        "https://cdn.test/a.js": hash,
+        "https://cdn.test/bad.js": 'x" onload="alert(1)',
     }
 
     it("adds integrity and crossOrigin to script elements with an entry, and leaves the rest unchanged", () => {
@@ -128,12 +127,12 @@ describe("script integrity (SRI) from the app's integrity manifest", () => {
 
     it("adds integrity and crossOrigin to modulepreload links", () => {
         const els = generateModulePreloadLinkElements(
-            ["https://cdn.test/creds.js"],
+            ["https://cdn.test/a.js"],
             "crit",
             undefined,
             integrityManifest,
         )
-        expect(els[0].props).toMatchObject({ integrity: hash, crossOrigin: "use-credentials" })
+        expect(els[0].props).toMatchObject({ integrity: hash, crossOrigin: "anonymous" })
     })
 
     it("adds integrity and crossorigin to deferred script strings", () => {
@@ -142,7 +141,7 @@ describe("script integrity (SRI) from the app's integrity manifest", () => {
         )
     })
 
-    it("ignores an entry whose integrity value is not a valid hash", () => {
+    it("ignores an entry whose value is not a valid hash", () => {
         expect(generateScriptStrings(["https://cdn.test/bad.js"], undefined, integrityManifest)).toBe(
             '<script type="module" src="https://cdn.test/bad.js"></script>',
         )
