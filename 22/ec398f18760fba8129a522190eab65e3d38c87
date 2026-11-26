@@ -1,0 +1,47 @@
+packages/catalyst-core/src/native/bridge/hooks/aiProviders.ts
+  s_f9b68111c2008f::t_a63b526ada4e56 31
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_f9b68111c2008f::t_1fd6367a35bb37 129,131,138,155,157-158,215-220,253-264
+  s_f9b68111c2008f::t_6a8e7e4972f04b 265
+packages/catalyst-core/src/native/bridge/hooks/useTranscribe.ts
+  s_f9b68111c2008f::t_1fd6367a35bb37 158-159,384,396-397,494
+packages/catalyst-core/test/hooks/useMicrophone.test.ts
+  s_f9b68111c2008f::t_0d7f2ad74082a3 172-218
+packages/catalyst-ai/test/resumableFetch.test.ts
+  s_f9b68111c2008f::t_07434e9e657431 471
+packages/catalyst-core/src/native/bridge/hooks/vision/schema.ts
+  s_f9b68111c2008f::t_a63b526ada4e56 67-68,70,72,131-132,135-137
+  s_f9b68111c2008f::t_137da4c0623a1f 133-134
+packages/catalyst-core/test/hooks/reviewBacklog.core.test.ts
+  s_f9b68111c2008f::t_37335a617c2487 1-144
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_f9b68111c2008f::t_1fd6367a35bb37 260,262
+packages/catalyst-core/test/hooks/useTranscribe.listen.test.ts
+  s_f9b68111c2008f::t_0d7f2ad74082a3 261-274
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_f9b68111c2008f::t_a63b526ada4e56 322,366-373
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_a63b526ada4e56 32-35,37-39,41,43,45,118-123,134-136,196-197
+packages/catalyst-core/src/native/bridge/hooks/microphonePermission.ts
+  s_f9b68111c2008f::t_1fd6367a35bb37 42,51-52
+packages/catalyst-core/src/native/bridge/hooks/vision/source.ts
+  s_f9b68111c2008f::t_2ae70995725716 24-29,33,41,50-57,59-80
+packages/catalyst-core/src/native/bridge/hooks/useVision.ts
+  s_f9b68111c2008f::t_2ae70995725716 116-117,122,145-148,208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "22ec398f18760fba8129a522190eab65e3d38c87",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

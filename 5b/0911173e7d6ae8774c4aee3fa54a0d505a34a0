@@ -1,0 +1,23 @@
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_e3d31618f0d356 59,141,280-281,283-284,286
+examples/useai/package.json
+  s_f9b68111c2008f::t_e3d31618f0d356 31,39
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_e3d31618f0d356 228-229,231,241,251,256,407-408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b0911173e7d6ae8774c4aee3fa54a0d505a34a0",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

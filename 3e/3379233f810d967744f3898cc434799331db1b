@@ -1,0 +1,68 @@
+packages/catalyst-ai/src/pricing.js
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 49-50
+examples/error-catalog/scenarios/ai.js
+  s_f9b68111c2008f::t_1ef24e7919a15c 107-141,143-170
+packages/catalyst-ai/test/imagePricing.test.ts
+  s_f9b68111c2008f::t_cd2cf145d727bb 48-81
+packages/catalyst-ai/src/useCloudAI.js
+  s_f9b68111c2008f::t_cbc8f74718de0e 7,248,250-260,279
+packages/catalyst-ai/src/metrics.js
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 34-35,84-86,95-100,102,137
+  s_f9b68111c2008f::t_e7dae1cbbfcd37 149-150,164-165,182,187,194-196
+examples/useai/config/config.template.json
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 24-26
+packages/catalyst-ai/test/pricingConfig.test.ts
+  s_f9b68111c2008f::t_cd2cf145d727bb 114-120
+packages/catalyst-ai/scripts/pricing-cli.js
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 101-106,146,180
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_75d71cb96e165b 610-611
+  s_f9b68111c2008f::t_cbc8f74718de0e 576-595,603,605-607
+  s_f9b68111c2008f::t_4f5bc4ad0e3b8a 803,851
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 833
+packages/catalyst-ai/test/route.anthropic.test.ts
+  s_f9b68111c2008f::t_58ec0efe12e900 112-145
+packages/catalyst-ai/test/useCloudAI.hook.test.ts
+  s_f9b68111c2008f::t_cd2cf145d727bb 62-78
+packages/catalyst-core/src/server/expressServer.ts
+  s_f9b68111c2008f::t_e9fd87ad397a06 15,131
+packages/catalyst-ai/src/imageGen.js
+  s_f9b68111c2008f::t_4f5bc4ad0e3b8a 5,29,36-48,138
+packages/catalyst-ai/test/route.speech.test.ts
+  s_f9b68111c2008f::t_b34b93c05e75be 173-177
+packages/catalyst-ai/src/speechGen.js
+  s_f9b68111c2008f::t_4f5bc4ad0e3b8a 25-32,126
+packages/catalyst-core/src/server/utils/aiBodyParser.ts
+  s_f9b68111c2008f::t_e9fd87ad397a06 20-34,43
+packages/catalyst-core/test/server/aiBodyParser.test.ts
+  s_f9b68111c2008f::t_e7dae1cbbfcd37 5,73-92
+  s_f9b68111c2008f::t_70be8e69d04262 93
+packages/catalyst-ai/src/index.js
+  s_f9b68111c2008f::t_3bc9d02b4b24d9 7
+packages/catalyst-ai/test/cloudMedia.test.ts
+  s_f9b68111c2008f::t_56707001123692 189-222
+packages/catalyst-ai/test/route.image.test.ts
+  s_f9b68111c2008f::t_faff5ef0820ed3 134-136,150-170
+packages/catalyst-ai/test/metricsAggregates.test.ts
+  s_f9b68111c2008f::t_56707001123692 47,50-61
+packages/catalyst-ai/src/cloudMedia.js
+  s_f9b68111c2008f::t_4f5bc4ad0e3b8a 38-48,57,255
+  s_f9b68111c2008f::t_e7dae1cbbfcd37 20-23,80,99-100,192-203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e3379233f810d967744f3898cc434799331db1b",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

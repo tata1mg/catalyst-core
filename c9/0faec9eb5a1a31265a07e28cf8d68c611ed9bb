@@ -1,0 +1,19 @@
+packages/catalyst-ai/test/speechGen.adapters.test.ts
+  s_f9b68111c2008f::t_d7401e780a75be 1-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c90faec9eb5a1a31265a07e28cf8d68c611ed9bb",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

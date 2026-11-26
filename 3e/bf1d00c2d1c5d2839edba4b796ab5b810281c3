@@ -1,0 +1,19 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SpeechRecognitionManager.kt
+  s_f9b68111c2008f::t_da574b4ee4f5bb 79-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ebf1d00c2d1c5d2839edba4b796ab5b810281c3",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

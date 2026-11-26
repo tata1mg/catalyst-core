@@ -1,0 +1,52 @@
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_f9b68111c2008f::t_31bd0f5ea9821e 52,75-87,118-120,128-131,147
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_4f2871885e7a52 15,128-139,149,267,332-341
+  s_f9b68111c2008f::t_a68734e5c1a37b 342
+packages/catalyst-ai/android/src/test/java/io/catalyst/nativeai/NativeBridgeAIInputTest.kt
+  s_f9b68111c2008f::t_4f2871885e7a52 1-66
+packages/catalyst-ai/plugins/ai/ios/Support/AIInputParts.swift
+  s_f9b68111c2008f::t_4af21ad5c458d4 23-24,28,36-37,39-43
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/ResumableDownloadTests.swift
+  s_f9b68111c2008f::t_5a95695890d993 434-458
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/EngineFallbackTests.swift
+  s_f9b68111c2008f::t_31bd0f5ea9821e 79-96
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_f9b68111c2008f::t_5a95695890d993 271
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_f9b68111c2008f::t_4f2871885e7a52 97-111,114-115,163
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/SpeechRecognitionManager.kt
+  s_f9b68111c2008f::t_8ebaa0ba63c90a 42-52,85-97
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_f9b68111c2008f::t_5a95695890d993 100-114,149-152,154,159,209
+  s_f9b68111c2008f::t_98162b7ed41ae0 269
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/SpeechRecognitionManagerTest.kt
+  s_f9b68111c2008f::t_8ebaa0ba63c90a 93-104
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/AISupportTests.swift
+  s_f9b68111c2008f::t_4af21ad5c458d4 144-145,173-178
+  s_f9b68111c2008f::t_3fd6e8d6a925eb 179-180
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_2d769af9ea0e15 114
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_884b68ef9fd1ce 17-19,202-208
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/DownloadControl.kt
+  s_f9b68111c2008f::t_9f2e769f20061f 36
+packages/catalyst-ai/plugins/ai/ios/Support/DownloadControl.swift
+  s_f9b68111c2008f::t_c04a832e73d93a 31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77dbf67c372136eb7779c35f2810bc5ad6aaae72",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

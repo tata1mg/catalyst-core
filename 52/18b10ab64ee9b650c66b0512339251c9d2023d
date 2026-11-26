@@ -1,0 +1,28 @@
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  s_f9b68111c2008f::t_a4674b85e73feb 445
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/PluginBridgeOriginPolicyTests.swift
+  s_f9b68111c2008f::t_9f3dc6eaaf40b8 24-31
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_1432c066fa9b1c 79-80,215-225
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_f9b68111c2008f::t_a4674b85e73feb 69-71,164-166
+  s_f9b68111c2008f::t_56538dd9479200 167-168
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewNavigationDelegate.swift
+  s_f9b68111c2008f::t_28678d8f27b614 575-577
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5218b10ab64ee9b650c66b0512339251c9d2023d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

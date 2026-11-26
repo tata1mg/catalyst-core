@@ -1,0 +1,39 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_4d249785d68746 179-181,257,259-260
+"docs/content/10-Catalyst AI/04-Choosing-a-Hook.md"
+  s_f9b68111c2008f::t_a57897f2a57383 13,27,77-79
+examples/useai/README.md
+  s_f9b68111c2008f::t_4d249785d68746 34
+"docs/content/10-Catalyst AI/05-Errors.md"
+  s_f9b68111c2008f::t_a57897f2a57383 9-11,42
+packages/catalyst-core/test/hooks/aiPending.test.ts
+  s_f9b68111c2008f::t_4d249785d68746 58-59,67-75
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_80a60cf464fddf 1069,1133-1134,1167,1170-1171
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_4d249785d68746 422-427
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_5d342e1089f651 752
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/FrameworkServerUtilsTest.kt
+  s_f9b68111c2008f::t_5d342e1089f651 228-230
+packages/catalyst-core/src/native/bridge/hooks/aiPending.ts
+  s_f9b68111c2008f::t_4d249785d68746 49-51,55,58-60
+"docs/content/10-Catalyst AI/03-Recipes.md"
+  s_f9b68111c2008f::t_a57897f2a57383 34,39-46,48-56,89,99-100,145-146,159,162,164-166,169-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8741d9c00efd60fe3dad7f21763efe185b5e84c3",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

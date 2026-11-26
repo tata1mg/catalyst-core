@@ -1,0 +1,60 @@
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/ResumableDownloadTests.swift
+  s_f9b68111c2008f::t_5e17fd0c75b3c3 315-327
+examples/error-catalog/scenarios/ai.js
+  s_f9b68111c2008f::t_3c7e29a20e8fe8 142-147
+packages/catalyst-ai/test/resumableFetch.test.ts
+  s_f9b68111c2008f::t_773e8a40b0569b 19,41,50,53,366-386
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/ResumableDownloader.kt
+  s_f9b68111c2008f::t_5e17fd0c75b3c3 210-212,215-216,218
+packages/catalyst-core/test/hooks/visionSchema.test.ts
+  s_f9b68111c2008f::t_31b13fc4642ad2 177-187
+packages/catalyst-ai/src/useImageGen.js
+  s_f9b68111c2008f::t_18bac634c12c63 1-2,35-36,39-53,76-79
+  s_f9b68111c2008f::t_eadd5b205a4e68 80-81
+packages/catalyst-core/src/native/bridge/hooks/vision/schema.ts
+  s_f9b68111c2008f::t_388d3bcdea31eb 27-38,48
+packages/catalyst-ai/test/pricingConfig.test.ts
+  s_f9b68111c2008f::t_31b13fc4642ad2 155-163
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/DownloadControl.kt
+  s_f9b68111c2008f::t_9e4537ce1475c8 210-217
+packages/catalyst-ai/test/route.maxTokens.test.ts
+  s_f9b68111c2008f::t_31b13fc4642ad2 1-40
+packages/catalyst-ai/plugins/ai/ios/Support/ResumableDownload.swift
+  s_f9b68111c2008f::t_5e17fd0c75b3c3 275-278
+packages/catalyst-ai/src/resumableFetch.js
+  s_f9b68111c2008f::t_8f4624d4c46549 261-266,337-351,425
+packages/catalyst-ai/scripts/pricing-cli.js
+  s_f9b68111c2008f::t_388d3bcdea31eb 55-59
+packages/catalyst-ai/src/requestSignal.js
+  s_f9b68111c2008f::t_18bac634c12c63 1-25
+packages/catalyst-ai/src/useSpeech.js
+  s_f9b68111c2008f::t_736e7bbe1c60f4 1-2,14-15,18-30,52-55
+  s_f9b68111c2008f::t_a2491c7fe21d1c 56-57
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_388d3bcdea31eb 62-64,71-76
+packages/catalyst-ai/plugins/ai/ios/Support/ResilientDownload.swift
+  s_f9b68111c2008f::t_9e4537ce1475c8 89-96
+packages/catalyst-ai/test/useImageSpeechHooks.test.ts
+  s_f9b68111c2008f::t_736e7bbe1c60f4 142-191
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/DownloadControlTests.swift
+  s_f9b68111c2008f::t_9e4537ce1475c8 189-190,196-209,212-224
+  s_f9b68111c2008f::t_02302bdeac5854 191-195,210-211
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_aa117a0445f0ac 41-42,198,202-212,215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "426e1d5deecb2f7cf176ad9bc9f0ca09b127f98e",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

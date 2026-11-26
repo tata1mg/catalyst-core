@@ -1,0 +1,19 @@
+examples/useai/IOS_DEVICE_TEST.md
+  s_f9b68111c2008f::t_136f3a90afa3ec 1-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "699bff01867e01b216cfd25c847e1aa2bb9ee4a9",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
