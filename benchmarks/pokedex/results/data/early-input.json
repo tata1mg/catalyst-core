@@ -1,0 +1,132 @@
+{
+ "runs": 5,
+ "environment": {
+  "collectedAt": "2026-11-26T06:11:31.169Z",
+  "commit": "55c93f2967489697adcd0e280e7badee2ba7f98f",
+  "workingTreeClean": true,
+  "catalystCore": "1.2.1",
+  "node": "v22.23.0",
+  "cpu": "Apple M3 Pro",
+  "cores": 11,
+  "memoryGiB": 18,
+  "os": "Darwin 25.2.0"
+ },
+ "query": "pika",
+ "expectedMatches": 1,
+ "typing": [
+  {
+   "typedAt": 725.5,
+   "eligible": true,
+   "hydrated": 1891.0999999046326,
+   "value": "",
+   "cards": 151,
+   "textKept": false,
+   "listFiltered": false,
+   "kept": false
+  },
+  {
+   "typedAt": 673.9000000953674,
+   "eligible": true,
+   "hydrated": 1840.9000000953674,
+   "value": "",
+   "cards": 151,
+   "textKept": false,
+   "listFiltered": false,
+   "kept": false
+  },
+  {
+   "typedAt": 684.7999999523163,
+   "eligible": true,
+   "hydrated": 1865.5,
+   "value": "",
+   "cards": 151,
+   "textKept": false,
+   "listFiltered": false,
+   "kept": false
+  },
+  {
+   "typedAt": 681.5,
+   "eligible": true,
+   "hydrated": 1860.2999999523163,
+   "value": "",
+   "cards": 151,
+   "textKept": false,
+   "listFiltered": false,
+   "kept": false
+  },
+  {
+   "typedAt": 700.0999999046326,
+   "eligible": true,
+   "hydrated": 1857.6999998092651,
+   "value": "",
+   "cards": 151,
+   "textKept": false,
+   "listFiltered": false,
+   "kept": false
+  }
+ ],
+ "click": [
+  {
+   "clickedAt": 687.7000000476837,
+   "eligible": true,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 670.7999999523163,
+   "eligible": true,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 696.8999998569489,
+   "eligible": true,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 666,
+   "eligible": true,
+   "reached": true,
+   "fullPageLoad": true
+  },
+  {
+   "clickedAt": 656.4000000953674,
+   "eligible": true,
+   "reached": true,
+   "fullPageLoad": true
+  }
+ ],
+ "summary": {
+  "typingEligible": 5,
+  "typedAt": {
+   "n": 5,
+   "median": 684.7999999523163,
+   "p75": 700.0999999046326,
+   "p95": 725.5,
+   "min": 673.9000000953674,
+   "max": 725.5
+  },
+  "hydrated": {
+   "n": 5,
+   "median": 1860.2999999523163,
+   "p75": 1865.5,
+   "p95": 1891.0999999046326,
+   "min": 1840.9000000953674,
+   "max": 1891.0999999046326
+  },
+  "textKept": 0,
+  "listFiltered": 0,
+  "clickEligible": 5,
+  "clickedAt": {
+   "n": 5,
+   "median": 670.7999999523163,
+   "p75": 687.7000000476837,
+   "p95": 696.8999998569489,
+   "min": 656.4000000953674,
+   "max": 696.8999998569489
+  },
+  "clickReached": 5,
+  "clickFullPageLoad": 5
+ }
+}

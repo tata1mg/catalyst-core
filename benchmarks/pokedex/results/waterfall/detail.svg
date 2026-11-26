@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="230" font-family="ui-monospace, Menlo, monospace" font-size="10">
+<rect width="100%" height="100%" fill="#fff"/>
+<text x="8" y="16" font-size="12" font-weight="bold">detail /pokemon/charizard · slow4g + 4x CPU · median-LCP run of 5</text>
+<line x1="330" y1="38" x2="330" y2="162" stroke="#eee"/>
+<text x="330" y="34" text-anchor="middle" fill="#666">0</text>
+<line x1="406" y1="38" x2="406" y2="162" stroke="#eee"/>
+<line x1="482" y1="38" x2="482" y2="162" stroke="#eee"/>
+<text x="482" y="34" text-anchor="middle" fill="#666">500</text>
+<line x1="558" y1="38" x2="558" y2="162" stroke="#eee"/>
+<line x1="634" y1="38" x2="634" y2="162" stroke="#eee"/>
+<text x="634" y="34" text-anchor="middle" fill="#666">1000</text>
+<line x1="710" y1="38" x2="710" y2="162" stroke="#eee"/>
+<line x1="786" y1="38" x2="786" y2="162" stroke="#eee"/>
+<text x="786" y="34" text-anchor="middle" fill="#666">1500</text>
+<line x1="862" y1="38" x2="862" y2="162" stroke="#eee"/>
+<line x1="938" y1="38" x2="938" y2="162" stroke="#eee"/>
+<text x="938" y="34" text-anchor="middle" fill="#666">2000</text>
+<line x1="1014" y1="38" x2="1014" y2="162" stroke="#eee"/>
+<line x1="1090" y1="38" x2="1090" y2="162" stroke="#eee"/>
+<text x="1090" y="34" text-anchor="middle" fill="#666">2500</text>
+<text x="324" y="56" text-anchor="end" fill="#333">/pokemon/charizard</text>
+<rect x="330.12312890625" y="49" width="172.55740625000004" height="8" fill="#1f77b4" opacity="0.35"/>
+<rect x="502.68053515625" y="49" width="2.5880078124999955" height="8" fill="#1f77b4"/>
+<text x="509.26854296875" y="56" fill="#666">2.4 KiB</text>
+<text x="324" y="70" text-anchor="end" fill="#333">localhost:4000 /sprites/6.png</text>
+<rect x="506.2874921875" y="63" width="187.42668750000007" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="693.7141796875001" y="63" width="1" height="8" fill="#2a9d4a"/>
+<text x="697.7141796875001" y="70" fill="#666">1.5 KiB</text>
+<text x="324" y="84" text-anchor="end" fill="#333">/assets/client/assets/main-CeqJ_Rw8.js</text>
+<rect x="506.44283203124996" y="77" width="175.3031289062501" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="681.7459609375001" y="77" width="1" height="8" fill="#d62728"/>
+<text x="685.7459609375001" y="84" fill="#666">0.7 KiB</text>
+<text x="324" y="98" text-anchor="end" fill="#333">/assets/client/assets/vendor-react-CRcozs3N.js</text>
+<rect x="506.45225781249997" y="91" width="337.23879296875" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="843.6910507812499" y="91" width="1" height="8" fill="#d62728"/>
+<text x="847.6910507812499" y="98" fill="#666">57.6 KiB</text>
+<text x="324" y="112" text-anchor="end" fill="#333">/assets/client/assets/app-BjS0mGO9.js</text>
+<rect x="506.46049609374995" y="105" width="196.92297656250003" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="703.38347265625" y="105" width="1" height="8" fill="#d62728"/>
+<text x="707.38347265625" y="112" fill="#666">4.3 KiB</text>
+<text x="324" y="126" text-anchor="end" fill="#333">…ssets/client/assets/vendor-router-CvWROX9M.js</text>
+<rect x="506.46903125" y="119" width="290.91189453124997" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="797.38092578125" y="119" width="1" height="8" fill="#d62728"/>
+<text x="801.38092578125" y="126" fill="#666">31.3 KiB</text>
+<text x="324" y="140" text-anchor="end" fill="#333">/assets/client/assets/Pokemon-BIzlqoXT.js</text>
+<rect x="506.47415234375" y="133" width="180.03279296874996" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="686.5069453125" y="133" width="1" height="8" fill="#d62728"/>
+<text x="690.5069453125" y="140" fill="#666">1.0 KiB</text>
+<text x="324" y="154" text-anchor="end" fill="#333">/favicon.ico</text>
+<rect x="855.45190234375" y="147" width="173.8229101562498" height="8" fill="#7f7f7f" opacity="0.35"/>
+<rect x="1029.2748124999998" y="147" width="1" height="8" fill="#7f7f7f"/>
+<text x="1033.2748124999998" y="154" fill="#666">1.2 KiB</text>
+<line x1="518.48" y1="42" x2="518.48" y2="165" stroke="#2a9d4a" stroke-dasharray="3,2"/>
+<text x="521.48" y="174" fill="#2a9d4a">FCP 620 ms</text>
+<line x1="699.664" y1="42" x2="699.664" y2="177" stroke="#7b2cbf" stroke-dasharray="3,2"/>
+<text x="702.664" y="186" fill="#7b2cbf">LCP 1216 ms</text>
+<line x1="851.5423999710083" y1="42" x2="851.5423999710083" y2="189" stroke="#1f77b4" stroke-dasharray="3,2"/>
+<text x="854.5423999710083" y="198" fill="#1f77b4">DCL 1716 ms</text>
+<line x1="851.7856000289917" y1="42" x2="851.7856000289917" y2="201" stroke="#d62728" stroke-dasharray="3,2"/>
+<text x="854.7856000289917" y="210" fill="#d62728">load 1716 ms</text>
+<line x1="862.7296000289917" y1="42" x2="862.7296000289917" y2="213" stroke="#b8860b" stroke-dasharray="3,2"/>
+<text x="865.7296000289917" y="222" fill="#b8860b">hydrated 1752 ms</text>
+<text x="1152" y="16" text-anchor="end" fill="#666">ms from navigation start · light = waiting for first byte · dark = downloading</text>
+</svg>

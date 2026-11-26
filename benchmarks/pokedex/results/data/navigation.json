@@ -1,0 +1,1268 @@
+{
+ "runs": 10,
+ "environment": {
+  "collectedAt": "2026-11-26T06:05:49.531Z",
+  "commit": "55c93f2967489697adcd0e280e7badee2ba7f98f",
+  "workingTreeClean": true,
+  "catalystCore": "1.2.1",
+  "node": "v22.23.0",
+  "cpu": "Apple M3 Pro",
+  "cores": 11,
+  "memoryGiB": 18,
+  "os": "Darwin 25.2.0"
+ },
+ "chromeVersion": "158.0.8127.37",
+ "profiles": {
+  "slow4g": {
+   "cpuRate": 4,
+   "network": {
+    "offline": false,
+    "latency": 562.5,
+    "downloadThroughput": 188743,
+    "uploadThroughput": 86400
+   }
+  },
+  "unthrottled": {
+   "cpuRate": 1,
+   "network": null
+  }
+ },
+ "results": {
+  "list.slow4g": {
+   "url": "http://localhost:3016/",
+   "perRun": [
+    {
+     "ttfb": 566.3000001907349,
+     "fcp": 696,
+     "lcp": 1192,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1814,
+     "load": 1826,
+     "hydrated": 1868.2000000476837,
+     "longTaskCount": 1,
+     "longTaskMs": 64,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 624,
+     "lcp": 1164,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1784.9000000953674,
+     "load": 1787.1000001430511,
+     "hydrated": 1816.7000000476837,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.1999998092651,
+     "fcp": 628,
+     "lcp": 1164,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1779.5,
+     "load": 1782.5999999046326,
+     "hydrated": 1814.5999999046326,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2999999523163,
+     "fcp": 624,
+     "lcp": 1164,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1779.3999998569489,
+     "load": 1785.2999999523163,
+     "hydrated": 1817.8999998569489,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 0
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 624,
+     "lcp": 1176,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1796.4000000953674,
+     "load": 1799.5,
+     "hydrated": 1831.0999999046326,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 624,
+     "lcp": 1164,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1776.5,
+     "load": 1779.2000000476837,
+     "hydrated": 1813.3000001907349,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.1999998092651,
+     "fcp": 628,
+     "lcp": 1168,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1787.3999998569489,
+     "load": 1793.7999999523163,
+     "hydrated": 1821.6999998092651,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 0
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 616,
+     "lcp": 1164,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1780.3000001907349,
+     "load": 1783,
+     "hydrated": 1819.1000001430511,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 624,
+     "lcp": 1160,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1781.5999999046326,
+     "load": 1789.3999998569489,
+     "hydrated": 1817.0999999046326,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 25,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 17.8681640625,
+      "other": 0
+     }
+    },
+    {
+     "ttfb": 563.2999999523163,
+     "fcp": 624,
+     "lcp": 1180,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1789.5,
+     "load": 1795.5999999046326,
+     "hydrated": 1826.5,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 26,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 18.6015625,
+      "other": 0
+     }
+    }
+   ],
+   "summary": {
+    "ttfb": {
+     "n": 10,
+     "median": 563.2000000476837,
+     "p75": 563.2999999523163,
+     "p95": 566.3000001907349,
+     "min": 563.1999998092651,
+     "max": 566.3000001907349
+    },
+    "fcp": {
+     "n": 10,
+     "median": 624,
+     "p75": 628,
+     "p95": 696,
+     "min": 616,
+     "max": 696
+    },
+    "lcp": {
+     "n": 10,
+     "median": 1164,
+     "p75": 1176,
+     "p95": 1192,
+     "min": 1160,
+     "max": 1192
+    },
+    "domContentLoaded": {
+     "n": 10,
+     "median": 1781.5999999046326,
+     "p75": 1789.5,
+     "p95": 1814,
+     "min": 1776.5,
+     "max": 1814
+    },
+    "load": {
+     "n": 10,
+     "median": 1787.1000001430511,
+     "p75": 1795.5999999046326,
+     "p95": 1826,
+     "min": 1779.2000000476837,
+     "max": 1826
+    },
+    "hydrated": {
+     "n": 10,
+     "median": 1817.8999998569489,
+     "p75": 1826.5,
+     "p95": 1868.2000000476837,
+     "min": 1813.3000001907349,
+     "max": 1868.2000000476837
+    },
+    "longTaskCount": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 1,
+     "min": 0,
+     "max": 1
+    },
+    "longTaskMs": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 64,
+     "min": 0,
+     "max": 64
+    },
+    "requests": {
+     "n": 10,
+     "median": 25,
+     "p75": 26,
+     "p95": 27,
+     "min": 25,
+     "max": 27
+    },
+    "kib.js": {
+     "n": 10,
+     "median": 95.037109375,
+     "p75": 95.037109375,
+     "p95": 95.037109375,
+     "min": 95.037109375,
+     "max": 95.037109375
+    },
+    "kib.css": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "kib.html": {
+     "n": 10,
+     "median": 7.1826171875,
+     "p75": 7.1826171875,
+     "p95": 7.1826171875,
+     "min": 7.1826171875,
+     "max": 7.1826171875
+    },
+    "kib.image": {
+     "n": 10,
+     "median": 17.8681640625,
+     "p75": 18.6015625,
+     "p95": 19.65625,
+     "min": 17.8681640625,
+     "max": 19.65625
+    },
+    "kib.other": {
+     "n": 10,
+     "median": 1.2294921875,
+     "p75": 1.2294921875,
+     "p95": 1.2294921875,
+     "min": 0,
+     "max": 1.2294921875
+    }
+   }
+  },
+  "detail.slow4g": {
+   "url": "http://localhost:3016/pokemon/charizard",
+   "perRun": [
+    {
+     "ttfb": 563.3000001907349,
+     "fcp": 624,
+     "lcp": 1240,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1724.8000001907349,
+     "load": 1726.2000000476837,
+     "hydrated": 1752.8000001907349,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.67578125,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.1999998092651,
+     "fcp": 628,
+     "lcp": 1216,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1715,
+     "load": 1715.7999999523163,
+     "hydrated": 1742.7999999523163,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.0999999046326,
+     "fcp": 620,
+     "lcp": 1224,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1724.2999999523163,
+     "load": 1725.2000000476837,
+     "hydrated": 1753.5,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 636,
+     "lcp": 1224,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1724.7999999523163,
+     "load": 1725.7000000476837,
+     "hydrated": 1758.0999999046326,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.4000000953674,
+     "fcp": 620,
+     "lcp": 1200,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1713.2000000476837,
+     "load": 1714.4000000953674,
+     "hydrated": 1741.4000000953674,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2999999523163,
+     "fcp": 644,
+     "lcp": 1232,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1731.5999999046326,
+     "load": 1732.4000000953674,
+     "hydrated": 1765.7999999523163,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.0999999046326,
+     "fcp": 620,
+     "lcp": 1208,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1711.5,
+     "load": 1712.5,
+     "hydrated": 1737.8999998569489,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 624,
+     "lcp": 1216,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1725.7999999523163,
+     "load": 1726.7999999523163,
+     "hydrated": 1755.4000000953674,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2000000476837,
+     "fcp": 632,
+     "lcp": 1216,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1719.7000000476837,
+     "load": 1720.7000000476837,
+     "hydrated": 1747.4000000953674,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 563.2999999523163,
+     "fcp": 628,
+     "lcp": 1216,
+     "lcpElement": "IMG",
+     "domContentLoaded": 1718.3999998569489,
+     "load": 1719.5,
+     "hydrated": 1746.7000000476837,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    }
+   ],
+   "summary": {
+    "ttfb": {
+     "n": 10,
+     "median": 563.2000000476837,
+     "p75": 563.2999999523163,
+     "p95": 563.4000000953674,
+     "min": 563.0999999046326,
+     "max": 563.4000000953674
+    },
+    "fcp": {
+     "n": 10,
+     "median": 624,
+     "p75": 632,
+     "p95": 644,
+     "min": 620,
+     "max": 644
+    },
+    "lcp": {
+     "n": 10,
+     "median": 1216,
+     "p75": 1224,
+     "p95": 1240,
+     "min": 1200,
+     "max": 1240
+    },
+    "domContentLoaded": {
+     "n": 10,
+     "median": 1719.7000000476837,
+     "p75": 1724.8000001907349,
+     "p95": 1731.5999999046326,
+     "min": 1711.5,
+     "max": 1731.5999999046326
+    },
+    "load": {
+     "n": 10,
+     "median": 1720.7000000476837,
+     "p75": 1726.2000000476837,
+     "p95": 1732.4000000953674,
+     "min": 1712.5,
+     "max": 1732.4000000953674
+    },
+    "hydrated": {
+     "n": 10,
+     "median": 1747.4000000953674,
+     "p75": 1755.4000000953674,
+     "p95": 1765.7999999523163,
+     "min": 1737.8999998569489,
+     "max": 1765.7999999523163
+    },
+    "longTaskCount": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTaskMs": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "requests": {
+     "n": 10,
+     "median": 8,
+     "p75": 8,
+     "p95": 8,
+     "min": 8,
+     "max": 8
+    },
+    "kib.js": {
+     "n": 10,
+     "median": 94.8447265625,
+     "p75": 94.8447265625,
+     "p95": 94.8447265625,
+     "min": 94.8447265625,
+     "max": 94.8447265625
+    },
+    "kib.css": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "kib.html": {
+     "n": 10,
+     "median": 2.404296875,
+     "p75": 2.404296875,
+     "p95": 2.67578125,
+     "min": 2.404296875,
+     "max": 2.67578125
+    },
+    "kib.image": {
+     "n": 10,
+     "median": 1.4814453125,
+     "p75": 1.4814453125,
+     "p95": 1.4814453125,
+     "min": 1.4814453125,
+     "max": 1.4814453125
+    },
+    "kib.other": {
+     "n": 10,
+     "median": 1.2294921875,
+     "p75": 1.2294921875,
+     "p95": 1.2294921875,
+     "min": 1.2294921875,
+     "max": 1.2294921875
+    }
+   }
+  },
+  "list.unthrottled": {
+   "url": "http://localhost:3016/",
+   "perRun": [
+    {
+     "ttfb": 6.199999809265137,
+     "fcp": 56,
+     "lcp": 56,
+     "lcpElement": "IMG",
+     "domContentLoaded": 34,
+     "load": 35.59999990463257,
+     "hydrated": 50.69999980926514,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 5.200000047683716,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 34.10000014305115,
+     "load": 35.700000047683716,
+     "hydrated": 51.10000014305115,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 4.599999904632568,
+     "fcp": 44,
+     "lcp": 44,
+     "lcpElement": "IMG",
+     "domContentLoaded": 32.700000047683716,
+     "load": 33.40000009536743,
+     "hydrated": 45.59999990463257,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 5.1000001430511475,
+     "fcp": 40,
+     "lcp": 40,
+     "lcpElement": "IMG",
+     "domContentLoaded": 32.200000047683716,
+     "load": 33,
+     "hydrated": 45.10000014305115,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 4.200000047683716,
+     "fcp": 32,
+     "lcp": 32,
+     "lcpElement": "IMG",
+     "domContentLoaded": 32.09999990463257,
+     "load": 34,
+     "hydrated": 49,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 4.099999904632568,
+     "fcp": 32,
+     "lcp": 32,
+     "lcpElement": "IMG",
+     "domContentLoaded": 30.899999856948853,
+     "load": 32.700000047683716,
+     "hydrated": 44.799999952316284,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 6,
+     "fcp": 44,
+     "lcp": 44,
+     "lcpElement": "IMG",
+     "domContentLoaded": 33,
+     "load": 33.799999952316284,
+     "hydrated": 46,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 4.400000095367432,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 34.200000047683716,
+     "load": 35.80000019073486,
+     "hydrated": 47.60000014305115,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 5.199999809265137,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 34.09999990463257,
+     "load": 36.09999990463257,
+     "hydrated": 51,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 4.3999998569488525,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 31.5,
+     "load": 32.299999952316284,
+     "hydrated": 44.299999952316284,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 27,
+     "kib": {
+      "js": 95.037109375,
+      "css": 0,
+      "html": 7.1826171875,
+      "image": 19.65625,
+      "other": 1.2294921875
+     }
+    }
+   ],
+   "summary": {
+    "ttfb": {
+     "n": 10,
+     "median": 4.599999904632568,
+     "p75": 5.200000047683716,
+     "p95": 6.199999809265137,
+     "min": 4.099999904632568,
+     "max": 6.199999809265137
+    },
+    "fcp": {
+     "n": 10,
+     "median": 36,
+     "p75": 44,
+     "p95": 56,
+     "min": 32,
+     "max": 56
+    },
+    "lcp": {
+     "n": 10,
+     "median": 36,
+     "p75": 44,
+     "p95": 56,
+     "min": 32,
+     "max": 56
+    },
+    "domContentLoaded": {
+     "n": 10,
+     "median": 32.700000047683716,
+     "p75": 34.09999990463257,
+     "p95": 34.200000047683716,
+     "min": 30.899999856948853,
+     "max": 34.200000047683716
+    },
+    "load": {
+     "n": 10,
+     "median": 33.799999952316284,
+     "p75": 35.700000047683716,
+     "p95": 36.09999990463257,
+     "min": 32.299999952316284,
+     "max": 36.09999990463257
+    },
+    "hydrated": {
+     "n": 10,
+     "median": 46,
+     "p75": 50.69999980926514,
+     "p95": 51.10000014305115,
+     "min": 44.299999952316284,
+     "max": 51.10000014305115
+    },
+    "longTaskCount": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTaskMs": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "requests": {
+     "n": 10,
+     "median": 27,
+     "p75": 27,
+     "p95": 27,
+     "min": 27,
+     "max": 27
+    },
+    "kib.js": {
+     "n": 10,
+     "median": 95.037109375,
+     "p75": 95.037109375,
+     "p95": 95.037109375,
+     "min": 95.037109375,
+     "max": 95.037109375
+    },
+    "kib.css": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "kib.html": {
+     "n": 10,
+     "median": 7.1826171875,
+     "p75": 7.1826171875,
+     "p95": 7.1826171875,
+     "min": 7.1826171875,
+     "max": 7.1826171875
+    },
+    "kib.image": {
+     "n": 10,
+     "median": 19.65625,
+     "p75": 19.65625,
+     "p95": 19.65625,
+     "min": 19.65625,
+     "max": 19.65625
+    },
+    "kib.other": {
+     "n": 10,
+     "median": 1.2294921875,
+     "p75": 1.2294921875,
+     "p95": 1.2294921875,
+     "min": 1.2294921875,
+     "max": 1.2294921875
+    }
+   }
+  },
+  "detail.unthrottled": {
+   "url": "http://localhost:3016/pokemon/charizard",
+   "perRun": [
+    {
+     "ttfb": 2.700000047683716,
+     "fcp": 36,
+     "lcp": 52,
+     "lcpElement": "IMG",
+     "domContentLoaded": 21,
+     "load": 21.09999990463257,
+     "hydrated": 32.59999990463257,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.1999998092651367,
+     "fcp": 28,
+     "lcp": 44,
+     "lcpElement": "IMG",
+     "domContentLoaded": 20.399999856948853,
+     "load": 20.59999990463257,
+     "hydrated": 28.199999809265137,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.3999998569488525,
+     "fcp": 32,
+     "lcp": 32,
+     "lcpElement": "IMG",
+     "domContentLoaded": 21.799999952316284,
+     "load": 22,
+     "hydrated": 30,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 3.0999999046325684,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 21,
+     "load": 21.199999809265137,
+     "hydrated": 31.899999856948853,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.4000000953674316,
+     "fcp": 28,
+     "lcp": 28,
+     "lcpElement": "IMG",
+     "domContentLoaded": 22,
+     "load": 22.40000009536743,
+     "hydrated": 37.80000019073486,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.5,
+     "fcp": 32,
+     "lcp": 48,
+     "lcpElement": "IMG",
+     "domContentLoaded": 20.600000143051147,
+     "load": 20.800000190734863,
+     "hydrated": 29.200000047683716,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.5999999046325684,
+     "fcp": 32,
+     "lcp": 32,
+     "lcpElement": "IMG",
+     "domContentLoaded": 22.299999952316284,
+     "load": 22.5,
+     "hydrated": 30.40000009536743,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.5,
+     "fcp": 36,
+     "lcp": 48,
+     "lcpElement": "IMG",
+     "domContentLoaded": 21,
+     "load": 21.200000047683716,
+     "hydrated": 30.399999856948853,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.5,
+     "fcp": 36,
+     "lcp": 36,
+     "lcpElement": "IMG",
+     "domContentLoaded": 20.899999856948853,
+     "load": 21.299999952316284,
+     "hydrated": 32.39999985694885,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    },
+    {
+     "ttfb": 2.3999998569488525,
+     "fcp": 36,
+     "lcp": 48,
+     "lcpElement": "IMG",
+     "domContentLoaded": 21,
+     "load": 21.200000047683716,
+     "hydrated": 32,
+     "longTaskCount": 0,
+     "longTaskMs": 0,
+     "requests": 8,
+     "kib": {
+      "js": 94.8447265625,
+      "css": 0,
+      "html": 2.404296875,
+      "image": 1.4814453125,
+      "other": 1.2294921875
+     }
+    }
+   ],
+   "summary": {
+    "ttfb": {
+     "n": 10,
+     "median": 2.5,
+     "p75": 2.5999999046325684,
+     "p95": 3.0999999046325684,
+     "min": 2.1999998092651367,
+     "max": 3.0999999046325684
+    },
+    "fcp": {
+     "n": 10,
+     "median": 32,
+     "p75": 36,
+     "p95": 36,
+     "min": 28,
+     "max": 36
+    },
+    "lcp": {
+     "n": 10,
+     "median": 36,
+     "p75": 48,
+     "p95": 52,
+     "min": 28,
+     "max": 52
+    },
+    "domContentLoaded": {
+     "n": 10,
+     "median": 21,
+     "p75": 21.799999952316284,
+     "p95": 22.299999952316284,
+     "min": 20.399999856948853,
+     "max": 22.299999952316284
+    },
+    "load": {
+     "n": 10,
+     "median": 21.200000047683716,
+     "p75": 22,
+     "p95": 22.5,
+     "min": 20.59999990463257,
+     "max": 22.5
+    },
+    "hydrated": {
+     "n": 10,
+     "median": 30.40000009536743,
+     "p75": 32.39999985694885,
+     "p95": 37.80000019073486,
+     "min": 28.199999809265137,
+     "max": 37.80000019073486
+    },
+    "longTaskCount": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTaskMs": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "requests": {
+     "n": 10,
+     "median": 8,
+     "p75": 8,
+     "p95": 8,
+     "min": 8,
+     "max": 8
+    },
+    "kib.js": {
+     "n": 10,
+     "median": 94.8447265625,
+     "p75": 94.8447265625,
+     "p95": 94.8447265625,
+     "min": 94.8447265625,
+     "max": 94.8447265625
+    },
+    "kib.css": {
+     "n": 10,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "kib.html": {
+     "n": 10,
+     "median": 2.404296875,
+     "p75": 2.404296875,
+     "p95": 2.404296875,
+     "min": 2.404296875,
+     "max": 2.404296875
+    },
+    "kib.image": {
+     "n": 10,
+     "median": 1.4814453125,
+     "p75": 1.4814453125,
+     "p95": 1.4814453125,
+     "min": 1.4814453125,
+     "max": 1.4814453125
+    },
+    "kib.other": {
+     "n": 10,
+     "median": 1.2294921875,
+     "p75": 1.2294921875,
+     "p95": 1.2294921875,
+     "min": 1.2294921875,
+     "max": 1.2294921875
+    }
+   }
+  }
+ }
+}
