@@ -1,0 +1,51 @@
+benchmarks/harness/record.mjs
+  s_c90446c13dcb57::t_624a648701869e 11,41,46
+benchmarks/harness/navigation.mjs
+  s_c90446c13dcb57::t_227a9dfd413d4e 9,13,15,47,75
+benchmarks/harness/lighthouse.mjs
+  s_c90446c13dcb57::t_9111c2162e7c23 8,10,20-22,47,56,71
+benchmarks/harness/run.mjs
+  s_c90446c13dcb57::t_a3410dacecd2fe 2,8-15,20-23,25,31,39-43,51-73
+benchmarks/pokedex/results/data/waterfall.json
+  s_c90446c13dcb57::t_ec430040a4c310 2,4-6,19-23,27-30,38-40,48-50,58-60,68-70,78-80,88-90,98-100,108-110,118-120,128-130,138-140,148-150,158-160,168-170,178-180,188-190,198-200,208-210,218-220,228-230,238-240,248-250,258-260,268-270,278-280,288-290,298-301,305,307-309,317-319,327-329,337-339,347-349,357-359,367-369,377-379,387-389
+  s_c90446c13dcb57::t_f9bf155245ab25 396-399
+  s_c90446c13dcb57::t_43f85e2f61516d 1,3,7-18,24-26,31-37,41-47,51-57,61-67,71-77,81-87,91-97,101-107,111-117,121-127,131-137,141-147,151-157,161-167,171-177,181-187,191-197,201-207,211-217,221-227,231-237,241-247,251-257,261-267,271-277,281-287,291-297,302-304,306,310-316,320-326,330-336,340-346,350-356,360-366,370-376,380-386,390-395
+benchmarks/harness/summary.mjs
+  s_c90446c13dcb57::t_323f992da79ef7 6,15-23,50,54,66-70,104,108-125,127-129,137
+  s_c90446c13dcb57::t_3d59dff4c00ce9 78
+benchmarks/pokedex/fetch.mjs
+  s_c90446c13dcb57::t_17a1bd0a764b9f 5,17,31-34
+benchmarks/DISCUSSION.md
+  s_c90446c13dcb57::t_cd20f78dccf306 87
+  s_c90446c13dcb57::t_faa5b17dccf4cd 49-50
+  s_c90446c13dcb57::t_e9b35b7b0cff15 88-91
+  s_c90446c13dcb57::t_ead37ec35c2347 59-62,66,70-71
+benchmarks/harness/lib.mjs
+  s_c90446c13dcb57::t_5b90fb6166b6d2 2-3,5,11-14,47-88
+benchmarks/README.md
+  s_c90446c13dcb57::t_7793d4b4ba8084 9,14-15,18-19,21,37,47-48
+benchmarks/pokedex/app/package.json
+  s_c90446c13dcb57::t_08786d8ab8060b 20
+benchmarks/harness/early-input.mjs
+  s_c90446c13dcb57::t_3656140368f20f 2-3,5-7,12,14,18-20,22,31-33,37-39,41,44-45,53-55,62,65,75,81,84-85,87-95,99-101
+benchmarks/pokedex/app/api.js
+  s_c90446c13dcb57::t_e2d6cf248d9766 1-2
+benchmarks/harness/waterfall.mjs
+  s_c90446c13dcb57::t_ce8dbe964301ce 1-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55c93f2967489697adcd0e280e7badee2ba7f98f",
+  "prompts": {},
+  "sessions": {
+    "s_c90446c13dcb57": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7434ed21-4f9a-4cdc-adcd-173a087a825f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}
