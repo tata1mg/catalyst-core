@@ -1,0 +1,22 @@
+packages/catalyst-core/src/cli/buildErrors.js
+  f029f54c8091507f 89-90,104-113,119-120,122,124,130-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "c0599feaacc769c476f27d1dc87856e92e5c2fa8",
+  "prompts": {
+    "f029f54c8091507f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab2decfb-dc13-46ed-95dc-ca216e322d9a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>",
+      "total_additions": 18,
+      "total_deletions": 13,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
