@@ -85,37 +85,6 @@ import { useCurrentRouteData } from "catalyst-core";
 | `refetch` | `function` | A function to re-run the `clientFetcher`. |
 | `clear` | `function` | A function to clear the cached data for the current route. |
 
-#### Model downloads on a weak or lost connection
-
-The first on-device use downloads a model of about 2.6 GB. That download no longer starts over when the connection drops or the device goes offline:
-
-- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced: the response's `ETag` is checked against the stored one on every resumed response, because some hosts (Hugging Face's CDN among them) ignore `If-Range` and answer `206` regardless.
-- **`useAI` follows `useNetworkStatus`.** When the device goes offline the download pauses; when it is back, it resumes. This works alongside your own `useNetworkStatus()` calls: they share one native subscription.
-- **A weak link pauses too.** If the speed stays under a minimum for a sustained window, the download stops, waits and tries again (the wait doubles up to a cap). A connection that resets or times out is retried the same way. It gives up only after several attempts in a row that moved no bytes; the partial stays on disk for the next launch.
-- **A safety net** retries on a timer even if the page never hears that the network returned (for example while the WebView was suspended).
-
-The hook result tells you what is happening: `downloadPaused` is `true` while it waits and `downloadPauseReason` is `"offline"`, `"weak"` or `"error"`. `nativeDownloadProgress.phase` is `"paused"` during the wait and `"download"` again once it resumes.
-
-Tune it in `config/config.json`; every key is optional and out-of-range values are clamped:
-
-```json
-"AI_CONFIG": {
-  "browser": {
-    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8, "heldRetrySec": 30 }
-  }
-}
-```
-
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `minBytesPerSec` | `50000` | Below this speed, sustained for `windowSec`, the link counts as weak |
-| `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
-| `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
-| `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
-| `heldRetrySec` | `30` | While the page reports offline, retry on this interval anyway (5-600), in case the page never hears the network return |
-
-Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.
-
 #### Requirements
 
 This hook only works inside the `RouterDataProvider` tree. If the app is not wrapped in `RouterDataProvider`, the hook returns `undefined`.
@@ -825,7 +794,7 @@ import { useAI } from "catalyst-core/hooks";
 | `isLocal` / `isNative` / `isWeb` | `boolean` | Indicates which provider actually served the request. |
 | `modelReady` | `boolean` | For `native`/`transformers`: `false` while the model is downloading or the engine is initializing. |
 | `downloadProgress` | `object \| null` | For `transformers`: `{ file, percent, status }`. |
-| `nativeDownloadProgress` | `object \| null` | For `native`: `{ phase, percent, detail }` (`phase` is `"engine_init"` or `"model_fetch"`). |
+| `nativeDownloadProgress` | `object \| null` | For `native`: `{ phase, percent, detail }` (`phase` is `"lookup"`, `"cache"`, `"download"`, `"paused"` while a download waits for the network, or `"engine_init"`). |
 | `nativeLogs` | `string[]` | For `native`: recent native-side log lines. |
 | `metrics` | `object \| null` | Per-generation metrics from the most recent call — shape differs per provider, see below. |
 | `getSessionMetrics` | `function` | Returns an aggregate across every generation this session, or `null` if none yet. |
@@ -932,6 +901,37 @@ The first use of an in-browser model downloads hundreds of megabytes to several 
 
 Inside a native WebView build, the on-device model is the native one: the native module downloads and runs it, and the web engine is not used there.
 
+#### Model downloads on a weak or lost connection
+
+The first on-device use downloads a model of about 2.6 GB. That download no longer starts over when the connection drops or the device goes offline:
+
+- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced: the response's `ETag` is checked against the stored one on every resumed response, because some hosts (Hugging Face's CDN among them) ignore `If-Range` and answer `206` regardless.
+- **`useAI` follows `useNetworkStatus`.** When the device goes offline the download pauses; when it is back, it resumes. This works alongside your own `useNetworkStatus()` calls: they share one native subscription.
+- **A weak link pauses too.** If the speed stays under a minimum for a sustained window, the download stops, waits and tries again (the wait doubles up to a cap). A connection that resets or times out is retried the same way. It gives up only after several attempts in a row that moved no bytes; the partial stays on disk for the next launch.
+- **A safety net** retries on a timer even if the page never hears that the network returned (for example while the WebView was suspended).
+
+The hook result tells you what is happening: `downloadPaused` is `true` while it waits and `downloadPauseReason` is `"offline"`, `"weak"` or `"error"`. `nativeDownloadProgress.phase` is `"paused"` during the wait and `"download"` again once it resumes.
+
+Tune it in `config/config.json`; every key is optional and out-of-range values are clamped:
+
+```json
+"AI_CONFIG": {
+  "browser": {
+    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8, "heldRetrySec": 30 }
+  }
+}
+```
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `minBytesPerSec` | `50000` | Below this speed, sustained for `windowSec`, the link counts as weak |
+| `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
+| `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
+| `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
+| `heldRetrySec` | `30` | While the page reports offline, retry on this interval anyway (5-600), in case the page never hears the network return |
+
+Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.
+
 ### `useVision`
 
 Read an image into typed data. Give it a schema, hand it a photo, and get back an object that has been checked against that schema.
@@ -981,7 +981,7 @@ await scan(photo); // a captured photo, a File or Blob, or a data:, blob: or htt
 | `route` | Which model was picked and why, or why nothing ran |
 | `error`, `attempts`, `partial`, `clear()` | Last error (`VisionError` with `code` and `problems` for an unusable answer), tries used, text arriving while running, reset |
 
-Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
+Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the outcome depends on that setting: with the default `deny` the status is `denied` (`route.skipped` says `cloud denied for media`) and nothing can be sent; with `cloudMedia: "ask"` the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run at all, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
 
 Small on-device models sometimes answer with prose or a wrong field. The reply is parsed leniently (bare JSON, a fenced block, or the first JSON value inside prose) and validated; an unusable reply is retried once with the specific problems, and a second failure is reported as a `VisionError` with code `VISION_INVALID_OUTPUT`, `problems`, and the raw reply in `raw`.
 
@@ -1002,8 +1002,17 @@ const agent = useAgent({
     ],
 })
 
-await agent.run("Scan this report and fill in the form")
-// agent.pendingConfirmation → { tool: "submit_form", ... }: show a button, then agent.approve() or agent.deny()
+// Do not await run() before showing the confirmation: the run pauses at submit_form until you answer, so awaiting it first would wait forever.
+const start = () => agent.run("Scan this report and fill in the form")
+
+// While the run is active, agent.pendingConfirmation → { tool: "submit_form", ... }: render the answer from that state.
+{agent.pendingConfirmation && (
+    <div>
+        <p>Submit the form?</p>
+        <button onClick={agent.approve}>Yes</button>
+        <button onClick={agent.deny}>No</button>
+    </div>
+)}
 ```
 
 | Option | Description |
