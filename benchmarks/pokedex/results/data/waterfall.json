@@ -1,0 +1,399 @@
+{
+ "runs": 2,
+ "environment": {
+  "collectedAt": "2026-11-26T05:55:36.739Z",
+  "commit": "aab92871c6482676d0454483892ce8cad985ed2e",
+  "workingTreeClean": false,
+  "catalystCore": "1.2.1",
+  "node": "v22.23.0",
+  "cpu": "Apple M3 Pro",
+  "cores": 11,
+  "memoryGiB": 18,
+  "os": "Darwin 25.2.0"
+ },
+ "profile": "slow4g",
+ "pages": {
+  "list": {
+   "url": "http://localhost:3016/",
+   "lcpPerRun": [
+    1176,
+    1176
+   ],
+   "milestones": {
+    "fcp": 660,
+    "lcp": 1176,
+    "domContentLoaded": 1797.0999999046326,
+    "load": 1800.7000000476837,
+    "hydrated": 1836.0999999046326
+   },
+   "requests": [
+    {
+     "url": "http://localhost:3016/",
+     "type": "Document",
+     "priority": "VeryHigh",
+     "status": 200,
+     "start": 0.3837890625,
+     "firstByte": 576.7548828125,
+     "end": 607.14990234375,
+     "kib": 7.1826171875
+    },
+    {
+     "url": "http://localhost:4000/sprites/1.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 588.94189453125,
+     "firstByte": 1164.0869140625,
+     "end": 1163.4248046875,
+     "kib": 0.7119140625
+    },
+    {
+     "url": "http://localhost:4000/sprites/2.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 589.421875,
+     "firstByte": 1172.325927734375,
+     "end": 1171.85498046875,
+     "kib": 1.03125
+    },
+    {
+     "url": "http://localhost:4000/sprites/3.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 589.449951171875,
+     "firstByte": 1274.60400390625,
+     "end": 1274.75390625,
+     "kib": 1.677734375
+    },
+    {
+     "url": "http://localhost:4000/sprites/4.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 589.473876953125,
+     "firstByte": 1234.73388671875,
+     "end": 1234.638916015625,
+     "kib": 0.7509765625
+    },
+    {
+     "url": "http://localhost:4000/sprites/5.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 590.197021484375,
+     "firstByte": 1227.620849609375,
+     "end": 1227.476806640625,
+     "kib": 0.994140625
+    },
+    {
+     "url": "http://localhost:4000/sprites/6.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 590.222900390625,
+     "firstByte": 1284.10595703125,
+     "end": 1283.47998046875,
+     "kib": 1.4814453125
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/main-CeqJ_Rw8.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.282958984375,
+     "firstByte": 1179.468994140625,
+     "end": 1179.159912109375,
+     "kib": 0.71875
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/vendor-react-CRcozs3N.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.31689453125,
+     "firstByte": 1770.365966796875,
+     "end": 1767.44189453125,
+     "kib": 57.568359375
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/app-BjS0mGO9.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.927978515625,
+     "firstByte": 1292.16796875,
+     "end": 1291.947998046875,
+     "kib": 4.26171875
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/vendor-router-CvWROX9M.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.95703125,
+     "firstByte": 1602.2138671875,
+     "end": 1601.7529296875,
+     "kib": 31.2626953125
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/Home-CZ-RBpk5.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.974853515625,
+     "firstByte": 1195.552978515625,
+     "end": 1195.239013671875,
+     "kib": 1.2255859375
+    },
+    {
+     "url": "http://localhost:4000/sprites/7.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.7919921875,
+     "firstByte": 1752.658935546875,
+     "end": 1751.9208984375,
+     "kib": 0.7431640625
+    },
+    {
+     "url": "http://localhost:4000/sprites/8.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.851806640625,
+     "firstByte": 1736.0029296875,
+     "end": 1735.288818359375,
+     "kib": 1.10546875
+    },
+    {
+     "url": "http://localhost:4000/sprites/9.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.869873046875,
+     "firstByte": 1801.159912109375,
+     "end": 1798.760986328125,
+     "kib": 1.3251953125
+    },
+    {
+     "url": "http://localhost:4000/sprites/10.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.885986328125,
+     "firstByte": 1817.039794921875,
+     "end": 1808.48388671875,
+     "kib": 0.736328125
+    },
+    {
+     "url": "http://localhost:4000/sprites/11.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.90380859375,
+     "firstByte": 1863.173828125,
+     "end": 1846.69580078125,
+     "kib": 0.5810546875
+    },
+    {
+     "url": "http://localhost:4000/sprites/12.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.927978515625,
+     "firstByte": 1863.971923828125,
+     "end": 1854.473876953125,
+     "kib": 1.0849609375
+    },
+    {
+     "url": "http://localhost:4000/sprites/13.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.94189453125,
+     "firstByte": 2308.141845703125,
+     "end": 2307.69384765625,
+     "kib": 0.6357421875
+    },
+    {
+     "url": "http://localhost:4000/sprites/14.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 646.958984375,
+     "firstByte": 2325.36181640625,
+     "end": 2325.116943359375,
+     "kib": 0.6162109375
+    },
+    {
+     "url": "http://localhost:4000/sprites/15.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.767822265625,
+     "firstByte": 2373.142822265625,
+     "end": 2372.594970703125,
+     "kib": 1.177734375
+    },
+    {
+     "url": "http://localhost:4000/sprites/16.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.805908203125,
+     "firstByte": 2380.095947265625,
+     "end": 2379.98291015625,
+     "kib": 0.7255859375
+    },
+    {
+     "url": "http://localhost:4000/sprites/17.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.825927734375,
+     "firstByte": 2418.7998046875,
+     "end": 2418.65185546875,
+     "kib": 1.375
+    },
+    {
+     "url": "http://localhost:4000/sprites/18.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.846923828125,
+     "firstByte": 2427.12890625,
+     "end": 2427.083984375,
+     "kib": 1.1142578125
+    },
+    {
+     "url": "http://localhost:4000/sprites/19.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.86181640625,
+     "firstByte": 2880.52197265625,
+     "end": 2880.0478515625,
+     "kib": 0.7333984375
+    },
+    {
+     "url": "http://localhost:4000/sprites/20.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 647.876953125,
+     "firstByte": 2896.447998046875,
+     "end": 2896.39697265625,
+     "kib": 1.0546875
+    },
+    {
+     "url": "http://localhost:3016/favicon.ico",
+     "type": "Other",
+     "priority": "High",
+     "status": 200,
+     "start": 1817.31689453125,
+     "firstByte": 2388.48193359375,
+     "end": 2388.324951171875,
+     "kib": 1.2294921875
+    }
+   ]
+  },
+  "detail": {
+   "url": "http://localhost:3016/pokemon/charizard",
+   "lcpPerRun": [
+    1232,
+    1220
+   ],
+   "milestones": {
+    "fcp": 636,
+    "lcp": 1220,
+    "domContentLoaded": 1728.0999999046326,
+    "load": 1728.7999999523163,
+    "hydrated": 1756.1999998092651
+   },
+   "requests": [
+    {
+     "url": "http://localhost:3016/pokemon/charizard",
+     "type": "Document",
+     "priority": "VeryHigh",
+     "status": 200,
+     "start": 0.368896484375,
+     "firstByte": 576.453857421875,
+     "end": 583.427001953125,
+     "kib": 2.404296875
+    },
+    {
+     "url": "http://localhost:4000/sprites/6.png",
+     "type": "Image",
+     "priority": "Low",
+     "status": 200,
+     "start": 588.635986328125,
+     "firstByte": 1211.25390625,
+     "end": 1211.203857421875,
+     "kib": 1.4814453125
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/main-CeqJ_Rw8.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 589.68701171875,
+     "firstByte": 1172.02685546875,
+     "end": 1171.69189453125,
+     "kib": 0.71875
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/vendor-react-CRcozs3N.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.029052734375,
+     "firstByte": 1704.89892578125,
+     "end": 1704.202880859375,
+     "kib": 57.568359375
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/app-BjS0mGO9.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.06103515625,
+     "firstByte": 1244.9169921875,
+     "end": 1244.0888671875,
+     "kib": 4.26171875
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/vendor-router-CvWROX9M.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.093994140625,
+     "firstByte": 1554.426025390625,
+     "end": 1553.93896484375,
+     "kib": 31.2626953125
+    },
+    {
+     "url": "http://localhost:3016/assets/client/assets/Pokemon-BIzlqoXT.js",
+     "type": "Script",
+     "priority": "High",
+     "status": 200,
+     "start": 590.114013671875,
+     "firstByte": 1187.666015625,
+     "end": 1187.35400390625,
+     "kib": 1.033203125
+    },
+    {
+     "url": "http://localhost:3016/favicon.ico",
+     "type": "Other",
+     "priority": "High",
+     "status": 200,
+     "start": 1739.638916015625,
+     "firstByte": 2308.201904296875,
+     "end": 2307.737060546875,
+     "kib": 1.2294921875
+    }
+   ]
+  }
+ }
+}

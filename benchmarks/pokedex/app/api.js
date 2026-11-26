@@ -1,3 +1,5 @@
+// Not used by the pages (they call fetch directly), but kept: catalyst's preflight check requires
+// an "@api" module alias in package.json (packages/catalyst-core/src/server/utils/validator.ts).
 const fetchFunction = (url, options) => {
     let baseURL = process.env.API_URL
     let finalUrl = baseURL + url

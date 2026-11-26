@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { CHROME, PAGES, PROFILES, RESULTS_DIR, ensureDir } from "./lib.mjs"
+import { CHROME, HEADER_LINK, PAGES, PROFILES, RESULTS_DIR, ensureDir, watchHydration } from "./lib.mjs"
 
 const PROFILE = PROFILES.slow4g
 const STEP_MS = 50
@@ -38,17 +38,12 @@ async function capture(browser, url) {
         cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
     })
     await page.evaluateOnNewDocument(() => {
-        window.__bench = { lcp: null, hydrated: null }
+        window.__bench = Object.assign(window.__bench || {}, { lcp: null })
         new PerformanceObserver((list) => {
             window.__bench.lcp = list.getEntries().at(-1).startTime
         }).observe({ type: "largest-contentful-paint", buffered: true })
-        const poll = () => {
-            const link = document.querySelector("header.site a")
-            if (link && Object.keys(link).some((k) => k.startsWith("__reactProps"))) window.__bench.hydrated = performance.now()
-            else requestAnimationFrame(poll)
-        }
-        requestAnimationFrame(poll)
     })
+    await page.evaluateOnNewDocument(watchHydration, HEADER_LINK)
     await cdp.send("Page.startScreencast", { format: "jpeg", quality: 75, maxWidth: PHONE.width, maxHeight: PHONE.height })
     await page.goto(url, { waitUntil: "load", timeout: 120000 })
     await page.waitForFunction(() => window.__bench.hydrated !== null, { timeout: 30000, polling: 50 })

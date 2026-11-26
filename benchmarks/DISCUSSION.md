@@ -46,7 +46,8 @@ Catalyst-only for now, set up so other frameworks can be added later.
   - Lighthouse score, TBT, CLS and Speed Index
 - **Output:**
   - A medians table with p75 and max
-  - Raw per-run JSON
+  - Raw per-run JSON, each file stamped with the commit, catalyst-core version and machine it was collected on
+  - A request waterfall per page (SVG, committed): every request's start, first byte, end and size against FCP, LCP, load and hydration
   - Lighthouse HTML and JSON reports with their filmstrips, and annotated GIFs of a real load at 1x speed. These are generated locally and kept out of git, because they show the Pokémon artwork.
 - **Run.** One command: `node harness/run.mjs`, about 10 minutes.
 
@@ -55,19 +56,19 @@ Catalyst-only for now, set up so other frameworks can be added later.
 | | List page | Detail page |
 |---|---:|---:|
 | First contentful paint | 628 ms | 624 ms |
-| Largest contentful paint | 1,164 ms | 1,212 ms |
-| DOMContentLoaded | 1,778 ms | 1,714 ms |
-| Page load | 1,781 ms | 1,714 ms |
-| Hydrated (interactive) | 1,813 ms | 1,741 ms |
+| Largest contentful paint | 1,168 ms | 1,208 ms |
+| DOMContentLoaded | 1,786 ms | 1,716 ms |
+| Page load | 1,792 ms | 1,718 ms |
+| Hydrated (interactive) | 1,822 ms | 1,745 ms |
 | JS transferred | 95 KiB | 95 KiB |
 | Lighthouse score (simulated / applied) | 99 / 100 | 100 / 100 |
 
-- **Core Web Vitals.** Both pages pass the lab equivalents. LCP is 1.16–1.21 s with applied throttling and 1.66–2.11 s in Lighthouse's default simulated mode, all under the 2.5 s bar. CLS is 0 and there are no long tasks.
+- **Core Web Vitals.** Both pages pass the lab equivalents. LCP is 1.19–1.24 s with applied throttling and 1.66–2.03 s in Lighthouse's default simulated mode, all under the 2.5 s bar. CLS is 0 and there are no long tasks.
 - **Reading the numbers.**
   - TTFB (563 ms) is the emulated network round trip, not server time. Unthrottled, the server answers in 2–5 ms.
   - The LCP element is a sprite image, loaded from a second origin, so LCP includes one more emulated round trip.
-- **Visible before interactive.** The list is visible at 1.16 s but doesn't respond until 1.81 s. The browser is still downloading the 58 KiB React bundle on the Slow 4G link, and that download ends at 1,775 ms. DOMContentLoaded, load and hydration all follow it within about 40 ms.
-  - Text typed into the search box in that window is lost. We typed "pika" at about 0.67 s, and the box was empty after hydration in 5 of 5 runs.
+- **Visible before interactive.** The list is visible at 1.17 s but doesn't respond until 1.82 s. The browser is still downloading the 58 KiB React bundle on the Slow 4G link. In the list page's [waterfall](pokedex/results/waterfall/list.svg), all five scripts start at 0.59 s and the React bundle finishes last, at 1.76 s. DOMContentLoaded, load and hydration all follow it within about 60 ms.
+  - Text typed into the search box in that window is lost. We typed "pika" at about 0.69 s, before the box hydrated in every run. After hydration the box was empty and the list unfiltered in 5 of 5 runs.
   - Links still work in that window, as full page loads. A card clicked at about 0.66 s reached the detail page in 5 of 5 runs.
 - **Shrinking the window.** Less JS before hydration, or hydrating parts of the page sooner, is the lever. The benchmark can now show what a change like that is worth.
 
@@ -83,7 +84,11 @@ Catalyst-only for now, set up so other frameworks can be added later.
 | Server throughput under load (req/s, p99) | No | A separate load test against `catalyst serve` |
 | Build time, large apps, real networks and devices | No | Out of scope for a lab page-load benchmark |
 
+## Next steps
+
+- **PPR variant (follow-up).** `bench/exact-vs-catalyst` has `catalyst-ppr` and `catalyst-ppr-flush` builds. PPR isn't on main, so it isn't measured here. The next PR adds it as a variant next to `app/`, which gives the first before-and-after.
+- **Named scenarios.** Today's scenarios are list load, detail load, early typing and early click. The next step is to name them in the harness, so a run can select them.
+
 ## Open questions
 
 - Should the benchmark run in CI on every release, with the medians table committed, or only on demand?
-- Which feature should get the first before-and-after variant?

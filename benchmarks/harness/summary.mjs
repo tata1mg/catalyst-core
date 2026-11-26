@@ -2,10 +2,8 @@
 //
 // usage: node summary.mjs
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { execFileSync } from "node:child_process"
-import os from "node:os"
 import path from "node:path"
-import { HARNESS_DIR, RESULTS_DIR } from "./lib.mjs"
+import { RESULTS_DIR } from "./lib.mjs"
 
 const read = (name) => {
     const file = path.join(RESULTS_DIR, "data", name)
@@ -14,9 +12,15 @@ const read = (name) => {
 const navigation = read("navigation.json")
 const lighthouse = read("lighthouse.json")
 const earlyInput = read("early-input.json")
-const appDir = path.resolve(HARNESS_DIR, "../pokedex/app")
-const coreVersion = JSON.parse(readFileSync(path.join(appDir, "node_modules/catalyst-core/package.json"), "utf8")).version
-const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: HARNESS_DIR, encoding: "utf8" }).trim()
+const waterfall = read("waterfall.json")
+const datasets = { "navigation.json": navigation, "lighthouse.json": lighthouse, "early-input.json": earlyInput, "waterfall.json": waterfall }
+
+// The environment each data file recorded when it was collected (lib.mjs environment()), not this machine's.
+const collected = Object.entries(datasets).filter(([, d]) => d?.environment)
+if (!collected.length) throw new Error("no results/data/*.json with an environment block; run the measuring scripts first")
+const env = collected[0][1].environment
+const sameAs = (e) => e.commit === env.commit && e.catalystCore === env.catalystCore && e.cpu === env.cpu && e.workingTreeClean === env.workingTreeClean
+const mismatched = collected.filter(([, d]) => !sameAs(d.environment)).map(([name]) => name)
 
 const ms = (v) => (v == null ? "–" : Math.round(v).toLocaleString("en"))
 const cell = (s) => `${ms(s.median)} (${ms(s.p75)} / ${ms(s.max)})`
@@ -43,11 +47,11 @@ function navigationTable(profile) {
 }
 
 function lighthouseTable() {
-    const head = "| Page | Mode | Score | TTFB | FCP | LCP | TBT | CLS | Speed Index |\n|---|---|---:|---:|---:|---:|---:|---:|---:|"
+    const head = "| Page | Mode | Score | Server response | FCP | LCP | TBT | CLS | Speed Index |\n|---|---|---:|---:|---:|---:|---:|---:|---:|"
     const body = Object.entries(lighthouse.results).map(([key, r]) => {
         const [page, mode] = key.split(".")
         const s = r.summary
-        return `| ${PAGE_LABEL[page]} | ${mode} | ${s.score.median} | ${ms(s.ttfb.median)} | ${ms(s.fcp.median)} | ${ms(s.lcp.median)} | ${ms(s.tbt.median)} | ${s.cls.median.toFixed(3)} | ${ms(s.speedIndex.median)} |`
+        return `| ${PAGE_LABEL[page]} | ${mode} | ${s.score.median} | ${ms(s.serverResponseTime.median)} | ${ms(s.fcp.median)} | ${ms(s.lcp.median)} | ${ms(s.tbt.median)} | ${s.cls.median.toFixed(3)} | ${ms(s.speedIndex.median)} |`
     })
     return [head, ...body].join("\n")
 }
@@ -59,10 +63,11 @@ const lines = [
     "",
     "## Environment",
     "",
-    `- catalyst-core ${coreVersion}, built from this repository at commit \`${commit}\` (\`npm run sync-core\`), production build (\`catalyst build\` + \`catalyst serve\`)`,
-    `- Chrome ${navigation?.chromeVersion ?? lighthouse?.chromeVersion}, headless; Lighthouse ${lighthouse?.lighthouseVersion ?? "–"}; Node ${process.version}`,
-    `- ${os.cpus()[0].model}, ${os.cpus().length} cores, ${Math.round(os.totalmem() / 2 ** 30)} GB, ${os.type()} ${os.release()}`,
-    `- Server, sprites and browser on one machine (localhost). Generated ${new Date().toISOString().slice(0, 10)}.`,
+    `- catalyst-core ${env.catalystCore}, built from this repository at commit \`${env.commit.slice(0, 8)}\`${env.workingTreeClean ? "" : " **with uncommitted changes**"} (\`npm run sync-core\`), production build (\`catalyst build\` + \`catalyst serve\`)`,
+    `- Chrome ${navigation?.chromeVersion ?? lighthouse?.chromeVersion}, headless; Lighthouse ${lighthouse?.lighthouseVersion ?? "–"}; Node ${env.node}`,
+    `- ${env.cpu}, ${env.cores} cores, ${env.memoryGiB} GB, ${env.os}`,
+    `- Server, sprites and browser on one machine (localhost). Collected ${env.collectedAt.slice(0, 10)}.`,
+    ...(mismatched.length ? [`- **Warning:** ${mismatched.join(", ")} came from a different commit, core version or machine than ${collected[0][0]}.`] : []),
     "",
 ]
 
@@ -70,7 +75,7 @@ if (navigation) {
     lines.push(
         "## Page load, Slow 4G + 4x CPU",
         "",
-        `${navigation.runs} cold loads per page, a fresh browser each, cache disabled, Lighthouse's applied Slow 4G (562.5 ms RTT, 1.44 Mbps down) and 4x CPU slowdown. Times are from navigation start. TTFB here is the emulated round trip; the server's own time is in the unthrottled table. The LCP element is a sprite image from the second origin.`,
+        `${navigation.runs} cold loads per page, a fresh browser each, cache disabled, Lighthouse's applied Slow 4G (562.5 ms RTT, 1.44 Mbps down) and 4x CPU slowdown. Times are from navigation start. TTFB here is the emulated round trip; the server's own time is in the unthrottled table. The LCP element is a sprite image from the second origin. Bytes and requests count what finished by 1 s after hydration, so a few late sprites are missing here; the waterfall below has every request.`,
         "",
         navigationTable("slow4g"),
         "",
@@ -96,13 +101,32 @@ if (lighthouse) {
 
 if (earlyInput) {
     const s = earlyInput.summary
+    const n = earlyInput.runs
     lines.push(
         "## Input before hydration, Slow 4G + 4x CPU",
         "",
-        `${earlyInput.runs} runs each, list page. Times are medians from navigation start.`,
+        `${n} runs each, list page. Times are medians from navigation start. A run counts only if the action finished before the element it targets had hydrated.`,
         "",
-        `- Typed \"pika\" into the search box at ${ms(s.typedAt.median)} ms; hydration at ${ms(s.hydrated.median)} ms. The text was still there after hydration in ${s.textKept} of ${earlyInput.runs} runs.`,
-        `- Clicked the first card at ${ms(s.clickedAt.median)} ms. The detail page loaded in ${s.clickReached} of ${earlyInput.runs} runs, as a full page load in ${s.clickFullPageLoad}.`,
+        `- Typed "${earlyInput.query}" into the search box at ${ms(s.typedAt.median)} ms (${s.typingEligible} of ${n} runs before hydration); the box hydrated at ${ms(s.hydrated.median)} ms. After hydration the text was still there in ${s.textKept} of ${s.typingEligible}, and the list was filtered to the ${earlyInput.expectedMatches} match in ${s.listFiltered} of ${s.typingEligible}.`,
+        `- Clicked the first card at ${ms(s.clickedAt.median)} ms (${s.clickEligible} of ${n} runs before hydration). The detail page loaded in ${s.clickReached} of ${s.clickEligible}, as a full page load in ${s.clickFullPageLoad}.`,
+        "",
+    )
+}
+
+if (waterfall) {
+    const rows = Object.entries(waterfall.pages).map(([page, w]) => {
+        const kib = w.requests.reduce((sum, r) => sum + r.kib, 0)
+        const last = Math.max(...w.requests.map((r) => r.end))
+        return `| ${PAGE_LABEL[page]} | ${w.requests.length} | ${kib.toFixed(0)} | ${ms(last)} | ${ms(w.milestones.lcp)} | [\`waterfall/${page}.svg\`](waterfall/${page}.svg) |`
+    })
+    lines.push(
+        "## Request waterfall, Slow 4G + 4x CPU",
+        "",
+        `Every request, until the network went idle for 1 s, of the median-LCP run of ${waterfall.runs} cold loads per page: start, first byte, end and size, with FCP, LCP, DOMContentLoaded, load and hydration marked. Per-request data is in \`data/waterfall.json\`.`,
+        "",
+        "| Page | Requests | KiB transferred | Last request ends, ms | LCP, ms | Chart |",
+        "|---|---:|---:|---:|---:|---|",
+        ...rows,
         "",
     )
 }
@@ -110,7 +134,7 @@ if (earlyInput) {
 lines.push(
     "## Recordings",
     "",
-    "`node harness/record.mjs` writes `gifs/list-page-load.gif` and `gifs/detail-page-load.gif`: one real Slow 4G + 4x CPU load each, at 1x speed, with the events marked as they happen. They show Pokémon artwork, so they stay out of git; \`run.mjs\` generates them.",
+    "`node harness/record.mjs` writes `gifs/list-page-load.gif` and `gifs/detail-page-load.gif`: one real Slow 4G + 4x CPU load each, at 1x speed, with the events marked as they happen. They show Pokémon artwork, so they stay out of git; `run.mjs` generates them.",
     "",
 )
 

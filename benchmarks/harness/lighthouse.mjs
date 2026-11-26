@@ -5,9 +5,9 @@
 // usage: node lighthouse.mjs [runs=5]
 import lighthouse from "lighthouse"
 import * as chromeLauncher from "chrome-launcher"
-import { writeFileSync } from "node:fs"
+import { rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
-import { CHROME, PAGES, RESULTS_DIR, ensureDir, runCount, stats } from "./lib.mjs"
+import { CHROME, PAGES, RESULTS_DIR, ensureDir, environment, medianIndex, runCount, stats } from "./lib.mjs"
 
 const RUNS = runCount(5)
 
@@ -17,7 +17,9 @@ const MODES = { simulated: {}, applied: { throttlingMethod: "devtools" } }
 
 const METRICS = {
     score: (lhr) => Math.round(lhr.categories.performance.score * 100),
-    ttfb: (lhr) => lhr.audits["server-response-time"].numericValue,
+    // Lighthouse's "server response time": the root document's request-to-first-byte, without
+    // DNS/connection setup. Not the same as navigation.mjs's TTFB (responseStart from navigation start).
+    serverResponseTime: (lhr) => lhr.audits["server-response-time"].numericValue,
     fcp: (lhr) => lhr.audits["first-contentful-paint"].numericValue,
     lcp: (lhr) => lhr.audits["largest-contentful-paint"].numericValue,
     tbt: (lhr) => lhr.audits["total-blocking-time"].numericValue,
@@ -42,6 +44,7 @@ async function audit(url, mode) {
 }
 
 function saveFilmstrip(lhr, dir) {
+    rmSync(dir, { recursive: true, force: true }) // frames from an earlier run must not mix with this one
     ensureDir(dir)
     for (const frame of lhr.audits["screenshot-thumbnails"].details.items) {
         const name = `${String(Math.round(frame.timing)).padStart(5, "0")}ms.jpg`
@@ -50,7 +53,7 @@ function saveFilmstrip(lhr, dir) {
 }
 
 const lighthouseDir = ensureDir(path.join(RESULTS_DIR, "lighthouse"))
-const output = { runs: RUNS, lighthouseVersion: null, chromeVersion: null, results: {} }
+const output = { runs: RUNS, environment: environment(), lighthouseVersion: null, chromeVersion: null, results: {} }
 
 for (const [page, url] of Object.entries(PAGES)) {
     for (const mode of Object.keys(MODES)) {
@@ -65,7 +68,7 @@ for (const [page, url] of Object.entries(PAGES)) {
         }
 
         runs.sort((a, b) => a.metrics.lcp - b.metrics.lcp)
-        const kept = runs[Math.floor(runs.length / 2)]
+        const kept = runs[medianIndex(runs.length)] // the same run stats().median reports
         const base = path.join(lighthouseDir, `${page}.${mode}`)
         writeFileSync(`${base}.report.html`, kept.report[0])
         writeFileSync(`${base}.report.json`, kept.report[1])

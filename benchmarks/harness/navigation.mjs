@@ -6,14 +6,13 @@
 import puppeteer from "puppeteer-core"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
-import { CHROME, PAGES, PROFILES, RESULTS_DIR, VIEWPORT, ensureDir, runCount, stats } from "./lib.mjs"
+import { CHROME, HEADER_LINK, PAGES, PROFILES, RESULTS_DIR, VIEWPORT, ensureDir, environment, runCount, stats, watchHydration } from "./lib.mjs"
 
 const RUNS = runCount(10)
 
-// React marks a hydrated DOM node with a "__reactProps$<id>" key. The header link exists on both pages,
-// so the first animation frame in which it carries that key is when hydration reached the page.
+// LCP and long tasks; hydration (of the header link, on both pages) comes from watchHydration in lib.mjs.
 function installObservers() {
-    window.__bench = { lcp: null, longTasks: [], hydrated: null }
+    window.__bench = Object.assign(window.__bench || {}, { lcp: null, longTasks: [] })
     new PerformanceObserver((list) => {
         const last = list.getEntries().at(-1)
         window.__bench.lcp = { time: last.startTime, element: last.element ? last.element.tagName : null }
@@ -21,15 +20,6 @@ function installObservers() {
     new PerformanceObserver((list) => {
         for (const e of list.getEntries()) window.__bench.longTasks.push(e.duration)
     }).observe({ type: "longtask", buffered: true })
-    const poll = () => {
-        const link = document.querySelector("header.site a")
-        if (link && Object.keys(link).some((k) => k.startsWith("__reactProps"))) {
-            window.__bench.hydrated = performance.now()
-            return
-        }
-        requestAnimationFrame(poll)
-    }
-    requestAnimationFrame(poll)
 }
 
 async function measure(browser, url, profile) {
@@ -54,6 +44,7 @@ async function measure(browser, url, profile) {
         })
 
         await page.evaluateOnNewDocument(installObservers)
+        await page.evaluateOnNewDocument(watchHydration, HEADER_LINK)
         await page.goto(url, { waitUntil: "load", timeout: 120000 })
         await page.waitForFunction(() => window.__bench.hydrated !== null, { timeout: 30000, polling: 50 })
         await new Promise((resolve) => setTimeout(resolve, 1000)) // let late LCP candidates and long tasks land
@@ -81,7 +72,7 @@ async function measure(browser, url, profile) {
 }
 
 const NUMERIC = ["ttfb", "fcp", "lcp", "domContentLoaded", "load", "hydrated", "longTaskCount", "longTaskMs", "requests"]
-const output = { runs: RUNS, chromeVersion: null, profiles: PROFILES, results: {} }
+const output = { runs: RUNS, environment: environment(), chromeVersion: null, profiles: PROFILES, results: {} }
 
 for (const [profileName, profile] of Object.entries(PROFILES)) {
     for (const [pageName, url] of Object.entries(PAGES)) {

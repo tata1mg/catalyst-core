@@ -1,12 +1,17 @@
 // Shared settings for every benchmark script: targets, throttling profiles, and statistics.
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync } from "node:fs"
+import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
+import os from "node:os"
 import path from "node:path"
 
 export const HARNESS_DIR = path.dirname(fileURLToPath(import.meta.url))
 export const RESULTS_DIR = path.resolve(HARNESS_DIR, "../pokedex/results")
 
-export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3016"
+// run.mjs starts the app on this origin's port (config/config.json), so it refuses an override;
+// the measuring scripts accept APP_ORIGIN when you start the server yourself.
+export const DEFAULT_APP_ORIGIN = "http://localhost:3016"
+export const APP_ORIGIN = process.env.APP_ORIGIN || DEFAULT_APP_ORIGIN
 
 // The two pages of the Pokédex: the list (151 cards, search box) and one detail page.
 export const PAGES = {
@@ -39,6 +44,48 @@ export const VIEWPORT = { width: 412, height: 823, isMobile: true, hasTouch: tru
 
 export const LIST_CARD = 'a[href*="/pokemon/"]'
 export const SEARCH_INPUT = 'input[aria-label="Search Pokémon"]'
+// On both pages. The default element whose hydration counts as "the page hydrated".
+export const HEADER_LINK = "header.site a"
+
+// Runs in the page (pass to page.evaluateOnNewDocument with a selector). React marks a hydrated DOM node
+// with a "__reactProps$<id>" key, so the first animation frame in which the first element matching the
+// selector carries that key is when hydration reached it. Sets window.__bench.hydrated (ms from navigation start).
+// The key is a React internal: if a React upgrade renames it, every script stops seeing hydration
+// and fails its wait, rather than reporting a wrong number.
+export function watchHydration(selector) {
+    window.__bench = Object.assign(window.__bench || {}, { hydrated: null })
+    const poll = () => {
+        const el = document.querySelector(selector)
+        if (el && Object.keys(el).some((k) => k.startsWith("__reactProps"))) window.__bench.hydrated = performance.now()
+        else requestAnimationFrame(poll)
+    }
+    requestAnimationFrame(poll)
+}
+
+// What produced a data file, captured when the data is collected: the commit (and whether benchmarks/
+// or packages/catalyst-core had uncommitted changes, results excluded), the catalyst-core version installed in the app, and the machine.
+export function environment() {
+    const git = (...args) => execFileSync("git", args, { cwd: HARNESS_DIR, encoding: "utf8" }).trim()
+    const appDir = path.resolve(HARNESS_DIR, "../pokedex/app")
+    const core = JSON.parse(readFileSync(path.join(appDir, "node_modules/catalyst-core/package.json"), "utf8"))
+    return {
+        collectedAt: new Date().toISOString(),
+        commit: git("rev-parse", "HEAD"),
+        workingTreeClean: git("status", "--porcelain", "--", "..", "../../packages/catalyst-core", ":(exclude)../pokedex/results").length === 0,
+        catalystCore: core.version,
+        node: process.version,
+        cpu: os.cpus()[0].model,
+        cores: os.cpus().length,
+        memoryGiB: Math.round(os.totalmem() / 2 ** 30),
+        os: `${os.type()} ${os.release()}`,
+    }
+}
+
+// Nearest-rank percentile. For an even count the median is the lower middle value;
+// medianIndex() gives the same position so a "median run" kept as an artifact matches the table.
+export function medianIndex(count) {
+    return Math.max(0, Math.ceil(count / 2) - 1)
+}
 
 export function percentile(values, p) {
     const sorted = values.filter((v) => v != null).sort((a, b) => a - b)
