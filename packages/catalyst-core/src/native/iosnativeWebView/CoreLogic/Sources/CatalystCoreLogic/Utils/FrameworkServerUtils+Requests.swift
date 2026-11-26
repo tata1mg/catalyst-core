@@ -106,8 +106,8 @@ extension FrameworkServerUtils {
         return 0
     }
 
-    /// True when the peer is on this device. The listener is not bound to loopback only (that predates the AI
-    /// routes and also serves files), so the AI routes — which run the on-device model — check the peer themselves.
+    /// True when the peer is on this device. The listener only accepts loopback connections (see startNWServer);
+    /// the AI routes, which run the on-device model, still check the peer themselves as a second layer.
     static func isLoopbackPeer(_ endpoint: NWEndpoint) -> Bool {
         guard case let .hostPort(host, _) = endpoint else { return false }
         switch host {
