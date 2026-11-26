@@ -69,6 +69,25 @@ describe("manifestCache (production load path)", () => {
         warn.mockRestore()
     })
 
+    it("exposes the integrity section of an app-written route-manifest.json", async () => {
+        const vite = path.join(tmp, "build", ".vite")
+        const integrity = { "https://cdn.test/a.js": { integrity: "sha384-abc", crossOrigin: "anonymous" } }
+        fs.writeFileSync(path.join(vite, "route-manifest.json"), JSON.stringify({ routes: {}, integrity }))
+        const mod = await import("../../src/server/manifestCache.js")
+        expect(mod.getIntegrityManifest()).toEqual(integrity)
+    })
+
+    it("returns an empty integrity manifest when route-manifest.json is absent or has no integrity key", async () => {
+        const first = await import("../../src/server/manifestCache.js")
+        expect(first.getIntegrityManifest()).toEqual({})
+
+        vi.resetModules()
+        const vite = path.join(tmp, "build", ".vite")
+        fs.writeFileSync(path.join(vite, "route-manifest.json"), JSON.stringify({ routes: {} }))
+        const second = await import("../../src/server/manifestCache.js")
+        expect(second.getIntegrityManifest()).toEqual({})
+    })
+
     it("catches and warns when manifest JSON is malformed", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
         const vite = path.join(tmp, "build", ".vite")

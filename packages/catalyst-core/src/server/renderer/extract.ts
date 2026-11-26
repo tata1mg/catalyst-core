@@ -87,16 +87,32 @@ export const getDeferredPreloadScriptUrls = (routeKey: any, excludeUrls: any = [
     return [...rec.js].filter((url: any) => url && !exclude.has(url))
 }
 
+const INTEGRITY_VALUE = /^sha(256|384|512)-[A-Za-z0-9+/]+={0,2}( sha(256|384|512)-[A-Za-z0-9+/]+={0,2})*$/
+
+/**
+ * Subresource Integrity attributes for a URL, from the app's integrity manifest
+ * ({ [url]: { integrity, crossOrigin } }). Returns null when the URL has no valid entry.
+ */
+const getIntegrityAttributes = (url: any, integrityManifest: any) => {
+    const integrity = integrityManifest?.[url]?.integrity
+    if (typeof integrity !== "string" || !INTEGRITY_VALUE.test(integrity)) return null
+    const crossOrigin =
+        integrityManifest[url].crossOrigin === "use-credentials" ? "use-credentials" : "anonymous"
+    return { integrity, crossOrigin }
+}
+
 /**
  * React <link rel="modulepreload"> elements (deduped). Use before matching <script type="module">.
  * @param {string[]} jsUrls
  * @param {string} [keyPrefix] - Unique prefix for React keys when rendering multiple lists.
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
+ * @param {object} [integrityManifest] - Optional SRI hashes keyed by URL (see getIntegrityManifest).
  */
 export const generateModulePreloadLinkElements = (
     jsUrls: any = [],
     keyPrefix = "modulepreload",
-    nonce?: string
+    nonce?: string,
+    integrityManifest: any = {}
 ) =>
     [...new Set<any>(jsUrls)].map((url: any, i: number) =>
         React.createElement("link", {
@@ -105,6 +121,7 @@ export const generateModulePreloadLinkElements = (
             href: url,
             fetchPriority: "high",
             ...(nonce ? { nonce } : {}),
+            ...getIntegrityAttributes(url, integrityManifest),
         })
     )
 
@@ -149,14 +166,16 @@ export const readCssFromDisk = (cssPaths: any = [], basePath?: string) => {
  * <script type="module"> React elements for JS assets.
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
+ * @param {object} [integrityManifest] - Optional SRI hashes keyed by URL (see getIntegrityManifest).
  */
-export const generateScriptElements = (jsUrls: any = [], nonce?: string) =>
+export const generateScriptElements = (jsUrls: any = [], nonce?: string, integrityManifest: any = {}) =>
     [...new Set<any>(jsUrls)].map((url: any, i: number) =>
         React.createElement("script", {
             key: `js-${i}`,
             type: "module",
             src: url,
             ...(nonce ? { nonce } : {}),
+            ...getIntegrityAttributes(url, integrityManifest),
         })
     )
 
@@ -172,12 +191,15 @@ export const generateCssLinkStrings = (cssUrls: any = []) =>
  * <link rel="modulepreload"> + <script type="module"> HTML strings.
  * @param {string[]} jsUrls
  * @param {string} [nonce] - CSP nonce, applied when nonce-based CSP is enabled (see CSP_NONCE_ENABLE).
+ * @param {object} [integrityManifest] - Optional SRI hashes keyed by URL (see getIntegrityManifest).
  */
-export const generateScriptStrings = (jsUrls: any = [], nonce?: string) => {
+export const generateScriptStrings = (jsUrls: any = [], nonce?: string, integrityManifest: any = {}) => {
     const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
     return [...new Set<any>(jsUrls)]
         .map((url: any) => {
-            return `<script type="module"${nonceAttr} src="${url}"></script>`
+            const sri = getIntegrityAttributes(url, integrityManifest)
+            const sriAttr = sri ? ` integrity="${sri.integrity}" crossorigin="${sri.crossOrigin}"` : ""
+            return `<script type="module"${nonceAttr}${sriAttr} src="${url}"></script>`
         })
         .join("")
 }
