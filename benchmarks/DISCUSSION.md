@@ -55,21 +55,21 @@ Catalyst-only for now, set up so other frameworks can be added later.
 
 | | List page | Detail page |
 |---|---:|---:|
-| First contentful paint | 628 ms | 624 ms |
-| Largest contentful paint | 1,168 ms | 1,208 ms |
-| DOMContentLoaded | 1,786 ms | 1,716 ms |
-| Page load | 1,792 ms | 1,718 ms |
-| Hydrated (interactive) | 1,822 ms | 1,745 ms |
+| First contentful paint | 624 ms | 624 ms |
+| Largest contentful paint | 1,164 ms | 1,216 ms |
+| DOMContentLoaded | 1,782 ms | 1,720 ms |
+| Page load | 1,787 ms | 1,721 ms |
+| Hydrated (interactive) | 1,818 ms | 1,747 ms |
 | JS transferred | 95 KiB | 95 KiB |
 | Lighthouse score (simulated / applied) | 99 / 100 | 100 / 100 |
 
-- **Core Web Vitals.** Both pages pass the lab equivalents. LCP is 1.19–1.24 s with applied throttling and 1.66–2.03 s in Lighthouse's default simulated mode, all under the 2.5 s bar. CLS is 0 and there are no long tasks.
+- **Core Web Vitals.** Both pages pass the lab equivalents. LCP is 1.17–1.22 s with applied throttling and 1.66–2.11 s in Lighthouse's default simulated mode, all under the 2.5 s bar. CLS is 0 and there are no long tasks.
 - **Reading the numbers.**
-  - TTFB (563 ms) is the emulated network round trip, not server time. Unthrottled, the server answers in 2–5 ms.
+  - TTFB (563 ms) is the emulated network round trip, not server time. Unthrottled, the server answers in 3–5 ms (median).
   - The LCP element is a sprite image, loaded from a second origin, so LCP includes one more emulated round trip.
-- **Visible before interactive.** The list is visible at 1.17 s but doesn't respond until 1.82 s. The browser is still downloading the 58 KiB React bundle on the Slow 4G link. In the list page's [waterfall](pokedex/results/waterfall/list.svg), all five scripts start at 0.59 s and the React bundle finishes last, at 1.76 s. DOMContentLoaded, load and hydration all follow it within about 60 ms.
+- **Visible before interactive.** The list is visible at 1.16 s but doesn't respond until 1.82 s. The browser is still downloading the 58 KiB React bundle on the Slow 4G link. In the list page's [waterfall](pokedex/results/waterfall/list.svg), all five scripts start at 0.59 s and the React bundle finishes last, at 1.77 s. DOMContentLoaded, load and hydration all follow it within about 60 ms.
   - Text typed into the search box in that window is lost. We typed "pika" at about 0.69 s, before the box hydrated in every run. After hydration the box was empty and the list unfiltered in 5 of 5 runs.
-  - Links still work in that window, as full page loads. A card clicked at about 0.66 s reached the detail page in 5 of 5 runs.
+  - Links still work in that window, as full page loads. A card clicked at about 0.67 s reached the detail page in 5 of 5 runs.
 - **Shrinking the window.** Less JS before hydration, or hydrating parts of the page sooner, is the lever. The benchmark can now show what a change like that is worth.
 
 ## 4. Use cases covered

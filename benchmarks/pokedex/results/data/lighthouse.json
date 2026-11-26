@@ -1,55 +1,66 @@
 {
  "runs": 5,
+ "environment": {
+  "collectedAt": "2026-11-26T06:07:32.328Z",
+  "commit": "55c93f2967489697adcd0e280e7badee2ba7f98f",
+  "workingTreeClean": true,
+  "catalystCore": "1.2.1",
+  "node": "v22.23.0",
+  "cpu": "Apple M3 Pro",
+  "cores": 11,
+  "memoryGiB": 18,
+  "os": "Darwin 25.2.0"
+ },
  "lighthouseVersion": "13.6.0",
- "chromeVersion": "157.0.0.0",
+ "chromeVersion": "158.0.0.0",
  "results": {
   "list.simulated": {
    "url": "http://localhost:3016/",
    "perRun": [
     {
      "score": 99,
-     "ttfb": 5,
-     "fcp": 603.91305,
-     "lcp": 2105.8260999999998,
+     "serverResponseTime": 5,
+     "fcp": 604.5682,
+     "lcp": 2032.1364000000003,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 603.91305
+     "speedIndex": 604.5682
     },
     {
      "score": 99,
-     "ttfb": 7,
-     "fcp": 636.30265,
-     "lcp": 2106.6053,
-     "tbt": 7,
-     "cls": 0,
-     "speedIndex": 636.30265
-    },
-    {
-     "score": 99,
-     "ttfb": 5,
-     "fcp": 629.50775,
-     "lcp": 2107.0154999999995,
+     "serverResponseTime": 6,
+     "fcp": 609.9782,
+     "lcp": 2032.9564,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 629.50775
+     "speedIndex": 609.9782
     },
     {
      "score": 99,
-     "ttfb": 6,
-     "fcp": 632.09315,
-     "lcp": 2108.1863000000003,
-     "tbt": 15,
-     "cls": 0,
-     "speedIndex": 632.09315
-    },
-    {
-     "score": 99,
-     "ttfb": 6,
-     "fcp": 639.2443,
-     "lcp": 2108.4886,
+     "serverResponseTime": 5,
+     "fcp": 605.15415,
+     "lcp": 2106.3083,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 639.2443
+     "speedIndex": 605.15415
+    },
+    {
+     "score": 99,
+     "serverResponseTime": 5,
+     "fcp": 604.2728,
+     "lcp": 2106.5456,
+     "tbt": 31,
+     "cls": 0,
+     "speedIndex": 604.2728
+    },
+    {
+     "score": 99,
+     "serverResponseTime": 5,
+     "fcp": 604.99365,
+     "lcp": 2107.9873000000002,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 604.99365
     }
    ],
    "summary": {
@@ -61,250 +72,34 @@
      "min": 99,
      "max": 99
     },
-    "ttfb": {
+    "serverResponseTime": {
      "n": 5,
-     "median": 6,
-     "p75": 6,
-     "p95": 7,
+     "median": 5,
+     "p75": 5,
+     "p95": 6,
      "min": 5,
-     "max": 7
+     "max": 6
     },
     "fcp": {
      "n": 5,
-     "median": 632.09315,
-     "p75": 636.30265,
-     "p95": 639.2443,
-     "min": 603.91305,
-     "max": 639.2443
+     "median": 604.99365,
+     "p75": 605.15415,
+     "p95": 609.9782,
+     "min": 604.2728,
+     "max": 609.9782
     },
     "lcp": {
      "n": 5,
-     "median": 2107.0154999999995,
-     "p75": 2108.1863000000003,
-     "p95": 2108.4886,
-     "min": 2105.8260999999998,
-     "max": 2108.4886
-    },
-    "tbt": {
-     "n": 5,
-     "median": 0,
-     "p75": 7,
-     "p95": 15,
-     "min": 0,
-     "max": 15
-    },
-    "cls": {
-     "n": 5,
-     "median": 0,
-     "p75": 0,
-     "p95": 0,
-     "min": 0,
-     "max": 0
-    },
-    "speedIndex": {
-     "n": 5,
-     "median": 632.09315,
-     "p75": 636.30265,
-     "p95": 639.2443,
-     "min": 603.91305,
-     "max": 639.2443
-    }
-   }
-  },
-  "list.applied": {
-   "url": "http://localhost:3016/",
-   "perRun": [
-    {
-     "score": 100,
-     "ttfb": 563,
-     "fcp": 673.209,
-     "lcp": 1173.247,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 906
-    },
-    {
-     "score": 100,
-     "ttfb": 563,
-     "fcp": 659.049,
-     "lcp": 1176.394,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 895
-    },
-    {
-     "score": 100,
-     "ttfb": 563,
-     "fcp": 679.862,
-     "lcp": 1178.901,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 913
-    },
-    {
-     "score": 100,
-     "ttfb": 563,
-     "fcp": 663.259,
-     "lcp": 1179.693,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 901
-    },
-    {
-     "score": 100,
-     "ttfb": 563,
-     "fcp": 661.891,
-     "lcp": 1182.263,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 901
-    }
-   ],
-   "summary": {
-    "score": {
-     "n": 5,
-     "median": 100,
-     "p75": 100,
-     "p95": 100,
-     "min": 100,
-     "max": 100
-    },
-    "ttfb": {
-     "n": 5,
-     "median": 563,
-     "p75": 563,
-     "p95": 563,
-     "min": 563,
-     "max": 563
-    },
-    "fcp": {
-     "n": 5,
-     "median": 663.259,
-     "p75": 673.209,
-     "p95": 679.862,
-     "min": 659.049,
-     "max": 679.862
-    },
-    "lcp": {
-     "n": 5,
-     "median": 1178.901,
-     "p75": 1179.693,
-     "p95": 1182.263,
-     "min": 1173.247,
-     "max": 1182.263
+     "median": 2106.3083,
+     "p75": 2106.5456,
+     "p95": 2107.9873000000002,
+     "min": 2032.1364000000003,
+     "max": 2107.9873000000002
     },
     "tbt": {
      "n": 5,
      "median": 0,
      "p75": 0,
-     "p95": 0,
-     "min": 0,
-     "max": 0
-    },
-    "cls": {
-     "n": 5,
-     "median": 0,
-     "p75": 0,
-     "p95": 0,
-     "min": 0,
-     "max": 0
-    },
-    "speedIndex": {
-     "n": 5,
-     "median": 901,
-     "p75": 906,
-     "p95": 913,
-     "min": 895,
-     "max": 913
-    }
-   }
-  },
-  "detail.simulated": {
-   "url": "http://localhost:3016/pokemon/charizard",
-   "perRun": [
-    {
-     "score": 100,
-     "ttfb": 2,
-     "fcp": 603.0542,
-     "lcp": 1654.1084,
-     "tbt": 23,
-     "cls": 0,
-     "speedIndex": 603.0542
-    },
-    {
-     "score": 100,
-     "ttfb": 2,
-     "fcp": 603.0749,
-     "lcp": 1654.1498,
-     "tbt": 31,
-     "cls": 0,
-     "speedIndex": 603.0749
-    },
-    {
-     "score": 100,
-     "ttfb": 3,
-     "fcp": 603.6132,
-     "lcp": 1655.2264,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 603.6132
-    },
-    {
-     "score": 100,
-     "ttfb": 3,
-     "fcp": 603.07295,
-     "lcp": 1656.1459,
-     "tbt": 0,
-     "cls": 0,
-     "speedIndex": 603.07295
-    },
-    {
-     "score": 100,
-     "ttfb": 5,
-     "fcp": 610.93985,
-     "lcp": 1669.8797,
-     "tbt": 28,
-     "cls": 0,
-     "speedIndex": 610.93985
-    }
-   ],
-   "summary": {
-    "score": {
-     "n": 5,
-     "median": 100,
-     "p75": 100,
-     "p95": 100,
-     "min": 100,
-     "max": 100
-    },
-    "ttfb": {
-     "n": 5,
-     "median": 3,
-     "p75": 3,
-     "p95": 5,
-     "min": 2,
-     "max": 5
-    },
-    "fcp": {
-     "n": 5,
-     "median": 603.0749,
-     "p75": 603.6132,
-     "p95": 610.93985,
-     "min": 603.0542,
-     "max": 610.93985
-    },
-    "lcp": {
-     "n": 5,
-     "median": 1655.2264,
-     "p75": 1656.1459,
-     "p95": 1669.8797,
-     "min": 1654.1084,
-     "max": 1669.8797
-    },
-    "tbt": {
-     "n": 5,
-     "median": 23,
-     "p75": 28,
      "p95": 31,
      "min": 0,
      "max": 31
@@ -319,61 +114,61 @@
     },
     "speedIndex": {
      "n": 5,
-     "median": 603.0749,
-     "p75": 603.6132,
-     "p95": 610.93985,
-     "min": 603.0542,
-     "max": 610.93985
+     "median": 604.99365,
+     "p75": 605.15415,
+     "p95": 609.9782,
+     "min": 604.2728,
+     "max": 609.9782
     }
    }
   },
-  "detail.applied": {
-   "url": "http://localhost:3016/pokemon/charizard",
+  "list.applied": {
+   "url": "http://localhost:3016/",
    "perRun": [
     {
      "score": 100,
-     "ttfb": 563,
-     "fcp": 638.61,
-     "lcp": 1220.706,
+     "serverResponseTime": 563,
+     "fcp": 654.844,
+     "lcp": 1161.495,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 677
+     "speedIndex": 894
     },
     {
      "score": 100,
-     "ttfb": 563,
-     "fcp": 639.713,
-     "lcp": 1222.086,
+     "serverResponseTime": 563,
+     "fcp": 674.768,
+     "lcp": 1168.658,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 678
+     "speedIndex": 905
     },
     {
      "score": 100,
-     "ttfb": 563,
-     "fcp": 648.991,
-     "lcp": 1234.865,
+     "serverResponseTime": 563,
+     "fcp": 669.898,
+     "lcp": 1171.055,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 687
+     "speedIndex": 902
     },
     {
      "score": 100,
-     "ttfb": 563,
-     "fcp": 653.341,
-     "lcp": 1235.794,
-     "tbt": 0,
+     "serverResponseTime": 563,
+     "fcp": 685.693,
+     "lcp": 1187.202,
+     "tbt": 26.865999999999985,
      "cls": 0,
-     "speedIndex": 692
+     "speedIndex": 921
     },
     {
      "score": 100,
-     "ttfb": 563,
-     "fcp": 664.785,
-     "lcp": 1236.2,
+     "serverResponseTime": 563,
+     "fcp": 688.83,
+     "lcp": 1188.908,
      "tbt": 0,
      "cls": 0,
-     "speedIndex": 702
+     "speedIndex": 925
     }
    ],
    "summary": {
@@ -385,7 +180,7 @@
      "min": 100,
      "max": 100
     },
-    "ttfb": {
+    "serverResponseTime": {
      "n": 5,
      "median": 563,
      "p75": 563,
@@ -395,19 +190,235 @@
     },
     "fcp": {
      "n": 5,
-     "median": 648.991,
-     "p75": 653.341,
-     "p95": 664.785,
-     "min": 638.61,
-     "max": 664.785
+     "median": 674.768,
+     "p75": 685.693,
+     "p95": 688.83,
+     "min": 654.844,
+     "max": 688.83
     },
     "lcp": {
      "n": 5,
-     "median": 1234.865,
-     "p75": 1235.794,
-     "p95": 1236.2,
-     "min": 1220.706,
-     "max": 1236.2
+     "median": 1171.055,
+     "p75": 1187.202,
+     "p95": 1188.908,
+     "min": 1161.495,
+     "max": 1188.908
+    },
+    "tbt": {
+     "n": 5,
+     "median": 0,
+     "p75": 0,
+     "p95": 26.865999999999985,
+     "min": 0,
+     "max": 26.865999999999985
+    },
+    "cls": {
+     "n": 5,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "speedIndex": {
+     "n": 5,
+     "median": 905,
+     "p75": 921,
+     "p95": 925,
+     "min": 894,
+     "max": 925
+    }
+   }
+  },
+  "detail.simulated": {
+   "url": "http://localhost:3016/pokemon/charizard",
+   "perRun": [
+    {
+     "score": 100,
+     "serverResponseTime": 4,
+     "fcp": 603.63315,
+     "lcp": 1655.2663,
+     "tbt": 12,
+     "cls": 0,
+     "speedIndex": 603.63315
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 7,
+     "fcp": 632.887,
+     "lcp": 1659.774,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 632.887
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 2,
+     "fcp": 606.7214,
+     "lcp": 1661.4428,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 606.7214
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 10,
+     "fcp": 606.80595,
+     "lcp": 1661.6119,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 606.80595
+    },
+    {
+     "score": 99,
+     "serverResponseTime": 5,
+     "fcp": 608.75835,
+     "lcp": 1663.5167,
+     "tbt": 90,
+     "cls": 0,
+     "speedIndex": 608.75835
+    }
+   ],
+   "summary": {
+    "score": {
+     "n": 5,
+     "median": 100,
+     "p75": 100,
+     "p95": 100,
+     "min": 99,
+     "max": 100
+    },
+    "serverResponseTime": {
+     "n": 5,
+     "median": 5,
+     "p75": 7,
+     "p95": 10,
+     "min": 2,
+     "max": 10
+    },
+    "fcp": {
+     "n": 5,
+     "median": 606.80595,
+     "p75": 608.75835,
+     "p95": 632.887,
+     "min": 603.63315,
+     "max": 632.887
+    },
+    "lcp": {
+     "n": 5,
+     "median": 1661.4428,
+     "p75": 1661.6119,
+     "p95": 1663.5167,
+     "min": 1655.2663,
+     "max": 1663.5167
+    },
+    "tbt": {
+     "n": 5,
+     "median": 0,
+     "p75": 12,
+     "p95": 90,
+     "min": 0,
+     "max": 90
+    },
+    "cls": {
+     "n": 5,
+     "median": 0,
+     "p75": 0,
+     "p95": 0,
+     "min": 0,
+     "max": 0
+    },
+    "speedIndex": {
+     "n": 5,
+     "median": 606.80595,
+     "p75": 608.75835,
+     "p95": 632.887,
+     "min": 603.63315,
+     "max": 632.887
+    }
+   }
+  },
+  "detail.applied": {
+   "url": "http://localhost:3016/pokemon/charizard",
+   "perRun": [
+    {
+     "score": 100,
+     "serverResponseTime": 563,
+     "fcp": 627.759,
+     "lcp": 1208.915,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 666
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 563,
+     "fcp": 651.85,
+     "lcp": 1217.588,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 689
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 563,
+     "fcp": 633.68,
+     "lcp": 1217.727,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 672
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 563,
+     "fcp": 639.427,
+     "lcp": 1219.774,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 677
+    },
+    {
+     "score": 100,
+     "serverResponseTime": 563,
+     "fcp": 656.929,
+     "lcp": 1221.147,
+     "tbt": 0,
+     "cls": 0,
+     "speedIndex": 694
+    }
+   ],
+   "summary": {
+    "score": {
+     "n": 5,
+     "median": 100,
+     "p75": 100,
+     "p95": 100,
+     "min": 100,
+     "max": 100
+    },
+    "serverResponseTime": {
+     "n": 5,
+     "median": 563,
+     "p75": 563,
+     "p95": 563,
+     "min": 563,
+     "max": 563
+    },
+    "fcp": {
+     "n": 5,
+     "median": 639.427,
+     "p75": 651.85,
+     "p95": 656.929,
+     "min": 627.759,
+     "max": 656.929
+    },
+    "lcp": {
+     "n": 5,
+     "median": 1217.727,
+     "p75": 1219.774,
+     "p95": 1221.147,
+     "min": 1208.915,
+     "max": 1221.147
     },
     "tbt": {
      "n": 5,
@@ -427,11 +438,11 @@
     },
     "speedIndex": {
      "n": 5,
-     "median": 687,
-     "p75": 692,
-     "p95": 702,
-     "min": 677,
-     "max": 702
+     "median": 677,
+     "p75": 689,
+     "p95": 694,
+     "min": 666,
+     "max": 694
     }
    }
   }

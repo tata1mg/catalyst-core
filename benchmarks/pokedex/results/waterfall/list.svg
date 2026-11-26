@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="664" font-family="ui-monospace, Menlo, monospace" font-size="10">
+<rect width="100%" height="100%" fill="#fff"/>
+<text x="8" y="16" font-size="12" font-weight="bold">list / · slow4g + 4x CPU · median-LCP run of 5</text>
+<line x1="330" y1="38" x2="330" y2="596" stroke="#eee"/>
+<text x="330" y="34" text-anchor="middle" fill="#666">0</text>
+<line x1="374.70588235294116" y1="38" x2="374.70588235294116" y2="596" stroke="#eee"/>
+<line x1="419.4117647058823" y1="38" x2="419.4117647058823" y2="596" stroke="#eee"/>
+<text x="419.4117647058823" y="34" text-anchor="middle" fill="#666">500</text>
+<line x1="464.11764705882354" y1="38" x2="464.11764705882354" y2="596" stroke="#eee"/>
+<line x1="508.8235294117647" y1="38" x2="508.8235294117647" y2="596" stroke="#eee"/>
+<text x="508.8235294117647" y="34" text-anchor="middle" fill="#666">1000</text>
+<line x1="553.5294117647059" y1="38" x2="553.5294117647059" y2="596" stroke="#eee"/>
+<line x1="598.2352941176471" y1="38" x2="598.2352941176471" y2="596" stroke="#eee"/>
+<text x="598.2352941176471" y="34" text-anchor="middle" fill="#666">1500</text>
+<line x1="642.9411764705883" y1="38" x2="642.9411764705883" y2="596" stroke="#eee"/>
+<line x1="687.6470588235294" y1="38" x2="687.6470588235294" y2="596" stroke="#eee"/>
+<text x="687.6470588235294" y="34" text-anchor="middle" fill="#666">2000</text>
+<line x1="732.3529411764706" y1="38" x2="732.3529411764706" y2="596" stroke="#eee"/>
+<line x1="777.0588235294117" y1="38" x2="777.0588235294117" y2="596" stroke="#eee"/>
+<text x="777.0588235294117" y="34" text-anchor="middle" fill="#666">2500</text>
+<line x1="821.7647058823529" y1="38" x2="821.7647058823529" y2="596" stroke="#eee"/>
+<line x1="866.4705882352941" y1="38" x2="866.4705882352941" y2="596" stroke="#eee"/>
+<text x="866.4705882352941" y="34" text-anchor="middle" fill="#666">3000</text>
+<line x1="911.1764705882352" y1="38" x2="911.1764705882352" y2="596" stroke="#eee"/>
+<line x1="955.8823529411765" y1="38" x2="955.8823529411765" y2="596" stroke="#eee"/>
+<text x="955.8823529411765" y="34" text-anchor="middle" fill="#666">3500</text>
+<line x1="1000.5882352941177" y1="38" x2="1000.5882352941177" y2="596" stroke="#eee"/>
+<line x1="1045.2941176470588" y1="38" x2="1045.2941176470588" y2="596" stroke="#eee"/>
+<text x="1045.2941176470588" y="34" text-anchor="middle" fill="#666">4000</text>
+<line x1="1090" y1="38" x2="1090" y2="596" stroke="#eee"/>
+<text x="324" y="56" text-anchor="end" fill="#333">/</text>
+<rect x="330.06832490808824" y="49" width="102.85714613970589" height="8" fill="#1f77b4" opacity="0.35"/>
+<rect x="432.92547104779413" y="49" width="5.660838694852941" height="8" fill="#1f77b4"/>
+<text x="442.5863097426471" y="56" fill="#666">7.2 KiB</text>
+<text x="324" y="70" text-anchor="end" fill="#333">localhost:4000 /sprites/1.png</text>
+<rect x="435.2283478860294" y="63" width="102.59659466911774" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="537.8249425551471" y="63" width="1" height="8" fill="#2a9d4a"/>
+<text x="541.8249425551471" y="70" fill="#666">0.7 KiB</text>
+<text x="324" y="84" text-anchor="end" fill="#333">localhost:4000 /sprites/2.png</text>
+<rect x="435.25179227941175" y="77" width="104.14842141544119" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="539.4002136948529" y="77" width="1" height="8" fill="#2a9d4a"/>
+<text x="543.4002136948529" y="84" fill="#666">1.0 KiB</text>
+<text x="324" y="98" text-anchor="end" fill="#333">localhost:4000 /sprites/3.png</text>
+<rect x="435.35906020220585" y="91" width="122.60016314338242" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="557.9592233455883" y="91" width="1" height="8" fill="#2a9d4a"/>
+<text x="561.9592233455883" y="98" fill="#666">1.7 KiB</text>
+<text x="324" y="112" text-anchor="end" fill="#333">localhost:4000 /sprites/4.png</text>
+<rect x="435.3663947610294" y="105" width="114.07565946691176" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="549.4420542279412" y="105" width="1" height="8" fill="#2a9d4a"/>
+<text x="553.4420542279412" y="112" fill="#666">0.8 KiB</text>
+<text x="324" y="126" text-anchor="end" fill="#333">localhost:4000 /sprites/5.png</text>
+<rect x="435.3719393382353" y="119" width="115.20797564338238" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="550.5799149816177" y="119" width="1" height="8" fill="#2a9d4a"/>
+<text x="554.5799149816177" y="126" fill="#666">1.0 KiB</text>
+<text x="324" y="140" text-anchor="end" fill="#333">localhost:4000 /sprites/6.png</text>
+<rect x="435.3749954044118" y="133" width="123.89431985294112" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="559.2693152573529" y="133" width="1" height="8" fill="#2a9d4a"/>
+<text x="563.2693152573529" y="140" fill="#666">1.5 KiB</text>
+<text x="324" y="154" text-anchor="end" fill="#333">/assets/client/assets/main-CeqJ_Rw8.js</text>
+<rect x="435.3842945772059" y="147" width="105.30221737132354" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="540.6865119485294" y="147" width="1" height="8" fill="#d62728"/>
+<text x="544.6865119485294" y="154" fill="#666">0.7 KiB</text>
+<text x="324" y="168" text-anchor="end" fill="#333">/assets/client/assets/vendor-react-CRcozs3N.js</text>
+<rect x="435.3894898897059" y="161" width="210.54126148897052" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="645.9307513786764" y="161" width="1" height="8" fill="#d62728"/>
+<text x="649.9307513786764" y="168" fill="#666">57.6 KiB</text>
+<text x="324" y="182" text-anchor="end" fill="#333">/assets/client/assets/app-BjS0mGO9.js</text>
+<rect x="435.3944669117647" y="175" width="125.38659696691178" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="560.7810638786765" y="175" width="1" height="8" fill="#d62728"/>
+<text x="564.7810638786765" y="182" fill="#666">4.3 KiB</text>
+<text x="324" y="196" text-anchor="end" fill="#333">…ssets/client/assets/vendor-router-CvWROX9M.js</text>
+<rect x="435.54897288602945" y="189" width="180.5728216911765" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="616.121794577206" y="189" width="1" height="8" fill="#d62728"/>
+<text x="620.121794577206" y="196" fill="#666">31.3 KiB</text>
+<text x="324" y="210" text-anchor="end" fill="#333">/assets/client/assets/Home-CZ-RBpk5.js</text>
+<rect x="435.55312040441174" y="203" width="108.19124770220594" height="8" fill="#d62728" opacity="0.35"/>
+<rect x="543.7443681066177" y="203" width="1" height="8" fill="#d62728"/>
+<text x="547.7443681066177" y="210" fill="#666">1.2 KiB</text>
+<text x="324" y="224" text-anchor="end" fill="#333">localhost:4000 /sprites/7.png</text>
+<rect x="448.1345955882353" y="217" width="192.10135110294112" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="640.2359466911764" y="217" width="1" height="8" fill="#2a9d4a"/>
+<text x="644.2359466911764" y="224" fill="#666">0.7 KiB</text>
+<text x="324" y="238" text-anchor="end" fill="#333">localhost:4000 /sprites/8.png</text>
+<rect x="448.14319623161765" y="231" width="194.90546645220587" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="643.0486626838235" y="231" width="1" height="8" fill="#2a9d4a"/>
+<text x="647.0486626838235" y="238" fill="#666">1.1 KiB</text>
+<text x="324" y="252" text-anchor="end" fill="#333">localhost:4000 /sprites/9.png</text>
+<rect x="448.1460340073529" y="245" width="203.31484375000002" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="651.4608777573529" y="245" width="1" height="8" fill="#2a9d4a"/>
+<text x="655.4608777573529" y="252" fill="#666">1.3 KiB</text>
+<text x="324" y="266" text-anchor="end" fill="#333">localhost:4000 /sprites/10.png</text>
+<rect x="448.1494393382353" y="259" width="204.91906020220586" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="653.0684995404412" y="259" width="1" height="8" fill="#2a9d4a"/>
+<text x="657.0684995404412" y="266" fill="#666">0.7 KiB</text>
+<text x="324" y="280" text-anchor="end" fill="#333">localhost:4000 /sprites/11.png</text>
+<rect x="448.15249540441175" y="273" width="211.94430147058824" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="660.096796875" y="273" width="1" height="8" fill="#2a9d4a"/>
+<text x="664.096796875" y="280" fill="#666">0.6 KiB</text>
+<text x="324" y="294" text-anchor="end" fill="#333">localhost:4000 /sprites/12.png</text>
+<rect x="448.15625" y="287" width="213.4936397058823" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="661.6498897058823" y="287" width="1" height="8" fill="#2a9d4a"/>
+<text x="665.6498897058823" y="294" fill="#666">1.1 KiB</text>
+<text x="324" y="308" text-anchor="end" fill="#333">localhost:4000 /sprites/13.png</text>
+<rect x="448.15891314338234" y="301" width="294.3925137867647" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="742.551426930147" y="301" width="1" height="8" fill="#2a9d4a"/>
+<text x="746.551426930147" y="308" fill="#666">0.6 KiB</text>
+<text x="324" y="322" text-anchor="end" fill="#333">localhost:4000 /sprites/14.png</text>
+<rect x="448.16196920955883" y="315" width="297.39837316176465" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="745.5603423713235" y="315" width="1" height="8" fill="#2a9d4a"/>
+<text x="749.5603423713235" y="322" fill="#666">0.6 KiB</text>
+<text x="324" y="336" text-anchor="end" fill="#333">localhost:4000 /sprites/15.png</text>
+<rect x="448.31734834558824" y="329" width="305.5606020220589" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="753.8779503676471" y="329" width="1" height="8" fill="#2a9d4a"/>
+<text x="757.8779503676471" y="336" fill="#666">1.2 KiB</text>
+<text x="324" y="350" text-anchor="end" fill="#333">localhost:4000 /sprites/16.png</text>
+<rect x="448.31983685661766" y="343" width="307.03751148897055" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="755.3573483455882" y="343" width="1" height="8" fill="#2a9d4a"/>
+<text x="759.3573483455882" y="350" fill="#666">0.7 KiB</text>
+<text x="324" y="364" text-anchor="end" fill="#333">localhost:4000 /sprites/17.png</text>
+<rect x="448.32254365808825" y="357" width="314.0316245404411" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="762.3541681985294" y="357" width="1" height="8" fill="#2a9d4a"/>
+<text x="766.3541681985294" y="364" fill="#666">1.4 KiB</text>
+<text x="324" y="378" text-anchor="end" fill="#333">localhost:4000 /sprites/18.png</text>
+<rect x="448.3255560661765" y="371" width="315.5352090992647" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="763.8607651654412" y="371" width="1" height="8" fill="#2a9d4a"/>
+<text x="767.8607651654412" y="378" fill="#666">1.1 KiB</text>
+<text x="324" y="392" text-anchor="end" fill="#333">localhost:4000 /sprites/19.png</text>
+<rect x="448.3282628676471" y="385" width="396.4190211397059" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="844.747284007353" y="385" width="1" height="8" fill="#2a9d4a"/>
+<text x="848.747284007353" y="392" fill="#666">0.7 KiB</text>
+<text x="324" y="406" text-anchor="end" fill="#333">localhost:4000 /sprites/20.png</text>
+<rect x="448.3309260110294" y="399" width="399.41003676470586" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="847.7409627757353" y="399" width="1" height="8" fill="#2a9d4a"/>
+<text x="851.7409627757353" y="406" fill="#666">1.1 KiB</text>
+<text x="324" y="420" text-anchor="end" fill="#333">localhost:4000 /sprites/21.png</text>
+<rect x="448.33398207720586" y="413" width="407.7432306985295" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="856.0772127757353" y="413" width="1" height="8" fill="#2a9d4a"/>
+<text x="860.0772127757353" y="420" fill="#666">0.8 KiB</text>
+<text x="324" y="434" text-anchor="end" fill="#333">localhost:4000 /sprites/22.png</text>
+<rect x="448.33703814338236" y="427" width="409.2556778492647" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="857.5927159926471" y="427" width="1" height="8" fill="#2a9d4a"/>
+<text x="861.5927159926471" y="434" fill="#666">1.5 KiB</text>
+<text x="324" y="448" text-anchor="end" fill="#333">localhost:4000 /sprites/23.png</text>
+<rect x="448.3397012867647" y="441" width="416.31065027573527" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="864.6503515625" y="441" width="1" height="8" fill="#2a9d4a"/>
+<text x="868.6503515625" y="448" fill="#666">0.8 KiB</text>
+<text x="324" y="462" text-anchor="end" fill="#333">localhost:4000 /sprites/24.png</text>
+<rect x="448.3427573529412" y="455" width="417.9461695772058" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="866.288926930147" y="455" width="1" height="8" fill="#2a9d4a"/>
+<text x="870.288926930147" y="462" fill="#666">1.1 KiB</text>
+<text x="324" y="476" text-anchor="end" fill="#333">localhost:4000 /sprites/25.png</text>
+<rect x="448.3454204963235" y="469" width="498.81072840073534" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="947.1561488970589" y="469" width="1" height="8" fill="#2a9d4a"/>
+<text x="951.1561488970589" y="476" fill="#666">0.8 KiB</text>
+<text x="324" y="490" text-anchor="end" fill="#333">localhost:4000 /sprites/26.png</text>
+<rect x="448.34830193014704" y="483" width="501.7784306066177" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="950.1267325367647" y="483" width="1" height="8" fill="#2a9d4a"/>
+<text x="954.1267325367647" y="490" fill="#666">1.1 KiB</text>
+<text x="324" y="504" text-anchor="end" fill="#333">localhost:4000 /sprites/27.png</text>
+<rect x="448.4573598345588" y="497" width="509.9562454044118" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="958.4136052389706" y="497" width="1" height="8" fill="#2a9d4a"/>
+<text x="962.4136052389706" y="504" fill="#666">0.8 KiB</text>
+<text x="324" y="518" text-anchor="end" fill="#333">localhost:4000 /sprites/28.png</text>
+<rect x="448.4607651654412" y="511" width="511.7205124080881" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="960.1812775735293" y="511" width="1" height="8" fill="#2a9d4a"/>
+<text x="964.1812775735293" y="518" fill="#666">1.0 KiB</text>
+<text x="324" y="532" text-anchor="end" fill="#333">localhost:4000 /sprites/29.png</text>
+<rect x="448.4634283088235" y="525" width="518.4958111213235" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="966.959239430147" y="525" width="1" height="8" fill="#2a9d4a"/>
+<text x="970.959239430147" y="532" fill="#666">0.7 KiB</text>
+<text x="324" y="546" text-anchor="end" fill="#333">localhost:4000 /sprites/30.png</text>
+<rect x="448.466484375" y="539" width="520.0933915441176" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="968.5598759191176" y="539" width="1" height="8" fill="#2a9d4a"/>
+<text x="972.5598759191176" y="546" fill="#666">0.9 KiB</text>
+<text x="324" y="560" text-anchor="end" fill="#333">localhost:4000 /sprites/31.png</text>
+<rect x="448.47023897058824" y="553" width="600.9597403492646" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="1049.429979319853" y="553" width="1" height="8" fill="#2a9d4a"/>
+<text x="1053.429979319853" y="560" fill="#666">1.2 KiB</text>
+<text x="324" y="574" text-anchor="end" fill="#333">localhost:4000 /sprites/32.png</text>
+<rect x="448.47294577205884" y="567" width="603.9187109375" height="8" fill="#2a9d4a" opacity="0.35"/>
+<rect x="1052.391656709559" y="567" width="1" height="8" fill="#2a9d4a"/>
+<text x="1056.391656709559" y="574" fill="#666">0.7 KiB</text>
+<text x="324" y="588" text-anchor="end" fill="#333">/favicon.ico</text>
+<rect x="655.0300137867647" y="581" width="101.78403033088227" height="8" fill="#7f7f7f" opacity="0.35"/>
+<rect x="756.814044117647" y="581" width="1" height="8" fill="#7f7f7f"/>
+<text x="760.814044117647" y="588" fill="#666">1.2 KiB</text>
+<line x1="449.45411764705887" y1="42" x2="449.45411764705887" y2="599" stroke="#2a9d4a" stroke-dasharray="3,2"/>
+<text x="452.45411764705887" y="608" fill="#2a9d4a">FCP 668 ms</text>
+<line x1="539.5811764705883" y1="42" x2="539.5811764705883" y2="611" stroke="#7b2cbf" stroke-dasharray="3,2"/>
+<text x="542.5811764705883" y="620" fill="#7b2cbf">LCP 1172 ms</text>
+<line x1="651.5247058823529" y1="42" x2="651.5247058823529" y2="623" stroke="#1f77b4" stroke-dasharray="3,2"/>
+<text x="654.5247058823529" y="632" fill="#1f77b4">DCL 1798 ms</text>
+<line x1="652.0432940920662" y1="42" x2="652.0432940920662" y2="635" stroke="#d62728" stroke-dasharray="3,2"/>
+<text x="655.0432940920662" y="644" fill="#d62728">load 1801 ms</text>
+<line x1="658.4272941005931" y1="42" x2="658.4272941005931" y2="647" stroke="#b8860b" stroke-dasharray="3,2"/>
+<text x="661.4272941005931" y="656" fill="#b8860b">hydrated 1837 ms</text>
+<text x="1152" y="16" text-anchor="end" fill="#666">ms from navigation start · light = waiting for first byte · dark = downloading</text>
+</svg>

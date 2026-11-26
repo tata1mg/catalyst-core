@@ -1,16 +1,16 @@
 {
  "list": {
-  "fcp": 628,
-  "lcp": 1176,
-  "domContentLoaded": 1784,
-  "load": 1787,
-  "hydrated": 1818
+  "fcp": 644,
+  "lcp": 1172,
+  "domContentLoaded": 1785,
+  "load": 1791,
+  "hydrated": 1820
  },
  "detail": {
-  "fcp": 636,
-  "lcp": 1216,
-  "domContentLoaded": 1741,
-  "load": 1742,
-  "hydrated": 1780
+  "fcp": 624,
+  "lcp": 1212,
+  "domContentLoaded": 1723,
+  "load": 1724,
+  "hydrated": 1751
  }
 }
