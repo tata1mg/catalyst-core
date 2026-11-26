@@ -27,7 +27,7 @@ async function installResumableFetch(env) {
                 return;
             }
             // Partials nobody resumed for a month are dropped, so abandoned model downloads do not fill the browser's storage.
-            storage.evictStale(30 * 24 * 60 * 60 * 1000).catch(() => {});
+            await storage.evictStale(30 * 24 * 60 * 60 * 1000).catch(() => {}); // finished before any download can reopen a partial
             resumable = createResumableFetch({
                 storage,
                 policy: downloadPolicy,

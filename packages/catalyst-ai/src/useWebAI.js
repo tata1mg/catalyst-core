@@ -124,6 +124,15 @@ export function useWebAI({
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
             const token = ++runToken.current
+            // Taking over retires a generation that is still streaming right now, not only once this call has prepared its input: if
+            // this call then fails validation it never reaches the worker swap, and the stale-message guard would drop A's done/error,
+            // leaving streaming and busy set forever.
+            if (busyRef.current && workerRef.current) {
+                workerRef.current.terminate()
+                workerRef.current = null
+                busyRef.current = false
+                setStreaming(false)
+            }
             const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
             const kind = webModelKind(resolvedModel)
             // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
@@ -213,7 +222,7 @@ export function useWebAI({
 
             const genConfig = {
                 ...hookGenConfig,
-                ...(useSchema && { responseConstraint: buildAttachmentSchema(attachmentComponentsRef.current) }),
+                ...(useSchema && { responseConstraint: buildAttachmentSchema(components) }),
                 ...callGenConfig,
             }
             const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...outgoing] : outgoing

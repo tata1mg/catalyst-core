@@ -139,6 +139,9 @@ export function useMicrophone(options: UseMicrophoneOptions = {}): UseMicrophone
     const stop = useCallback(() => {
         const r = live.current?.recorder
         if (r && r.state !== "inactive") r.stop()
+        // Nothing is recording yet: a start() still waiting for the permission or the microphone is void, or it would begin capturing
+        // after the person already pressed stop.
+        else if (!live.current) startToken.current++
     }, [])
 
     const cancelled = useRef(0)

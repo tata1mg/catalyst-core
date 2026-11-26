@@ -213,6 +213,9 @@ export function useNativeAI({
             // Take over before the first await: anything still running is superseded now, not after this call finishes preparing.
             const generation = ++generationRef.current
             if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+            // The aborted stream's AbortError handler returns without touching state, so clear it here: if this call
+            // then fails input preparation, nothing else would turn streaming off.
+            setStreaming(false)
             setLoading(true)
 
             const genConfig = { ...hookGenConfig, ...callGenConfig }
@@ -412,6 +415,8 @@ export function useNativeAI({
         cancelRaf()
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)
+        // A call still preparing audio/image input has loading=true; the bumped generation makes it return early without clearing it.
+        setLoading(false)
     }, [])
 
     const reset = useCallback(() => {

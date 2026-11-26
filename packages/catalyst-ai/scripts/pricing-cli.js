@@ -205,7 +205,12 @@ async function run(argv, io = {}) {
     // (the file also holds the API keys, so a truncated one is a bad day).
     const tmpPath = `${configPath}.${process.pid}.tmp`
     try {
-        fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`)
+        // The rename replaces the original's inode, so the file's access mode has to be carried over by hand: left to the default
+        // (0666 & ~umask) a 0600 config holding API keys would come back world-readable. New files are created owner-only.
+        let mode = 0o600
+        try { mode = fs.statSync(configPath).mode & 0o777 } catch { /* no existing file: keep owner-only */ }
+        fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, { mode })
+        fs.chmodSync(tmpPath, mode) // writeFileSync's mode is subject to the umask
         fs.renameSync(tmpPath, configPath)
     } catch (e) {
         try { fs.unlinkSync(tmpPath) } catch { /* nothing to clean */ }

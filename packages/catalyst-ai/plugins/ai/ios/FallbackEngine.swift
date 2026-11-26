@@ -80,9 +80,15 @@ final class FallbackEngine: NativeAIEngine {
         } catch {
             // LiteRT can fail while setting the request up (creating the conversation), before any stream exists. That is still
             // a failure before the first token, so it falls back like one that happens later; anything else is rethrown as is.
+            // Setting the request up can fail before the bridge has validated its media, so check it here: a malformed inputParts must be
+            // rejected as an invalid request, not answered by the fallback as if it were text only.
+            do { _ = try AIInputParts.parse(genConfig) } catch {
+                throw NativeAIError(message: error.localizedDescription, code: NativeAIErrorCode.invalidRequestBody)
+            }
             guard allowsFallback(for: error, produced: false),
                   let engine = try await activateFallback(after: error, resetConversation: false) else { throw error }
-            let stale = lock.withLock { conversation.innerId }
+            // The binding this request used on the failed engine: sampling the map after activation could pick up a newer request's valid one.
+            let stale = innerId
             let recovered: NativeAIStream
             do {
                 recovered = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)
@@ -98,6 +104,7 @@ final class FallbackEngine: NativeAIEngine {
             return (exposed, recovered.tokens)
         }
         let exposedId = lock.withLock { conversation.record(incoming: incomingId, returned: inner.conversationId) }
+        let primaryInnerId = inner.conversationId
 
         let tokens = AsyncThrowingStream<String, Error> { continuation in
             let task = Task {
@@ -109,7 +116,7 @@ final class FallbackEngine: NativeAIEngine {
                     }
                     continuation.finish()
                 } catch {
-                    await self.recover(from: error, produced: produced, prompt: prompt, genConfig: genConfig, generation: generation, into: continuation)
+                    await self.recover(from: error, produced: produced, prompt: prompt, genConfig: genConfig, generation: generation, failedInnerId: primaryInnerId, into: continuation)
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -140,8 +147,24 @@ final class FallbackEngine: NativeAIEngine {
             let task = Task<NativeAIEngine, Error> {
                 do {
                     try await engine.prepare(options: options)
+                    // Publish before anyone waiting on this task resumes: the starter and every joiner return only after the fallback is
+                    // active and the failed engine's binding is gone, so a joiner cannot bind its own conversation and have the starter
+                    // wipe it afterwards.
+                    self.lock.withLock {
+                        self.fallback = engine
+                        self.activation = nil
+                        if resetConversation {
+                            self.conversation.reset()
+                        } else {
+                            // The id in the map belongs to the failed engine: dropped in the same critical section that makes the fallback
+                            // reachable, so a request for the same page id starts a fresh conversation instead of being handed an id the
+                            // fallback never issued.
+                            self.conversation.forgetInner(ifStill: self.conversation.innerId)
+                        }
+                    }
                     return engine
                 } catch {
+                    self.lock.withLock { self.activation = nil }
                     throw NativeAIError(message: "\(primaryName) failed and so did \(engine.kind.rawValue): \(error.localizedDescription)")
                 }
             }
@@ -157,25 +180,7 @@ final class FallbackEngine: NativeAIEngine {
             return try await task.value
         case .start(let task, let engine):
             onLog("\(primary.kind.rawValue) failed (\(error.localizedDescription)); using \(engine.kind.rawValue) instead")
-            do {
-                let prepared = try await task.value
-                lock.withLock {
-                    fallback = prepared
-                    activation = nil
-                    if resetConversation {
-                        conversation.reset()
-                    } else {
-                        // From this moment requests reach the fallback. The id in the map still belongs to the failed engine, so it is
-                        // dropped here, in the same critical section: a request for the same page id that arrives before the recovery
-                        // has bound the fallback's own id must start a fresh conversation, not be handed an id the fallback never issued.
-                        conversation.forgetInner(ifStill: conversation.innerId)
-                    }
-                }
-                return prepared
-            } catch {
-                lock.withLock { activation = nil }
-                throw error
-            }
+            return try await task.value
         }
     }
 
@@ -185,6 +190,7 @@ final class FallbackEngine: NativeAIEngine {
         prompt: String,
         genConfig: [String: Any],
         generation: Int,
+        failedInnerId: String,
         into continuation: AsyncThrowingStream<String, Error>.Continuation
     ) async {
         guard allowsFallback(for: error, produced: produced) else {
@@ -196,7 +202,7 @@ final class FallbackEngine: NativeAIEngine {
                 continuation.finish(throwing: error)
                 return
             }
-            let stale = lock.withLock { conversation.innerId }
+            let stale: String? = failedInnerId
             let inner: NativeAIStream
             do {
                 inner = try await engine.supply(prompt: adapt(prompt, for: engine), genConfig: genConfig, conversationId: nil)

@@ -53,6 +53,12 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         )
         handler.setDelegate(self)
         handler.setNotificationHandler(notificationHandler)
+        // Recognised text is only delivered to the app's own page: if the web view has navigated elsewhere since recognition started, the
+        // transcript must not reach that page (the bridge callbacks are evaluated in whatever document is loaded).
+        handler.isSpeechPageTrusted = { [weak self] in
+            guard let self else { return false }
+            return PluginBridgeOriginPolicy.isAllowed(isMainFrame: true, sourceURL: self.webView?.url, trustedURL: self.trustedOriginURL)
+        }
         if let wv = webView { handler.setWebView(wv) }
         return handler
     }()

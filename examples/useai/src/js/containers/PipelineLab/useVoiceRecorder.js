@@ -34,7 +34,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
     const live = useRef(null)
     const requestSeq = useRef(0) // each start() takes a number; cancel() moves it on, so a start still waiting for the microphone permission is void
     const starting = useRef(false) // a start() is waiting for the microphone
-    const reading = useRef(null) // the recording that was stopped and is being turned into a data URL
+    const reading = useRef(new Set()) // every recording that was stopped and is still being turned into a data URL (a second one can start before the first finishes)
     const onRecordedRef = useRef(onRecorded)
     onRecordedRef.current = onRecorded
 
@@ -73,7 +73,7 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
         requestSeq.current++
         if (live.current) live.current.discard = true
         // A recording already stopped and being read is no longer `live`, but it can still be discarded.
-        if (reading.current) reading.current.discard = true
+        reading.current.forEach((pending) => { pending.discard = true })
         stop()
         release()
     }, [stop, release])
@@ -139,9 +139,9 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
                 return
             }
             try {
-                reading.current = session
+                reading.current.add(session)
                 const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
-                const data = await readAsDataUrl(blob).finally(() => { if (reading.current === session) reading.current = null })
+                const data = await readAsDataUrl(blob).finally(() => { reading.current.delete(session) })
                 // The session object outlives release(): a cancel() that came in while the blob was being read still discards it.
                 if (session.discard) return
                 onRecordedRef.current?.(data, { seconds: secs })

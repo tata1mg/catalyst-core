@@ -271,7 +271,15 @@ export function useAI(options: any = {}) {
             if (decision.action !== "run" || !decision.candidate) return withRoute(null)
             const chosen = decision.candidate
             // The same candidate id is not enough: the routing policy can change which provider or model an id stands for.
-            const same = selected?.id === chosen.id && selected?.provider === chosen.provider && selected?.model === chosen.model
+            const same =
+                selected?.id === chosen.id &&
+                selected?.provider === chosen.provider &&
+                selected?.model === chosen.model &&
+                // A different engine or model path with the same id still configures the hook differently: it must go through setSelected,
+                // or (with a catalyst-ai that reports no readyKey) the old configuration would answer.
+                selected?.engine === chosen.engine &&
+                selected?.modelPath === chosen.modelPath &&
+                selected?.mode === chosen.mode
             const chosenKey = `${chosen.engine ?? ""}|${chosen.model ?? ""}|${chosen.modelPath ?? ""}`
             if (same && (chosen.mode !== "native" || nativeReadyFor(chosenKey))) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current

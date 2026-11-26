@@ -361,6 +361,8 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
         const started = await speechRef.current.start()
         if (id !== requestId.current || sessionRef.current?.id !== id) return
         if (started.started) return
+        // Stopped while the permission prompt was open: the start was voided on purpose, so this is an empty result, not a failure.
+        if (session.stopRequested) return endSession(null)
         // Could not start. Not available here: decide again without the recogniser (the privacy policy applies to that
         // decision too). Anything else is reported.
         if (RECOGNISER_UNAVAILABLE.has(started.code ?? "")) return beginRef.current(id, false)
@@ -374,6 +376,7 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
         update(id, { status: "listening", engine: "recorder", partial: "" })
         const started = await micRef.current.start()
         if (id !== requestId.current || sessionRef.current?.id !== id) return
+        if (!started.started && session.stopRequested) return endSession(null) // stopped before the microphone opened: not a failure
         if (!started.started) failLive(id, new TranscribeError(started.error || "The microphone could not be used.", "TRANSCRIBE_SPEECH"))
     }
 
@@ -501,7 +504,16 @@ export function useTranscribe(options: UseTranscribeOptions = {}): UseTranscribe
         }
     }, [stopLive])
 
-    const transcribe = useCallback((source: AudioSource) => execute(source, {}), [execute])
+    // A public clip supersedes a live session: execute() moves the request id on, so the session's own final/recorded callbacks would
+    // fail the id guard and its listen() promise would never settle. Stop it first (the internal recorder -> execute() hand-off in
+    // `live.recorded` does not come through here, so a finished recording still resolves its listen()).
+    const transcribe = useCallback(
+        (source: AudioSource) => {
+            stopLive()
+            return execute(source, {})
+        },
+        [execute, stopLive]
+    )
     const approve = useCallback(
         async (consent: TranscribeConsent) => {
             const last = lastAction.current

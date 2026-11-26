@@ -291,6 +291,8 @@ export function useCloudAI({
                 completed = true
             } catch (err) {
                 if (err.name === "AbortError") return
+                // A newer generate() owns the shared state now: a late failure of this one must not write into its outcome or clear its flags.
+                if (activeGenerationRef.current !== generationId) return
                 setError(err)
                 setStreaming(false)
                 setLoading(false)

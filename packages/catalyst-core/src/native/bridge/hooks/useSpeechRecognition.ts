@@ -207,6 +207,13 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}):
         return () => {
             clearTimeout(supportTimer.current)
             unsubscribe()
+            // Unsubscribing stops a session this listener owned, and the shell's later events no longer reach it: nothing would ever clear
+            // "listening" again, and start() would answer { started: true } without starting anything. A start still waiting for the permission
+            // or support answer is void for the same reason.
+            startToken.current++
+            listeningRef.current = false
+            setPartial("")
+            setState((current) => (current === "idle" ? current : "idle"))
         }
     }, [language, listener, markSupport])
 

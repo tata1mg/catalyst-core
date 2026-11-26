@@ -226,10 +226,21 @@ class BridgeCommandHandler {
 
     // Created on first use. Kept in an optional so teardown can tell whether one exists without creating it.
     private var speechRecognitionStore: SpeechRecognitionManager?
+    /// Whether the page now in the web view is the app's own. Set by NativeBridge; nil means no check (tests).
+    var isSpeechPageTrusted: (() -> Bool)?
     private var speechRecognition: SpeechRecognitionManager {
         if let existing = speechRecognitionStore { return existing }
         let created = SpeechRecognitionManager { [weak self] event, payload in
-            self?.delegate?.sendJSONCallback(eventName: event, data: payload)
+            guard let self else { return }
+            if let trusted = self.isSpeechPageTrusted, !trusted() {
+                // The page that started recognition is gone: end the session instead of handing its words to whatever loaded next.
+                DispatchQueue.main.async { [weak self] in
+                    self?.speechRecognitionStore?.cleanup()
+                    self?.speechRecognitionStore = nil
+                }
+                return
+            }
+            self.delegate?.sendJSONCallback(eventName: event, data: payload)
         }
         speechRecognitionStore = created
         return created

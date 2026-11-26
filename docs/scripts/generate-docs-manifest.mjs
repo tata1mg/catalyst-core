@@ -164,9 +164,12 @@ const MAX_PAGE_TEXT = 400_000
 const stripWithCode = (markdown) =>
     markdown
         .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
-        .map((part, index) => (index % 2 === 1 ? part.replace(/^(```|~~~)[^\n]*\n?/, '').replace(/(```|~~~)\s*$/, '').replace(/\s+/g, ' ') : stripMarkdown(part)))
+        .map((part, index) => (index % 2 === 1 ? part.replace(/^(```|~~~)[^\n]*\n?/, '').replace(/(```|~~~)\s*$/, '').replace(/[ \t]+/g, ' ').replace(/ ?\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n') : stripMarkdown(part)))
         .join(' ')
-        .replace(/\s+/g, ' ')
+        // Collapse spaces and tabs only: a newline inside fenced code ends a `//` comment, so it has to survive.
+        .replace(/[ \t]+/g, ' ')
+        .replace(/ ?\n ?/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
         .trim()
 
 /**

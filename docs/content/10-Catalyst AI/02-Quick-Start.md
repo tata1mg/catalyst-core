@@ -70,12 +70,12 @@ Change one option:
 
 | Option | What happens |
 |--------|--------------|
-| `provider: "transformers"` | Runs in the browser on WebGPU. The model downloads once and is cached |
+| `provider: "transformers"` | Runs in the browser on WebGPU. Also set `model` (it is required for this provider; see the Hooks reference). The model downloads once and is cached |
 | `provider: "native"` | Runs on the phone inside the app (Gemma 4 on iOS and Android, Apple's model as the iOS fallback). Requires `WEBVIEW_CONFIG.ai.enabled` |
 | `provider: "auto"` | Picks for you: on the device first, then by speed and cost, within your `routing` policy |
 
 On the device the first use downloads the model (Gemma 4 E2B is about 2.6 GB). The download can be paused, and resumes from where it stopped. With
-`native`, the first call waits for the model: read `modelReady` and `downloadProgress` from the hook to keep the button disabled and show progress.
+`native`, the first call waits for the model: read `modelReady` and `nativeDownloadProgress` from the hook (`downloadProgress` is for the browser `transformers` provider) to keep the button disabled and show progress.
 
 ## 5. Handle what can go wrong
 

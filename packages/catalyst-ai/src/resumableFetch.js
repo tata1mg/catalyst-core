@@ -540,6 +540,8 @@ export async function createOpfsStorage() {
                     continue // locked or gone: not ours to judge
                 }
                 if (Date.now() - modified <= maxAgeMs) continue
+                // A download may have opened this partial while getFile() was pending: recheck so its handle is not closed under it.
+                if (open.has(name)) continue
                 const key = name.slice(0, -5)
                 await this.remove(key)
                 removed.push(key)

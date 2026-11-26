@@ -25,6 +25,11 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
 
     private var recognizer: SpeechRecognizer? = null
 
+    // On Android 13 a failed binding to the recognition service can drop the error before the listener is installed, so startListening()
+    // returns and nothing ever calls back. The recognizer would then stay retained and every later start would answer BUSY. This deadline
+    // releases it and reports the failure; readiness or any terminal callback cancels it.
+    private val startupHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private fun notify(event: BridgeUtils.WebEvents, payload: String) = BridgeUtils.notifyWeb(webView, event, payload)
 
     private fun onDeviceAvailable(): Boolean =
@@ -40,6 +45,7 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
     private companion object {
         /** A support probe that has not answered by then is destroyed and reported as unavailable. */
         const val SUPPORT_PROBE_TIMEOUT_MS = 6_000L
+        const val START_TIMEOUT_MS = 15_000L
     }
 
     /** Answers SPEECH_RECOGNITION_SUPPORT: is on-device recognition possible here, and is this language installed. */
@@ -130,8 +136,10 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
         val created = SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)
         recognizer = created
         created.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) =
+            override fun onReadyForSpeech(params: Bundle?) {
+                startupHandler.removeCallbacksAndMessages(null)
                 notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_STATE, Speech.statePayload("listening"))
+            }
 
             override fun onPartialResults(partialResults: Bundle?) {
                 bestText(partialResults)?.let { notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_PARTIAL, Speech.textPayload(it)) }
@@ -158,6 +166,14 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         created.startListening(intentFor(language))
+        startupHandler.postDelayed({
+            if (recognizer === created) {
+                release()
+                notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_ERROR,
+                    Speech.errorPayload(Speech.Code.UNKNOWN, "Speech recognition did not start: the recognition service did not respond"))
+                notify(BridgeUtils.WebEvents.SPEECH_RECOGNITION_STATE, Speech.statePayload("idle"))
+            }
+        }, START_TIMEOUT_MS)
     }
 
     /** Ends the session; the recognizer then delivers the final text for what it has heard. */
@@ -168,6 +184,7 @@ class SpeechRecognitionManager(private val activity: Activity, private val webVi
     fun cleanup() = release()
 
     private fun release() {
+        startupHandler.removeCallbacksAndMessages(null)
         recognizer?.destroy()
         recognizer = null
     }

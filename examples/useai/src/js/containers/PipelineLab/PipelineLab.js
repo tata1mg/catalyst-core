@@ -136,13 +136,17 @@ export default function PipelineLab() {
             detach()
         }
     }
+    const deviceRunSeq = useRef(0)
     const askDeviceInner = async (content) => {
+        const mine = ++deviceRunSeq.current
         let result
         try {
             result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
         } finally {
             // Also when generate() rejects: the model must not stay in GPU memory for the next stage (or a retry) to trip over.
-            await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
+            // Not when a newer device call has started since (a cancelled stage that is retried right away): its model is the one
+            // loaded now, and unloading it here would pull it out from under that run.
+            if (mine === deviceRunSeq.current) await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
         }
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
@@ -218,10 +222,13 @@ export default function PipelineLab() {
     // own recogniser (on-device, partial text as you talk, no model to load); if it cannot run, a recording goes to the
     // on-device model instead. The cloud is denied outright, so a voice never leaves the phone from here.
     const voice = useTranscribe({ routing: { cloud: "deny", cloudMedia: "deny" } })
-    const nativeSpeech = onDevice && voice.platformSpeech === true
+    // Moves on with every cancel: a listen() still pending when the user switched engine or mode may resolve afterwards, and must not start a pipeline.
+    const voiceRunSeq = useRef(0)
+    const cancelVoice = () => { voiceRunSeq.current++; voice.cancel() }
     const listenAndRun = async () => {
+        const run = ++voiceRunSeq.current
         const heardIt = await voice.listen()
-        if (!heardIt) return
+        if (!heardIt || run !== voiceRunSeq.current) return
         setLiveText(heardIt.text)
         setPickError(null)
         activeText.run(heardIt.text, deviceOverrides)
@@ -245,6 +252,9 @@ export default function PipelineLab() {
     const voiceOwnsSession = voice.status === "running" || voice.listening
     // On the device the live source is always the router-backed one: the cloud `live` hook must never carry a run described as on-phone.
     const liveSrc = onDevice || voiceOwnsSession ? voiceLiveSrc : live
+    // Which controls and consent text to show follows the source actually in use, not what the router could have picked: if the phone's
+    // recogniser fell back to the recorder, the session is still the on-device one and nothing is streamed to Gemini.
+    const onDeviceVoice = liveSrc === voiceLiveSrc
     // When the phone's recogniser is not available the live option is hidden; a "live" mode chosen earlier falls back to text.
     useEffect(() => {
         if (onDevice && mode === "live" && !voice.platformSpeech && !voiceOwnsSession) setMode("text")
@@ -264,7 +274,7 @@ export default function PipelineLab() {
         if (nativeTextOnly && (mode === "audio" || mode === "voice")) {
             recorder.cancel()
             live.cancel()
-            voice.cancel()
+            cancelVoice()
             setMode("text")
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -319,7 +329,7 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-2">
                 {[["cloud", "☁️ Cloud models"], ["device", "📱 On-device models"]].map(([key, label]) => (
-                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); voice.cancel(); if (key === "device" && mode === "live" && !voice.platformSpeech) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
+                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); cancelVoice(); if (key === "device" && mode === "live" && !voice.platformSpeech) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
                         {label}
                     </button>
                 ))}
@@ -358,7 +368,7 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-4">
                 {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !voice.platformSpeech) && !(nativeTextOnly && (m === "audio" || m === "voice"))).map((m) => (
-                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); voice.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
+                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); cancelVoice(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
                         {m === "live" ? (onDevice ? "Speak live (on this phone)" : "Speak live (streaming)") : m === "voice" ? "Record, then send" : `Start from ${m}`}
                     </button>
                 ))}
@@ -396,25 +406,25 @@ export default function PipelineLab() {
                     <button
                         data-testid="live-mic"
                         onClick={liveSrc.listening ? liveSrc.stop : liveSrc.start}
-                        disabled={running || liveSrc.state === "connecting" || liveSrc.state === "starting" || liveSrc.state === "finishing" || (!liveSrc.listening && !nativeSpeech && !voiceConsent)}
+                        disabled={running || liveSrc.state === "connecting" || liveSrc.state === "starting" || liveSrc.state === "finishing" || (!liveSrc.listening && !onDeviceVoice && !voiceConsent)}
                         className={`${chip} text-[14px] px-5 py-3 ${liveSrc.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
                     >
-                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? (nativeSpeech ? "● Listening… (click to finish)" : `● Live ${liveSrc.seconds}s (click to finish)`) : "🎙 Start live"}
+                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? (onDeviceVoice ? "● Listening… (click to finish)" : `● Live ${liveSrc.seconds}s (click to finish)`) : "🎙 Start live"}
                     </button>
-                    {liveSrc.listening && !nativeSpeech && (
+                    {liveSrc.listening && !onDeviceVoice && (
                         <div className="mt-2 h-2 w-full rounded bg-neutral-800 overflow-hidden">
                             <div data-testid="live-level" className="h-full bg-green-400" style={{ width: `${Math.round(live.level * 100)}%` }} />
                         </div>
                     )}
-                    {!nativeSpeech && <label className="mt-2 flex items-start gap-2 text-[12px]">
+                    {!onDeviceVoice && <label className="mt-2 flex items-start gap-2 text-[12px]">
                         <input type="checkbox" data-testid="voice-consent" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} className="mt-0.5" />
                         <span>I agree my voice is streamed to Gemini while I speak, and the text goes on to {textProvider} and {imageProvider} to make the picture.</span>
                     </label>}
                     <p data-testid="live-text" className="mt-3 min-h-[3rem] text-[15px] text-white">
                         {[liveSrc.text, liveSrc.partial].filter(Boolean).join(" ") || (liveText ? liveText : <span className="text-[12px] text-[var(--text-2)]">Your words appear here as you speak.</span>)}
                     </p>
-                    <p className="mt-1 text-[12px]">{nativeSpeech
-                        ? "Your voice is turned into text by this phone's own recognizer, on the device, and never leaves it. It stops by itself when you pause; the text then goes to the on-device model."
+                    <p className="mt-1 text-[12px]">{onDeviceVoice
+                        ? "Your voice is turned into text on this device and never leaves it. It stops by itself when you pause; the text then goes to the on-device model."
                         : "Click to finish when you are done. Nothing is recorded to a file; audio streams straight to Gemini over a short-lived key from the server."}</p>
                     {liveSrc.error && <p className="mt-2 text-[12px] text-red-400">{liveSrc.error}</p>}
                 </div>
