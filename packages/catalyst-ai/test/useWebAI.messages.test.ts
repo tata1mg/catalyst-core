@@ -3,6 +3,17 @@
 // and the network relay. The worker is a fake the test drives by hand.
 import { renderHook, act } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+const prep = vi.hoisted(() => ({ gate: null as null | Promise<void> }))
+vi.mock("../src/imagePrep.js", () => ({
+    MAX_IMAGE_SIDE: 1536,
+    RECODE_ABOVE_BYTES: 1024 * 1024,
+    fitWithin: (w: number, h: number) => ({ width: w, height: h, scaled: false }),
+    prepareImageParts: async (messages: any) => {
+        if (prep.gate) await prep.gate
+        return messages
+    },
+}))
+
 import { useWebAI } from "../src/useWebAI.js"
 
 const TEXT_MODEL = "onnx-community/Qwen2.5-0.5B-Instruct"
@@ -132,7 +143,8 @@ describe("useWebAI worker messages", () => {
         const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
         let out: any
         await act(async () => { out = await hook.result.current.generate({ messages: ask }) })
-        expect(out.error ?? hook.result.current.error).toBeTruthy()
+        expect(out.error).toBeTruthy() // the awaited result carries the error, not only the hook state
+        expect(hook.result.current.error).toBeTruthy()
         expect(hook.result.current.loading).toBe(false)
     })
 
@@ -140,7 +152,8 @@ describe("useWebAI worker messages", () => {
         const hook = renderHook(() => useWebAI({ model: "onnx-community/whisper-tiny" }))
         let out: any
         await act(async () => { out = await hook.result.current.generate({ messages: ask }) })
-        expect((hook.result.current.error as any)?.message ?? out.error?.message).toMatch(/attach an audio clip|speech-to-text/)
+        expect(out.error?.message).toMatch(/attach an audio clip|speech-to-text/)
+        expect((hook.result.current.error as any)?.message).toMatch(/attach an audio clip|speech-to-text/)
     })
 })
 
@@ -198,3 +211,162 @@ describe("useWebAI sessions and lifecycle", () => {
         await act(async () => { finish(worker); await pending })
     })
 })
+
+describe("useWebAI abandoned runs and stale download state", () => {
+    const withImage = [{ role: "user", content: [{ type: "text", text: "what is this?" }, { type: "image", data: "data:image/png;base64,iVBORw0KGgo=" }] }]
+    afterEach(() => { prep.gate = null })
+
+    it("cancel() while the image is still being prepared: no worker is created and no request is posted", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = hook.result.current.generate({ messages: withImage }) })
+        act(() => hook.result.current.cancel())
+        await act(async () => { open(); await pending })
+        expect(workers).toHaveLength(0)
+    })
+
+    it("a newer generate() supersedes one that is still preparing: only the newer one starts a worker", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let first: Promise<any> = Promise.resolve()
+        let second: Promise<any> = Promise.resolve()
+        act(() => { first = hook.result.current.generate({ messages: withImage }) })
+        act(() => { second = hook.result.current.generate({ messages: withImage }) })
+        await act(async () => { open(); await vi.waitFor(() => expect(workers.length).toBeGreaterThan(0)) })
+        expect(workers).toHaveLength(1)
+        const worker = workers[0]
+        await act(async () => { finish(worker); await Promise.all([first, second]) })
+    })
+
+    it("unload() and reset() while preparing also stop the run", async () => {
+        for (const stop of ["unload", "reset"] as const) {
+            let open!: () => void
+            prep.gate = new Promise<void>((resolve) => { open = resolve })
+            const before = workers.length
+            const hook = renderHook(() => useWebAI({ model: GEMMA }))
+            let pending: Promise<any> = Promise.resolve()
+            act(() => { pending = hook.result.current.generate({ messages: withImage }) })
+            act(() => (hook.result.current as any)[stop]())
+            await act(async () => { open(); await pending })
+            expect(workers).toHaveLength(before)
+            hook.unmount()
+        }
+    })
+
+    it("cancel(), reset() and a worker error clear the paused-download state that no worker is left to update", async () => {
+        const pausedThen = async (end: (h: any, w: FakeWorker) => Promise<void> | void) => {
+            const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+            const { pending, worker } = await start(hook)
+            act(() => worker.emit({ type: "download_status", file: "a.onnx", state: "paused", reason: "offline", retryInSec: 5 }))
+            expect(hook.result.current.downloadPaused).toBe(true)
+            await act(async () => { await end(hook, worker); await pending })
+            expect(hook.result.current.downloadPaused).toBe(false)
+            expect(hook.result.current.downloadPauseReason).toBeNull()
+            hook.unmount()
+        }
+        await pausedThen((h) => h.result.current.cancel())
+        await pausedThen((h) => h.result.current.reset())
+        await pausedThen((_h, w) => w.emit({ type: "error", message: "crashed" }))
+        await pausedThen((_h, w) => w.onerror?.({ message: "boom" }))
+    })
+
+    it("a late download_status from a worker that was already terminated is ignored", async () => {
+        const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+        const { pending, worker } = await start(hook)
+        await act(async () => { hook.result.current.cancel(); await pending })
+        act(() => worker.emit({ type: "download_status", file: "a.onnx", state: "paused", reason: "offline", retryInSec: 5 }))
+        expect(hook.result.current.downloadPaused).toBe(false)
+    })
+})
+
+describe("useWebAI settling and isolation", () => {
+    const withImage = [{ role: "user", content: [{ type: "text", text: "what is this?" }, { type: "image", data: "data:image/png;base64,iVBORw0KGgo=" }] }]
+    afterEach(() => { prep.gate = null })
+
+    it("cancel() settles the caller at once, even though the image is still being prepared", async () => {
+        prep.gate = new Promise<void>(() => {}) // the preparation never finishes
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = hook.result.current.generate({ messages: withImage }) })
+        act(() => hook.result.current.cancel())
+        const result = await Promise.race([pending, new Promise((r) => setTimeout(() => r("still waiting"), 500))])
+        expect(result).toMatchObject({ output: "", error: null })
+    })
+
+    it("a request that cannot be sent (a function in genConfig) ends with an error, not a stuck busy worker", async () => {
+        const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+        const send = FakeWorker.prototype.postMessage
+        FakeWorker.prototype.postMessage = function (this: FakeWorker, msg: any) {
+            if (msg.type === "generate") throw new DOMException("could not be cloned", "DataCloneError")
+            send.call(this, msg)
+        }
+        try {
+            let result: any
+            await act(async () => { result = await hook.result.current.generate({ messages: ask, genConfig: { stop: () => {} } }) })
+            expect(String((hook.result.current.error as any)?.message)).toMatch(/could not be sent/)
+            expect(hook.result.current.loading).toBe(false)
+            expect(workers[0].terminated).toBe(true)
+            expect(result.output).toBe("")
+        } finally {
+            FakeWorker.prototype.postMessage = send
+        }
+        // the hook is usable again
+        const { pending, worker } = await start(hook)
+        await act(async () => { finish(worker, "fine"); await pending })
+        expect(hook.result.current.output).toBe("fine")
+    })
+
+    it("a superseded run's worker cannot write into the newer call", async () => {
+        const hook = renderHook(() => useWebAI({ model: GEMMA }))
+        const first = await start(hook)
+        // B is called while A's worker is still alive and B's image is still being prepared
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        let second: Promise<any> = Promise.resolve()
+        act(() => { second = hook.result.current.generate({ messages: withImage }) })
+        act(() => { first.worker.emit({ type: "token", text: "A's answer" }); first.worker.emit({ type: "done", tps: 1, totalTokens: 1, genMs: 1 }) })
+        await act(async () => { open() })
+        await vi.waitFor(() => expect(workers.length).toBeGreaterThan(1))
+        const worker = workers[workers.length - 1]
+        let secondDone = false
+        void second.then(() => { secondDone = true })
+        await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+        expect(secondDone).toBe(false) // A's "done" did not settle B
+        await act(async () => { worker.emit({ type: "token", text: "B's answer" }); worker.emit({ type: "done", tps: 1, totalTokens: 1, genMs: 1 }); await second })
+        expect(hook.result.current.output).toBe("B's answer")
+    })
+
+    it("cancel() after a download started clears loading and the download progress", async () => {
+        const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+        const { pending, worker } = await start(hook)
+        act(() => worker.emit({ type: "progress", file: "a.onnx", percent: 10, status: "progress", total: 500 }))
+        expect(hook.result.current.downloadProgress).not.toBeNull()
+        expect(hook.result.current.loading).toBe(true)
+        await act(async () => { hook.result.current.cancel(); await pending })
+        expect(hook.result.current.downloadProgress).toBeNull()
+        expect(hook.result.current.loading).toBe(false)
+    })
+
+    it("loadedModel is null once the worker is gone, though modelReady stays true", async () => {
+        const hook = renderHook(() => useWebAI({ model: TEXT_MODEL }))
+        const { pending, worker } = await start(hook)
+        await act(async () => { finish(worker); await pending }) // a text model's worker is terminated after the answer
+        expect(hook.result.current.modelReady).toBe(true)
+        expect(hook.result.current.loadedModel).toBeNull()
+    })
+
+    it("the answer is decoded with the components registered when the call started", async () => {
+        const Card = () => null
+        const Badge = () => null
+        const hook = renderHook(({ comps }: any) => useWebAI({ model: TEXT_MODEL, attachmentComponents: comps }), { initialProps: { comps: { Card } as Record<string, unknown> } })
+        const { pending, worker } = await start(hook)
+        hook.rerender({ comps: { Badge } }) // the app re-renders with a different registry before the model answers
+        await act(async () => { finish(worker, "<tool:Card>hello</tool:Card>"); await pending })
+        expect(hook.result.current.output).toContain("SATTACH")
+        expect(hook.result.current.output).not.toContain("<tool:Card>")
+    })
+})
+

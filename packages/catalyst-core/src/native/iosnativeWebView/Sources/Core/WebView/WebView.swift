@@ -59,6 +59,11 @@ public struct WebView: UIViewRepresentable, Equatable {
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
+        // Tells the page what this shell can do, so it never waits for an answer an older shell would not give.
+        configuration.userContentController.addUserScript(
+            WKUserScript(source: ShellCapabilities.scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+
         #if DEBUG
         if ConfigConstants.Profiler.enabled {
             configuration.userContentController.addUserScript(
@@ -81,6 +86,7 @@ public struct WebView: UIViewRepresentable, Equatable {
         ])
 
         webView.navigationDelegate = navigationDelegate
+        webView.uiDelegate = navigationDelegate
         #if DEBUG
         if ConfigConstants.Profiler.enabled {
             webView.scrollView.delegate = context.coordinator
@@ -229,6 +235,7 @@ public struct WebView: UIViewRepresentable, Equatable {
 
             // Create and register the native bridge
             let bridge = NativeBridge(webView: webView, viewController: hostingController, cameraManager: parent.cameraManager)
+            bridge.trustedOriginURL = URL(string: parent.urlString)
             let pluginBridge = PluginBridge(webView: webView, viewController: hostingController, trustedOrigin: URL(string: parent.urlString))
 
             // Inject WebViewModel for safe area handling

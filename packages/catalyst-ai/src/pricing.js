@@ -46,7 +46,8 @@ function normalizePricing(raw) {
         if (!p || typeof p !== "object" || Array.isArray(p)) { errors.push(`${model}: needs { input, output } or { perImage }`); continue }
         if (p.perImage !== undefined && !num(p.perImage)) { errors.push(`${model}: perImage must be a non-negative number (USD per image)`); continue }
         // A model priced per image alone (no token rates) is allowed; token cost is then reported as unknown.
-        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+        // A token field of any kind means the entry is not per-image-only: it must then carry full token rates, never lose one silently.
+        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined && p.cachedInput === undefined
         if (!perImageOnly && (!num(p.input) || !num(p.output))) { errors.push(`${model}: input and output must be non-negative numbers (USD per 1M tokens)`); continue }
         if (p.cachedInput !== undefined && !num(p.cachedInput)) { errors.push(`${model}: cachedInput must be a non-negative number`); continue }
         if (p.audioInput !== undefined && p.audioInput !== null && !num(p.audioInput)) { errors.push(`${model}: audioInput must be a number or null`); continue }
@@ -87,5 +88,9 @@ function imageCost(usage, price) {
     const partial = (images > 0 && !perImageKnown) || (tokens > 0 && !tokensKnown)
     return { cost, partial }
 }
+
+// Exported, so frozen: nothing may change a built-in rate in place.
+for (const entry of Object.values(PRICING)) Object.freeze(entry)
+Object.freeze(PRICING)
 
 module.exports = { PRICING, getPricing, normalizePricing, priceSource, lookupPricing, imageCost }

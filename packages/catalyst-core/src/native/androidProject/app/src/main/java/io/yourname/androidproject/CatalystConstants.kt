@@ -66,6 +66,10 @@ object CatalystConstants {
         val VALID_COMMANDS: Set<String> = setOf(
             "openCamera",
             "requestCameraPermission",
+            "requestMicrophonePermission",
+            "getSpeechRecognitionSupport",
+            "startSpeechRecognition",
+            "stopSpeechRecognition",
             "getDeviceInfo",
             "logger",
             "pickFile",

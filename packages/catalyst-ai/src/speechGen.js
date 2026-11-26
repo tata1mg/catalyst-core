@@ -2,6 +2,8 @@
 // Server-side only (CJS, loaded by route.js). Models come from config (`speechModel`) or the request, never hardcoded
 // here and never the chat `defaultModel`. Audio comes back as base64 in JSON.
 
+const { upstreamSignal, readBodyLimited, readJsonLimited, MEDIA_MS } = require("./upstream")
+
 const MAX_TEXT_CHARS = 4000
 const VOICE_RE = /^[a-zA-Z0-9._-]+$/
 const FORMATS = ["mp3", "wav", "opus"]
@@ -19,6 +21,14 @@ function validateSpeechRequest(body) {
     if (text.length > MAX_TEXT_CHARS) return `text must be at most ${MAX_TEXT_CHARS} characters`
     if (voice !== undefined && (typeof voice !== "string" || !VOICE_RE.test(voice))) return "voice contains invalid characters"
     if (format !== undefined && !FORMATS.includes(format)) return `format must be one of: ${FORMATS.join(", ")}`
+    return null
+}
+
+/** Provider-specific checks, run by the route before an adapter is called, so a client mistake is a 400 (AI-003). -> error string or null. */
+function validateProviderRequest(provider, body) {
+    if (provider === "gemini" && body?.format !== undefined && body.format !== "wav") {
+        return "gemini speech is returned as wav: omit format or use wav"
+    }
     return null
 }
 
@@ -59,17 +69,17 @@ function normalizeSpeechUsage(model, characters, usageMetadata) {
 
 /** Builds the adapters around route.js's throwProviderError so provider failures keep the AI-000 shape. */
 function createSpeechAdapters({ throwProviderError, createError }) {
-    async function openaiSpeech({ apiKey, model, text, voice, format }) {
+    async function openaiSpeech({ apiKey, model, text, voice, format, signal }) {
         const fmt = format || "mp3"
         const response = await fetch("https://api.openai.com/v1/audio/speech", {
+            signal: upstreamSignal(MEDIA_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({ model, input: text, voice: voice || DEFAULT_OPENAI_VOICE, response_format: fmt }),
         })
         if (!response.ok) await throwProviderError("openai", response)
-        const declared = Number(response.headers?.get?.("content-length"))
-        if (declared > MAX_AUDIO_BYTES) throw createError("openai returned audio larger than the allowed size")
-        const bytes = Buffer.from(await response.arrayBuffer())
+        // Read with a cap, so a body that is larger than announced (or announces nothing) is stopped part-way, not buffered whole.
+        const bytes = await readBodyLimited(response, MAX_AUDIO_BYTES).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError("openai returned audio larger than the allowed size") : e })
         if (bytes.length === 0) throw createError("openai returned no audio data")
         if (bytes.length > MAX_AUDIO_BYTES) throw createError("openai returned audio larger than the allowed size")
         return {
@@ -78,12 +88,13 @@ function createSpeechAdapters({ throwProviderError, createError }) {
         }
     }
 
-    async function geminiSpeech({ apiKey, model, text, voice, format }) {
+    async function geminiSpeech({ apiKey, model, text, voice, format, signal }) {
         // Gemini TTS returns raw PCM, which we wrap as WAV; other containers would need server-side transcoding.
         if (format && format !== "wav") throw createError("gemini speech is returned as wav; omit format or use wav")
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - model is validated against MODEL_NAME_RE before the handler calls this; the host is a fixed literal.
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(MEDIA_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify({
@@ -95,7 +106,7 @@ function createSpeechAdapters({ throwProviderError, createError }) {
             }),
         })
         if (!response.ok) await throwProviderError("gemini", response)
-        const data = await response.json()
+        const data = await readJsonLimited(response, MAX_B64_CHARS + 1024 * 1024).catch((e) => { throw e.code === "RESPONSE_TOO_LARGE" ? createError("gemini returned audio larger than the allowed size") : e })
         const parts = data.candidates?.[0]?.content?.parts ?? []
         const inline = parts.find((p) => typeof p.inlineData?.data === "string" && p.inlineData.data.length > 0)?.inlineData
         if (!inline) {
@@ -104,8 +115,10 @@ function createSpeechAdapters({ throwProviderError, createError }) {
         }
         if (inline.data.length > MAX_B64_CHARS) throw createError("gemini returned audio larger than the allowed size")
         const mime = String(inline.mimeType || "")
-        // Already a playable container: pass through. Otherwise (audio/L16 PCM, the documented shape) wrap it.
+        // Already a playable container: pass through. Raw PCM (audio/L16 or audio/pcm, the documented shape) is wrapped as WAV. Anything
+        // else is a codec we do not know: wrapping it as PCM would produce noise labelled as audio, so it is an error.
         const playable = /^audio\/(wav|x-wav|wave|mpeg|mp3|ogg)\b/i.test(mime)
+        if (!playable && !/^audio\/(l16|pcm)\b/i.test(mime)) throw createError(`gemini returned audio in an unrecognised format (${mime || "no type"})`)
         const audio = playable
             ? { mimeType: mime.split(";")[0].toLowerCase(), data: inline.data }
             : { mimeType: "audio/wav", data: pcmToWav(Buffer.from(inline.data, "base64"), { sampleRate: sampleRateOf(mime) }).toString("base64") }
@@ -115,4 +128,4 @@ function createSpeechAdapters({ throwProviderError, createError }) {
     return { openai: openaiSpeech, gemini: geminiSpeech }
 }
 
-module.exports = { validateSpeechRequest, createSpeechAdapters, pcmToWav, normalizeSpeechUsage, MAX_TEXT_CHARS, FORMATS }
+module.exports = { validateSpeechRequest, validateProviderRequest, createSpeechAdapters, pcmToWav, normalizeSpeechUsage, MAX_TEXT_CHARS, FORMATS }

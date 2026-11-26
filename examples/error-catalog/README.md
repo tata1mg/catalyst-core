@@ -1,10 +1,10 @@
 # Error Catalog Example (`examples/error-catalog`)
 
 A standalone Catalyst app whose scenarios reproduce a **real developer
-mistake** for every one of the framework's 104 error codes, then assert the dev
+mistake** for every one of the framework's 105 error codes, then assert the dev
 sees the right coded error (message + doc URL).
 
-- **`npm run test:error`**: runs all 104, one block per code: the mistake, what
+- **`npm run test:error`**: runs all 105, one block per code: the mistake, what
   the dev sees, and PASS / FAIL / SKIP. This is the command to run.
 - **`npm run demo`** — interactive walk of the server-reachable scenarios only
   (the `cli` / `http` tiers); other kinds are contract assertions, see
@@ -13,7 +13,7 @@ sees the right coded error (message + doc URL).
 
 ## Coverage
 
-104 / 104 codes accounted for: **69 reproduced by a scenario**, **35 in the
+105 / 105 codes accounted for: **69 reproduced by a scenario**, **36 in the
 LEDGER** as `not-example-reproducible` — each with a specific reason below, not
 a hand-wave.
 
@@ -55,7 +55,7 @@ a hand-wave.
 terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
    are what surfaced it (first CI exercise of `buildApp:*` on Linux).
 
-## The 104-code ledger
+## The 105-code ledger
 
 | Code                 | Dev mistake                                                                  | Tier           | What the dev sees                                                       | Coverage                             |
 | -------------------- | ---------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
@@ -69,6 +69,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 | `AI-007`             | —                                                                            | —              | Native AI reported an error                                             | **LEDGER: not-example-reproducible** |
 | `AI-008`             | —                                                                            | —              | Web AI worker unavailable                                               | **LEDGER: not-example-reproducible** |
 | `AI-009`             | —                                                                            | —              | Web AI worker crashed                                                   | **LEDGER: not-example-reproducible** |
+| `AI-010`             | —                                                                            | —              | catalyst-ai is not installed                                            | **LEDGER: not-example-reproducible** |
 | `ANDROID-000`        | Android build failed in upstream toolchain step                              | build-native   | Android build failed in an upstream toolchain step                      | scenario                             |
 | `ANDROID-001`        | —                                                                            | —              | Timed out waiting for the Android emulator to boot                      | **LEDGER: not-example-reproducible** |
 | `ANDROID-005`        | —                                                                            | —              | No upload key for the release build                                     | **LEDGER: not-example-reproducible** |
@@ -172,7 +173,7 @@ terminalProgress.js import casing` — the ANDROID-000 / IOS-000 scenarios here
 npm run sync-core
 npm run sync-packages
 
-# All 104, human-readable
+# All 105, human-readable
 npm run test:error
 
 # One code

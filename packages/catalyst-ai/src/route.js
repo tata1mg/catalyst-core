@@ -3,6 +3,7 @@ const media = require("./cloudMedia")
 const imageGen = require("./imageGen")
 const liveGen = require("./liveGen")
 const speechGen = require("./speechGen")
+const { upstreamSignal, clientGoneSignal, GENERATE_MS, MEDIA_MS, TOKEN_MS } = require("./upstream")
 
 const router = express.Router()
 
@@ -58,12 +59,28 @@ function getProviderConfig(provider) {
 const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
 
 // Returns an error string if the request body is invalid, otherwise null.
+/** The most output tokens a caller may ask for in one request; a sanity ceiling, the provider's own limit still applies. */
+const MAX_TOKENS_LIMIT = 200_000
+
 function validateRequestBody(req, cfg, provider) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
+    // Roles are not coerced: an unknown one would silently change meaning (everything that is not "assistant" used to become "user"),
+    // and a null entry would be dereferenced deep inside an adapter and come back as a 500.
+    for (const message of messages) {
+        if (!message || typeof message !== "object" || Array.isArray(message)) return "each message must be an object { role, content }"
+        if (!["system", "user", "assistant"].includes(message.role)) return 'message role must be "system", "user" or "assistant"'
+        if (typeof message.content !== "string" && !Array.isArray(message.content)) return "message content must be a string or an array of parts"
+    }
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
     if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    // maxTokens is forwarded to a paid provider. Anything but a sane whole number is the caller's mistake: a 0 would otherwise be
+    // read as "unset" and silently become a large default, and a string or a huge value would be passed on as it is.
+    const maxTokens = req.body?.genConfig?.maxTokens
+    if (maxTokens !== undefined && maxTokens !== null && !(Number.isInteger(maxTokens) && maxTokens >= 1 && maxTokens <= MAX_TOKENS_LIMIT)) {
+        return `genConfig.maxTokens must be a whole number from 1 to ${MAX_TOKENS_LIMIT}`
+    }
     // Image/audio parts: re-validated server-side (client caps can be bypassed) and checked against what this
     // provider endpoint really accepts, before any paid call. Requests without array content skip this entirely.
     if (provider && media.usesParts(messages)) {
@@ -274,7 +291,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+async function openaiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful, signal }) {
     if (stateful) {
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
@@ -287,6 +304,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             ...(genConfig?.topP != null && { top_p: genConfig.topP }),
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
@@ -306,6 +324,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
             ...(genConfig?.topP != null && { top_p: genConfig.topP }),
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify(body),
@@ -446,7 +465,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
     res.end()
 }
 
-async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful }) {
+async function geminiGenerate({ apiKey, model, messages, genConfig, conversationId, stateful, signal }) {
     if (stateful) {
         // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
@@ -465,6 +484,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             },
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
@@ -488,6 +508,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
             },
         }
         const response = await fetch(endpoint, {
+            signal: upstreamSignal(GENERATE_MS, signal),
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
             body: JSON.stringify(body),
@@ -573,6 +594,26 @@ async function anthropicStream({ apiKey, model, messages, genConfig, res, signal
     let usage = {}
     let stopReason = null
     let stopDetails = null
+    let finished = false
+
+    // One SSE line. Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data
+    // lines matter. A data line that is not JSON is an error: skipping it could drop the frame that carries the usage or the
+    // stop reason (a refusal), and the stream would then look like a normal, complete answer.
+    const handleLine = (line) => {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith("data:")) return
+        let parsed
+        try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { throw new Error("Claude sent a stream frame that is not valid JSON") }
+        if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
+        if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
+        else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+            res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
+        } else if (parsed.type === "message_delta") {
+            usage = { ...usage, ...parsed.usage }
+            stopReason = parsed.delta?.stop_reason ?? stopReason
+            stopDetails = parsed.delta?.stop_details ?? stopDetails
+        } else if (parsed.type === "message_stop") finished = true
+    }
 
     while (true) {
         const { done, value } = await reader.read()
@@ -580,34 +621,24 @@ async function anthropicStream({ apiKey, model, messages, genConfig, res, signal
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split("\n")
         buffer = lines.pop() || ""
-        for (const line of lines) {
-            const trimmed = line.trim()
-            // Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data lines matter.
-            if (!trimmed.startsWith("data:")) continue
-            let parsed
-            try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { continue }
-            if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
-            if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
-            else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-                res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
-            } else if (parsed.type === "message_delta") {
-                usage = { ...usage, ...parsed.usage }
-                stopReason = parsed.delta?.stop_reason ?? stopReason
-                stopDetails = parsed.delta?.stop_details ?? stopDetails
-            }
-        }
+        for (const line of lines) handleLine(line)
     }
-
+    // The last line may have no trailing newline, and the decoder may be holding a partial character: process both.
+    buffer += decoder.decode()
+    if (buffer.trim()) handleLine(buffer)
     const refusal = anthropicRefusal(stopReason, stopDetails)
     if (refusal) throw refusal
+    // Without message_stop the connection dropped mid-answer. Say so, rather than "[DONE]" on whatever arrived.
+    if (!finished) throw new Error("Claude stream ended before the answer was complete")
     const normalized = normalizeAnthropicUsage(usage, model)
     if (normalized) res.write(`data: ${JSON.stringify({ usage: normalized })}\n\n`)
     res.write("data: [DONE]\n\n")
     res.end()
 }
 
-async function anthropicGenerate({ apiKey, model, messages, genConfig }) {
+async function anthropicGenerate({ apiKey, model, messages, genConfig, signal }) {
     const response = await fetch(ANTHROPIC_ENDPOINT, {
+        signal: upstreamSignal(GENERATE_MS, signal),
         method: "POST",
         headers: anthropicHeaders(apiKey),
         body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: false })),
@@ -754,7 +785,7 @@ router.post("/:provider/generate", async (req, res) => {
     try {
         // nosemgrep: javascript.express.security.express-phantom-injection.express-phantom-injection - adapter.generate dispatches to openaiGenerate/geminiGenerate, neither of which uses PhantomJS. resolvedModel is validated against MODEL_NAME_RE by validateRequestBody() above before this call, and the only outbound request hosts are fixed literals (api.openai.com / generativelanguage.googleapis.com) — not attacker-controllable.
         // nosemgrep: javascript.express.security.express-wkhtml-injection.express-wkhtmltoimage-injection - false positive: no wkhtmltoimage/PhantomJS is used; see the note above on adapter.generate.
-        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful })
+        const result = await adapter.generate({ apiKey: cfg.apiKey, model: resolvedModel, messages, genConfig, conversationId, stateful, signal: clientGoneSignal(res) })
         res.json({ ...result, model: resolvedModel })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -791,7 +822,7 @@ router.post("/:provider/image", async (req, res) => {
         return
     }
 
-    const bodyError = imageGen.validateImageRequest(req.body)
+    const bodyError = imageGen.validateImageRequest(req.body) || imageGen.validateProviderRequest(provider, req.body)
     const model = req.body?.model || cfg.imageModel
     const modelError = !model
         ? `no model specified and provider has no imageModel configured`
@@ -805,7 +836,7 @@ router.post("/:provider/image", async (req, res) => {
 
     const { prompt, n, size, images } = req.body
     try {
-        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images })
+        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images, signal: clientGoneSignal(res) })
         res.json({ ...result, model })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -839,7 +870,7 @@ router.post("/:provider/speech", async (req, res) => {
         return
     }
 
-    const bodyError = speechGen.validateSpeechRequest(req.body)
+    const bodyError = speechGen.validateSpeechRequest(req.body) || speechGen.validateProviderRequest(provider, req.body)
     const model = req.body?.model || cfg.speechModel
     const modelError = !model
         ? "no model specified and provider has no speechModel configured"
@@ -853,7 +884,7 @@ router.post("/:provider/speech", async (req, res) => {
 
     const { text, voice, format } = req.body
     try {
-        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format })
+        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format, signal: clientGoneSignal(res) })
         res.json({ ...result, model })
     } catch (err) {
         const { CatalystError } = await loadErrors()
@@ -890,13 +921,14 @@ router.post("/gemini/live-token", async (req, res) => {
         return
     }
     try {
-        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError }))
+        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError, signal: clientGoneSignal(res) }))
     } catch (err) {
         const { CatalystError } = await loadErrors()
         const code = err instanceof CatalystError ? err.code : undefined
         const causeMessage = err.cause?.message
         const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
-        console.error("[catalyst-ai] gemini live-token error:", code ? `[${code}] ${logSuffix}` : logSuffix)
+        // Provider response text can reach the message: logged through logSafe, like the image and speech handlers.
+        console.error("[catalyst-ai] gemini live-token error:", logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
         res.status(500).json({ error: err.message, code })
     }
 })

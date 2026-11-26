@@ -186,6 +186,42 @@ final class ResilientDownloadTests: XCTestCase {
         XCTAssertEqual(reason, .weak)
     }
 
+    func testAWeakLinkThatKeepsMovingBytesDoesNotLetTheBackoffClimb() async throws {
+        let rec = Recorder()
+        var policy = fastPolicy()
+        policy.resumeDelaySec = 0.3 // whole seconds in the event: 0.3 -> 1, 0.6 -> 1, 1.2 -> 2, 2.4 -> 3, so growth is visible
+        policy.maxDelaySec = 5
+        policy.maxIdleRetries = 10
+        let (r, _) = make(rec, policy: policy)
+        var calls = 0
+        _ = try await r.run {
+            calls += 1
+            if calls <= 4 { rec.size += 50; throw DownloadInterrupted(kind: .weak(bytesPerSec: 3_000)) }
+            return 1
+        }
+        let waits: [Int] = rec.events.compactMap { if case .paused(.weak, let sec?) = $0 { return sec } else { return nil } }
+        XCTAssertEqual(waits.count, 4)
+        XCTAssertEqual(Set(waits).count, 1, "bytes kept arriving, so every wait is the first-step wait: \(waits)")
+    }
+
+    func testAWeakLinkThatMovesNothingStillBacksOffMore() async throws {
+        let rec = Recorder()
+        var policy = fastPolicy()
+        policy.resumeDelaySec = 0.3
+        policy.maxDelaySec = 5
+        policy.maxIdleRetries = 10
+        let (r, _) = make(rec, policy: policy)
+        var calls = 0
+        _ = try await r.run {
+            calls += 1
+            if calls <= 3 { throw DownloadInterrupted(kind: .weak(bytesPerSec: 3_000)) } // the partial never grows
+            return 1
+        }
+        let waits: [Int] = rec.events.compactMap { if case .paused(.weak, let sec?) = $0 { return sec } else { return nil } }
+        XCTAssertEqual(waits.count, 3)
+        XCTAssertTrue(waits[2] > waits[0], "no progress: the wait keeps growing: \(waits)")
+    }
+
     func testWaitsWhilePausedAndContinuesOnResume() async throws {
         let rec = Recorder()
         let gate = DownloadGate()

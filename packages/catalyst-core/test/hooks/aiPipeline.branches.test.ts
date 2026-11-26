@@ -1,7 +1,7 @@
 // Branch coverage for the pipeline runner: value previews, validation errors, aborts, cancellation mid-run and the
 // transcribe stage's two result shapes.
-import { describe, expect, it } from "vitest"
-import { codeStage, preview, runPipeline, transcribeStage, validatePipeline } from "../../src/native/bridge/hooks/aiPipeline"
+import { describe, expect, it, vi } from "vitest"
+import { codeStage, imageStage, preview, runPipeline, transcribeStage, validatePipeline } from "../../src/native/bridge/hooks/aiPipeline"
 
 describe("preview", () => {
     it("describes each type without dumping payloads", () => {
@@ -12,7 +12,12 @@ describe("preview", () => {
         circular.self = circular
         expect(preview("json", circular)).toBe("(unserialisable)")
         expect(preview("image", "data:image/png;base64,AAAA")).toMatch(/^image \(data URL, \d+ chars\)$/)
-        expect(preview("image", "https://x/y.png")).toBe("image (https://x/y.png)")
+        expect(preview("image", "https://x/y.png")).toBe("image (reference, 15 chars)")
+        // a signed URL, a local path or a token in a query string must never reach an event consumer
+        for (const secret of ["https://cdn.example/a.png?X-Amz-Signature=abc123", "/Users/me/private/photo.png", "file:///tmp/secret.wav"]) {
+            expect(preview("image", secret)).not.toContain("abc123")
+            expect(preview("audio", secret)).not.toMatch(/Users|tmp|secret|cdn/)
+        }
         expect(preview("audio", new ArrayBuffer(8))).toBe("audio (8 bytes)")
         expect(preview("audio", new Uint8Array(3))).toBe("audio (3 bytes)")
         expect(preview("audio", new Blob(["abc"], { type: "audio/wav" }))).toBe("audio (3 bytes, audio/wav)")
@@ -88,3 +93,67 @@ describe("transcribeStage", () => {
         expect(result.spentUsd).toBeCloseTo(0.25)
     })
 })
+
+describe("a cancel from the start event stops the stage before it begins", () => {
+    it("a stage that would have made a paid call never runs when the start listener aborts", async () => {
+        const controller = new AbortController()
+        const run = vi.fn(async (x: string) => x)
+        const stage = codeStage("paid", "text", "text", run)
+        const result = await runPipeline([stage], "in", { signal: controller.signal, onStep: (step: any) => { if (step.type === "start") controller.abort() } })
+        expect(result.status).toBe("cancelled")
+        expect(run).not.toHaveBeenCalled()
+    })
+})
+
+describe("pipeline option and value checks", () => {
+    it("rejects a spend cap that is not a finite non-negative number instead of silently ignoring it", async () => {
+        const stage = codeStage("s", "text", "text", (x: string) => x)
+        for (const bad of [NaN, -1, Infinity, "5" as any]) {
+            await expect(runPipeline([stage], "x", { maxCostUsd: bad }), String(bad)).rejects.toThrow(RangeError)
+        }
+        expect((await runPipeline([stage], "x", { maxCostUsd: 1 })).status).toBe("done")
+    })
+
+    it("treats a stage that takes audio-out as audio-derived, so a cloud stage there is denied by default", async () => {
+        const run = vi.fn(async (x: any) => "heard")
+        const cloudStage = { name: "cloud", input: "audio-out" as const, output: "text" as const, cloud: true, run }
+        const result = await runPipeline([cloudStage], new Uint8Array([1, 2, 3]))
+        expect(result.status).toBe("denied")
+        expect(run).not.toHaveBeenCalled()
+    })
+
+    it("does not accept a json value that serialises to nothing", async () => {
+        const { checkType } = await import("../../src/native/bridge/hooks/aiPipeline")
+        expect(checkType("json", { toJSON: () => undefined })).toMatch(/serialises to nothing/)
+        expect(checkType("json", { a: 1 })).toBeNull()
+    })
+})
+
+describe("review round: pipeline edge cases", () => {
+    it("a media object whose mimeType is not a string still previews safely", () => {
+        const hostile = { url: "https://x/y.png", mimeType: Object.create(null) }
+        expect(() => preview("image", hostile)).not.toThrow()
+        expect(preview("image", { mimeType: "image/png" })).toBe("image (image/png)")
+    })
+
+    it("an image request is not sent for a run that was cancelled while its prompt was being prepared", async () => {
+        const controller = new AbortController()
+        const requestImage = vi.fn(async () => ({ images: [{ url: "x" }] }))
+        const stage = imageStage({ requestImage: requestImage as any, prompt: async () => { controller.abort(); return "a boat" } })
+        const result = await runPipeline([stage], { scene: "x" }, { signal: controller.signal, cloudPolicy: "allow" })
+        expect(result.status).toBe("cancelled")
+        expect(requestImage).not.toHaveBeenCalled()
+    })
+
+    it("replacing an entry of the stage array during a run does not change the chain that was validated", async () => {
+        const seen: string[] = []
+        const stages: any[] = [
+            codeStage("first", "text", "text", async (x: string) => { stages[1] = codeStage("swapped", "json", "json", (v: any) => v); return x }),
+            codeStage("second", "text", "text", (x: string) => { seen.push("second"); return x }),
+        ]
+        const result = await runPipeline(stages, "in")
+        expect(result.status).toBe("done")
+        expect(seen).toEqual(["second"])
+    })
+})
+

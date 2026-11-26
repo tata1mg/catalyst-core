@@ -165,14 +165,22 @@ function makeProjectHelpers(root) {
         }
     }
 
+    // Each file is read once per set of helpers: the source walk, the filters that follow it and the entry lookup all want the same
+    // files, and a check that runs several of them used to read every file again each time.
+    const textCache = new Map()
+
     function readText(rel) {
+        if (textCache.has(rel)) return textCache.get(rel)
         const filePath = safeProjectPath(rel)
         if (!filePath) return null
+        let text = null
         try {
-            return fs.readFileSync(filePath, "utf8")
+            text = fs.readFileSync(filePath, "utf8")
         } catch {
-            return null
+            text = null
         }
+        textCache.set(rel, text)
+        return text
     }
 
     /**
@@ -194,9 +202,11 @@ function makeProjectHelpers(root) {
                     walk(full)
                 } else if (/\.(js|jsx|ts|tsx)$/.test(e.name)) {
                     try {
-                        const content = fs.readFileSync(full, "utf8")
+                        const rel = path.relative(root, full)
+                        const content = textCache.has(rel) ? textCache.get(rel) : fs.readFileSync(full, "utf8")
+                        textCache.set(rel, content)
                         if (pattern.test(content)) {
-                            matches.push(path.relative(root, full))
+                            matches.push(rel)
                         }
                     } catch {
                         // Ignore unreadable files during source scan.
@@ -315,15 +325,36 @@ const CLIENT_ENTRY_CANDIDATES = ["client/index.js", "client/index.jsx", "client/
 // Hooks that talk to the native bridge need WebBridge.init() in the client entry: it sets window.WebBridge and
 // isNative. Without it they run with isNative=false inside the WebView and fail silently. useAI and useVision are exempt
 // (they also run on cloud/in-browser engines), so importing only those does not count as native use.
-const HOOKS_IMPORT = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["']catalyst-core\/hooks["']|import\s+(?!type\b)[\w$]+\s*(?:,\s*\{[^}]*\})?\s*from\s*["']catalyst-core\/hooks["']|require\(\s*["']catalyst-core\/hooks["']\s*\)/g
+const HOOKS_MODULE = String.raw`["']catalyst-core\/hooks["']`
+const NAMED_IMPORT = new RegExp(String.raw`import\s+(type\s+)?\{([^}]*)\}\s*from\s*` + HOOKS_MODULE, "g")
+// default or namespace import, optionally with a named list after it: which hooks are used cannot be told
+const OTHER_IMPORT = new RegExp(String.raw`import\s+(?!type\b)(?:[\w$]+|\*\s+as\s+[\w$]+)\s*(?:,\s*(?:\{[^}]*\}|\*\s+as\s+[\w$]+))?\s*from\s*` + HOOKS_MODULE)
+const DESTRUCTURED_REQUIRE = new RegExp(String.raw`(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\(\s*` + HOOKS_MODULE + String.raw`\s*\)`, "g")
+const ANY_REQUIRE = new RegExp(String.raw`require\(\s*` + HOOKS_MODULE + String.raw`\s*\)`, "g")
+const EXEMPT_HOOKS = new Set(["useAI", "useVision"])
+
+/** Imported names from `{ a, b as c, type d }` or `{ a, b: c }`: the exported name, with type-only specifiers left out. */
+function hookNames(list) {
+    return list
+        .split(",")
+        .map((n) => n.trim())
+        .filter((n) => n && !/^type\s/.test(n))
+        .map((n) => n.split(/\s+as\s+|\s*:\s*/)[0].trim())
+        .filter(Boolean)
+}
 
 function usesNativeHooks(source) {
-    for (const m of source.matchAll(HOOKS_IMPORT)) {
-        if (m[1] === undefined) return true // default/namespace import or require: cannot tell which hooks
-        const names = m[1].split(",").map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)
-        if (names.some((n) => n !== "useAI" && n !== "useVision")) return true
+    // A type-only import (`import type { ... }`) is erased by the compiler, so it is not runtime use of any hook.
+    for (const m of source.matchAll(NAMED_IMPORT)) {
+        if (m[1]) continue
+        if (hookNames(m[2]).some((n) => !EXEMPT_HOOKS.has(n))) return true
     }
-    return false
+    if (OTHER_IMPORT.test(source)) return true
+    // `const { useAI } = require(...)` gets the same exemption as the import form.
+    const destructured = [...source.matchAll(DESTRUCTURED_REQUIRE)]
+    for (const m of destructured) if (hookNames(m[1]).some((n) => !EXEMPT_HOOKS.has(n))) return true
+    // A require that is not destructured hands over the whole module: which hooks it uses cannot be told.
+    return [...source.matchAll(ANY_REQUIRE)].length > destructured.length
 }
 
 /**
@@ -333,31 +364,45 @@ function usesNativeHooks(source) {
  * "Cannot read properties of null (reading 'useContext')". It belongs inside hydrationReady().then(...) just
  * before hydrateRoot.
  */
+// Comments out, so a commented-out `// WebBridge.init()` does not count as the call. (Textual, not a parser: a `//` right after a `:` is
+// left alone so URLs in strings survive.)
+const withoutComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1")
+
 function inspectWebBridgeInit(root) {
     const { grepSrc, readText } = makeProjectHelpers(root)
     const hookFiles = grepSrc(/catalyst-core\/hooks/).filter((f) => usesNativeHooks(readText(f) || ""))
     const entry = CLIENT_ENTRY_CANDIDATES.find((f) => readText(f) !== null && readText(f) !== undefined)
     const base = { hookFiles, entry: entry || null }
     if (!entry) return { ...base, state: hookFiles.length ? "no-entry" : "no-hooks" }
-    const src = readText(entry) || ""
+    const src = withoutComments(readText(entry) || "")
     const initAt = src.search(/WebBridge\s*\.\s*init\s*\(/)
     if (initAt === -1) return { ...base, state: hookFiles.length ? "missing-init" : "no-hooks" }
-    if (!/import[^;]*\bWebBridge\b[^;]*from|require\([^)]*WebBridge/.test(src)) return { ...base, state: "missing-import" }
+    // The check is about apps that use native hooks. A project without any can call WebBridge.init() however it likes.
+    if (!hookFiles.length) return { ...base, state: "no-hooks" }
+    // The Catalyst bridge itself, from its own module: an unrelated `WebBridge` from another package does not count.
+    const bridgeImport = /import\s+[^;]*?\bWebBridge\b[^;]*?from\s*["']catalyst-core\/WebBridge["']|\bWebBridge\b\s*=\s*require\(\s*["']catalyst-core\/WebBridge["']\s*\)|import\s*\(\s*["']catalyst-core\/WebBridge["']\s*\)/
+    if (!bridgeImport.test(src)) return { ...base, state: "missing-import" }
     const readyAt = src.search(/hydrationReady\s*\(/)
     if (readyAt !== -1 && initAt < readyAt) return { ...base, state: "misplaced" }
+    // It must also come before hydrateRoot: after it, the first render has already run without the bridge. (A textual check, not a scope
+    // analysis: it cannot tell which function an init() call sits in.)
+    const hydrateAt = src.search(/hydrateRoot\s*\(/)
+    if (hydrateAt !== -1 && initAt > hydrateAt) return { ...base, state: "misplaced" }
     return { ...base, state: "ok" }
 }
 
 const WEBBRIDGE_INIT_SNIPPET = `window.addEventListener("load", () => {
     hydrationReady().then(() => {
         // ...store / router / Application as before...
-        WebBridge.init()   // inside hydrationReady, just before hydrateRoot
+        WebBridge.init()   // inside the readiness callback, just before hydrateRoot
         hydrateRoot(document.getElementById("app"), Application)
     })
-})`
+})
+// catalyst-core 0.3.x and later. On 0.2.x the readiness callback is loadableReady(() => { ... }) from @loadable/component.`
 
 module.exports = {
     inspectWebBridgeInit,
+    usesNativeHooks,
     WEBBRIDGE_INIT_SNIPPET,
     findCatalystRoot,
     makeProjectHelpers,

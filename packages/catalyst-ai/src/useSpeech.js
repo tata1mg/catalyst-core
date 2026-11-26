@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { withDeadline } from "./requestSignal.js"
 
 const REQUEST_TIMEOUT_MS = 180_000
 
@@ -10,19 +11,23 @@ const REQUEST_TIMEOUT_MS = 180_000
  */
 export async function requestSpeech({ basePath = "/ai", provider = "openai", text, voice, format, model, signal } = {}) {
     if (typeof text !== "string" || text.trim() === "") throw new Error("text must be a non-empty string")
-    const timeout = AbortSignal.timeout ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined
-    const combined = signal && timeout && AbortSignal.any ? AbortSignal.any([signal, timeout]) : signal || timeout
-    const response = await fetch(`${basePath}/${provider}/speech`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, ...(voice && { voice }), ...(format && { format }), ...(model && { model }) }),
-        signal: combined,
-    })
+    const deadline = withDeadline(signal, REQUEST_TIMEOUT_MS)
+    let response
     let data = null
     try {
-        data = await response.json()
-    } catch {
-        // non-JSON error body: fall through to the status message below
+        response = await fetch(`${basePath}/${provider}/speech`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, ...(voice !== undefined && { voice }), ...(format !== undefined && { format }), ...(model !== undefined && { model }) }),
+            signal: deadline.signal,
+        })
+        try {
+            data = await response.json()
+        } catch {
+            // non-JSON error body: fall through to the status message below
+        }
+    } finally {
+        deadline.done()
     }
     if (!response.ok) throw new Error(data?.error || `Speech request failed (${response.status})`)
     if (!data?.audio?.data) throw new Error("Speech response contained no audio")
@@ -37,6 +42,15 @@ export function useSpeech({ basePath = "/ai", provider = "openai", model, voice,
     const controllerRef = useRef(null)
 
     const cancel = useCallback(() => {
+        const controller = controllerRef.current
+        controllerRef.current = null
+        controller?.abort()
+        // The aborted request sees that it is no longer the current one and returns without touching state, so the flag is cleared here.
+        if (controller) setState((s) => ({ ...s, loading: false }))
+    }, [])
+
+    // Unmounting abandons the request instead of letting it download audio for a component that is gone.
+    useEffect(() => () => {
         controllerRef.current?.abort()
         controllerRef.current = null
     }, [])

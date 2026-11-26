@@ -128,6 +128,7 @@ describe("useVision", () => {
         const { result } = renderHook(() => useVision({ schema }))
         let first!: Promise<any>
         act(() => { first = result.current.scan(PNG) })
+        await waitFor(() => expect(ai.generate).toHaveBeenCalledTimes(1)) // the first scan is now waiting on the model
         await act(async () => { await result.current.scan(PNG) })
         expect(result.current.data).toEqual({ total: 2 })
         await act(async () => { release(ok('{"total": 99}', run)); await first })
@@ -156,5 +157,32 @@ describe("useVision", () => {
         await act(async () => { release(ok('{"total": 1}', run)); await pending })
         expect(errors).not.toHaveBeenCalled()
         errors.mockRestore()
+    })
+
+    it("an attempt count that would never stop or never start falls back to the default", async () => {
+        for (const maxAttempts of [Infinity, NaN, 2.9]) {
+            ai.generate.mockReset()
+            ai.generate.mockResolvedValue(ok("not json"))
+            const { result } = renderHook(() => useVision({ schema, maxAttempts }))
+            let out: any = "pending"
+            await act(async () => { out = await result.current.scan(PNG) })
+            expect(out, String(maxAttempts)).toBeNull()
+            expect(ai.generate.mock.calls.length, String(maxAttempts)).toBe(2) // 2.9 floors to 2; Infinity and NaN use the default 2
+            cleanup()
+        }
+    })
+
+    it("a scan replaced while its photo was being converted never reaches the model", async () => {
+        ai.generate.mockResolvedValue(ok('{"total":1}'))
+        const { result } = renderHook(() => useVision({ schema }))
+        let first: any, second: any
+        await act(async () => {
+            const a = result.current.scan(PNG)
+            const b = result.current.scan(PNG)
+            ;[first, second] = await Promise.all([a, b])
+        })
+        expect(first).toBeNull()
+        expect(second).toEqual({ total: 1 })
+        expect(ai.generate).toHaveBeenCalledTimes(1)
     })
 })

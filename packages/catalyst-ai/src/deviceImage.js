@@ -19,7 +19,12 @@ export function registerDeviceImageEngine(loader, options = {}) {
 }
 const loadLibrary = () => {
     if (!registered) return Promise.reject(new Error("No on-device image engine registered. Call registerDeviceImageEngine(() => import(\"web-txt2img\")) once at startup."))
-    return (libPromise ??= registered())
+    // The package is optional: a loader that fails (not installed) must tell the developer what to install, not surface a raw
+    // module-resolution error. A failed load is not remembered, so installing the package and retrying works.
+    return (libPromise ??= Promise.resolve().then(registered).catch((error) => {
+        libPromise = null
+        throw Object.assign(new Error("On-device image generation needs the web-txt2img package. Install it with: npm i web-txt2img @xenova/transformers onnxruntime-web"), { cause: error })
+    }))
 }
 
 /**

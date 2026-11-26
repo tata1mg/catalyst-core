@@ -16,6 +16,7 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
         chunk: 1000,
         chunkDelayMs: 0,
         breakAfter: [] as number[], // per request: break the body after this many bytes (consumed in order)
+        stallAfter: [] as number[], // per request: stop sending after this many bytes but keep the connection open (a half-open link)
         status: 0, // force a status on the next request
         requests: [] as Req[],
         fetch: (input: any, init: any = {}) => {
@@ -37,6 +38,7 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
             const payload = s.body.subarray(start)
             headers.set("content-length", String(payload.length))
             const cut = s.breakAfter.length ? s.breakAfter.shift()! : Infinity
+            const stall = s.stallAfter.length ? s.stallAfter.shift()! : Infinity
             let sent = 0
             let ctrl: ReadableStreamDefaultController
             const stream = new ReadableStream({
@@ -45,9 +47,10 @@ function makeServer(initial: { body?: Uint8Array; etag?: string } = {}) {
                     if (init.signal?.aborted) return c.error(new DOMException("Aborted", "AbortError"))
                     if (sent >= cut) return c.error(new TypeError("network error"))
                     if (sent >= payload.length) return c.close()
+                    if (sent >= stall) return new Promise(() => {}) // open, silent, and never answers
                     if (s.chunkDelayMs) await new Promise((r) => setTimeout(r, s.chunkDelayMs))
                     if (init.signal?.aborted) return c.error(new DOMException("Aborted", "AbortError"))
-                    const n = Math.min(s.chunk, payload.length - sent, cut - sent)
+                    const n = Math.min(s.chunk, payload.length - sent, cut - sent, stall - sent)
                     c.enqueue(payload.subarray(sent, sent + n))
                     sent += n
                 },
@@ -289,6 +292,54 @@ describe("resuming after a reload", () => {
     })
 })
 
+describe("a 416 is only trusted for the same file", () => {
+    const partialOf = async (first: ReturnType<typeof setup>) => {
+        const r1 = (await first.rf.fetch(URL_)).body!.getReader()
+        await r1.read(); await r1.cancel()
+        const key = [...first.storage.parts.keys()][0]
+        first.storage.parts.set(key, first.server.body.slice()) // as if every byte of the old file was stored
+        return key
+    }
+
+    it("a replacement file of the same length restarts instead of replaying the old bytes", async () => {
+        const first = setup()
+        await partialOf(first)
+        const v2 = makeServer({ body: makeBody(9), etag: '"v2"' })
+        const again = createResumableFetch({ fetch: v2.fetch, storage: first.storage, policy: fastPolicy, online: true })
+        expect(same(await bytes(await again.fetch(URL_)), v2.body)).toBe(true)
+    })
+
+    it("a 416 with no ETag cannot be verified and restarts", async () => {
+        const first = setup()
+        await partialOf(first)
+        const noEtag = (input: any, init: any) => first.server.fetch(input, init).then((res: Response) => {
+            if (res.status !== 416) return res
+            const headers = new Headers(res.headers); headers.delete("etag")
+            return new Response(null, { status: 416, headers })
+        })
+        const again = createResumableFetch({ fetch: noEtag, storage: first.storage, policy: fastPolicy, online: true })
+        expect(same(await bytes(await again.fetch(URL_)), first.server.body)).toBe(true)
+    })
+})
+
+describe("a server that keeps answering 5xx", () => {
+    it("is given up on after maxIdleRetries: the caller gets the 503, the partial is kept", async () => {
+        const first = setup()
+        const r1 = (await first.rf.fetch(URL_)).body!.getReader()
+        await r1.read(); await r1.cancel()
+        const key = [...first.storage.parts.keys()][0]
+        const kept = first.storage.parts.get(key)!.length
+        expect(kept).toBeGreaterThan(0)
+        let calls = 0
+        const down = () => { calls++; return Promise.resolve(new Response("unavailable", { status: 503 })) }
+        const again = createResumableFetch({ fetch: down as any, storage: first.storage, policy: { ...fastPolicy, maxIdleRetries: 3 }, online: true })
+        const res = await again.fetch(URL_)
+        expect(res.status).toBe(503)
+        expect(calls).toBe(4) // the first try plus three retries, not forever
+        expect(first.storage.parts.get(key)!.length).toBe(kept)
+    })
+})
+
 describe("concurrent files and cancellation", () => {
     it("pauses every file when the page goes offline and resumes them all", async () => {
         const { server, rf } = setup(undefined, { heldRetrySec: 30 })
@@ -310,5 +361,113 @@ describe("concurrent files and cancellation", () => {
         const p = rf.fetch(URL_, { signal: controller.signal })
         setTimeout(() => controller.abort(), 30)
         await expect(p).rejects.toBeTruthy()
+    })
+})
+
+describe("a link that stays open but sends nothing", () => {
+    it("ends the wait at the idle window, resumes from the same byte, and delivers the whole file", async () => {
+        const { server, rf, events } = setup()
+        server.stallAfter = [5000]
+        const out = await bytes(await rf.fetch(URL_))
+        expect(same(out, server.body)).toBe(true)
+        expect(server.requests.map((r) => r.range)).toEqual([null, "bytes=5000-"])
+        expect(events.some((e) => e.state === "paused")).toBe(true)
+    })
+})
+
+describe("a response that is not persisted", () => {
+    it("is no longer tracked, so a later offline signal does not abort an ordinary download", async () => {
+        const { server, rf } = setup()
+        server.etag = 'W/"weak"' // a weak ETag is not resumable: an ordinary response
+        const res = await rf.fetch(URL_)
+        rf.setOnline(false) // would abort every tracked transfer
+        expect(same(await bytes(res), server.body)).toBe(true)
+    })
+})
+
+describe("hardening from review", () => {
+    it("a stored part whose metadata is gone is dropped, not appended to", async () => {
+        const { server, rf, storage } = setup()
+        server.breakAfter = [7000]
+        const first = await rf.fetch(URL_)
+        const reader = first.body!.getReader()
+        await reader.read()
+        await reader.cancel() // leaves a partial and its metadata behind
+        expect(storage.parts.size).toBe(1)
+        storage.metas.clear() // the metadata is lost or unreadable; the bytes are still there
+        server.breakAfter = []
+        server.requests.length = 0
+        const out = await bytes(await rf.fetch(URL_))
+        expect(same(out, server.body)).toBe(true) // a clean download, not stale bytes followed by new ones
+        expect(server.requests[0].range).toBeNull() // and it started from zero
+    })
+
+    it("a Request keeps its own abort signal: one that is already aborted stops the download before it starts", async () => {
+        const { server, rf } = setup()
+        const controller = new AbortController()
+        controller.abort()
+        await expect(rf.fetch(new Request(URL_, { signal: controller.signal }))).rejects.toThrow()
+        expect(server.requests).toHaveLength(0)
+    })
+
+    it("cancelling a download flushes what was written, so the delivered offset survives", async () => {
+        const { server, rf, storage } = setup()
+        const flush = vi.spyOn(storage, "flush")
+        server.chunkDelayMs = 5
+        const res = await rf.fetch(URL_)
+        const reader = res.body!.getReader()
+        await reader.read()
+        await reader.cancel()
+        expect(flush).toHaveBeenCalled()
+    })
+
+    it("a new policy reaches a resumable fetch that already exists, and keys that are not given return to their defaults", async () => {
+        const { server, rf, storage } = setup(undefined, { maxIdleRetries: 3 })
+        expect(typeof (rf as any).setPolicy).toBe("function")
+        ;(rf as any).setPolicy({ ...fastPolicy, maxIdleRetries: 0 })
+        server.breakAfter = [2000, 0]
+        const res = await rf.fetch(URL_)
+        await expect(bytes(res)).rejects.toThrow(/no progress/) // gives up after the first idle attempt: the new maxIdleRetries applies
+        // With nothing given, the defaults are back: a 20 KB file is far below the default 8 MiB threshold, so it is not made resumable.
+        storage.parts.clear() // the first scenario left a partial behind, which would be resumed whatever the size
+        storage.metas.clear()
+        ;(rf as any).setPolicy({})
+        server.breakAfter = [2000]
+        await expect(bytes(await rf.fetch(URL_))).rejects.toThrow(/network error/)
+    })
+})
+
+describe("abandoned partial downloads", () => {
+    const DAY = 24 * 60 * 60 * 1000
+    afterEach(() => vi.unstubAllGlobals())
+
+    /** A directory handle with the parts of the OPFS API the storage uses. */
+    function fakeDirectory(files: Record<string, number>) {
+        const removed: string[] = []
+        const entry = (name: string) => ({
+            getFile: async () => ({ lastModified: files[name] }),
+            createSyncAccessHandle: async () => ({ getSize: () => 1, read: () => 0, write: () => 0, flush() {}, close() {}, truncate() {} }),
+        })
+        const dir = {
+            getFileHandle: async (name: string) => entry(name),
+            removeEntry: async (name: string) => { removed.push(name); delete files[name] },
+            async *entries() { for (const name of Object.keys(files)) yield [name, entry(name)] },
+        }
+        vi.stubGlobal("navigator", { storage: { getDirectory: async () => ({ getDirectoryHandle: async () => dir }) } })
+        return removed
+    }
+
+    it("removes partials not written to for the given age, with their metadata, and keeps recent ones", async () => {
+        const now = Date.now()
+        const removed = fakeDirectory({ "old.part": now - 40 * DAY, "old.json": now - 40 * DAY, "recent.part": now - 2 * DAY, "recent.json": now - 2 * DAY, ".probe": now - 90 * DAY })
+        const { createOpfsStorage } = await import("../src/resumableFetch.js")
+        const storage: any = await createOpfsStorage()
+        expect(await storage.evictStale(30 * DAY)).toEqual(["old"])
+        expect(removed.sort()).toEqual(["old.json", "old.part"]) // both halves of the old download, nothing else (not the probe file either)
+    })
+
+    it("the in-memory storage has the same method and removes nothing", async () => {
+        const { createMemoryStorage } = await import("../src/resumableFetch.js")
+        expect(await (createMemoryStorage() as any).evictStale(1)).toEqual([])
     })
 })

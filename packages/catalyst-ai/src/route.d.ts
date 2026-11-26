@@ -32,7 +32,10 @@ interface NormalizedUsage {
     cachedTokens: number
     completionTokens: number
     reasoningTokens: number
-    /** Subset of promptTokens that were audio, billed at the audio rate. Absent when no audio was used. */
+    /**
+     * The audio subset of promptTokens. Absent when no audio was used. Audio is billed at the model's `audioInput` rate only when
+     * one is configured or confirmed; otherwise it is left out of the cost and `audioCostUnknown` is set (it is never priced at the text rate).
+     */
     audioTokens?: number
 }
 

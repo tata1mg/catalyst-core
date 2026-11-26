@@ -227,6 +227,28 @@ class NativeBridgeUtil {
     }
 
     /**
+     * Microphone-specific methods
+     */
+    microphone = {
+        /**
+         * Request microphone (RECORD_AUDIO) permission so the page can record with getUserMedia
+         * @param {string} config - JSON string of permission config
+         */
+        requestPermission: (config = null) => this.call(NATIVE_COMMANDS.REQUEST_MICROPHONE_PERMISSION, config),
+    }
+
+    /**
+     * Speech recognition by the platform's own recognizer, on-device only. Answers arrive as SPEECH_RECOGNITION_* callbacks.
+     */
+    speech = {
+        /** @param {string} config - JSON string, e.g. {"language":"en-US"} */
+        getSupport: (config = null) => this.call(NATIVE_COMMANDS.GET_SPEECH_RECOGNITION_SUPPORT, config),
+        /** @param {string} config - JSON string, e.g. {"language":"en-US"} */
+        start: (config = null) => this.call(NATIVE_COMMANDS.START_SPEECH_RECOGNITION, config),
+        stop: () => this.call(NATIVE_COMMANDS.STOP_SPEECH_RECOGNITION),
+    }
+
+    /**
      * File-specific methods for easier usage
      */
     file = {

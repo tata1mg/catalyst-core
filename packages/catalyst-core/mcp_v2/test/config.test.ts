@@ -402,6 +402,15 @@ describe("check_config: app id and LAN address", () => {
     })
 })
 
+describe("check_config: routing policy values that are not strings", () => {
+    it("reports an object-valued objective instead of throwing", () => {
+        const r = handle_check_config({ project_path: makeProject({ enabled: true }, { routing: { policy: { objective: { toString: null }, cloud: ["allow"] } } }, true) })
+        const fields = r.issues.map((i) => i.field)
+        expect(fields).toContain("AI_CONFIG.routing.policy.objective")
+        expect(fields).toContain("AI_CONFIG.routing.policy.cloud")
+    })
+})
+
 describe("check_config: AI_CONFIG.browser.download", () => {
     const run = (download: unknown) =>
         handle_check_config({ project_path: makeProject({ enabled: true }, { browser: { provider: "native", download } }, true) })
@@ -418,6 +427,17 @@ describe("check_config: AI_CONFIG.browser.download", () => {
         expect(run("fast").issues.some((i) => i.field === "AI_CONFIG.browser.download")).toBe(true)
         expect(run([1]).issues.some((i) => i.field === "AI_CONFIG.browser.download")).toBe(true)
         expect(run({ windowSec: "20" }).issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
+    })
+    it("is checked for a web-only project too (native AI switched off)", () => {
+        const r = handle_check_config({ project_path: makeProject({ enabled: false }, { browser: { provider: "transformers", download: { windowSec: "20", minBytesPerSce: 5 } } }, true) })
+        expect(r.issues.some((i) => i.field === "AI_CONFIG.browser.download.windowSec")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.browser.download.minBytesPerSce")).toBe(true)
+    })
+    it("treats names that exist on every object (constructor, toString) as unknown keys instead of throwing", () => {
+        const r = run({ constructor: 1, toString: 2 })
+        const w = r.warnings.map((x) => x.field)
+        expect(w).toContain("AI_CONFIG.browser.download.constructor")
+        expect(w).toContain("AI_CONFIG.browser.download.toString")
     })
     it("warns about out-of-range values (clamped) and unknown keys (ignored)", () => {
         const r = run({ windowSec: 1, maxIdleRetries: 999, heldRetrySec: 1, minBytesPerSecond: 5 })
@@ -495,15 +515,82 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(run(good).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // has an ios entry
         expect(run(webOnly, { enabled: false }).warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice")).toBe(false) // not a native build
     })
-    it("warns when cloud is allowed for media", () => {
-        const r = run({ ...good, routing: { ...good.routing, policy: { cloud: "allow" } } })
-        expect(r.warnings.some((x) => x.field === "AI_CONFIG.routing.policy")).toBe(true)
+    it("warns about silent media egress only when both effective policies allow it", () => {
+        const warned = (policy: object) => run({ ...good, routing: { ...good.routing, policy } }).warnings.some((x) => x.field === "AI_CONFIG.routing.policy")
+        expect(warned({ cloud: "allow", cloudMedia: "allow" })).toBe(true)
+        // cloudMedia defaults to deny, and "allow" cannot override a stricter cloud policy: the runtime asks or denies here
+        expect(warned({ cloud: "allow" })).toBe(false)
+        expect(warned({ cloudMedia: "allow" })).toBe(false)
+        expect(warned({ cloud: "ask", cloudMedia: "allow" })).toBe(false)
+        expect(warned({ cloud: "deny", cloudMedia: "allow" })).toBe(false)
+    })
+    it("rejects nested routing blocks that are not objects, instead of treating them as absent", () => {
+        const fields = (routing: object) => run({ providers, routing }).issues.map((x) => x.field)
+        expect(fields({ policy: [] })).toContain("AI_CONFIG.routing.policy")
+        expect(fields({ policy: "fast" })).toContain("AI_CONFIG.routing.policy")
+        expect(fields({ policy: { constraints: [] } })).toContain("AI_CONFIG.routing.policy.constraints")
+        expect(fields({ policy: { weights: 5 } })).toContain("AI_CONFIG.routing.policy.weights")
+        expect(fields({ onDevice: [] })).toContain("AI_CONFIG.routing.onDevice")
+        expect(fields({ onDevice: "ios" })).toContain("AI_CONFIG.routing.onDevice")
+    })
+    it("checks the weights and cloud prices the router would otherwise quietly drop", () => {
+        const fields = (routing: object) => run({ providers: { gemini: { apiKey: "k" } }, routing }).issues.map((x) => x.field).filter((f) => f.includes("routing"))
+        expect(fields({ policy: { weights: { cost: -1, latency: "2", tps: 1 } } })).toEqual(expect.arrayContaining(["AI_CONFIG.routing.policy.weights.cost", "AI_CONFIG.routing.policy.weights.latency"]))
+        expect(fields({ policy: { weights: { cost: 2, latency: 1, tps: 0 } } })).toEqual([])
+        const cloud = (price: unknown) => ({ cloud: [{ id: "g", provider: "gemini", price }] })
+        expect(fields(cloud({ input: 1 }))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud({ input: "1", output: 2 }))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud("free"))).toContain("AI_CONFIG.routing.cloud[0].price")
+        expect(fields(cloud({ input: 1, output: 2 }))).not.toContain("AI_CONFIG.routing.cloud[0].price")
+    })
+    it("rejects an empty modalities list: the router would drop that model", () => {
+        const r = run({ providers: { gemini: { apiKey: "k" } }, routing: { cloud: [{ id: "g", provider: "gemini", modalities: [] }] } })
+        expect(r.issues.map((x) => x.field)).toContain("AI_CONFIG.routing.cloud[0].modalities")
+    })
+    it("does not accept inherited object names as configured providers", () => {
+        for (const provider of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            const r = run({ providers: { gemini: { apiKey: "k" } }, routing: { cloud: [{ id: "x", provider }] } })
+            expect(r.issues.map((x) => x.field), provider).toContain("AI_CONFIG.routing.cloud[0].provider")
+        }
+    })
+    it("flags an id shared by an on-device list and the cloud list, but not by ios and android", () => {
+        const dup = (routing: object) => run({ providers: { gemini: { apiKey: "k" } }, routing }).issues.filter((x) => /Duplicate id/.test(x.message ?? "")).length
+        expect(dup({ onDevice: { ios: [{ id: "m" }] }, cloud: [{ id: "m", provider: "gemini" }] })).toBe(1)
+        expect(dup({ onDevice: { ios: [{ id: "m" }], android: [{ id: "m" }] } })).toBe(0)
+        expect(dup({ onDevice: { ios: [{ id: "m" }, { id: "m" }] } })).toBe(1)
+    })
+    it("still checks AI_CONFIG.routing when WEBVIEW_CONFIG is missing, so one missing block does not hide the other errors", () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-nowv-"))
+        fs.mkdirSync(path.join(root, "config"))
+        fs.writeFileSync(path.join(root, "config", "config.json"), JSON.stringify({ AI_CONFIG: { providers, routing: { policy: { objective: "cheapest-ish" } } } }))
+        const fields = handle_check_config({ project_path: root }).issues.map((x) => x.field)
+        expect(fields).toContain("WEBVIEW_CONFIG")
+        expect(fields).toContain("AI_CONFIG.routing.policy.objective")
+    })
+    it("warns that native AI is off for any value of ai.enabled other than true", () => {
+        const fm = { onDevice: { ios: [{ id: "m" }] } }
+        const warned = (enabled: unknown) => run({ providers, routing: fm }, { enabled } as any).warnings.some((x) => x.field === "WEBVIEW_CONFIG.ai.enabled")
+        expect(warned(true)).toBe(false)
+        for (const off of ["true", "false", 1, false, undefined]) expect(warned(off), String(off)).toBe(true)
     })
     it("warns that on-device models need WEBVIEW_CONFIG.ai.enabled, and that foundation-models is iOS-only", () => {
         const r = run(good, { enabled: false })
         expect(r.warnings.some((x) => x.field === "WEBVIEW_CONFIG.ai.enabled")).toBe(true)
         const a = run({ providers, routing: { onDevice: { android: [{ id: "fm", engine: "foundation-models" }] } } })
         expect(a.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.android[0].engine")).toBe(true)
+    })
+    it("accepts the platform-speech engine on iOS and Android, warns when its modalities or tasks are overridden, and flags it in a browser", () => {
+        const ok = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech" }], android: [{ id: "android-speech", engine: "platform-speech", modalities: ["audio"], tasks: ["speech.transcribe"] }] } } })
+        expect(routingFields(ok).filter((f) => !f.field.endsWith("routing.onDevice"))).toEqual([])
+        const changed = run({ providers, routing: { onDevice: { ios: [{ id: "ios-speech", engine: "platform-speech", modalities: ["text", "audio"] }] } } })
+        expect(changed.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.ios[0]" && /ignored/.test(x.message ?? ""))).toBe(true)
+        const web = run({ providers, routing: { onDevice: { web: [{ id: "w", engine: "platform-speech" }] } } })
+        expect(web.warnings.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine" && /only exists in the iOS and Android apps/.test(x.message ?? ""))).toBe(true)
+        expect(web.issues.some((x) => x.field === "AI_CONFIG.routing.onDevice.web[0].engine")).toBe(false)
+    })
+    it("platformSpeech must be a boolean", () => {
+        expect(run({ providers, routing: { platformSpeech: false } }).issues.some((x) => x.field === "AI_CONFIG.routing.platformSpeech")).toBe(false)
+        expect(run({ providers, routing: { platformSpeech: "no" } }).issues.some((x) => x.field === "AI_CONFIG.routing.platformSpeech")).toBe(true)
     })
     it("accepts the four on-device targets and tasks", () => {
         const r = run({
@@ -539,10 +626,10 @@ describe("check_config: AI_CONFIG.routing", () => {
         expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[0].engine")
         expect(fields).toContain("AI_CONFIG.routing.onDevice.web-desktop[1].engine")
     })
-    it("warns that prompt-api is desktop-only and text-only", () => {
+    it("warns that prompt-api is desktop-only, and accepts image/audio modalities for it (the engine takes them)", () => {
         const r = run({ providers, routing: { onDevice: { "web-mobile": [{ id: "m", engine: "prompt-api" }], web: [{ id: "i", engine: "prompt-api", modalities: ["text", "image"] }] } } })
         expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web-mobile[0].engine")).toBe(true)
-        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web[0].modalities")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "AI_CONFIG.routing.onDevice.web[0].modalities")).toBe(false)
     })
     it("rejects a non-object routing block and negative numbers", () => {
         expect(run({ providers, routing: [] }).issues.some((i) => i.field === "AI_CONFIG.routing")).toBe(true)
@@ -570,6 +657,16 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
     }
     const hooks = { "src/js/Page.js": `import { useCamera } from "catalyst-core/hooks"\n` }
 
+    it("names the entry file it actually checked, not always client/index.js", () => {
+        const ok = bridge({ ...hooks, "client/index.tsx": inside })
+        expect(ok.ok?.field).toBe("client/index.tsx: WebBridge.init()")
+        const bad = bridge({ ...hooks, "client/index.ts": entry("hydrateRoot(el, app)") })
+        expect(bad.warn?.field).toBe("client/index.ts: WebBridge.init()")
+        const none = bridge({ ...hooks })
+        expect(none.warn?.field).toContain("client entry")
+        expect(none.warn?.message).toContain("client/index.tsx")
+    })
+
     it("passes when init is inside hydrationReady", () => {
         const r = bridge({ ...hooks, "client/index.js": inside })
         expect(r.warn).toBeUndefined()
@@ -591,6 +688,14 @@ describe("check_config: WebBridge.init() in the client entry (#529)", () => {
     it("warns when WebBridge is not imported", () => {
         const r = bridge({ ...hooks, "client/index.js": `hydrationReady().then(() => { WebBridge.init() })` })
         expect(r.warn?.message).toContain("does not import WebBridge")
+    })
+    it("an unrelated WebBridge from another package does not satisfy the check", () => {
+        const wrong = bridge({ ...hooks, "client/index.js": `import WebBridge from "another-package"\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(wrong.warn?.message).toContain("does not import WebBridge")
+        const right = bridge({ ...hooks, "client/index.js": `import WebBridge from "catalyst-core/WebBridge"\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(right.warn).toBeUndefined()
+        const cjs = bridge({ ...hooks, "client/index.js": `const WebBridge = require("catalyst-core/WebBridge")\nhydrationReady().then(() => { WebBridge.init() })` })
+        expect(cjs.warn).toBeUndefined()
     })
     it("stays quiet without native hooks, and when only useAI is imported", () => {
         expect(bridge({ "client/index.js": entry(`hydrateRoot(el, app)`) }).warn).toBeUndefined()
@@ -621,6 +726,8 @@ describe("check_config: AI_CONFIG.pricing", () => {
     it("warns about a cloud model nobody has priced, but not about built-in or configured ones", () => {
         const r = handle_check_config({ project_path: projectWithBuiltIns({ providers }) })
         expect(fieldsOf(r)).toContain("AI_CONFIG.pricing.brand-new-model")
+        expect(r.warnings.map((w) => w.field)).toContain("AI_CONFIG.pricing.brand-new-model") // a warning, not a blocking issue
+        expect(r.issues.map((i) => i.field)).not.toContain("AI_CONFIG.pricing.brand-new-model")
         expect(fieldsOf(r)).not.toContain("AI_CONFIG.pricing.gemini-3.5-flash")
         const priced = handle_check_config({ project_path: projectWithBuiltIns({ providers, pricing: { "brand-new-model": { input: 2, output: 10 } } }) })
         expect(fieldsOf(priced)).not.toContain("AI_CONFIG.pricing.brand-new-model")
@@ -642,5 +749,222 @@ describe("check_config: AI_CONFIG.pricing", () => {
     it("says nothing about unpriced models when catalyst-ai is not installed (it cannot know what is covered)", () => {
         const r = handle_check_config({ project_path: makeProject({ enabled: true }, { providers }, false) })
         expect(fieldsOf(r).filter((f) => f.startsWith("AI_CONFIG.pricing"))).toEqual([])
+    })
+})
+
+describe("built-in prices are read as text, never by running the project's code", () => {
+    const { priceKeysFromSource, readBuiltInPriceKeys }: any = require("../tools/config.js")
+
+    it("lists the keys of the PRICING table and of every Object.assign(PRICING, ...) block", () => {
+        const source = `// header
+const PRICING = {
+    // a comment: with a colon
+    "gpt-4o-mini": { input: 0.15, output: 0.6 },
+    "gemini-3.5-flash": { input: 1.5, output: 9 },
+}
+Object.assign(PRICING, {
+    "claude-opus-5": { input: 5, output: 25 },
+})
+const OTHER = { "not-a-model": { input: 1 } }`
+        expect(priceKeysFromSource(source)).toEqual(["gpt-4o-mini", "gemini-3.5-flash", "claude-opus-5"])
+    })
+
+    it("returns null for a file that has no price table, or no file at all", () => {
+        expect(priceKeysFromSource("module.exports = {}")).toBeNull()
+        expect(priceKeysFromSource(undefined)).toBeNull()
+    })
+
+    it("finds the installed catalyst-ai, including a hoisted one, without executing it", () => {
+        const base = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-prices-"))
+        const marker = path.join(base, "executed.txt")
+        const pkg = path.join(base, "node_modules", "catalyst-ai", "src")
+        fs.mkdirSync(pkg, { recursive: true })
+        fs.writeFileSync(
+            path.join(pkg, "pricing.js"),
+            `require("fs").writeFileSync(${JSON.stringify(marker)}, "ran")\nconst PRICING = { "model-a": { input: 1, output: 2 } }\n`
+        )
+        const app = path.join(base, "packages", "app")
+        fs.mkdirSync(app, { recursive: true })
+        expect(readBuiltInPriceKeys(base)).toEqual(["model-a"])
+        expect(readBuiltInPriceKeys(app)).toEqual(["model-a"]) // hoisted to a parent node_modules
+        expect(fs.existsSync(marker)).toBe(false) // the project's code was only read, never run
+    })
+
+    it("reads the real catalyst-ai table: the same names the package exports", async () => {
+        const real = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "pricing.js"), "utf8")
+        const { PRICING } = await import("../../../catalyst-ai/src/pricing.js")
+        expect([...priceKeysFromSource(real)].sort()).toEqual(Object.keys(PRICING).sort())
+    })
+})
+
+describe("which hook imports count as native hook use", () => {
+    const { usesNativeHooks }: any = require("../lib/helpers.js")
+    const cases: Array<[string, boolean]> = [
+        ['import { useCamera } from "catalyst-core/hooks"', true],
+        ['import { useAI, useCamera } from "catalyst-core/hooks"', true],
+        ['import { useAI } from "catalyst-core/hooks"', false],
+        ['import { useAI as ai, useVision } from "catalyst-core/hooks"', false],
+        // erased by the compiler: not runtime use of any hook
+        ['import type { useCamera } from "catalyst-core/hooks"', false],
+        ['import { type useCamera, useAI } from "catalyst-core/hooks"', false],
+        // the same exemption for the CommonJS form
+        ['const { useAI } = require("catalyst-core/hooks")', false],
+        ['const { useAI: ai, useVision } = require("catalyst-core/hooks")', false],
+        ['const { useCamera } = require("catalyst-core/hooks")', true],
+        // the whole module: which hooks are used cannot be told
+        ['const hooks = require("catalyst-core/hooks")', true],
+        ['import hooks from "catalyst-core/hooks"', true],
+        ['import * as hooks from "catalyst-core/hooks"', true],
+        ['import { useCamera } from "somewhere-else"', false],
+    ]
+    it.each(cases)("%s -> %s", (source, expected) => {
+        expect(usesNativeHooks(source)).toBe(expected)
+    })
+
+    it("the answer does not depend on what was checked before (no regex state is shared between calls)", () => {
+        for (let i = 0; i < 3; i++) for (const [source, expected] of cases) expect(usesNativeHooks(source)).toBe(expected)
+    })
+})
+
+describe("check_config: the 1.3.0 switches (CSP nonce, offline snapshots, location)", () => {
+    function projectWith(config: Record<string, unknown>): string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-flags-"))
+        fs.mkdirSync(path.join(root, "config"))
+        fs.writeFileSync(path.join(root, "config", "config.json"), JSON.stringify(config))
+        return root
+    }
+    const check = (config: Record<string, unknown>, platform: "android" | "ios" | "both" = "both") => {
+        const r = handle_check_config({ project_path: projectWith({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11" }, ...config }), platform } as any)
+        const find = (field: string) => ({ warn: r.warnings.find((w) => w.field === field), ok: r.passed.find((p) => p.field === field) })
+        return { r, find }
+    }
+
+    it("CSP_NONCE_ENABLE: true passes; the string \"true\" is called out because it leaves the nonce OFF", () => {
+        expect(check({ CSP_NONCE_ENABLE: true }).find("CSP_NONCE_ENABLE").ok).toBeTruthy()
+        expect(check({ CSP_NONCE_ENABLE: false }).find("CSP_NONCE_ENABLE")).toEqual({ warn: undefined, ok: undefined })
+        const bad = check({ CSP_NONCE_ENABLE: "true" }).find("CSP_NONCE_ENABLE")
+        expect(bad.warn?.message).toMatch(/Only the boolean true turns the CSP nonce on, so it stays OFF/)
+        expect(check({ CSP_NONCE_ENABLE: 1 }).find("CSP_NONCE_ENABLE").warn).toBeTruthy()
+        expect(check({}).find("CSP_NONCE_ENABLE")).toEqual({ warn: undefined, ok: undefined }) // absent is fine
+    })
+
+    it("OFFLINE_SNAPSHOTS_ENABLE: booleans and \"false\" are fine; a value that would leave the worker ON is called out", () => {
+        for (const ok of [true, false, "false", "true"]) expect(check({ OFFLINE_SNAPSHOTS_ENABLE: ok }).find("OFFLINE_SNAPSHOTS_ENABLE").warn, String(ok)).toBeUndefined()
+        for (const bad of [0, "no", null, "off"]) {
+            expect(check({ OFFLINE_SNAPSHOTS_ENABLE: bad }).find("OFFLINE_SNAPSHOTS_ENABLE").warn?.message, String(bad)).toMatch(/leaves them ON/)
+        }
+    })
+
+    it("location.enabled: a string, even \"false\", is called out because the build would turn location ON", () => {
+        const wrong = check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: "false" } } }).find("WEBVIEW_CONFIG.location.enabled")
+        expect(wrong.warn?.message).toMatch(/even "false", turns location ON/)
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: 1 } } }).find("WEBVIEW_CONFIG.location.enabled").warn).toBeTruthy()
+    })
+
+    it("location: a non-object, and a usageDescription that is not text, are reported", () => {
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: true } }).find("WEBVIEW_CONFIG.location").warn?.message).toMatch(/should be an object/)
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true, usageDescription: 5 } } }).find("WEBVIEW_CONFIG.location.usageDescription").warn?.message).toMatch(/should be a string/)
+    })
+
+    it("location enabled with text passes; without text, iOS (not Android-only) is told it will use the generic default", () => {
+        const withText = check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true, usageDescription: "Show stores near you" } } })
+        expect(withText.find("WEBVIEW_CONFIG.location").ok).toBeTruthy()
+        expect(withText.find("WEBVIEW_CONFIG.location.usageDescription").warn).toBeUndefined()
+        const noText = { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: true } } }
+        expect(check(noText, "ios").find("WEBVIEW_CONFIG.location.usageDescription").warn?.message).toMatch(/generic default text/)
+        expect(check(noText, "android").find("WEBVIEW_CONFIG.location.usageDescription").warn).toBeUndefined()
+    })
+
+    it("location off or absent says nothing", () => {
+        expect(check({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", location: { enabled: false } } }).find("WEBVIEW_CONFIG.location")).toEqual({ warn: undefined, ok: undefined })
+        expect(check({}).find("WEBVIEW_CONFIG.location")).toEqual({ warn: undefined, ok: undefined })
+    })
+
+    it("the web switches are still checked when WEBVIEW_CONFIG is missing", () => {
+        const r = handle_check_config({ project_path: projectWith({ CSP_NONCE_ENABLE: "true" }) } as any)
+        expect(r.issues.some((i) => i.field === "WEBVIEW_CONFIG")).toBe(true)
+        expect(r.warnings.some((w) => w.field === "CSP_NONCE_ENABLE")).toBe(true)
+    })
+})
+
+describe("check_config: review backlog", () => {
+    const tmp = (files: Record<string, string>) => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcp-backlog-"))
+        for (const [rel, body] of Object.entries(files)) {
+            fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true })
+            fs.writeFileSync(path.join(root, rel), body)
+        }
+        return root
+    }
+    const entry = (body: string) => `import WebBridge from "catalyst-core/WebBridge"\n${body}`
+    const hooks = { "src/js/Page.js": `import { useCamera } from "catalyst-core/hooks"\n` }
+    const inspect = (files: Record<string, string>) => require("../lib/helpers.js").inspectWebBridgeInit(tmp(files))
+
+    it("a project with no native hooks is left alone, however it calls WebBridge.init()", () => {
+        expect(inspect({ "client/index.js": `WebBridge.init()\nhydrateRoot(el, app)` }).state).toBe("no-hooks") // not even the missing import
+        expect(inspect({ "client/index.js": `import WebBridge from "x"\nhydrationReady().then(() => WebBridge.init())` }).state).toBe("no-hooks")
+    })
+
+    it("a commented-out WebBridge.init() is not the call", () => {
+        const body = `hydrationReady().then(() => {\n    // WebBridge.init()\n    /* WebBridge.init() */\n    hydrateRoot(el, app)\n})`
+        expect(inspect({ ...hooks, "client/index.js": entry(body) }).state).toBe("missing-init")
+    })
+    it("init that comes after hydrateRoot is misplaced: the first render has already run without the bridge", () => {
+        expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { hydrateRoot(el, app); WebBridge.init() })`) }).state).toBe("misplaced")
+        expect(inspect({ ...hooks, "client/index.js": entry(`hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) })`) }).state).toBe("ok")
+        // 0.2.x waits for loadableReady, not hydrationReady: still fine while init comes first
+        expect(inspect({ ...hooks, "client/index.js": entry(`loadableReady(() => { WebBridge.init(); hydrateRoot(el, app) })`) }).state).toBe("ok")
+    })
+
+    it("a namespace import of the hooks counts as using native hooks", () => {
+        const { usesNativeHooks } = require("../lib/helpers.js")
+        expect(usesNativeHooks(`import * as Hooks from "catalyst-core/hooks"\nHooks.useCamera()`)).toBe(true)
+    })
+
+    it("reads each source file once however many questions are asked of it", () => {
+        const root = tmp({ ...hooks, "src/js/Other.js": "export const x = 1", "client/index.js": entry(`hydrationReady().then(() => { WebBridge.init(); hydrateRoot(el, app) })`) })
+        const reads: string[] = []
+        const original = fs.readFileSync
+        const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((p: any, ...rest: any[]) => { reads.push(String(p)); return (original as any)(p, ...rest) }) as any)
+        try {
+            require("../lib/helpers.js").inspectWebBridgeInit(root)
+        } finally {
+            spy.mockRestore()
+        }
+        const mine = reads.filter((p) => p.startsWith(root))
+        expect(mine.length).toBeGreaterThan(0) // the scan really read this project (a spy that saw nothing would pass the next line trivially)
+        expect(new Set(mine).size).toBe(mine.length) // no file twice
+    })
+
+    it("an unknown engine in a native entry lists every accepted engine, including auto", () => {
+        const root = tmp({ "config/config.json": JSON.stringify({ WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", ai: { enabled: true } }, AI_CONFIG: { enabled: true, routing: { onDevice: { ios: [{ id: "x", engine: "mystery" }] } } } }) })
+        fs.mkdirSync(path.join(root, "node_modules", "catalyst-ai"), { recursive: true })
+        fs.writeFileSync(path.join(root, "node_modules", "catalyst-ai", "package.json"), "{}")
+        const r = handle_check_config({ project_path: root })
+        const issue = r.issues.find((i) => /Unknown engine "mystery"/.test(i.message ?? ""))
+        expect(issue?.message).toMatch(/auto, litert, foundation-models, platform-speech/)
+    })
+
+    it("a warning about the Android list is not shown when the target is iOS, but a structural error still is", () => {
+        const config = { WEBVIEW_CONFIG: { LOCAL_IP: "192.168.0.11", ai: { enabled: true } }, AI_CONFIG: { enabled: true, routing: { onDevice: { android: [{ id: "a", engine: "foundation-models" }, { id: "" }] } } } }
+        const root = tmp({ "config/config.json": JSON.stringify(config) })
+        fs.mkdirSync(path.join(root, "node_modules", "catalyst-ai"), { recursive: true })
+        fs.writeFileSync(path.join(root, "node_modules", "catalyst-ai", "package.json"), "{}")
+        const forIos = handle_check_config({ project_path: root, platform: "ios" } as any)
+        const forAndroid = handle_check_config({ project_path: root, platform: "android" } as any)
+        const mentionsFm = (r: any) => [...r.warnings, ...r.issues].some((f: any) => /foundation-models is iOS-only/.test(f.message))
+        expect(mentionsFm(forAndroid)).toBe(true)
+        expect(mentionsFm(forIos)).toBe(false) // an inactive platform's entry is not reported as a problem for this build
+        expect(forIos.issues.some((i: any) => /needs a string "id"/.test(i.message))).toBe(true) // but a broken entry is
+    })
+
+    it("the image-capable provider list matches the adapters that the route really has", () => {
+        const source = fs.readFileSync(path.join(__dirname, "..", "..", "..", "catalyst-ai", "src", "imageGen.js"), "utf8")
+        const adapters = /return \{ ([^}]*) \}\s*\n\}\s*\n\s*module\.exports/.exec(source)?.[1] ?? ""
+        const names = [...adapters.matchAll(/(\w+):/g)].map((m) => m[1]).sort()
+        expect(names.length).toBeGreaterThan(0)
+        const configSource = fs.readFileSync(path.join(__dirname, "..", "tools", "config.js"), "utf8")
+        const listed = /const IMAGE_PROVIDERS = \[([^\]]*)\]/.exec(configSource)?.[1] ?? ""
+        expect([...listed.matchAll(/"(\w+)"/g)].map((m) => m[1]).sort()).toEqual(names) // a new adapter must be added to check_config too
     })
 })

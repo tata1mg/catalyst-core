@@ -15,7 +15,7 @@ describe("prepareAudioChunks", () => {
     it("says which catalyst-ai version is needed when the call is missing", async () => {
         const api = createGenerationApi(() => ({}))
         await expect(api.prepareAudioChunks("data:audio/wav;base64,AA==")).rejects.toThrow(/prepareAudioChunks needs a catalyst-ai version/)
-        await expect(createGenerationApi(() => null).prepareAudioChunks("x")).rejects.toThrow(/Update catalyst-ai/)
+        await expect(createGenerationApi(() => null).prepareAudioChunks("x")).rejects.toThrow(/not installed.*npm install catalyst-ai/)
     })
 })
 

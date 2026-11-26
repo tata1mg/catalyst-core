@@ -32,17 +32,19 @@ describe("computeMetrics", () => {
     })
 
     it("prices audio tokens at the audio rate, not the text rate", async () => {
-        const { PRICING } = await metrics
-        const saved = PRICING["gemini-3.5-flash"].audioInput
-        PRICING["gemini-3.5-flash"].audioInput = 3 // pretend audio costs more than text (1.5)
+        const { PRICING, setPricingOverrides } = await metrics
+        // Rates are changed through the supported route (a developer's own prices), not by editing the built-in table in place.
+        setPricingOverrides({ "gemini-3.5-flash": { input: 1.5, output: 9, audioInput: 3 } }) // audio costs more than text (1.5)
         try {
             const m = await cm(usage({ promptTokens: 1_000_000, audioTokens: 400_000 }))
             expect(m.cost).toBeCloseTo(0.6 * 1.5 + 0.4 * 3, 6)
             expect(m.audioTokens).toBe(400_000)
             expect(m.audioCostUnknown).toBe(false)
         } finally {
-            PRICING["gemini-3.5-flash"].audioInput = saved
+            setPricingOverrides({})
         }
+        expect(Object.isFrozen(PRICING)).toBe(true)
+        expect(() => { (PRICING as any)["gemini-3.5-flash"].audioInput = 99 }).toThrow(TypeError) // the built-in table cannot be edited in place
     })
 
     it("flags audio cost as unknown when the model has no confirmed audio rate, instead of pricing it as text", async () => {
@@ -92,3 +94,11 @@ describe("estimateCloudEquivalent (on-device runs)", () => {
         expect(estimateCloudEquivalent({ inputTokens: 10, outputTokens: 10 }, "no-such-model")).toBeNull()
     })
 })
+
+describe("computeMetrics with a usage frame that leaves a field out", () => {
+    it("totals what is there instead of NaN", async () => {
+        const m: any = await cm({ provider: "openai", model: "m", promptTokens: 10, completionTokens: 5 }, { ttftMs: 1, genMs: 100 })
+        expect(m.totalTokens).toBe(15)
+    })
+})
+

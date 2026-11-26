@@ -53,6 +53,12 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         )
         handler.setDelegate(self)
         handler.setNotificationHandler(notificationHandler)
+        // Recognised text is only delivered to the app's own page: if the web view has navigated elsewhere since recognition started, the
+        // transcript must not reach that page (the bridge callbacks are evaluated in whatever document is loaded).
+        handler.isSpeechPageTrusted = { [weak self] in
+            guard let self else { return false }
+            return PluginBridgeOriginPolicy.isAllowed(isMainFrame: true, sourceURL: self.webView?.url, trustedURL: self.trustedOriginURL)
+        }
         if let wv = webView { handler.setWebView(wv) }
         return handler
     }()
@@ -74,6 +80,14 @@ class NativeBridge: NSObject, BridgeCommandHandlerDelegate, BridgeFileHandlerDel
         handler.setDelegate(self)
         return handler
     }()
+
+    /// The page the app loaded. Microphone commands are accepted only from this origin; nil refuses them all.
+    var trustedOriginURL: URL?
+
+    /// Bridge commands that start or authorise microphone use.
+    static let microphoneCommands: Set<String> = [
+        "requestMicrophonePermission", "startSpeechRecognition", "getSpeechRecognitionSupport",
+    ]
 
     init(webView: WKWebView, viewController: UIViewController, cameraManager: NativeCameraManager? = nil) {
         let initStart = CFAbsoluteTimeGetCurrent()
@@ -260,6 +274,14 @@ extension NativeBridge: WKScriptMessageHandler {
             return
         }
 
+        // Commands that open the microphone only run for the app's own main-frame page. The bridge object is exposed
+        // to every page the web view loads, so an external page or an iframe must not be able to start recording.
+        if Self.microphoneCommands.contains(command),
+           !PluginBridgeOriginPolicy.isAllowed(isMainFrame: message.isMainFrame, sourceURL: message.sourceURL, trustedURL: trustedOriginURL) {
+            logger.warning("Ignored \(command) from an origin that is not the app's own page")
+            return
+        }
+
         let params = validationResult.params
         logger.debug("Received validated command: \(command)")
 
@@ -287,6 +309,15 @@ extension NativeBridge: WKScriptMessageHandler {
             // Pass raw params - command handler will extract config
             let configString = delegateHandler.extractStringParam(from: params)
             commandHandler.requestCameraPermission(config: configString)
+        case "getSpeechRecognitionSupport":
+            commandHandler.getSpeechRecognitionSupport(config: delegateHandler.extractStringParam(from: params))
+        case "startSpeechRecognition":
+            commandHandler.startSpeechRecognition(config: delegateHandler.extractStringParam(from: params))
+        case "stopSpeechRecognition":
+            commandHandler.stopSpeechRecognition()
+        case "requestMicrophonePermission":
+            let configString = delegateHandler.extractStringParam(from: params)
+            commandHandler.requestMicrophonePermission(config: configString)
         case "getDeviceInfo":
             commandHandler.getDeviceInfo()
         case "getNetworkStatus":

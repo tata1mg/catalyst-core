@@ -9,7 +9,8 @@ import manifest from './generated/docsManifest.json'
  * agent and a human searching the same term see the same results.
  */
 export function search(query, { limit = 10 } = {}) {
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
+    // The manifest text has had `#>*`~_|-` replaced by spaces, so the query gets the same treatment: "catalyst-ai" finds the pages that say it.
+    const terms = query.toLowerCase().replace(/[#>*`~_|-]/g, ' ').split(/\s+/).filter(Boolean)
     if (!terms.length) return []
 
     return manifest

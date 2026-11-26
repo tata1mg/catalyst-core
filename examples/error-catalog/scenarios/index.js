@@ -64,6 +64,8 @@ export const LEDGER = {
     // worker, so the code path can't be driven deterministically here.
     "AI-008": "not-example-reproducible",
     "AI-009": "not-example-reproducible",
+    // AI-010 (catalyst-ai not installed) needs an app built without the package; the error-catalog app always installs it.
+    "AI-010": "not-example-reproducible",
     // ── ANDROID ─────────────────────────────────────────────────────────────
     // ANDROID-001 (emulator boot timeout) requires an actual AVD that fails to
     // boot within the timeout window — not reproducible by breaking config the

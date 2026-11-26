@@ -32,6 +32,9 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
     const [seconds, setSeconds] = useState(0)
     const [error, setError] = useState(null)
     const live = useRef(null)
+    const requestSeq = useRef(0) // each start() takes a number; cancel() moves it on, so a start still waiting for the microphone permission is void
+    const starting = useRef(false) // a start() is waiting for the microphone
+    const reading = useRef(new Set()) // every recording that was stopped and is still being turned into a data URL (a second one can start before the first finishes)
     const onRecordedRef = useRef(onRecorded)
     onRecordedRef.current = onRecorded
 
@@ -51,14 +54,32 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
         if (r && r.state !== "inactive") r.stop()
     }, [])
 
+    // Frees what `session` holds. Only when it is still the live one does it touch the shared state: a stop event can arrive after this
+    // recording was cancelled and a new one started, and release() (which works on `live.current`) would end the new one.
+    const releaseSession = useCallback(
+        (session) => {
+            if (live.current === session) {
+                release()
+                return
+            }
+            clearInterval(session.timer)
+            session.stream?.getTracks().forEach((t) => t.stop())
+            session.context?.close?.().catch(() => {})
+        },
+        [release]
+    )
+
     const cancel = useCallback(() => {
+        requestSeq.current++
         if (live.current) live.current.discard = true
+        // A recording already stopped and being read is no longer `live`, but it can still be discarded.
+        reading.current.forEach((pending) => { pending.discard = true })
         stop()
         release()
     }, [stop, release])
 
     const start = useCallback(async () => {
-        if (live.current) return
+        if (live.current || starting.current) return
         setError(null)
         setSeconds(0)
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -66,21 +87,41 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             return
         }
         let stream
+        const mine = ++requestSeq.current
+        starting.current = true
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
         } catch (err) {
-            setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
+            starting.current = false
+            if (mine === requestSeq.current) setError(err?.name === "NotAllowedError" ? "Microphone permission was denied." : `Could not open the microphone: ${err?.message || err}`)
             return
         }
-        const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t))
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        starting.current = false
+        // cancel() (or leaving the page) while the permission prompt was open: there is no session to discard, so the stream is closed here.
+        if (mine !== requestSeq.current) {
+            stream.getTracks().forEach((t) => t.stop())
+            return
+        }
+        let recorder
+        let context
+        let analyser
         const chunks = []
-        const Context = window.AudioContext || window.webkitAudioContext
-        const context = Context ? new Context() : null
-        const analyser = context?.createAnalyser()
-        if (analyser) {
-            analyser.fftSize = 1024
-            context.createMediaStreamSource(stream).connect(analyser)
+        try {
+            const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t))
+            recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            const Context = window.AudioContext || window.webkitAudioContext
+            context = Context ? new Context() : null
+            analyser = context?.createAnalyser()
+            if (analyser) {
+                analyser.fftSize = 1024
+                context.createMediaStreamSource(stream).connect(analyser)
+            }
+        } catch (err) {
+            // The microphone is already open: close it, or it stays on after the error.
+            stream.getTracks().forEach((t) => t.stop())
+            context?.close?.().catch(() => {})
+            setError(`Could not set up recording: ${err?.message || err}`)
+            return
         }
         const buffer = analyser ? new Uint8Array(analyser.fftSize) : null
         const startedAt = Date.now()
@@ -89,17 +130,21 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
 
         recorder.ondataavailable = (e) => e.data?.size && chunks.push(e.data)
         recorder.onstop = async () => {
-            const { discard, heardSpeech } = session
+            const { heardSpeech } = session
             const secs = Math.round((Date.now() - startedAt) / 100) / 10
-            release()
-            if (discard) return
+            releaseSession(session)
+            if (session.discard) return
             if (!heardSpeech && analyser) {
                 setError("I did not hear any speech. Check the microphone and try again.")
                 return
             }
             try {
+                reading.current.add(session)
                 const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" })
-                onRecordedRef.current?.(await readAsDataUrl(blob), { seconds: secs })
+                const data = await readAsDataUrl(blob).finally(() => { reading.current.delete(session) })
+                // The session object outlives release(): a cancel() that came in while the blob was being read still discards it.
+                if (session.discard) return
+                onRecordedRef.current?.(data, { seconds: secs })
             } catch (err) {
                 setError(`Could not read the recording: ${err?.message || err}`)
             }
@@ -122,9 +167,17 @@ export function useVoiceRecorder({ onRecorded, autoStop = true } = {}) {
             if (elapsed >= MAX_SECONDS) stop()
         }, TICK_MS)
 
-        recorder.start(250)
+        try {
+            recorder.start(250)
+        } catch (err) {
+            // A stream that went inactive before this point makes start() throw. No stop event will follow, so the normal cleanup never runs.
+            session.discard = true
+            releaseSession(session)
+            setError(`Could not start recording: ${err?.message || err}`)
+            return
+        }
         setState("listening")
-    }, [autoStop, release, stop])
+    }, [autoStop, releaseSession, stop])
 
     useEffect(() => () => cancel(), [cancel])
 

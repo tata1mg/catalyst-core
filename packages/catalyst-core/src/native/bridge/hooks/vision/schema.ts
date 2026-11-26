@@ -24,6 +24,18 @@ function matchesType(value: unknown, type: JsonType): boolean {
     return typeOf(value) === type
 }
 
+/** Structural equality for JSON values: an enum may list objects and arrays, and parsed ones are new references, so `===` never matches. */
+function sameJson(a: unknown, b: unknown): boolean {
+    if (a === b) return true
+    if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false
+    if (Array.isArray(a) !== Array.isArray(b)) return false
+    if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, i) => sameJson(item, b[i]))
+    const x = a as Record<string, unknown>
+    const y = b as Record<string, unknown>
+    const keys = Object.keys(x)
+    return keys.length === Object.keys(y).length && keys.every((k) => k in y && sameJson(x[k], y[k]))
+}
+
 /** Problems with `value` against `schema`, as readable lines. Empty means valid. */
 export function validate(schema: Schema, value: unknown, path = "$"): string[] {
     const problems: string[] = []
@@ -33,7 +45,7 @@ export function validate(schema: Schema, value: unknown, path = "$"): string[] {
         problems.push(`${path} should be ${allowed.join(" or ")}, got ${typeOf(value)}`)
         return problems
     }
-    if (schema.enum && !schema.enum.some((e) => e === value)) {
+    if (schema.enum && !schema.enum.some((e) => sameJson(e, value))) {
         problems.push(`${path} should be one of ${schema.enum.map((e) => JSON.stringify(e)).join(", ")}, got ${JSON.stringify(value)}`)
     }
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
@@ -52,11 +64,12 @@ export function validate(schema: Schema, value: unknown, path = "$"): string[] {
 }
 
 /** The prompt that asks for the schema's shape and nothing else. */
-export function buildPrompt(schema: Schema, instructions?: string): string {
+export function buildPrompt(schema: Schema, instructions?: string, source: "image" | "text" = "image"): string {
+    const thing = source === "text" ? "text" : "image"
     return [
-        instructions?.trim() || "Read the image and extract the requested information.",
+        instructions?.trim() || `Read the ${thing} and extract the requested information.`,
         "Reply with ONLY a JSON value that matches this JSON Schema. No prose, no explanation, no code fences.",
-        "If a value is not visible in the image, use null for it when the schema allows that; never invent one.",
+        `If a value is not ${source === "text" ? "present in the text" : "visible in the image"}, use null for it when the schema allows that; never invent one.`,
         JSON.stringify(schema),
     ].join("\n\n")
 }
@@ -115,6 +128,13 @@ export function extractJson(text: string): Extracted {
     if (fenced) candidates.push(fenced[1].trim())
     const balanced = firstBalanced(trimmed)
     if (balanced) candidates.push(balanced)
+    // No object or array in the reply: a scalar schema (a number, a yes/no, a quoted string) is answered with a bare value inside prose
+    // ("The answer is 42"), which would otherwise never be found.
+    // Only when the reply has no braces or brackets at all: a truncated or malformed object must stay an error, not become its first string.
+    else if (!/[{[\]}]/.test(trimmed)) {
+        const scalar = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b/.exec(trimmed)
+        if (scalar) candidates.push(scalar[0])
+    }
     for (const candidate of candidates) {
         try {
             return { ok: true, value: JSON.parse(candidate) }

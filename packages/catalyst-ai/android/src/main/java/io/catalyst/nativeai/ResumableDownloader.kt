@@ -80,6 +80,11 @@ internal object ResumeRules {
                 val total = range?.total
                 when {
                     !(offset > 0 && range?.start == offset && total != null && total > offset) -> Outcome.Restart
+                    // We asked for "from offset to the end": the answer must run to the last byte, and its body must be exactly that long.
+                    // Checking only the start and the total would accept a range whose end or length disagrees, so long as the file
+                    // happens to come out the right size.
+                    range?.end == null || range.end != total!! - 1 -> Outcome.Restart
+                    contentLength != null && contentLength != range.end - range.start!! + 1 -> Outcome.Restart
                     expectedETag != null && etag?.trim() != expectedETag -> Outcome.Restart
                     else -> Outcome.Append(total)
                 }
@@ -94,8 +99,25 @@ internal object ResumeRules {
 /** [discardPartial]: true when keeping the partial cannot help (client error, corrupt size); false for network trouble and 5xx. */
 internal class DownloadException(message: String, val discardPartial: Boolean, val transient: Boolean = false) : Exception(message)
 
+/** Whether a finished download is the whole file. */
+internal object DownloadSizeCheck {
+    /**
+     * null when `size` is the complete file, otherwise why not. The total the server announced decides; with none, the registry's
+     * `expectedSize` stands in. With neither there is nothing to compare against, and a file that cannot be checked is not accepted.
+     * Short: the connection ended early, so keep it and resume. Long: it can only be wrong.
+     */
+    fun problem(size: Long, announcedTotal: Long, expectedSize: Long): DownloadException? {
+        val total = if (announcedTotal > 0) announcedTotal else expectedSize
+        if (total <= 0) return DownloadException("Cannot verify the download: the server gave no size and none is known", discardPartial = true)
+        if (size == total) return null
+        return DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total, transient = size < total)
+    }
+}
+
 internal class ResumableDownloader(
     private val userAgent: String,
+    // The size the registry says the file has. Used when the server announces none (a chunked 200), so a short file can never pass.
+    private val expectedSize: Long = 0L,
     private val connectTimeoutMs: Int = 30_000,
     // The read timeout is the idle limit: no bytes for this long fails the transfer (a stalled link delivers no chunks
     // to measure). With a policy it follows the policy's window.
@@ -143,10 +165,7 @@ internal class ResumableDownloader(
 
         val size = if (partial.exists()) partial.length() else 0L
         if (size == 0L) throw DownloadException("Downloaded file is empty", discardPartial = true)
-        // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
-        if (total > 0 && size != total) {
-            throw DownloadException("Download incomplete ($size of $total bytes)", discardPartial = size > total, transient = size < total)
-        }
+        DownloadSizeCheck.problem(size, total, expectedSize)?.let { throw it }
         return size
     }
 
@@ -176,6 +195,12 @@ internal class ResumableDownloader(
             if (interruption == null) interruption = DownloadInterrupted.Kind.Paused(reason)
             conn.disconnect()
         }
+        // A pause that arrived after the check at the top of download() but before the handler existed found nobody to tell, and
+        // registering does not replay it: look again now that the handler is in place.
+        gate?.pausedReason?.let { reason ->
+            if (interruption == null) interruption = DownloadInterrupted.Kind.Paused(reason)
+            conn.disconnect()
+        }
         try {
             conn.connect()
             val status = conn.responseCode
@@ -193,12 +218,15 @@ internal class ResumableDownloader(
                 }
                 ResumeRules.Outcome.Complete -> return Attempt.Done(offset)
                 ResumeRules.Outcome.Restart -> return Attempt.Restart
-                is ResumeRules.Outcome.Fail ->
+                is ResumeRules.Outcome.Fail -> {
+                    // Rate-limited (429) and request-timeout (408) answers say "try again later", not "this file cannot be had": keep the partial.
+                    val transient = outcome.status >= 500 || outcome.status == 429 || outcome.status == 408
                     throw DownloadException(
                         "HTTP ${outcome.status} from model server",
-                        discardPartial = outcome.status in 400..499,
-                        transient = outcome.status >= 500 || outcome.status == 429,
+                        discardPartial = outcome.status in 400..499 && !transient,
+                        transient = transient,
                     )
+                }
             }
 
             if (ResumeRules.isStrong(etag)) etagFile.writeText(etag!!) else etagFile.delete()

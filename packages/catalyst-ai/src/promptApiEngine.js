@@ -98,6 +98,19 @@ export function toPromptApiInput(messages) {
  * promptStreaming has returned both increments and the whole text so far, depending on the Chrome version. The second
  * chunk tells which: if it extends the first it is cumulative, otherwise chunks are increments.
  */
+/**
+ * The sampling settings the Prompt API takes at session creation. Chrome wants temperature and topK together, so both are
+ * passed or neither. What it cannot honour (token limits, top_p, ...) is named in the log instead of being dropped silently.
+ */
+export function samplingFrom(genConfig = {}, log = () => {}) {
+    const topK = genConfig.topK ?? genConfig.top_k
+    const ignored = ["max_new_tokens", "maxTokens", "top_p", "topP", "repetition_penalty"].filter((k) => genConfig[k] !== undefined)
+    if (ignored.length) log(`ignoring generation settings the Prompt API does not support: ${ignored.join(", ")}`)
+    if (Number.isFinite(genConfig.temperature) && Number.isFinite(topK)) return { temperature: genConfig.temperature, topK }
+    if (genConfig.temperature !== undefined || topK !== undefined) log("temperature and topK are only applied together; neither was set")
+    return {}
+}
+
 export function createDeltaReader() {
     let mode = null
     let first = ""
@@ -125,6 +138,9 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
     let session = null
     let closed = false
 
+    // Whether Chrome still had to download its model for this request. Only then is a refused start about the missing click: a
+    // NotAllowedError from a model that was already available is some other refusal, and its own message must not be hidden.
+    let needsDownload = false
     const engine = {
         onmessage: null,
         onerror: null,
@@ -144,7 +160,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
     const fail = (err) => {
         if (closed || abort.signal.aborted) return
         // A model that still has to download can only start from a user gesture; say so instead of "NotAllowedError".
-        const message = err?.name === "NotAllowedError"
+        const message = err?.name === "NotAllowedError" && needsDownload
             ? "Chrome needs a click or tap to start downloading its built-in model. Try again from a button press."
             : `${err?.name && err.name !== "Error" ? err.name + ": " : ""}${err?.message || String(err)}`
         console.error("[catalyst-ai] Chrome Prompt API error:", err)
@@ -159,6 +175,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
         const options = expectedOptions({ image, audio })
 
         const availability = await getPromptApiAvailability(api, options, nav)
+        needsDownload = availability === "downloadable" || availability === "downloading"
         if (availability === "unavailable") {
             const media = [image && "image", audio && "audio"].filter(Boolean).join(" and ")
             throw new Error(
@@ -183,6 +200,7 @@ export function createPromptApiEngine({ api = globalThis.LanguageModel, now = ()
         try {
             session = await api.create({
                 ...options,
+                ...samplingFrom(genConfig, log),
                 ...(initialPrompts.length && { initialPrompts }),
                 signal: abort.signal,
                 monitor(monitor) {

@@ -104,4 +104,73 @@ export const aiScenarios = [
         },
         expect: { inOutput: ["AI-000"], status: 500 },
     },
+
+    // ── AI-003 regressions ────────────────────────────────────────────────────
+    // Each of these is a mistake in the REQUEST that used to slip through (to a provider, or to a 500 from inside an
+    // adapter). They all have to come back as 400 with the registry code and its docs link, and none of them may make a
+    // provider call, so they need no network. Keeping them here means the error-catalog CI job fails if one regresses.
+    aiRequestScenario({
+        title: "message content that is an object, not a string or parts array -> 400 (it used to skip media validation)",
+        provider: "openai",
+        path: "/ai/openai/generate",
+        body: { messages: [{ role: "user", content: { type: "image", data: "data:image/png;base64,AAAA" } }] },
+    }),
+    aiRequestScenario({
+        title: "Gemini image with n > 1 -> 400, not a 500 from inside the adapter",
+        provider: "gemini",
+        path: "/ai/gemini/image",
+        body: { prompt: "a cat", n: 2 },
+    }),
+    aiRequestScenario({
+        title: "Gemini image with a size -> 400, not default dimensions returned as if it were honoured",
+        provider: "gemini",
+        path: "/ai/gemini/image",
+        body: { prompt: "a cat", size: "1024x1024" },
+    }),
+    aiRequestScenario({
+        title: "Gemini speech with format mp3 -> 400, not a 500 from inside the adapter",
+        provider: "gemini",
+        path: "/ai/gemini/speech",
+        body: { text: "hello", format: "mp3" },
+    }),
+    aiRequestScenario({
+        title: "image edit with base64 that cannot decode -> 400 before any provider call",
+        provider: "openai",
+        path: "/ai/openai/image",
+        body: { prompt: "edit this", images: [{ mimeType: "image/png", data: "A" }] },
+    }),
+    aiRequestScenario({
+        title: "maxTokens of 0 -> 400, not read as unset and silently turned into a large default",
+        provider: "openai",
+        path: "/ai/openai/generate",
+        body: { messages: [{ role: "user", content: "hi" }], genConfig: { maxTokens: 0 } },
+    }),
 ]
+
+/**
+ * One AI-003 scenario: a configured provider (a dummy key, never used) and a request the route must refuse with a 400
+ * before it reaches any provider.
+ */
+function aiRequestScenario({ title, provider, path: urlPath, body }) {
+    return {
+        code: "AI-003",
+        title,
+        tier: "AI",
+        break: (appDir) => {
+            const cfg = JSON.parse(JSON.stringify(BASELINE_CONFIG))
+            cfg.AI_CONFIG.enabled = true
+            cfg.AI_CONFIG.providers[provider] = {
+                apiKey: "dummy-key-never-used",
+                defaultModel: provider === "gemini" ? "gemini-3.5-flash" : "gpt-4o-mini",
+                imageModel: provider === "gemini" ? "gemini-2.5-flash-image" : "gpt-image-1",
+                speechModel: provider === "gemini" ? "gemini-2.5-flash-preview-tts" : "tts-1",
+            }
+            writeJson(path.join(appDir, "config", "config.json"), cfg)
+        },
+        run: { cmd: "catalyst", args: ["start"], kind: "http", method: "POST", path: urlPath, body },
+        restore: (appDir) => {
+            restoreBaselineConfig(appDir)
+        },
+        expect: { inOutput: ["AI-003", "/errors/AI/AI-003.md"], status: 400 },
+    }
+}

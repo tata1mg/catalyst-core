@@ -21,6 +21,14 @@ final class PluginBridgeOriginPolicyTests: XCTestCase {
         XCTAssertTrue(allowed("http://localhost:80/", trusted: URL(string: "http://localhost")))
     }
 
+    func testAnExplicitDefaultPortOnTheTrustedSideComparesEqualToNone() {
+        let trusted = URL(string: "https://app.example:443/start")
+        XCTAssertTrue(allowed("https://app.example/record", trusted: trusted))
+        XCTAssertTrue(allowed("https://app.example:443/record", trusted: URL(string: "https://app.example/start")))
+        XCTAssertFalse(allowed("https://app.example:8443/record", trusted: trusted))
+        XCTAssertFalse(allowed("https://other.example/record", trusted: trusted))
+    }
+
     func testDevServerOriginWithPort() {
         let dev = URL(string: "http://192.168.0.6:3005/")
         XCTAssertTrue(allowed("http://192.168.0.6:3005/some/route", trusted: dev))

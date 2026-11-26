@@ -131,18 +131,87 @@ describe("POST /:provider/image", () => {
         const fetchMock = vi.fn().mockResolvedValue(json({ candidates: [{ content: { parts: [{ text: "I can't draw that" }] } }] }))
         vi.stubGlobal("fetch", fetchMock)
         const many = await post("gemini", { prompt: "a cat", n: 2 })
-        expect(many.statusCode).toBe(500)
+        expect(many.statusCode).toBe(400) // a mistake in the request, not an internal failure
+        expect(many.jsonBody.code).toBe("AI-003")
+        expect(many.jsonBody.error).toMatch(/one image per request/)
         expect(fetchMock).not.toHaveBeenCalled()
         const none = await post("gemini", { prompt: "a cat" })
         expect(none.jsonBody.error).toMatch(/no image: I can't draw that/)
     })
 
-    it("maps an unknown mime type to png and surfaces provider errors without the key", async () => {
-        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/svg+xml", data: "CC" } }] } }] })))
-        expect((await post("gemini", { prompt: "a cat" })).jsonBody.images[0].mimeType).toBe("image/png")
+    it("refuses an image it cannot label honestly (unknown mime type, or data that is not base64) instead of relabelling it png", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/svg+xml", data: "AAAA" } }] } }] })))
+        const svg = await post("gemini", { prompt: "a cat" })
+        expect(svg.statusCode).toBe(500)
+        expect(String(svg.jsonBody.error)).toMatch(/returned no image/)
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "not base64!!" } }] } }] })))
+        expect((await post("gemini", { prompt: "a cat" })).statusCode).toBe(500)
+    })
+
+    it("surfaces provider errors without the key", async () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("quota exceeded", { status: 429 })))
         const err = await post("openai", { prompt: "a cat" })
         expect(err.statusCode).toBe(500)
         expect(JSON.stringify(err.jsonBody)).not.toContain("sk-o")
+    })
+
+    it("stops reading a provider response that is larger than allowed, and accepts one that is not", async () => {
+        const { readBodyLimited, readJsonLimited } = require("../src/upstream.js")
+        const stream = (bytes: number) => new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array(bytes)); c.close() } }))
+        await expect(readBodyLimited(stream(2000), 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
+        expect((await readBodyLimited(stream(500), 1000)).length).toBe(500)
+        expect(await readJsonLimited(new Response('{"a":1}'), 1000)).toEqual({ a: 1 })
+        const lying = new Response(new Uint8Array(2000), { headers: { "content-length": "10" } }) // announces 10, sends 2000
+        await expect(readBodyLimited(lying, 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
+        await expect(readBodyLimited(new Response("x", { headers: { "content-length": "5000" } }), 1000)).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" })
+    })
+
+    it("Gemini has no size setting, so a size other than auto is refused instead of quietly returning default dimensions", async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+        const sized = await post("gemini", { prompt: "a cat", size: "1024x1024" })
+        expect(sized.statusCode).toBe(400)
+        expect(sized.jsonBody.code).toBe("AI-003")
+        expect(sized.jsonBody.error).toMatch(/size/)
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it("refuses base64 that cannot decode ('A', '=', stray padding) before any provider call", async () => {
+        const fetchMock = vi.fn()
+        vi.stubGlobal("fetch", fetchMock)
+        for (const data of ["A", "=", "AA=A", "A===", "", "!!!!"]) {
+            const res = await post("openai", { prompt: "edit", images: [{ mimeType: "image/png", data }] })
+            expect(res.statusCode, data).toBe(400)
+            expect(res.jsonBody.code).toBe("AI-003")
+        }
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+})
+
+describe("the default request is valid for every provider", () => {
+    it("{ prompt } alone (what requestImage sends) passes both validators, so omitted options are never rejected", () => {
+        const img: any = require("../src/imageGen.js")
+        for (const provider of ["openai", "gemini"]) {
+            expect(img.validateImageRequest({ prompt: "A red square" }), provider).toBeNull()
+            expect(img.validateProviderRequest(provider, { prompt: "A red square" }), provider).toBeNull()
+        }
+    })
+})
+
+describe("limits that agree on both sides", () => {
+    it("image edits are bounded in total, like chat media, so an accepted request fits the body parser", () => {
+        const img: any = require("../src/imageGen.js")
+        const { DEFAULT_LIMITS } = require("../src/cloudMedia.js")
+        const b64 = (bytes: number) => "A".repeat(Math.ceil((bytes * 4) / 3))
+        const one = { mimeType: "image/png", data: b64(6 * 1024 * 1024) }
+        expect(img.validateImageRequest({ prompt: "p", images: [one, one] })).toBeNull() // 12 MiB: fits
+        expect(img.validateImageRequest({ prompt: "p", images: [one, one, one] })).toMatch(/too large together/) // 18 MiB: over the 14 MiB budget
+        expect(DEFAULT_LIMITS.totalBytes).toBe(14 * 1024 * 1024)
+    })
+
+    it("the client refuses audio over what the server would refuse", () => {
+        const client: any = require("../src/contentParts.js")
+        const server = require("../src/cloudMedia.js")
+        return import("../src/contentParts.js").then((c) => expect(c.DEFAULT_LIMITS.audioBytes).toBe(server.DEFAULT_LIMITS.audioBytes))
     })
 })

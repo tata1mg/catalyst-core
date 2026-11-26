@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
 import { prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
-import { assertEngineSupports, buildNativeBody, getModalities } from "./contentParts.js"
+import { PRE_PREP_LIMITS, assertEngineSupports, buildNativeBody, getModalities } from "./contentParts.js"
 import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
 import { useNativeDownloadControl } from "./nativeDownloadControl.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
@@ -80,11 +80,17 @@ export function useNativeAI({
         setErrorState(value)
     }, [])
     const [modelReady, setModelReady] = useState(false)
+    // Which engine/model the ready signal belongs to. After a switch from A to B, modelReady can still describe A for one render.
+    const [readyKey, setReadyKey] = useState(null)
+    const selectionKey = `${engine ?? ""}|${model ?? ""}|${modelPath ?? ""}`
     const [nativeDownloadProgress, setNativeDownloadProgress] = useState(null)
     const [nativeLogs, setNativeLogs] = useState([])
     const [metrics, setMetrics] = useState(null)
 
     const abortControllerRef = useRef(null)
+    // One number per generate(). Preparing audio and images takes time, so an older call can finish after a newer one began;
+    // cancel() and reset() move it on too. A call that finds it is no longer the newest after preparing drops out.
+    const generationRef = useRef(0)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const nativeStreamUrlRef = useRef(null)
@@ -121,6 +127,7 @@ export function useNativeAI({
                 if (parsed?.url) {
                     nativeStreamUrlRef.current = parsed.url
                     setModelReady(true)
+                    setReadyKey(selectionKey)
                     setNativeDownloadProgress(null)
                 }
             } catch (_) {
@@ -188,6 +195,7 @@ export function useNativeAI({
             // generate() waits for the new session instead of using the previous engine.
             nativeStreamUrlRef.current = null
             setModelReady(false)
+            setReadyKey(null)
         }
         // Re-initialise when the engine/model selection changes (e.g. switching provider "litert" ->
         // "foundation-models"). attachmentComponents / systemPrompt are objects/strings that callers often
@@ -202,10 +210,18 @@ export function useNativeAI({
                 return
             }
 
+            // Take over before the first await: anything still running is superseded now, not after this call finishes preparing.
+            const generation = ++generationRef.current
+            if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
+            // The aborted stream's AbortError handler returns without touching state, so clear it here: if this call
+            // then fails input preparation, nothing else would turn streaming off.
+            setStreaming(false)
+            setLoading(true)
+
             const genConfig = { ...hookGenConfig, ...callGenConfig }
             let nativeBody
             try {
-                assertEngineSupports(getModalities(messages), NATIVE_INPUT_SUPPORT[engine] ?? NATIVE_INPUT_SUPPORT.default, "native")
+                assertEngineSupports(getModalities(messages, PRE_PREP_LIMITS), NATIVE_INPUT_SUPPORT[engine] ?? NATIVE_INPUT_SUPPORT.default, "native")
                 const prepared = await prepareImageParts(
                     await prepareAudioParts(messages, {
                         onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
@@ -214,9 +230,14 @@ export function useNativeAI({
                 )
                 nativeBody = buildNativeBody(prepared, genConfig)
             } catch (inputErr) {
-                setError(inputErr)
+                if (generation === generationRef.current) {
+                    setError(inputErr)
+                    setLoading(false)
+                }
                 return
             }
+            // A newer generate(), cancel() or reset() happened while this one was preparing: its result is stale.
+            if (generation !== generationRef.current) return
 
             if (abortControllerRef.current) abortControllerRef.current.abort()
             const controller = new AbortController()
@@ -307,6 +328,13 @@ export function useNativeAI({
                                 continue
                             }
                             if (data.done) {
+                                // Tokens and `done` can arrive back to back, before the scheduled output flush has run. generate() returns
+                                // right after this, so the full text has to be in the result now, not on the next frame.
+                                if (rafRef.current) {
+                                    typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame(rafRef.current) : clearTimeout(rafRef.current)
+                                    rafRef.current = null
+                                }
+                                setOutput(outputAccRef.current)
                                 setStreaming(false)
                                 const genMs = Math.round(performance.now() - t0)
                                 const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0
@@ -380,12 +408,19 @@ export function useNativeAI({
     }
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
+        generationRef.current++
         cancelRaf()
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)
+        // A call still preparing audio/image input has loading=true; the bumped generation makes it return early without clearing it.
+        setLoading(false)
     }, [])
 
     const reset = useCallback(() => {
+        generationRef.current++
         cancelRaf()
         outputAccRef.current = ""
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
@@ -407,6 +442,7 @@ export function useNativeAI({
         loading,
         error,
         modelReady,
+        readyKey,
         downloadProgress: null,
         nativeDownloadProgress,
         // True while the model download waits for the connection; the reason is "offline", "weak" or "error".

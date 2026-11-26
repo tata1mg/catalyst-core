@@ -3,6 +3,12 @@
 Multi-provider AI integration for catalyst-core apps — OpenAI/Gemini SSE routes plus
 `useCloudAI`, `useWebAI`, and `useNativeAI` React hooks.
 
+## Timeouts and disconnects
+
+Every call the server makes to a provider has a deadline (120 s for text, 180 s for images and speech, 30 s for the Live token)
+and is cancelled when the browser disconnects, so a stalled provider cannot keep a request, its parsed media and the provider
+connection alive. The streaming routes already stopped on disconnect.
+
 ## Security: authentication and rate limiting
 
 The Express router exposed by this package (`src/route.js`, mounted at `AI_CONFIG.basePath`
@@ -28,7 +34,7 @@ the prices that count are yours, in `AI_CONFIG.pricing` (USD per 1M tokens, they
 "pricing": { "gemini-3.8-flash": { "input": 0.75, "output": 3.75, "cachedInput": 0.075 } }
 ```
 
-Do not edit it by hand: run the command from your app root and it asks.
+Do not edit the token rates by hand: run the command from your app root and it asks. (`perImage`, below, is the one price you add by hand: the command manages token rates only.)
 
 ```bash
 npx catalyst-ai pricing            # lists the cloud models in AI_CONFIG, asks for the ones with no price
@@ -37,8 +43,13 @@ npx catalyst-ai pricing --check    # print the table, exit 1 if a model has no p
 npx catalyst-ai pricing --set gpt-x=2,10,0.2   # input,output[,cachedInput] without asking
 ```
 
-A cloud model with no price anywhere is costed as free, which makes cost-weighted routing prefer it, so `check_config`
-warns about it. Look prices up on your provider's pricing page; they change, and some models have introductory rates.
+Each entry may also carry `audioInput` (USD per 1M audio input tokens; without it audio is never priced at the text rate and
+the cost is reported as partial, `audioCostUnknown`) and, for image models, `perImage` (USD per generated image, which may be
+the only field: `{ "perImage": 0.04 }`). `AI_CONFIG.pricing` is part of the browser-visible config, so it is not secret.
+Precedence for routing: an explicit `routing.cloud[].price`, then `AI_CONFIG.pricing[model]`, then the built-in table.
+A text model with no price anywhere is costed as free, which makes cost-weighted routing prefer it, so `check_config`
+warns about it. An image model with no price reports its cost as `null` (unknown), never `0`; with token rates but no
+`perImage` it reports the token amount with `costPartial: true`. Look prices up on your provider's pricing page; they change, and some models have introductory rates.
 `cachedInput` defaults to the input price. The file also holds API keys; the command never prints them.
 
 ## Claude (`anthropic`)
@@ -76,11 +87,112 @@ Text-only calls behave exactly as before.
   100 kb default). Set `AI_CONFIG.maxRequestMB` (1 to 100) to change it. The route also re-validates every part:
   type, base64 data URL, size (image 8 MB, audio 10 MB), and count (4 images, 2 audio clips). Larger bodies make an
   unauthenticated deployment more expensive to abuse, so the authentication note above matters more with media.
-- **Preparation on the device.** Images are resized (long edge 1536 px, JPEG; GIF becomes its first frame) and audio is
-  converted to 16 kHz mono WAV (30 s cap) before sending.
-- **Cost.** Cloud metrics bill audio tokens at the model's audio rate. A model without a confirmed rate reports
+- **Preparation on the device.** Images are resized (long edge 1536 px, JPEG; GIF becomes its first frame). Audio going to an
+  on-device model or a cloud provider other than Gemini is converted to 16 kHz mono WAV and capped at 30 s per clip (a longer
+  clip is truncated; use `prepareAudioChunks`, below, for long recordings). Audio going to Gemini `generateContent` is not
+  converted: only the codec parameters are stripped from its MIME type (`audio/webm;codecs=opus` becomes `audio/webm`), so
+  what browsers and phones record (webm, mp4, ogg, ...) is sent as it is.
+- **Cost.** Cloud metrics bill audio tokens at the model's audio rate (`audioInput`). A model without a confirmed rate reports
   `audioCostUnknown: true` and a partial cost instead of pricing audio as text. On-device runs may report
   `cloudEquivalent`, an estimate from the on-device token counts at a reference model's text rates.
+
+## Image generation and editing
+
+Set the image model per provider in `AI_CONFIG.providers.<name>.imageModel` (letters, digits and `. _ : -`). It is never
+inferred from `defaultModel`, because image model names change often. `openai` and `gemini` can draw; `anthropic` cannot
+(`400`). The API key stays on the server.
+
+```json
+"providers": { "openai": { "apiKey": "...", "defaultModel": "gpt-5", "imageModel": "gpt-image-1" } }
+```
+
+- **Route.** `POST {basePath}/:provider/image` with `{ prompt, n?, size?, model?, images? }`. `prompt` is 1 to 4000 characters,
+  `n` is 1 to 4, `size` is `"auto"` or `WIDTHxHEIGHT`, and `model` overrides the provider's `imageModel` for that request.
+  Gemini returns one image per request and has no size setting: omit `n` and `size` (or send `1` / `"auto"`); anything else is a
+  `400`, not a silent default. It answers `{ images: [{ mimeType, data }], usage, model }` with `data` as base64.
+- **Editing.** Add `images` (1 to 4 inputs) to edit or transform instead of generate. Each is `{ mimeType, data }` with raw
+  base64 `data` (the client helpers also accept `data:` URLs and strip the prefix), `mimeType` is `image/png`, `image/jpeg` or
+  `image/webp`, and each image may decode to at most 8 MB, with 14 MiB in total across the inputs (the same budget as chat media,
+  so a request that passes also fits the 20 MB body limit). The server re-checks all of it. OpenAI uses its image edits
+  endpoint, without a mask (masks are not supported); Gemini takes the images as inputs to the same call.
+- **Client.** `requestImage({ basePath, provider, prompt, n, size, model, images, signal })` is a plain async function that
+  resolves `{ images: [{ mimeType, data, url }], usage, model, cost, costPartial }` (`url` is a `data:` URL for `<img src>`;
+  `cost` is USD from `AI_CONFIG.pricing`, or `null` when no price applies) and rejects with the server's message.
+  `useImageGen({ basePath, provider, model, size, n })` returns `{ generate(prompt, overrides), cancel, reset, images, loading, error, usage }`;
+  `overrides` are per-call options and win over the hook's. `provider: "device"` draws on this device instead (desktop browser
+  with WebGPU, once an engine is registered with `registerDeviceImageEngine`) and costs `0`.
+- **Authentication and limits.** Like every route here it spends your API key and has no authentication or rate limit of its
+  own: see the security note at the top before exposing it.
+
+## Speech synthesis
+
+Set `speechModel` next to `imageModel` for the provider that should speak.
+
+- **Route.** `POST {basePath}/:provider/speech` with `{ text, voice?, format?, model? }`: `text` is 1 to 4000 characters,
+  `voice` may contain letters, digits and `. _ -` (defaults: `alloy` on OpenAI, `Kore` on Gemini), `format` is `mp3`, `wav` or
+  `opus` and is OpenAI only (Gemini returns `wav`; any other format is a `400`). It answers
+  `{ audio: { mimeType, data }, usage, model }` with `data` as base64; audio over about 24 MB is refused.
+- **Client.** `requestSpeech({ basePath, provider, text, voice, format, model, signal })` resolves
+  `{ audio: { mimeType, data, url }, usage, model }` (`url` is a `data:` URL for `new Audio(url)`).
+  `useSpeech({ basePath, provider, voice, format, model })` returns `{ speak(text, overrides), cancel, reset, audio, url, loading, error, usage }`.
+
+## Live transcription (Gemini Live)
+
+Streams the microphone to Gemini and returns partial text while you talk. **Cloud only: the audio goes to Google.** The
+browser opens the WebSocket itself with a one-use token, so the API key never leaves the server.
+
+- **Config.** Set `AI_CONFIG.providers.gemini.liveModel` to a Gemini Live model id. Without it (or a `model` in the request)
+  the token route answers `400`. The example template ships `liveModel` empty, so set it before using Live.
+- **Route.** `POST {basePath}/gemini/live-token` with `{ model? }` answers `{ token, model, expiresAt, startBy, url, setup }`.
+  The token can be used once and must be used to start a session before `startBy`.
+- **Client.** `requestLiveToken({ basePath, model, signal })` fetches it (abortable). `startLiveTranscription({ basePath, model, onPartial, onFinal, onLevel, onStatus, onError, signal })`
+  opens the microphone and the socket, and resolves `{ stop(): Promise<string>, cancel() }` once Gemini accepted the session;
+  `onStatus` is `"connecting"`, `"listening"`, `"finishing"` or `"closed"`. `useLiveTranscribe({ basePath, model, onFinished })`
+  wraps it as `{ start, stop, cancel, state, listening, partial, text, level, seconds, error }`. The microphone is released
+  however the session ends (stop, cancel, an unexpected close, unmount).
+
+## Long recordings
+
+`prepareAudioChunks(source, { chunkSeconds, maxSeconds })` decodes a recording once and cuts it at quiet moments into pieces
+that each fit an on-device audio encoder: `MAX_AUDIO_SECONDS` (30 s) is the encoder limit per piece, `CHUNK_SECONDS` (28 s)
+the default piece length, and `MAX_CLIP_SECONDS` (120 s) the longest recording accepted: beyond it the audio is cut and the
+result reports `truncated: true`. `chunkSeconds` must be a finite number of seconds greater than zero (otherwise a
+`RangeError`). `useTranscribe` in `catalyst-core/hooks` uses this and joins the transcripts.
+
+## `useWebAI` engines
+
+`useWebAI({ engine })` runs in the browser with one of two engines: `"transformers"` (default: Transformers.js in a worker,
+needs WebGPU) or `"prompt-api"`, **Chrome's built-in model** (the Prompt API). `useAI({ provider: "prompt-api" })` selects the
+second one directly; under `provider: "auto"` an `onDevice.web*` entry with `"engine": "prompt-api"` does.
+
+- Desktop Chrome only; a mobile browser is refused with a clear error. Chrome owns the model and its download, so there is no
+  WebGPU requirement. Called directly (no routing), the first `generate()` starts the download, so call it from a user gesture.
+- It takes text, and image or audio where Chrome supports that input. `getPromptApiAvailability()` (exported) reports whether
+  Chrome can serve it.
+- `genConfig.temperature` and `topK` are applied together (Chrome needs both); `responseConstraint` (a JSON Schema or RegExp)
+  is passed through; other settings, such as token limits, are ignored and logged.
+
+## Voice input and the microphone
+
+The hooks are in `catalyst-core/hooks`; they use this package for the model call.
+
+```jsx
+import { useTranscribe, useMicrophone } from "catalyst-core/hooks"
+
+const voice = useTranscribe({ language: "en-US" })
+const heard = await voice.listen()                 // { text, engine, durationSec, truncated, ... } or null (read voice.status)
+if (voice.status === "needs-consent") await voice.approve({ cloud: true })   // only after the person agreed
+
+const mic = useMicrophone({ onRecorded: (clip) => voice.transcribe(clip) })  // or record yourself, then transcribe the clip
+await mic.start()                                  // { started: true } or { started: false, error }
+```
+
+- Inside the iOS and Android apps `listen()` uses the phone's own on-device recogniser; in a browser it records and sends the
+  clip to the routed model. Audio goes to a cloud provider only when the routing policy allows it.
+- `supported` (on `useMicrophone`) is `false` where the page cannot record (no `MediaRecorder`/`getUserMedia`, e.g. a non-secure
+  page). A refused permission comes back as `{ started: false, error }`, not as a throw. Recordings over 120 s are cut and
+  reported as `truncated`. The iOS Simulator has no on-device speech model files, so use a device for the phone recogniser.
+- Full options and result tables: `docs/content/11-API Reference/01-Hooks.md` (`useTranscribe`, `useMicrophone`, `useSpeechRecognition`).
 
 ## `useWebAI` — remote script execution
 

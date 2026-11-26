@@ -20,9 +20,12 @@ struct AIInputPart: Equatable {
 enum AIInputPartsError: Error, Equatable, LocalizedError {
     case unsupportedType(String)
     case invalidBase64(String)
+    /// `inputParts` is present but is not an array of part objects.
+    case malformed
 
     var errorDescription: String? {
         switch self {
+        case .malformed: return "inputParts must be an array of media parts"
         case .unsupportedType(let type): return "Unsupported input part type: \(type)"
         case .invalidBase64(let type): return "The \(type) input is not valid base64"
         }
@@ -30,9 +33,14 @@ enum AIInputPartsError: Error, Equatable, LocalizedError {
 }
 
 enum AIInputParts {
-    /// Media parts in request order. Absent or empty `inputParts` -> [] (a plain text turn).
+    /// Media parts in request order. Absent, null or empty `inputParts` -> [] (a plain text turn). Any other shape throws:
+    /// reading it as "no media" would answer a request that carried a photo or a recording as if it had not.
     static func parse(_ genConfig: [String: Any]) throws -> [AIInputPart] {
-        guard let raw = genConfig["inputParts"] as? [[String: Any]] else { return [] }
+        guard let value = genConfig["inputParts"], !(value is NSNull) else { return [] }
+        guard let raw = value as? [[String: Any]] else {
+            if let list = value as? [Any], list.isEmpty { return [] }
+            throw AIInputPartsError.malformed
+        }
         return try raw.map { part in
             let type = part["type"] as? String ?? ""
             guard let kind = AIInputPart.Kind(rawValue: type) else { throw AIInputPartsError.unsupportedType(type) }

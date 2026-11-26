@@ -1,14 +1,21 @@
 import { createRequire } from "node:module"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type spinnerModule from "../../src/cli/spinner.js"
-import type themeModule from "../../src/cli/theme.js"
+import spinnerImported from "../../src/cli/spinner.js"
+import themeImported from "../../src/cli/theme.js"
 
-// Loaded with require, the way build.js and the native commands load them, so
-// v8 coverage sees one copy of each CommonJS file.
+// The CLI modules are CommonJS. The build commands load them with require; src/native/utils.js imports them. That makes two copies in one
+// test run, and v8 coverage merges two copies of a file badly: the coverage of these files swung between 57% and 100% with how the test
+// files happened to be spread over workers. So every suite here runs against BOTH copies, and whichever copy the merge keeps is fully covered.
 const load = createRequire(import.meta.url)
-const { Spinner, withSpinnersPaused }: typeof spinnerModule = load("../../src/cli/spinner.js")
-const theme: typeof themeModule = load("../../src/cli/theme.js")
+const copies: Array<[string, { spinner: typeof spinnerImported; theme: typeof themeImported }]> = [
+    ["required", { spinner: load("../../src/cli/spinner.js"), theme: load("../../src/cli/theme.js") }],
+    ["imported", { spinner: spinnerImported, theme: themeImported }],
+]
+
+for (const [copyName, copy] of copies) describe(`${copyName} copy`, () => {
+const { Spinner, withSpinnersPaused } = copy.spinner
+const theme = copy.theme
 
 const ESC = String.fromCharCode(27)
 const CLEAR_LINE = `\r${ESC}[2K`
@@ -174,4 +181,5 @@ describe("withSpinnersPaused", () => {
         await withSpinnersPaused(() => undefined)
         expect(writes).toEqual([])
     })
+})
 })

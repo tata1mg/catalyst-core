@@ -63,6 +63,45 @@ describe("useAgent", () => {
         expect(result.current).toMatchObject({ status: "done", pendingConfirmation: null })
     })
 
+    it("an answer aimed at an older prompt cannot settle the current one (approve(id) / deny(id))", async () => {
+        const send = vi.fn(async () => "sent")
+        ai.generate.mockResolvedValueOnce(ok({ tool: "send", args: {} })).mockResolvedValueOnce(ok({ final: "sent it" }))
+        const { result } = renderHook(() => useAgent({ tools: [{ name: "send", description: "Send the form", sideEffect: true, run: send }] }))
+        let done: Promise<any>
+        act(() => { done = result.current.run("send it") })
+        await waitFor(() => expect(result.current.status).toBe("awaiting-confirmation"))
+        const current = result.current.pendingConfirmation!.id!
+        expect(typeof current).toBe("number")
+        act(() => result.current.approve(current + 100)) // a late click on some earlier prompt
+        act(() => result.current.deny(current - 1))
+        expect(send).not.toHaveBeenCalled()
+        expect(result.current.status).toBe("awaiting-confirmation")
+        act(() => result.current.approve(current))
+        await act(async () => { await done })
+        expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it("each prompt gets its own id", async () => {
+        const send = vi.fn(async () => "sent")
+        ai.generate
+            .mockResolvedValueOnce(ok({ tool: "send", args: { n: 1 } }))
+            .mockResolvedValueOnce(ok({ tool: "send", args: { n: 2 } }))
+            .mockResolvedValueOnce(ok({ final: "done" }))
+        const { result } = renderHook(() => useAgent({ tools: [{ name: "send", description: "Send", sideEffect: true, parameters: { type: "object", properties: { n: { type: "number" } } }, run: send }] }))
+        let done: Promise<any>
+        act(() => { done = result.current.run("send twice") })
+        await waitFor(() => expect(result.current.status).toBe("awaiting-confirmation"))
+        const first = result.current.pendingConfirmation!.id!
+        act(() => result.current.approve(first))
+        await waitFor(() => expect(result.current.pendingConfirmation?.id).toBeDefined())
+        await waitFor(() => expect(result.current.pendingConfirmation!.id).not.toBe(first))
+        act(() => result.current.approve(first)) // the first prompt's answer, repeated: ignored
+        expect(send).toHaveBeenCalledTimes(1)
+        act(() => result.current.approve())
+        await act(async () => { await done })
+        expect(send).toHaveBeenCalledTimes(2)
+    })
+
     it("deny() keeps the tool from running and the agent carries on", async () => {
         const send = vi.fn()
         ai.generate.mockResolvedValueOnce(ok({ tool: "send" })).mockResolvedValueOnce(ok({ final: "did not send" }))
@@ -111,5 +150,42 @@ describe("useAgent", () => {
         await act(async () => { await result.current.run("two") })
         expect(result.current.output).toBe("second")
         expect(result.current.steps).toHaveLength(1)
+    })
+
+    it("cancel() settles the run at once and stops the model call underneath, without waiting for the model to answer", async () => {
+        ai.generate.mockImplementation(() => new Promise(() => {})) // a model that never answers
+        const { result } = renderHook(() => useAgent({ tools: [] }))
+        let res: any
+        let done: Promise<any> = Promise.resolve()
+        act(() => { done = result.current.run("g").then((r: any) => { res = r }) })
+        await waitFor(() => expect(ai.generate).toHaveBeenCalled())
+        act(() => result.current.cancel())
+        await act(async () => { await done })
+        expect(res.status).toBe("cancelled")
+        expect(ai.cancel).toHaveBeenCalled()
+    })
+
+    it("a newer run replaces one that is still waiting for the model, which is stopped", async () => {
+        ai.generate.mockImplementationOnce(() => new Promise(() => {})).mockResolvedValue(ok({ final: "second" }))
+        const { result } = renderHook(() => useAgent({ tools: [] }))
+        let first: any
+        let firstDone: Promise<any> = Promise.resolve()
+        act(() => { firstDone = result.current.run("one").then((r: any) => { first = r }) })
+        await waitFor(() => expect(ai.generate).toHaveBeenCalledTimes(1))
+        let second: any
+        await act(async () => { second = await result.current.run("two"); await firstDone })
+        expect(first.status).toBe("cancelled")
+        expect(second.status).toBe("done")
+        expect(ai.cancel).toHaveBeenCalled()
+    })
+
+    it("a generation that throws leaves the hook in the error state, not stuck running", async () => {
+        ai.generate.mockRejectedValue(new Error("engine down"))
+        const { result } = renderHook(() => useAgent({ tools: [] }))
+        let res: any
+        await act(async () => { res = await result.current.run("g") })
+        expect(res.status).toBe("error")
+        expect(result.current.status).toBe("error")
+        expect((result.current.error as any)?.message).toBe("engine down")
     })
 })

@@ -28,7 +28,7 @@ export type RoutingPlatform = "ios" | "android" | "web-desktop" | "web-mobile"
 export function isMobileWeb(env: { uaMobile?: boolean; userAgent?: string; platform?: string; maxTouchPoints?: number }): boolean {
     if (typeof env.uaMobile === "boolean") return env.uaMobile
     if (/Android|iPhone|iPad|iPod|Mobile|Silk/i.test(env.userAgent || "")) return true
-    return env.platform === "MacIntel" && (env.maxTouchPoints || 0) > 1
+    return env.platform === "MacIntel" && (env.maxTouchPoints || 0) > 0
 }
 
 /** resolvePlatform, with the browser split into desktop and mobile (they have different models to offer). */
@@ -61,7 +61,8 @@ export function resolveNativeEngine(
  * Image/audio may go to a cloud provider only when the caller picked cloud explicitly. When native or web was
  * requested but is unavailable, useAI falls back to the cloud hook; that fallback must refuse media.
  */
-export function allowCloudMedia(mode: "local" | "native" | "cloud"): boolean {
-    return mode === "cloud"
+export function allowCloudMedia(mode: "local" | "native" | "cloud", explicitProvider = true): boolean {
+    // resolveMode() answers "cloud" for no provider at all; that default is not a choice, so it must not enable media.
+    return mode === "cloud" && explicitProvider
 }
 

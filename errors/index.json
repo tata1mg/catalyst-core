@@ -629,6 +629,13 @@
         "suggestedAction": "Check that the model is compatible with this browser/device, or use useCloudAI/useNativeAI instead.",
         "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-009.md"
     },
+    "AI-010": {
+        "category": "AI",
+        "message": "catalyst-ai is not installed",
+        "details": "An AI hook or request (useAI, useTranscribe, useVision, useAgent, useImageGen, useSpeech, requestImage and the like) was used, but the optional catalyst-ai package cannot be loaded. The rest of catalyst-core works without it.",
+        "suggestedAction": "Run `npm install catalyst-ai` in your app, then rebuild. If it is already installed, check that AI support is enabled in the build (AI_CONFIG.enabled) and that the installed version provides the hook you are calling.",
+        "docUrl": "https://github.com/tata1mg/catalyst-core/blob/main/errors/AI/AI-010.md"
+    },
     "RUNTIME-WEB-001": {
         "category": "RUNTIME-WEB",
         "message": "Rendering failed on the server",

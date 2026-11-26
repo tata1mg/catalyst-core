@@ -29,6 +29,9 @@ import io.yourname.androidproject.URLWhitelistManager
 import io.yourname.androidproject.matchesCachePattern
 import io.yourname.androidproject.utils.BridgeUtils
 import io.yourname.androidproject.utils.CameraUtils
+import io.yourname.androidproject.utils.GeolocationPrompts
+import io.yourname.androidproject.utils.MicrophoneUtils
+import io.yourname.androidproject.utils.WebPermissionPolicy
 import io.yourname.androidproject.utils.NetworkUtils
 import io.yourname.androidproject.utils.PerfEventBuffer
 import io.yourname.androidproject.utils.ProfilerNavigationState
@@ -50,8 +53,9 @@ class CustomWebView(
     override val coroutineContext = Dispatchers.Main + job
 
     // navigator.geolocation prompt waiting on the runtime permission result
-    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
-    private var pendingGeolocationOrigin: String? = null
+    private val geolocationPrompts = GeolocationPrompts<GeolocationPermissions.Callback> { callback, origin, allow ->
+        callback.invoke(origin, allow, false)
+    }
     private var geolocationPermissionLauncher: ActivityResultLauncher<Array<String>>? = null
 
     private var cacheManager: WebCacheManager
@@ -75,6 +79,10 @@ class CustomWebView(
     private lateinit var scrollGestureDetector: GestureDetector
     private var offlinePageVisible = false
     private var lastTargetUrl: String? = null
+    // The app's own page. Only this origin may use camera or microphone. The activity sets it from
+    // its properties on every create, so it is known even when the WebView is restored and loadUrl never runs; the first
+    // network URL loaded is only a fallback.
+    private var appUrl: String? = null
     private var activeOfflineRouteOrigin: String? = null
     private var visibleOfflineSnapshotUrl: String? = null
     @Volatile private var defaultRequestHeaders: Map<String, String> = emptyMap()
@@ -170,12 +178,18 @@ class CustomWebView(
             .build()
     }
 
+    /** The app's own URL, from the activity's properties. Camera and microphone are granted to this origin. */
+    fun setTrustedAppUrl(url: String) {
+        if (url.startsWith("http://") || url.startsWith("https://")) appUrl = url
+    }
+
     fun setDefaultRequestHeaders(headers: Map<String, String>) {
         defaultRequestHeaders = headers.toMap()
     }
 
     private fun loadUrlInternal(url: String) {
         val isNetworkUrl = url.startsWith("http://") || url.startsWith("https://")
+        if (isNetworkUrl && appUrl == null) appUrl = url
         val isOnline = NetworkUtils.getCurrentStatus(context).isOnline
 
         if (BuildConfig.DEBUG) {
@@ -358,16 +372,10 @@ class CustomWebView(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             val granted = permissions.values.any { it }
-            val callback = pendingGeolocationCallback
-            val origin = pendingGeolocationOrigin
-            pendingGeolocationCallback = null
-            pendingGeolocationOrigin = null
-            if (callback != null && origin != null) {
-                if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Geolocation permission result: granted=$granted")
-                }
-                callback.invoke(origin, granted, false)
+            if (BuildConfig.DEBUG && geolocationPrompts.hasPending) {
+                Log.d(TAG, "Geolocation permission result: granted=$granted")
             }
+            geolocationPrompts.onPermissionResult(granted)
         }
     }
 
@@ -1328,19 +1336,9 @@ class CustomWebView(
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Geolocation permission requested for origin: $origin")
                 }
-                if (hasLocationPermission()) {
-                    callback?.invoke(origin, true, false)
-                    return
-                }
                 val launcher = geolocationPermissionLauncher
-                if (launcher == null || callback == null || origin == null) {
-                    callback?.invoke(origin, false, false)
-                    return
-                }
-                // Deny any prompt still waiting so its page doesn't hang
-                pendingGeolocationCallback?.invoke(pendingGeolocationOrigin, false, false)
-                pendingGeolocationCallback = callback
-                pendingGeolocationOrigin = origin
+                val outcome = geolocationPrompts.onPrompt(origin, callback, hasLocationPermission(), launcher != null)
+                if (outcome != GeolocationPrompts.Outcome.WAITING_FOR_PERMISSION || launcher == null) return
                 // Without the permission in the manifest (location disabled), Android
                 // returns denied immediately and no dialog is shown.
                 launcher.launch(
@@ -1356,25 +1354,22 @@ class CustomWebView(
                     Log.d(TAG, "Permission request from web content: ${request.resources?.joinToString()}")
                 }
 
-                // Check if camera permission is being requested
-                val cameraRequested = request.resources?.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE) == true
-
-                if (cameraRequested) {
-                    // Check if native app has camera permission
-                    if (CameraUtils.hasCameraPermission(context as android.app.Activity)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Granting camera permission to WebView - native permission available")
-                        }
-                        request.grant(request.resources)
-                    } else {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Denying camera permission to WebView - native permission not granted")
-                        }
-                        request.deny()
+                // Grant only what the app itself holds permission for (camera, microphone); deny the rest.
+                val activity = context as android.app.Activity
+                val granted = WebPermissionPolicy.grantable(
+                    request.resources,
+                    hasCamera = CameraUtils.hasCameraPermission(activity),
+                    hasMicrophone = MicrophoneUtils.hasMicrophonePermission(activity),
+                    originTrusted = WebPermissionPolicy.isTrustedOrigin(origin = request.origin?.toString(), appUrl = appUrl)
+                )
+                if (granted.isNotEmpty()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Granting to WebView: ${granted.joinToString()}")
                     }
+                    request.grant(granted)
                 } else {
                     if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Denying non-camera permission request: ${request.resources?.joinToString()}")
+                        Log.d(TAG, "Denying permission request: ${request.resources?.joinToString()}")
                     }
                     request.deny()
                 }

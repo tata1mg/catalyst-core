@@ -52,7 +52,11 @@ function parseArgs(argv) {
         if (a === "--all") opts.all = true
         else if (a === "--check") opts.check = true
         else if (a === "--set") opts.sets.push(parseSet(argv[++i]))
-        else if (a === "--config") opts.config = argv[++i]
+        else if (a === "--config") {
+            // A missing operand would silently fall back to the default config file, and the command would edit that one instead.
+            if (argv[i + 1] === undefined || String(argv[i + 1]).startsWith("--")) throw new Error("--config needs the path of a config file")
+            opts.config = argv[++i]
+        }
         else if (a === "--help" || a === "-h") opts.help = true
         else throw new Error(`Unknown option "${a}"`)
     }
@@ -98,6 +102,12 @@ async function askPrice(ask, out, label, current) {
  * @param io     { cwd, ask, out, err, isTTY } (injectable for tests)
  * @returns exit code
  */
+/** What AI_CONFIG.pricing already holds for a model, so an update only changes the fields it sets (audioInput and perImage stay). */
+function existingPrice(aiConfig, model) {
+    const existing = aiConfig && aiConfig.pricing && aiConfig.pricing[model]
+    return existing && typeof existing === "object" && !Array.isArray(existing) ? existing : {}
+}
+
 async function run(argv, io = {}) {
     const out = io.out || ((s) => process.stdout.write(s))
     const err = io.err || ((s) => process.stderr.write(s))
@@ -137,12 +147,18 @@ async function run(argv, io = {}) {
 
     const updates = {}
     for (const s of opts.sets) {
-        updates[s.model] = { input: s.input, output: s.output, ...(s.cachedInput !== undefined && { cachedInput: s.cachedInput }) }
+        updates[s.model] = { ...existingPrice(aiConfig, s.model), input: s.input, output: s.output, ...(s.cachedInput !== undefined && { cachedInput: s.cachedInput }) }
     }
 
     if (opts.check) {
         const rows = rowsOf(current)
         out(`${renderTable(rows)}\n`)
+        // An entry that was ignored as invalid can hide behind a built-in price for the same model, so the table above would look
+        // fine. A check that is meant to fail CI on a bad configuration must fail on that too.
+        if (errors.length) {
+            err(`\n${errors.length} AI_CONFIG.pricing entr${errors.length === 1 ? "y is" : "ies are"} invalid and ignored (listed above). Fix them, then run --check again.\n`)
+            return 1
+        }
         const missing = rows.filter((r) => r.source === "missing")
         if (missing.length) {
             err(`\n${missing.length} model(s) have no price: ${missing.map((r) => r.model).join(", ")}. Run: npx catalyst-ai pricing\n`)
@@ -171,7 +187,7 @@ async function run(argv, io = {}) {
                 const output = await askPrice(ask, out, "output", r.price?.output)
                 if (input === undefined || output === undefined) { out("    skipped\n"); continue }
                 const cachedInput = await askPrice(ask, out, "cached input, Enter for none", r.price && r.price.cachedInput !== r.price.input ? r.price.cachedInput : undefined)
-                updates[r.model] = { input, output, ...(cachedInput !== undefined && { cachedInput }) }
+                updates[r.model] = { ...existingPrice(aiConfig, r.model), input, output, ...(cachedInput !== undefined && { cachedInput }) }
             }
         } finally {
             if (ask.close) ask.close()
@@ -185,7 +201,22 @@ async function run(argv, io = {}) {
     const checked = normalizePricing(next)
     if (checked.errors.length) { err(`Not saved:\n  ${checked.errors.join("\n  ")}\n`); return 2 }
     config.AI_CONFIG = { ...aiConfig, pricing: next }
-    fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`)
+    // Write a sibling file and rename it over the config: an interrupted or failed write must never leave config.json half written
+    // (the file also holds the API keys, so a truncated one is a bad day).
+    const tmpPath = `${configPath}.${process.pid}.tmp`
+    try {
+        // The rename replaces the original's inode, so the file's access mode has to be carried over by hand: left to the default
+        // (0666 & ~umask) a 0600 config holding API keys would come back world-readable. New files are created owner-only.
+        let mode = 0o600
+        try { mode = fs.statSync(configPath).mode & 0o777 } catch { /* no existing file: keep owner-only */ }
+        fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, { mode })
+        fs.chmodSync(tmpPath, mode) // writeFileSync's mode is subject to the umask
+        fs.renameSync(tmpPath, configPath)
+    } catch (e) {
+        try { fs.unlinkSync(tmpPath) } catch { /* nothing to clean */ }
+        err(`Could not write ${configPath}: ${e.message}. The file was left as it was.\n`)
+        return 2
+    }
     out(`\nSaved ${Object.keys(updates).length} price(s) to AI_CONFIG.pricing in ${path.relative(cwd, configPath) || configPath}:\n${renderTable(rowsOf(checked.pricing).filter((r) => updates[r.model]))}\n`)
     return 0
 }

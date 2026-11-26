@@ -1,11 +1,12 @@
 import WebKit
+import AVFoundation
 import os
 import UIKit
 import CatalystCoreLogic
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.app", category: "WebViewNavigation")
 
-class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
+class WebViewNavigationDelegate: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var viewModel: WebViewModel
     private let offlineFileName = "offline.html"
     private let offlineSubdirectory = "offline"
@@ -551,5 +552,50 @@ class WebViewNavigationDelegate: NSObject, WKNavigationDelegate {
         }
         components.fragment = nil
         return components.url?.absoluteString ?? url.absoluteString
+    }
+}
+
+// MARK: - WKUIDelegate
+
+extension WebViewNavigationDelegate {
+    /// getUserMedia: grant the microphone once the app holds it (the page asks through the bridge first), refuse it
+    /// when the user said no, and leave anything else to WebKit. See MediaPermissionPolicy; Android makes the same
+    /// call in WebPermissionPolicy.
+    @available(iOS 15.0, *)
+    func webView(
+        _ webView: WKWebView,
+        requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+        initiatedByFrame frame: WKFrameInfo,
+        type: WKMediaCaptureType,
+        decisionHandler: @escaping (WKPermissionDecision) -> Void
+    ) {
+        // The app holding the permission is not enough: only the app's own page may capture. Anything else the WebView ended
+        // up on is refused outright. The access-control whitelist is not used here: its rules match substrings, so a
+        // lookalike host such as "allowed.example.evil.example" would pass a rule for "allowed.example".
+        guard MediaPermissionPolicy.isTrustedOrigin(origin: origin.originURL, appURL: initialURL) else {
+            decisionHandler(.deny)
+            return
+        }
+        let kind: MediaCaptureKind
+        switch type {
+        case .camera: kind = .camera
+        case .microphone: kind = .microphone
+        case .cameraAndMicrophone: kind = .cameraAndMicrophone
+        @unknown default:
+            decisionHandler(.prompt)
+            return
+        }
+        let camera: MediaAuthorization
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: camera = .authorized
+        case .notDetermined: camera = .notDetermined
+        default: camera = .denied
+        }
+        let microphone = MicrophonePermission.authorization()
+        switch MediaPermissionPolicy.decision(for: kind, camera: camera, microphone: microphone) {
+        case .grant: decisionHandler(.grant)
+        case .deny: decisionHandler(.deny)
+        case .prompt: decisionHandler(.prompt)
+        }
     }
 }

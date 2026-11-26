@@ -20,6 +20,14 @@ vi.mock("../src/nativeTransport.js", async (importActual) => {
     }
 })
 vi.mock("../src/nativeDownloadControl.js", () => ({ useNativeDownloadControl: vi.fn() }))
+// Audio preparation the test can hold back: a message whose text is "slow" waits for the gate.
+const prep = vi.hoisted(() => ({ gate: null as null | Promise<void> }))
+vi.mock("../src/audioPrep.js", () => ({
+    prepareAudioParts: async (messages: any) => {
+        if (prep.gate && JSON.stringify(messages).includes("slow")) await prep.gate
+        return messages
+    },
+}))
 
 import { useNativeAI } from "../src/useNativeAI.js"
 // Registry codes, written out so the test also pins them (catalyst-core/errors is ESM-only for this CJS test config).
@@ -152,6 +160,16 @@ describe("useNativeAI generate", () => {
         expect(out.error).toBeTruthy()
     })
 
+    it("the result of generate() already holds the whole text when tokens and done arrive back to back", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ token: "Hello " }, { token: "world" }, { done: true }))))
+        const { result } = renderHook(() => useNativeAI() as any)
+        await ready(result)
+        let out: any
+        await act(async () => { out = await result.current.generate({ messages }) })
+        expect(out.output).toBe("Hello world") // read at once, not after a frame
+        expect(out.error).toBeNull()
+    })
+
     it("streams tokens, rewrites attachment tags, and records metrics on done", async () => {
         const fetchMock: any = vi.fn(async () => streamResponse(sse(
             { token: "Hello " },
@@ -282,5 +300,55 @@ describe("useNativeAI cancel and reset", () => {
         await waitFor(() => expect(signal).toBeDefined())
         unmount()
         expect(signal!.aborted).toBe(true)
+    })
+})
+
+describe("useNativeAI overlapping and abandoned calls", () => {
+    afterEach(() => { prep.gate = null })
+
+    it("an older call that finishes preparing after a newer one is dropped: it neither cancels nor follows the newer request", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const fetchMock: any = vi.fn(async () => streamResponse(sse({ token: "newer" }, { done: true })))
+        vi.stubGlobal("fetch", fetchMock)
+        const { result } = renderHook(() => useNativeAI())
+        await ready(result)
+        let older: Promise<any> = Promise.resolve()
+        act(() => { older = result.current.generate({ messages: [{ role: "user", content: "slow" }] }) })
+        expect(result.current.loading).toBe(true) // loading from the moment the call starts, not after it has prepared
+        await act(async () => { await result.current.generate({ messages: [{ role: "user", content: "fast" }] }) })
+        await waitFor(() => expect(result.current.output).toBe("newer"))
+        await act(async () => { open(); await older })
+        expect(fetchMock).toHaveBeenCalledTimes(1) // only the newer request was ever sent
+        expect(result.current.output).toBe("newer")
+    })
+
+    it("cancel() while a call is still preparing stops it from sending anything", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const fetchMock: any = vi.fn(async () => streamResponse(sse({ token: "x" }, { done: true })))
+        vi.stubGlobal("fetch", fetchMock)
+        const { result } = renderHook(() => useNativeAI())
+        await ready(result)
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.generate({ messages: [{ role: "user", content: "slow" }] }) })
+        act(() => result.current.cancel())
+        await act(async () => { open(); await pending })
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it("reset() while a call is still preparing also stops it", async () => {
+        let open!: () => void
+        prep.gate = new Promise<void>((resolve) => { open = resolve })
+        const fetchMock: any = vi.fn(async () => streamResponse(sse({ token: "x" }, { done: true })))
+        vi.stubGlobal("fetch", fetchMock)
+        const { result } = renderHook(() => useNativeAI())
+        await ready(result)
+        let pending: Promise<any> = Promise.resolve()
+        act(() => { pending = result.current.generate({ messages: [{ role: "user", content: "slow" }] }) })
+        act(() => result.current.reset())
+        await act(async () => { open(); await pending })
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(result.current.output).toBe("")
     })
 })

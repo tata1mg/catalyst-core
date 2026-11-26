@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { withDeadline } from "./requestSignal.js"
 import { imageCost } from "./metrics.js"
 import { generateOnDevice } from "./deviceImage.js"
 
@@ -30,20 +31,28 @@ export function toImageInput(img) {
 export async function requestImage({ basePath = "/ai", provider = "openai", prompt, n, size, model, images: inputImages, signal, onProgress, seed } = {}) {
     if (typeof prompt !== "string" || prompt.trim() === "") throw new Error("prompt must be a non-empty string")
     if (provider === "device") return generateOnDevice({ prompt, n, size, images: inputImages, signal, onProgress, seed })
+    // `images` is a list. A string or an array-like used to fail with the engine's own "map is not a function".
+    if (inputImages !== undefined && inputImages !== null && !Array.isArray(inputImages)) throw new Error("images must be an array of data URLs or { mimeType, data }")
     const inputs = inputImages && inputImages.length > 0 ? inputImages.map(toImageInput) : undefined
-    const timeout = AbortSignal.timeout ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined
-    const combined = signal && timeout && AbortSignal.any ? AbortSignal.any([signal, timeout]) : signal || timeout
-    const response = await fetch(`${basePath}/${provider}/image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, ...(n && { n }), ...(size && { size }), ...(model && { model }), ...(inputs && { images: inputs }) }),
-        signal: combined,
-    })
+    const deadline = withDeadline(signal, REQUEST_TIMEOUT_MS)
+    let response
     let data = null
     try {
-        data = await response.json()
-    } catch {
-        // non-JSON error body: fall through to the status message below
+        response = await fetch(`${basePath}/${provider}/image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // Optional fields are sent whenever they were given (not only when truthy), so an invalid `n: 0` reaches the server's validation
+            // instead of being dropped and answered with one image.
+            body: JSON.stringify({ prompt, ...(n !== undefined && { n }), ...(size !== undefined && { size }), ...(model !== undefined && { model }), ...(inputs && { images: inputs }) }),
+            signal: deadline.signal,
+        })
+        try {
+            data = await response.json()
+        } catch {
+            // non-JSON error body: fall through to the status message below
+        }
+    } finally {
+        deadline.done()
     }
     if (!response.ok) throw new Error(data?.error || `Image request failed (${response.status})`)
     const images = (data?.images ?? []).map((img) => ({ ...img, url: `data:${img.mimeType};base64,${img.data}` }))
@@ -59,6 +68,15 @@ export function useImageGen({ basePath = "/ai", provider = "openai", model, size
     const controllerRef = useRef(null)
 
     const cancel = useCallback(() => {
+        const controller = controllerRef.current
+        controllerRef.current = null
+        controller?.abort()
+        // The aborted request sees that it is no longer the current one and returns without touching state, so the flag is cleared here.
+        if (controller) setState((s) => ({ ...s, loading: false }))
+    }, [])
+
+    // Unmounting abandons the request: it must not run on, or try to set state, for a component that is gone.
+    useEffect(() => () => {
         controllerRef.current?.abort()
         controllerRef.current = null
     }, [])

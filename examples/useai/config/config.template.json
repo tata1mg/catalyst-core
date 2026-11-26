@@ -21,7 +21,9 @@
       "gemini": {
         "apiKey": "",
         "defaultModel": "gemini-3.5-flash",
-        "imageModel": ""
+        "imageModel": "",
+        "speechModel": "",
+        "liveModel": ""
       }
     },
     "browser": {

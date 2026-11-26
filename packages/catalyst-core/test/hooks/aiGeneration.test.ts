@@ -25,7 +25,7 @@ describe("aiGeneration wrappers", () => {
         expect(pkg.useLiveTranscribe).toHaveBeenCalledWith({ model: "m" })
         const idle = createGenerationApi(() => null).useLiveTranscribe()
         expect(idle.listening).toBe(false)
-        expect(idle.error).toMatch(/useLiveTranscribe needs/)
+        expect(idle.error).toMatch(/useLiveTranscribe requires catalyst-ai.*npm install catalyst-ai/)
     })
 
     it("forwards the device image engine registration and support check", async () => {
@@ -46,13 +46,13 @@ describe("aiGeneration wrappers", () => {
 
     it("fails clearly when catalyst-ai is missing or too old", async () => {
         const api = createGenerationApi(() => null)
-        await expect(api.requestImage({ prompt: "a" })).rejects.toThrow(/Update catalyst-ai/)
+        await expect(api.requestImage({ prompt: "a" })).rejects.toThrow(/not installed.*npm install catalyst-ai/)
         await expect(createGenerationApi(() => ({})).requestSpeech({ text: "b" })).rejects.toThrow(/requestSpeech needs/)
         const hook = api.useImageGen()
         expect(hook.images).toEqual([])
-        expect((await hook.generate("a")).error).toMatch(/useImageGen needs/)
+        expect((await hook.generate("a")).error).toMatch(/useImageGen requires catalyst-ai/)
         const speech = api.useSpeech()
         expect(speech.audio).toBeNull()
-        expect((await speech.speak("a")).error).toMatch(/useSpeech needs/)
+        expect((await speech.speak("a")).error).toMatch(/useSpeech requires catalyst-ai/)
     })
 })

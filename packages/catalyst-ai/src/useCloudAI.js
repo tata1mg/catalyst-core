@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useMemo } from "react"
-import { assertCloudMediaAllowed, getModalities } from "./contentParts.js"
+import { PRE_PREP_LIMITS, assertCloudMediaAllowed, getModalities } from "./contentParts.js"
 import { prepareAudioParts, normalizeAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
 import { computeMetrics, aggregateSessionMetrics } from "./metrics.js"
+import { ERROR_CODES, createError } from "catalyst-core/errors"
 
 const ATTACHMENT_TAG_RE = /<tool:create_attachment\s+component='([^']+)'([^>]*)>([\s\S]*?)<\/tool:create_attachment>/g
 
@@ -113,7 +114,7 @@ export function useCloudAI({
             // decides which provider endpoints take which modality.
             let messages = rawMessages
             try {
-                const modalities = getModalities(rawMessages)
+                const modalities = getModalities(rawMessages, PRE_PREP_LIMITS) // before resizing: judged by the looser limits, the strict ones apply below
                 assertCloudMediaAllowed(modalities, allowMediaRef.current)
                 if (modalities.has("image") || modalities.has("audio")) {
                     // Gemini takes recorder formats (webm, mp4, opus) as they are and handles minutes of audio, so its audio is
@@ -244,8 +245,19 @@ export function useCloudAI({
                                 completed = true
                                 return
                             }
+                            let data
                             try {
-                                const data = JSON.parse(payload)
+                                data = JSON.parse(payload)
+                            } catch (_) {
+                                continue // a frame that is not JSON is skipped, as before
+                            }
+                            // The route reports a failure that happens mid-stream as { error, code }. That ends the generation as
+                            // an error: finishing it as a short but "successful" answer would hide the failure from the caller.
+                            if (data && data.error) {
+                                const known = Object.values(ERROR_CODES).includes(data.code) ? data.code : ERROR_CODES.AI_UPSTREAM_ERROR
+                                throw createError(known, { message: String(data.error) })
+                            }
+                            {
                                 if (sessionModeRef.current === "stateful" && data.conversationId && activeGenerationRef.current === generationId) {
                                     conversationIdRef.current = data.conversationId
                                 }
@@ -264,7 +276,7 @@ export function useCloudAI({
                                 if (data.usage) {
                                     usage = { ...data.usage, provider }
                                 }
-                            } catch (_) {}
+                            }
                         }
                     }
                 } finally {
@@ -279,6 +291,8 @@ export function useCloudAI({
                 completed = true
             } catch (err) {
                 if (err.name === "AbortError") return
+                // A newer generate() owns the shared state now: a late failure of this one must not write into its outcome or clear its flags.
+                if (activeGenerationRef.current !== generationId) return
                 setError(err)
                 setStreaming(false)
                 setLoading(false)
@@ -327,6 +341,9 @@ export function useCloudAI({
     )
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (abortControllerRef.current) { abortControllerRef.current.abort(); abortControllerRef.current = null }
         setStreaming(false)

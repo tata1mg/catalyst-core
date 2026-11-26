@@ -173,3 +173,63 @@ describe("recorder formats on the cloud route", () => {
         expect(() => m.validateMessages([user([{ type: "audio", data: "data:audio/webm;codecs=opus;base64,GkXfowEAAAAA" }])])).toThrow()
     })
 })
+
+describe("messages whose content is neither a string nor an array", () => {
+    it("count as using parts, so they are validated instead of skipping validation", () => {
+        expect(m.usesParts([{ role: "user", content: { type: "image", data: "x" } }])).toBe(true)
+        expect(m.usesParts([{ role: "user", content: 5 }])).toBe(true)
+        expect(m.usesParts([{ role: "user", content: "hello" }])).toBe(false)
+        expect(m.usesParts([{ role: "user" }])).toBe(false)
+    })
+
+    it("are refused by validateMessages", () => {
+        expect(() => m.validateMessages([{ role: "user", content: { type: "text", text: "hi" } }])).toThrow(/string or a non-empty array/)
+    })
+})
+
+describe("OpenAI Responses mapping of text-only array content", () => {
+    it("turns every text part into input_text, whether or not the request has media", () => {
+        const out = m.mapOpenAIResponses([user([{ type: "text", text: "hello" }]), user("plain string")])
+        expect(out[0].content).toEqual([{ type: "input_text", text: "hello" }])
+        expect(out[1].content).toBe("plain string") // only plain strings pass through unchanged
+    })
+
+    it("maps the text-only messages of a mixed request too", () => {
+        const out = m.mapOpenAIResponses([user([{ type: "text", text: "first" }]), user([{ type: "text", text: "see" }, { type: "image", data: PNG }])])
+        expect(out[0].content).toEqual([{ type: "input_text", text: "first" }])
+        expect(out[1].content[0]).toEqual({ type: "input_text", text: "see" })
+        expect(out[1].content[1].type).toBe("input_image")
+    })
+
+    it("leaves a request with no array content exactly as it was", () => {
+        const messages = [user("hi"), { role: "assistant", content: "yo" }]
+        expect(m.mapOpenAIResponses(messages)).toBe(messages)
+    })
+})
+
+describe("the combined media budget", () => {
+    const pdf = (mib: number) => ({ type: "document", data: `data:application/pdf;base64,${"A".repeat(Math.ceil((mib * 1024 * 1024 * 4) / 3))}` })
+
+    it("refuses two 10 MiB documents that would not fit under the 20 MB body limit", () => {
+        expect(() => m.validateMessages([user([pdf(10), pdf(10)])])).toThrow(/in total/)
+    })
+
+    it("accepts media that fits, and what the budget allows always fits under the default parser limit", () => {
+        expect(() => m.validateMessages([user([pdf(6), pdf(6)])])).not.toThrow()
+        const budgetBase64 = Math.ceil((m.DEFAULT_LIMITS.totalBytes * 4) / 3)
+        expect(budgetBase64).toBeLessThan(20 * 1024 * 1024)
+    })
+})
+
+describe("a PDF never reaches a provider that cannot take one", () => {
+    it("openai (Chat Completions and Responses) and gemini refuse a document part before any mapping, so it is never sent as an image", () => {
+        const doc = [user([{ type: "text", text: "summarise" }, { type: "document", data: "data:application/pdf;base64,JVBERi0=" }])]
+        const normalized = m.validateMessages(doc) as any // the route normalises first, then checks the endpoint's capabilities
+        for (const provider of ["openai", "gemini"]) {
+            for (const stateful of [false, true]) {
+                expect(() => m.assertSupported(normalized, m.capabilitiesFor({ provider, stateful, model: "m" }) as any), `${provider} stateful=${stateful}`).toThrow(/does not support document/)
+            }
+        }
+        expect(() => m.assertSupported(normalized, m.capabilitiesFor({ provider: "anthropic", stateful: false, model: "m" }) as any)).not.toThrow()
+    })
+})

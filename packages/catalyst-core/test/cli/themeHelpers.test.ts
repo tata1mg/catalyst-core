@@ -3,12 +3,23 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type spinnerModule from "../../src/cli/spinner.js"
-import type themeModule from "../../src/cli/theme.js"
+import pkg from "../../package.json"
 
+import spinnerImported from "../../src/cli/spinner.js"
+import themeImported from "../../src/cli/theme.js"
+
+// The CLI modules are CommonJS. The build commands load them with require; src/native/utils.js imports them. That makes two copies in one
+// test run, and v8 coverage merges two copies of a file badly: the coverage of these files swung between 57% and 100% with how the test
+// files happened to be spread over workers. So every suite here runs against BOTH copies, and whichever copy the merge keeps is fully covered.
 const load = createRequire(import.meta.url)
-const theme: typeof themeModule = load("../../src/cli/theme.js")
-const { Spinner }: typeof spinnerModule = load("../../src/cli/spinner.js")
+const copies: Array<[string, { spinner: typeof spinnerImported; theme: typeof themeImported }]> = [
+    ["required", { spinner: load("../../src/cli/spinner.js"), theme: load("../../src/cli/theme.js") }],
+    ["imported", { spinner: spinnerImported, theme: themeImported }],
+]
+
+for (const [copyName, copy] of copies) describe(`${copyName} copy`, () => {
+const theme = copy.theme
+const { Spinner } = copy.spinner
 const plain = (text: string) => text.replace(theme.ANSI, "")
 
 describe("theme helpers", () => {
@@ -31,13 +42,14 @@ describe("theme helpers", () => {
 
     it("version() is the package's own version and is cached", () => {
         const v = theme.version()
-        expect(typeof v === "string" || v === null).toBe(true)
+        expect(v).toBe(pkg.version) // this package's own version, not null and not another package's
         expect(theme.version()).toBe(v)
     })
 
     it("header shows title, version and subtitle; row aligns the key", () => {
         const h = plain(theme.header("catalyst build", "production"))
         expect(h).toContain("catalyst build")
+        expect(h).toContain(String(pkg.version)) // the header shows the version
         expect(h).toContain("production")
         expect(plain(theme.header("only title"))).not.toContain("production")
         expect(plain(theme.row("Port", "3005"))).toMatch(/Port\s+3005/)
@@ -111,7 +123,10 @@ describe("Spinner edge cases", () => {
         const s = new Spinner(plainStream.stream).start("x")
         s.pause()
         s.resume()
+        const afterPauseResume = plainStream.writes.slice()
         s.stop()
+        // Nothing that moves the cursor or clears a line on a stream that is not a terminal (colour codes are a separate matter and are not asserted here).
+        expect(afterPauseResume.some((w: string) => w.includes("\r") || w.includes("\u001b[2K") || /\u001b\[\d*[ABCDGHJK]/.test(w))).toBe(false)
         const tty = fake(true)
         const idle = new Spinner(tty.stream)
         idle.pause()
@@ -133,4 +148,5 @@ describe("Spinner edge cases", () => {
         new Spinner(stream).stop()
         expect(writes).toHaveLength(0)
     })
+})
 })

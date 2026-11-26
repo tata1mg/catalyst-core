@@ -45,3 +45,37 @@ describe("per-image pricing (perImage)", () => {
         m.setPricingOverrides(null)
     })
 })
+
+describe("an entry with a token field is never treated as per-image-only", () => {
+    const bad = { perImage: 0.04, cachedInput: 5 }
+
+    it("normalizePricing rejects it with an error instead of silently dropping cachedInput", () => {
+        const { pricing, errors } = normalizePricing({ m: bad })
+        expect(pricing.m).toBeUndefined()
+        expect(errors.join()).toMatch(/input and output/)
+    })
+
+    it("the browser side ignores it too, so server and browser agree", async () => {
+        const { setPricingOverrides, lookupPricing } = await import("../src/metrics.js")
+        setPricingOverrides({ m: bad, ok: { perImage: 0.02 } })
+        expect(lookupPricing("m")).toBeUndefined()
+        expect(lookupPricing("ok")).toMatchObject({ perImage: 0.02, input: null })
+        setPricingOverrides({})
+    })
+
+    it("a per-image-only price leaves token cost unknown (null), not free", async () => {
+        const { setPricingOverrides, computeMetrics, estimateCloudEquivalent } = await import("../src/metrics.js")
+        setPricingOverrides({ "img-model": { perImage: 0.04 } })
+        const usage = { model: "img-model", promptTokens: 1000, cachedTokens: 0, completionTokens: 500, reasoningTokens: 0 }
+        const m = computeMetrics(usage as any, { genMs: 1000 })!
+        expect(m.cost).toBeNull()
+        expect(m.cacheSavings).toBeNull()
+        expect(estimateCloudEquivalent({ inputTokens: 1000, outputTokens: 500 }, "img-model")).toBeNull()
+        setPricingOverrides({})
+    })
+
+    it("catalyst-ai exports imageCost from its entry point", async () => {
+        const entry = await import("../src/index.js")
+        expect(typeof (entry as any).imageCost).toBe("function")
+    })
+})

@@ -70,6 +70,26 @@ class BridgeMessageValidator {
             ],
             "additionalProperties": false
         ],
+        "requestMicrophonePermission": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
+        "getSpeechRecognitionSupport": [
+            "type": "object",
+            "properties": ["language": ["type": "string"]],
+            "additionalProperties": false
+        ],
+        "startSpeechRecognition": [
+            "type": "object",
+            "properties": ["language": ["type": "string"]],
+            "additionalProperties": false
+        ],
+        "stopSpeechRecognition": [
+            "type": "object",
+            "properties": [:],
+            "additionalProperties": false
+        ],
         "pickFile": [
             "type": "object",
             "properties": [
@@ -376,6 +396,9 @@ class BridgeMessageValidator {
         let flexibleCommands = [
             "openCamera",
             "requestCameraPermission",
+            "getSpeechRecognitionSupport",
+            "startSpeechRecognition",
+            "stopSpeechRecognition",
             "pickFile",
             "requestHapticFeedback",
             "openFileWithIntent",
@@ -396,6 +419,18 @@ class BridgeMessageValidator {
             "cancelTransition",
             "openInBrowser"
         ]
+
+        // A command that takes nothing: no parameters, JSON null or an empty object. Any other type (array, number, boolean, string)
+        // is rejected here instead of being waved through with a warning like the legacy-compatible commands below.
+        if command == "requestMicrophonePermission" {
+            if params == nil || params is NSNull { return nil }
+            guard let paramsDict = params as? [String: Any] else {
+                logger.error("Parameters for command '\(command)' must be empty or an object")
+                return BridgeValidationError(message: "Invalid parameters format for \(command)", code: "INVALID_PARAMS", eventName: "BRIDGE_ERROR")
+            }
+            if paramsDict.isEmpty || schemas[command] == nil { return nil }
+            return validateObjectAgainstJSONSchema(paramsDict, schema: nil, commandName: command)
+        }
 
         if flexibleCommands.contains(command) {
             // For these commands, allow string, object, or nil parameters

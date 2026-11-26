@@ -146,8 +146,9 @@ export default function Chess() {
     // A reply only counts once this move's request has been seen loading and has finished.
     const sawLoadingRef = useRef(false);
     useEffect(() => {
-        if (aiThinking && loading) sawLoadingRef.current = true;
-    }, [aiThinking, loading]);
+        // The Chrome engine can go straight to streaming, so either state shows the call really started.
+        if (aiThinking && (loading || streaming)) sawLoadingRef.current = true;
+    }, [aiThinking, loading, streaming]);
 
     // Check game condition
     const checkGameStatus = () => {

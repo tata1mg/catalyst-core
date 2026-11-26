@@ -24,9 +24,13 @@ export interface UseAgentOptions {
 export interface UseAgentResult {
     /** Runs the agent on a goal. Resolves when it stops, whatever the reason. */
     run: (goal: string, consent?: AgentConsent) => Promise<AgentResult>
-    /** Answer to `pendingConfirmation`: let the side-effecting tool run, or refuse it. */
-    approve: () => void
-    deny: () => void
+    /**
+     * Answer to `pendingConfirmation`: let the side-effecting tool run, or refuse it. Pass `pendingConfirmation.id` to
+     * answer that prompt only: an answer carrying an id that is no longer the pending one (a late click on an older
+     * prompt) is ignored. Without an id it answers whatever is pending.
+     */
+    approve: (id?: number) => void
+    deny: (id?: number) => void
     cancel: () => void
     status: UseAgentStatus
     /** Every step so far, growing while the agent runs. */
@@ -70,11 +74,16 @@ export function useAgent(options: UseAgentOptions): UseAgentResult {
     const runId = useRef(0)
     const abort = useRef<AbortController | null>(null)
     const resolver = useRef<((allowed: boolean) => void) | null>(null)
+    const pendingId = useRef<number | null>(null)
+    const confirmSeq = useRef(0)
     const mounted = useRef(true)
 
-    const settle = useCallback((allowed: boolean) => {
+    const settle = useCallback((allowed: boolean, id?: number) => {
+        // An answer aimed at a particular prompt settles only that prompt.
+        if (id !== undefined && id !== pendingId.current) return
         const resolve = resolver.current
         resolver.current = null
+        pendingId.current = null
         if (mounted.current) setPending(null)
         if (resolve) resolve(allowed)
     }, [])
@@ -110,12 +119,29 @@ export function useAgent(options: UseAgentOptions): UseAgentResult {
                 instructions: config.current.instructions,
                 limits: config.current.limits,
                 signal: controller.signal,
-                generate: async (messages) => aiRef.current.generate({ messages }, consent),
+                // Ties the model call to this run's signal: replacing the run, cancel() or unmount settle it at once and stop the underlying
+                // generation, instead of the agent staying blocked until the model eventually answers.
+                generate: (messages) =>
+                    new Promise((resolve, reject) => {
+                        const signal = controller.signal
+                        const onAbort = () => {
+                            aiRef.current.cancel?.()
+                            resolve(null)
+                        }
+                        if (signal.aborted) return onAbort()
+                        signal.addEventListener("abort", onAbort, { once: true })
+                        Promise.resolve(aiRef.current.generate({ messages }, consent)).then(
+                            (value) => { signal.removeEventListener("abort", onAbort); resolve(value) },
+                            (error) => { signal.removeEventListener("abort", onAbort); reject(error) }
+                        )
+                    }),
                 confirm: (request) =>
                     new Promise<boolean>((resolve) => {
                         if (!live()) return resolve(false)
+                        const id = ++confirmSeq.current
+                        pendingId.current = id
                         resolver.current = resolve
-                        setPending(request)
+                        setPending({ ...request, id })
                         setStatus("awaiting-confirmation")
                     }),
                 onStep: (step) => {
@@ -145,8 +171,8 @@ export function useAgent(options: UseAgentOptions): UseAgentResult {
 
     return {
         run,
-        approve: useCallback(() => settle(true), [settle]),
-        deny: useCallback(() => settle(false), [settle]),
+        approve: useCallback((id?: number) => settle(true, id), [settle]),
+        deny: useCallback((id?: number) => settle(false, id), [settle]),
         cancel,
         status,
         steps,

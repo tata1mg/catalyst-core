@@ -39,6 +39,23 @@ describe("normalizeMessages", () => {
         expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: "http://x/y.png" }] }])).toThrow()
     })
 
+    it("rejects base64 that cannot decode, before the size limit and before it crosses the bridge", async () => {
+        const { normalizeMessages } = await mod
+        for (const data of ["***", "A", "=", "AA=A", "A===", "!!!!"]) {
+            let error: any
+            try { normalizeMessages([{ role: "user", content: [{ type: "image", data: `data:image/png;base64,${data}` }] }]) } catch (e) { error = e }
+            expect(error?.reason, data).toBe("invalid-part")
+            expect(error?.message, data).toMatch(/not valid base64/)
+        }
+    })
+
+    it("still accepts real base64, padded or not", async () => {
+        const { normalizeMessages } = await mod
+        for (const data of ["iVBORw0KGgo=", "AAAA", "QQ==", "QUI"]) {
+            expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: `data:image/png;base64,${data}` }] }]), data).not.toThrow()
+        }
+    })
+
     it("rejects empty content", async () => {
         const { normalizeMessages } = await mod
         expect(() => normalizeMessages([{ role: "user", content: [] }])).toThrow()
@@ -220,8 +237,8 @@ describe("assertCloudMediaAllowed (no silent cloud fallback)", () => {
     })
 })
 
-// ---- Layers still to specify as implementation reaches them (each becomes real tests, not prose) ----
-describe("scope not yet implemented", () => {
+// ---- Implemented paths whose tests still need a device or emulator (each becomes a real test, not prose) ----
+describe("native and device paths: implemented, tests pending", () => {
     // Native: decode `parts` -> temp files -> Content.ImageFile/AudioFile; set vision/audio backends only when asked.
     it.todo("android: NativeBridgeAI maps parts to Content.ImageFile/AudioFile and enables vision/audio backends (device spike 0.2)")
     it.todo("ios: AIRequest parses `parts`; EngineConfig sets visionBackend/audioBackend; missing backend is a clear error, not `null` (spike 0.1)")

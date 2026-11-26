@@ -167,6 +167,12 @@ export default function CameraAI() {
         event.target.value = "";
         if (file) run(file, URL.createObjectURL(file));
     };
+    // A picked image is shown through a blob: URL, which keeps the image bytes alive until revoked: release it when the preview
+    // changes and when the page goes away.
+    useEffect(() => {
+        if (typeof preview !== "string" || !preview.startsWith("blob:")) return undefined;
+        return () => URL.revokeObjectURL(preview);
+    }, [preview]);
     const useSample = () => {
         const url = drawSampleReport();
         run(url, url);

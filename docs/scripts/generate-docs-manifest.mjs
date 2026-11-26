@@ -155,6 +155,50 @@ const stripMarkdown = (markdown) => {
         .trim()
 }
 
+// Upper bound for one page's text in the manifest. It used to be 5000, which cut 23 of 79 pages (Hooks is 77 KB) after their first
+// screenful: search_docs only matched, and get_doc_content only returned, the start of long pages. Now a safety limit, not a summary.
+const MAX_PAGE_TEXT = 400_000
+
+// Prose is stripped as for the description; fenced code is kept (fence markers removed), because the examples are where an agent finds
+// the exact names (registerDeviceImageEngine, useTool, config keys) that the prose only mentions.
+const stripWithCode = (markdown) =>
+    markdown
+        .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
+        .map((part, index) => (index % 2 === 1 ? part.replace(/^(```|~~~)[^\n]*\n?/, '').replace(/(```|~~~)\s*$/, '').replace(/[ \t]+/g, ' ').replace(/ ?\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n') : stripMarkdown(part)))
+        .join(' ')
+        // Collapse spaces and tabs only: a newline inside fenced code ends a `//` comment, so it has to survive.
+        .replace(/[ \t]+/g, ' ')
+        .replace(/ ?\n ?/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+
+/**
+ * The page's plain text plus where each section (## and ###, the same headings as the table of contents) starts in it, so a reader can
+ * ask for one section of a long page instead of its first few thousand characters.
+ */
+const buildPageText = (title, markdown, toc) => {
+    const chunks = [{ id: null, title, lines: [] }]
+    let inFence = false
+    let next = 0
+    for (const line of markdown.split('\n')) {
+        if (/^\s*(```|~~~)/.test(line)) inFence = !inFence
+        else if (!inFence && /^(#{2,3})\s+(.+?)\s*#*\s*$/.test(line) && next < toc.length) {
+            chunks.push({ id: toc[next].id, title: toc[next].text, lines: [] })
+            next++
+        }
+        chunks[chunks.length - 1].lines.push(line)
+    }
+    let text = `${title}`
+    const sections = []
+    for (const chunk of chunks) {
+        const plain = stripWithCode(chunk.lines.join('\n'))
+        if (chunk.id) sections.push({ id: chunk.id, title: chunk.title, start: text.length + 1 })
+        text += ` ${plain}`
+    }
+    if (text.length > MAX_PAGE_TEXT) console.warn(`[docs manifest] "${title}" is ${text.length} characters; text past ${MAX_PAGE_TEXT} is not searchable`)
+    return { searchText: text.slice(0, MAX_PAGE_TEXT), sections }
+}
+
 const extractToc = (markdown) => {
     const slugger = new GithubSlugger()
     const toc = []
@@ -210,7 +254,7 @@ const changelogPage = (version) => {
         categories: [],
         orderKey: [Number.MAX_SAFE_INTEGER],
         toc: extractToc(raw),
-        searchText: `Changelog ${plain}`.slice(0, 5000),
+        searchText: `Changelog ${plain}`.slice(0, MAX_PAGE_TEXT),
         isMdx: false,
         version,
     }
@@ -286,7 +330,7 @@ const releasePages = (version) => {
             searchText:
                 `${title} release ${release.headline} ${stripMarkdown(raw)}`.slice(
                     0,
-                    5000
+                    MAX_PAGE_TEXT
                 ),
             isMdx: false,
             version,
@@ -328,6 +372,8 @@ const buildPages = (contentRoot, urlBase, version) => {
         )
         const title = frontmatter.title || firstHeading(content) || fileTitle
         const plain = stripMarkdown(content)
+        const toc = extractToc(content)
+        const { searchText, sections } = buildPageText(title, content, toc)
 
         return {
             url: urlFor(relPath, frontmatter, urlBase),
@@ -337,8 +383,9 @@ const buildPages = (contentRoot, urlBase, version) => {
             description: frontmatter.description || plain.slice(0, 160),
             categories,
             orderKey: orderKeyFor(relPath, frontmatter),
-            toc: extractToc(content),
-            searchText: `${title} ${plain}`.slice(0, 5000),
+            toc,
+            searchText,
+            sections,
             isMdx: absPath.endsWith('.mdx'),
             absPath,
             version,

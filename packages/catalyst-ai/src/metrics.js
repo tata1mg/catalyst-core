@@ -25,13 +25,18 @@ let configuredPricing = {}
 const validPrice = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
 
 /** Called with AI_CONFIG.pricing from the public config; anything malformed is ignored, never thrown. */
+// The table is exported, so it is frozen: a consumer (or a test) changing a rate in place would change every later cost calculation.
+for (const entry of Object.values(PRICING)) Object.freeze(entry)
+Object.freeze(PRICING)
+
 export function setPricingOverrides(raw) {
     const next = {}
     if (raw && typeof raw === "object" && !Array.isArray(raw)) {
         for (const [model, p] of Object.entries(raw)) {
             if (!p || typeof p !== "object" || Array.isArray(p)) continue
             if (p.perImage !== undefined && !validPrice(p.perImage)) continue
-            const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+            // A token field of any kind means the entry is not per-image-only: it must then carry full token rates, never lose one silently.
+            const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined && p.cachedInput === undefined
             if (!perImageOnly && (!validPrice(p.input) || !validPrice(p.output))) continue
             if (p.cachedInput !== undefined && !validPrice(p.cachedInput)) continue
             if (p.audioInput !== undefined && p.audioInput !== null && !validPrice(p.audioInput)) continue
@@ -80,21 +85,26 @@ export function computeMetrics(usage, timing = {}) {
     if (!usage) return null
 
     const price = getPricing(usage.model)
+    // A per-image-only price has no token rates. Multiplying null by a token count gives 0, which would report the tokens as free
+    // when their price is simply unknown, so the cost stays null.
+    const tokenRatesKnown = typeof price.input === "number" && typeof price.output === "number"
     // Audio tokens are a subset of the prompt tokens and have their own rate. Without a confirmed rate they are left
     // out of the cost and the metrics say so, rather than pricing audio as text.
     const audioTokens = usage.audioTokens ?? 0
     const audioCostUnknown = audioTokens > 0 && price.audioInput == null
     const billedInputTokens = Math.max(0, usage.promptTokens - usage.cachedTokens - audioTokens)
     const billedOutputTokens = usage.completionTokens + usage.reasoningTokens
-    const totalTokens = usage.promptTokens + usage.completionTokens + usage.reasoningTokens
+    // A field a provider leaves out counts as 0: undefined would turn the whole total (and the session totals built from it) into NaN.
+    const totalTokens = (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0) + (usage.reasoningTokens ?? 0)
 
-    const cost =
-        (billedInputTokens / 1e6) * price.input +
-        (usage.cachedTokens / 1e6) * price.cachedInput +
-        (audioCostUnknown ? 0 : (audioTokens / 1e6) * (price.audioInput ?? 0)) +
-        (billedOutputTokens / 1e6) * price.output
+    const cost = !tokenRatesKnown
+        ? null
+        : (billedInputTokens / 1e6) * price.input +
+          (usage.cachedTokens / 1e6) * (price.cachedInput ?? price.input) +
+          (audioCostUnknown ? 0 : (audioTokens / 1e6) * (price.audioInput ?? 0)) +
+          (billedOutputTokens / 1e6) * price.output
 
-    const cacheSavings = (usage.cachedTokens / 1e6) * (price.input - price.cachedInput)
+    const cacheSavings = !tokenRatesKnown ? null : (usage.cachedTokens / 1e6) * (price.input - (price.cachedInput ?? price.input))
 
     const tps = billedOutputTokens > 0 && timing.genMs > 0
         ? parseFloat((billedOutputTokens / (timing.genMs / 1000)).toFixed(1))
@@ -129,7 +139,7 @@ export function computeMetrics(usage, timing = {}) {
 export function estimateCloudEquivalent({ inputTokens, outputTokens }, model = "gemini-3.5-flash") {
     if (typeof inputTokens !== "number" || typeof outputTokens !== "number") return null
     const price = lookupPricing(model)
-    if (!price) return null
+    if (!price || typeof price.input !== "number" || typeof price.output !== "number") return null
     return { model, cost: (inputTokens / 1e6) * price.input + (outputTokens / 1e6) * price.output, estimated: true }
 }
 
@@ -141,6 +151,8 @@ export function aggregateSessionMetrics(history) {
     const generationCount = history.length
     let totalCost = 0
     let totalTokens = 0
+    let totalAudioTokens = 0
+    let audioCostUnknown = false
     let totalCachedTokens = 0
     let totalCacheSavings = 0
     let ttftSum = 0
@@ -154,6 +166,8 @@ export function aggregateSessionMetrics(history) {
     for (const m of history) {
         totalCost += m.cost ?? 0
         totalTokens += m.totalTokens ?? 0
+        totalAudioTokens += m.audioTokens ?? 0
+        if (m.audioCostUnknown === true) audioCostUnknown = true
         totalCachedTokens += m.cachedTokens ?? 0
         totalCacheSavings += m.cacheSavings ?? 0
 
@@ -170,17 +184,21 @@ export function aggregateSessionMetrics(history) {
 
         const providerKey = m.provider ?? "unknown"
         if (!byProvider[providerKey]) {
-            byProvider[providerKey] = { generationCount: 0, totalCost: 0, totalTokens: 0 }
+            byProvider[providerKey] = { generationCount: 0, totalCost: 0, totalTokens: 0, audioCostUnknown: false }
         }
         byProvider[providerKey].generationCount++
         byProvider[providerKey].totalCost += m.cost ?? 0
         byProvider[providerKey].totalTokens += m.totalTokens ?? 0
+        if (m.audioCostUnknown === true) byProvider[providerKey].audioCostUnknown = true
     }
 
     return {
         generationCount,
         totalCost,
         totalTokens,
+        // audio tokens are billed at a separate rate; true when any generation had audio with no confirmed rate, so totalCost is partial
+        totalAudioTokens,
+        audioCostUnknown,
         totalCachedTokens,
         totalCacheSavings,
         avgTtftMs: ttftCount > 0 ? Math.round(ttftSum / ttftCount) : null,

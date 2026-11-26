@@ -87,8 +87,8 @@ export function checkType(type: PipelineType, value: unknown): string | null {
         case "json":
             if (value === undefined || typeof value === "function" || typeof value === "symbol") return `expected json, got ${describe(value)}`
             try {
-                JSON.stringify(value)
-                return null
+                // JSON.stringify does not throw for everything it cannot represent: a toJSON() that returns undefined gives undefined.
+                return JSON.stringify(value) === undefined ? "expected json, got a value that serialises to nothing" : null
             } catch (_) {
                 return "expected json, got a value that cannot be serialised"
             }
@@ -115,10 +115,11 @@ export function preview(type: PipelineType, value: unknown): string {
     }
     const v: any = value
     const kind = type === "image" ? "image" : "audio"
-    if (typeof v === "string") return `${kind} (${v.startsWith("data:") ? `data URL, ${v.length} chars` : clip(v, 80)})`
+    // Metadata only. A non-data string may be a signed URL, a local path or a token in a query string, and previews go to every event consumer.
+    if (typeof v === "string") return `${kind} (${v.startsWith("data:") ? "data URL" : "reference"}, ${v.length} chars)`
     if (v instanceof ArrayBuffer || ArrayBuffer.isView(v)) return `${kind} (${v.byteLength} bytes)`
     if (typeof Blob !== "undefined" && v instanceof Blob) return `${kind} (${v.size} bytes${v.type ? `, ${v.type}` : ""})`
-    if (isPlainObject(v)) return `${kind} (${v.mimeType ?? "object"})`
+    if (isPlainObject(v)) return `${kind} (${typeof v.mimeType === "string" ? v.mimeType : "object"})`
     return kind
 }
 
@@ -148,6 +149,8 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     if (!signal) return promise
     return new Promise<T>((resolve, reject) => {
         const onAbort = () => reject(new Error("cancelled"))
+        // When we stop waiting for the stage, its own failure still has to be marked as seen, or it would surface as an unhandled rejection.
+        promise.catch(() => {})
         if (signal.aborted) return onAbort()
         signal.addEventListener("abort", onAbort, { once: true })
         promise.then(
@@ -163,9 +166,25 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
     })
 }
 
-export async function runPipeline(stages: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
-    validatePipeline(stages)
+/**
+ * Runs the stages in order, passing each output to the next stage, and resolves with a `PipelineResult`.
+ *
+ * Throws (rejects) only for a malformed pipeline: the stage chain does not line up, so `validatePipeline` names both stages.
+ * Everything that can happen while it runs comes back as a terminal `status` instead: "done", "error", "cancelled",
+ * "max-spend", "needs-consent" or "denied", with the events in `steps`.
+ *
+ * Cancellation is cooperative. `options.signal` is raced against the running stage, so the result settles as "cancelled"
+ * and no later stage starts, but a stage that has already started keeps running unless it observes `ctx.signal`.
+ */
+export async function runPipeline(stagesInput: Stage[], input: unknown, options: RunPipelineOptions = {}): Promise<PipelineResult> {
+    // A copy, checked and then used: if the caller replaces an entry of its array while an earlier stage is awaiting a model, the run still
+    // follows the chain that was validated.
+    const stages = validatePipeline([...stagesInput])
     const { signal, onStep, maxCostUsd, cloudPolicy } = options
+    // A cap that is not a real number would be silently ignored (NaN compares false) or stop the run before it began (negative).
+    if (maxCostUsd !== undefined && !(typeof maxCostUsd === "number" && Number.isFinite(maxCostUsd) && maxCostUsd >= 0)) {
+        throw new RangeError("maxCostUsd must be a finite number of USD, zero or more")
+    }
     const steps: PipelineStep[] = []
     let spentUsd = 0
     const record = (step: PipelineStep) => {
@@ -196,7 +215,8 @@ export async function runPipeline(stages: Stage[], input: unknown, options: RunP
             record({ type: "blocked", index, stage: stage.name, reason: "max-spend" })
             return finish("max-spend", { stage: stage.name })
         }
-        if (stage.input === "audio") audioDerived = true
+        // "audio-out" is audio too: a cloud stage that consumes it sees a voice recording, so it gets the same default as "audio".
+        if (stage.input === "audio" || stage.input === "audio-out") audioDerived = true
 
         if (stage.cloud) {
             const policy: CloudPolicy = cloudPolicy ?? (audioDerived ? "deny" : "allow")
@@ -224,7 +244,15 @@ export async function runPipeline(stages: Stage[], input: unknown, options: RunP
 
         let out: unknown
         try {
-            out = await raceAbort(Promise.resolve().then(() => stage.run(value, ctx)), signal)
+            // The "start" event has already run, and its listener may have cancelled. The stage must not begin then: racing the abort only
+            // stops waiting for it, and a stage that already started (a paid or side-effecting call) would carry on regardless.
+            out = await raceAbort(
+                Promise.resolve().then(() => {
+                    if (signal?.aborted) throw new Error("cancelled")
+                    return stage.run(value, ctx)
+                }),
+                signal
+            )
         } catch (cause) {
             if (cancelled()) {
                 record({ type: "error", index, stage: stage.name, durationMs: Date.now() - started, error: "cancelled" })
@@ -293,7 +321,7 @@ export function jsonStage(options: {
         output: "json",
         cloud: options.cloud,
         run: async (text, ctx) => {
-            const base = `${buildPrompt(schema, options.instructions ?? "Extract the requested information from the text below.")}\n\nText:\n<<<\n${text}\n>>>`
+            const base = `${buildPrompt(schema, options.instructions ?? "Extract the requested information from the text below.", "text")}\n\nText:\n<<<\n${text}\n>>>`
             let prompt = base
             let problems: string[] = []
             for (let attempt = 0; attempt < 2; attempt++) {
@@ -337,9 +365,16 @@ export function imageStage(options: {
         run: async (json, ctx) => {
             const prompt = await options.prompt(json)
             const images = options.images ? await options.images(json) : undefined
-            const result = await options.requestImage({ ...options.requestOptions, prompt, ...(images?.length ? { images } : {}), signal: ctx.signal })
-            const cost = options.cost?.(result)
-            if (cost) ctx.addCost(cost)
+            // Cancelled while the prompt or the pictures were being prepared: nothing may be sent for a run that was stopped.
+            if (ctx.signal?.aborted) throw new Error("The run was cancelled before the image request was sent")
+            // `images` decides whether this is an edit: a list means edit, an empty or missing list means generate. A leftover `images` in
+            // requestOptions must not survive an empty answer, or stale pictures would be uploaded for an edit nobody asked for.
+            const { images: _ignored, ...rest } = (options.requestOptions ?? {}) as Record<string, unknown>
+            const result = await options.requestImage({ ...rest, prompt, ...(images?.length ? { images } : {}), signal: ctx.signal })
+            // The standard image result carries its own cost (requestImage computes it from AI_CONFIG.pricing); use it unless the caller maps one.
+            const cost = options.cost ? options.cost(result) : (result as { cost?: unknown })?.cost
+            if (typeof cost === "number" && !Number.isFinite(cost)) throw new Error("The image request reported a cost that is not a number")
+            if (typeof cost === "number" && cost) ctx.addCost(cost)
             const first = result?.images?.[0]
             if (!first) throw new Error("The image request returned no images")
             return first

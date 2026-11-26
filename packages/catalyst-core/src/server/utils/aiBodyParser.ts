@@ -17,6 +17,23 @@ export function parseAIConfig(raw: string | undefined): Record<string, any> {
     }
 }
 
+const DEFAULT_BASE_PATH = "/ai"
+// A plain mount path: a leading slash, then letters, digits and . _ ~ - (with / between segments), never just "/".
+const VALID_BASE_PATH = /^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/
+
+/**
+ * Where the AI route is mounted. Anything that is not a plain, non-root path (a number, an object, "/", a pattern or a path
+ * with spaces) falls back to "/ai": "/" would put the large-body parser in front of every route in the app, and a malformed
+ * value can make app.use() throw at startup. The body parser and the router both use this one answer.
+ */
+export function resolveAIBasePath(raw: unknown): string {
+    if (typeof raw !== "string") return DEFAULT_BASE_PATH
+    const trimmed = raw.trim().replace(/\/+$/, "")
+    // "." and ".." segments are paths that climb or loop, never a mount point
+    if (trimmed.split("/").some((segment) => segment === "." || segment === "..")) return DEFAULT_BASE_PATH
+    return VALID_BASE_PATH.test(trimmed) ? trimmed : DEFAULT_BASE_PATH
+}
+
 /** { basePath, limit } for the AI body parser, or null when AI is disabled. */
 export function resolveAIBodyConfig(aiConfig: Record<string, any>): { basePath: string; limit: string } | null {
     if (aiConfig?.enabled === false) return null
@@ -25,7 +42,7 @@ export function resolveAIBodyConfig(aiConfig: Record<string, any>): { basePath: 
         typeof requested === "number" && Number.isFinite(requested) && requested > 0 && requested <= MAX_LIMIT_MB
             ? requested
             : DEFAULT_LIMIT_MB
-    return { basePath: aiConfig?.basePath || "/ai", limit: `${megabytes}mb` }
+    return { basePath: resolveAIBasePath(aiConfig?.basePath), limit: `${megabytes}mb` }
 }
 
 export function mountAIBodyParser(app: { use: (...args: any[]) => unknown }, aiConfig: Record<string, any>) {

@@ -8,13 +8,10 @@ const createError = (message: string) => new Error(message)
 const throwProviderError = vi.fn(async (provider: string, response: any) => { throw new Error(`${provider} failed ${response.status}`) })
 const { openai, gemini } = createSpeechAdapters({ throwProviderError, createError })
 
-const okResponse = (body: any, headers: Record<string, string> = {}) => ({
-    ok: true,
-    status: 200,
-    headers: { get: (k: string) => headers[k.toLowerCase()] ?? null },
-    json: async () => body,
-    arrayBuffer: async () => body,
-})
+// A real Response, as fetch returns: bytes for audio bodies, JSON text otherwise. (A double whose json() and arrayBuffer() hand back the
+// same object cannot be read through a bounded reader, and no real response behaves that way.)
+const okResponse = (body: any, headers: Record<string, string> = {}) =>
+    new Response(body instanceof ArrayBuffer || ArrayBuffer.isView(body) ? (body as any) : JSON.stringify(body), { status: 200, headers })
 
 afterEach(() => {
     vi.unstubAllGlobals()

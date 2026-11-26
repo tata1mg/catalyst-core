@@ -170,7 +170,11 @@ describe("POST /:provider/speech", () => {
 
         const refused = vi.fn()
         vi.stubGlobal("fetch", refused)
-        expect((await post("gemini", { text: "hi", format: "mp3" })).statusCode).toBe(500)
+        const mp3 = await post("gemini", { text: "hi", format: "mp3" })
+        expect(mp3.statusCode).toBe(400) // the client asked for something Gemini cannot return: a request error, not an internal one
+        expect(mp3.jsonBody.code).toBe("AI-003")
+        expect(mp3.jsonBody.error).toMatch(/wav/)
+        expect((await post("gemini", { text: "hi", format: "opus" })).statusCode).toBe(400)
         expect(refused).not.toHaveBeenCalled()
 
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ candidates: [{ content: { parts: [{ text: "cannot say that" }] } }] })))

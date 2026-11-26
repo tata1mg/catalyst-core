@@ -91,7 +91,7 @@ describe("POST /:provider/image with input images (edit)", () => {
     })
 
     it("text-only requests are unchanged (no inputImages, generations endpoint)", async () => {
-        const fetchMock = vi.fn().mockResolvedValue(json({ data: [{ b64_json: "A" }] }))
+        const fetchMock = vi.fn().mockResolvedValue(json({ data: [{ b64_json: "AAAA" }] }))
         vi.stubGlobal("fetch", fetchMock)
         const res = await post("openai", { prompt: "a cat" })
         expect(fetchMock.mock.calls[0][0]).toBe("https://api.openai.com/v1/images/generations")

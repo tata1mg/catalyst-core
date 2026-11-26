@@ -6,13 +6,17 @@ import { renderOutput } from "../../utils/ai"
 // Verifies image/audio input through useAI (catalyst-ai content parts) on a real device.
 // Native and web run Gemma 4 on the device. Cloud sends the image/audio to the chosen provider, only on this explicit tab.
 
-// Same rule as catalyst-ai's isNativeAIAvailable(), so the page never asks for "native" when useAI would fall back to
-// cloud. Kept inline: the app reaches catalyst-ai only through catalyst-core/hooks.
+// Must stay in step with `isNativeAIAvailable()` in packages/catalyst-ai/src/nativeTransport.js (the source of truth, also
+// exported from catalyst-ai), so the page never asks for "native" when useAI would fall back to cloud. Kept inline: the
+// app reaches catalyst-ai only through catalyst-core/hooks.
 const nativeAIAvailable = () => {
     const bridge = window.NativeBridge
     if (bridge && typeof bridge.isAIAvailable === "function") return !!bridge.isAIAvailable()
     return !!window.webkit?.messageHandlers?.PluginBridge && Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"])
 }
+
+// Largest file read into a data URL, per kind: the shared limits of catalyst-ai's content parts.
+const MEDIA_LIMIT_BYTES = { image: 8 * 1024 * 1024, audio: 20 * 1024 * 1024 }
 
 const readAsDataUrl = (file) =>
     new Promise((resolve, reject) => {
@@ -196,12 +200,21 @@ export default function Multimodal() {
                     setPickError(`Expected ${slot ?? "an image or audio"} file, got ${file.type || "an unknown type"}`)
                     return
                 }
+                // The same caps useAI enforces later (8 MB image, 20 MB audio), checked BEFORE the file is read: reading it would
+                // build the whole file and its base64 copy in memory just to have the request refused afterwards.
+                const limit = MEDIA_LIMIT_BYTES[kind]
+                if (file.size > limit) {
+                    setPickError(`That ${kind} is ${(file.size / 1024 / 1024).toFixed(1)} MB; the limit is ${limit / 1024 / 1024} MB. Pick a smaller one.`)
+                    return
+                }
                 const data = await readAsDataUrl(file)
                 if (cancelled) return
                 setPickError(null)
                 ;(kind === "image" ? setImage : setAudio)({ name: file.name, data })
             })
-            .catch((err) => setPickError(`Could not read the picked file: ${err.message}`))
+            .catch((err) => {
+                if (!cancelled) setPickError(`Could not read the picked file: ${err.message}`) // an obsolete selection's failure is not the current one's
+            })
         return () => {
             cancelled = true
         }
@@ -214,7 +227,18 @@ export default function Multimodal() {
         picker.execute({ mimeType: `${kind}/*` })
     }
 
+    // Identifies the pipeline run in progress. Stop (and a newer run) changes it, so a run that was stopped cannot go on to the next step.
+    const pipelineRun = useRef(0)
+    // Leaving the page ends a running pipeline: its next step must not start after the component is gone.
+    useEffect(() => () => { pipelineRun.current++ }, [])
+    // Switching tab changes which model `ai` talks to (the pipeline's second step would then go to the new one, possibly the cloud, with the
+    // transcript the first step produced on the device). A change of provider therefore ends any pipeline run in progress.
+    useEffect(() => {
+        pipelineRun.current++
+        setPipe((p) => (p && (p.step === "transcribing" || p.step === "structuring") ? { ...p, step: "stopped" } : p))
+    }, [provider])
     const runPipeline = async () => {
+        const mine = ++pipelineRun.current
         if (!audio) {
             setPickError("This pipeline starts from speech: pick an audio clip first")
             return
@@ -223,20 +247,33 @@ export default function Multimodal() {
         ai.reset?.()
         const t0 = performance.now()
         setPipe({ step: "transcribing", transcript: null, asrMs: null, structMs: null })
-        const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
-        const transcript = heard?.output?.trim()
-        if (!transcript) {
-            setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
-            return
+        try {
+            const heard = await speech.generate({ messages: [{ role: "user", content: [{ type: "audio", data: audio.data }, { type: "text", text: "Transcribe" }] }] })
+            if (pipelineRun.current !== mine) return
+            const transcript = heard?.output?.trim()
+            if (!transcript) {
+                setPipe((p) => ({ ...p, step: "failed", asrMs: Math.round(performance.now() - t0) }))
+                return
+            }
+            const asrMs = Math.round(performance.now() - t0)
+            setPipe({ step: "structuring", transcript, asrMs, structMs: null })
+            const t1 = performance.now()
+            const structured = await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
+            if (pipelineRun.current !== mine) return
+            if (structured?.error) {
+                // generate() resolves with its failure: a failed structuring step is not a finished run.
+                setPipe({ step: "failed", transcript, asrMs, structMs: Math.round(performance.now() - t1), error: String(structured.error?.message ?? structured.error) })
+                return
+            }
+            setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
+        } catch (err) {
+            // generate() normally resolves with its failure, but a model download or a worker that cannot start can still reject: end the run visibly.
+            if (pipelineRun.current === mine) setPipe((p) => ({ ...(p || {}), step: "failed", error: err?.message || String(err) }))
         }
-        const asrMs = Math.round(performance.now() - t0)
-        setPipe({ step: "structuring", transcript, asrMs, structMs: null })
-        const t1 = performance.now()
-        await ai.generate({ messages: [{ role: "user", content: pipelinePrompt(transcript) }] })
-        setPipe({ step: "done", transcript, asrMs, structMs: Math.round(performance.now() - t1) })
     }
 
     const stop = () => {
+        pipelineRun.current++
         speech.cancel?.()
         ai.cancel?.()
         setPipe((p) => (p && (p.step === "transcribing" || p.step === "structuring") ? { ...p, step: "stopped" } : p))
@@ -387,7 +424,8 @@ export default function Multimodal() {
                 <button onClick={run} disabled={busy} className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-[13px] font-semibold disabled:opacity-50">
                     Run
                 </button>
-                {busy && <button onClick={isPipeline ? stop : ai.cancel} className={chip}>Stop</button>}
+                {/* stop() ends whichever request is running (the speech step of a pipeline as well as the model), whatever tab is showing now */}
+                {busy && <button onClick={stop} className={chip}>Stop</button>}
             </div>
 
             <div className="mt-4 font-mono text-[12px]" data-testid="status">
@@ -401,6 +439,11 @@ export default function Multimodal() {
                 <div className="mt-2 font-mono text-[12px]" data-testid="pipeline-status">
                     step 1 · Whisper base: {pipe.step === "transcribing" ? `transcribing${speech.downloadProgress?.percent != null && speech.downloadProgress.percent < 100 ? ` (download ${speech.downloadProgress.percent}%)` : ""}…` : pipe.asrMs != null ? `${(pipe.asrMs / 1000).toFixed(1)} s` : "failed"}
                     {" · "}step 2 · Gemma 4 E2B: {pipe.step === "structuring" ? `structuring${percent != null && percent < 100 ? ` (download ${percent}%)` : ""}…` : pipe.structMs != null ? `${(pipe.structMs / 1000).toFixed(1)} s` : pipe.step === "transcribing" ? "waiting" : pipe.step}
+                </div>
+            )}
+            {pipe?.error && (
+                <div className="mt-2 text-[13px] text-red-400" data-testid="pipeline-error">
+                    {pipe.error}
                 </div>
             )}
             {pipe?.transcript && (

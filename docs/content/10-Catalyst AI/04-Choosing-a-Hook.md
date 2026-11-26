@@ -1,0 +1,134 @@
+---
+title: Choosing a Hook
+slug: choosing-a-hook
+id: choosing-a-hook
+---
+
+# Choosing a Hook
+
+Catalyst's AI hooks let one app use cloud models, models built into the browser, and models that run on the phone, through the same few
+hooks. They live in `catalyst-core/hooks` and are powered by the optional `catalyst-ai` package.
+
+`catalyst-core` works without `catalyst-ai`. You can import every hook, and everything that is not AI keeps working. The moment an AI hook is
+used without the package, it tells you what to install (see [When something is missing](/content/Catalyst%20AI/errors#when-something-is-missing)).
+
+## Set up
+
+See the [Quick Start](/content/Catalyst%20AI/quick-start) for installation and configuration. In short:
+
+1. `npm install catalyst-ai`.
+2. Add an `AI_CONFIG` block to your config. The keys stay on your server; the browser never holds them.
+3. Use a hook:
+
+```javascript
+import { useAI } from "catalyst-core/hooks";
+
+function Ask() {
+  const { generate, output, loading, error } = useAI({ provider: "gemini" }); // the provider set up in the Quick Start
+
+  return (
+    <>
+      <button onClick={() => generate({ messages: [{ role: "user", content: "Say hello" }] })} disabled={loading}>
+        Ask
+      </button>
+      {error && <p>{error.message}</p>}
+      <p>{output}</p>
+    </>
+  );
+}
+```
+
+## Which hook do I use
+
+| Hook | Use it to | Needs | Works on |
+|------|-----------|-------|----------|
+| `useAI` | Generate text, optionally from images and audio. `provider: "auto"` picks the model for you | `catalyst-ai`; a provider key on the server for cloud models | Web, iOS, Android |
+| `useVision` | Read an image into typed data that matches a schema | `catalyst-ai`, a model that accepts images | Web, iOS, Android |
+| `useTranscribe` | Turn a recording, or live speech, into text | `catalyst-ai`; microphone permission for live speech | Web, iOS, Android |
+| `useAgent` | Let a model call your functions (tools) in a loop, within limits you set | `catalyst-ai` | Web, iOS, Android |
+| `usePipeline` | Chain steps (speech, text, JSON, picture) and stop when a step would send data off the device | Whatever the steps use | Web, iOS, Android |
+| `useImageGen`, `requestImage` | Make pictures | `catalyst-ai`; a provider key, or `web-txt2img` for pictures on the device | Web, iOS, Android (on-device pictures: desktop browsers with WebGPU) |
+| `useSpeech`, `requestSpeech` | Turn text into speech | `catalyst-ai`; a provider key | Web, iOS, Android |
+| `useLiveTranscribe` | Stream the microphone to a live model and show words as they arrive | `catalyst-ai`; a provider with a live model | Web, iOS, Android |
+| `useMicrophone` | Record from the microphone (permission, level, silence stop) | Microphone permission | Web, iOS, Android |
+| `useSpeechRecognition` | Use the phone's own speech recogniser | The native app (iOS or Android) | iOS, Android |
+
+Only the rows that mention `catalyst-ai` need it. `useMicrophone`, `useSpeechRecognition` and `usePipeline` itself do not load it.
+
+## Where the model runs
+
+`provider` decides, or `auto` chooses using your policy (`AI_CONFIG.routing`):
+
+| `provider` | Runs | Needs |
+|------------|------|-------|
+| `"openai"`, `"gemini"`, `"anthropic"` | The cloud, through your server | Key in `AI_CONFIG.providers` |
+| `"transformers"` | In the browser (Transformers.js, WebGPU) | A browser with WebGPU; the model downloads once |
+| `"prompt-api"` | In the browser (Chrome's built-in model) | Desktop Chrome with the model available |
+| `"native"` | On the phone (the engine is picked for you) | The app, with `WEBVIEW_CONFIG.ai.enabled` |
+| `"litert"` | On the phone, Gemma 4 or Qwen3 (downloaded) | The app; about 2.6 GB free for Gemma, 0.7 GB for Qwen3 (text only) |
+| `"foundation-models"` | On an iPhone, Apple's model | iOS 26 or later with Apple Intelligence; text only |
+| `"auto"` | Whatever fits your policy: on-device first, then cost and speed | `AI_CONFIG.routing` |
+
+With the policy used in the example config, `auto` never sends images or audio to the cloud (`cloudMedia: "deny"`) and asks before text leaves
+the device (`cloud: "ask"`). Hooks that have a `status` (`useVision`, `useTranscribe`, `useAgent`) report `"needs-consent"` while they wait for the person to agree.
+
+## Pictures, speech and live transcription
+
+These hooks call your server's `/ai` route (or, for pictures, the device), so they need `catalyst-ai` and a provider key unless noted, plus an
+`imageModel` or `speechModel` set for that provider in `AI_CONFIG.providers`. Their `error` is a plain string, not the registry error object that
+`useAI`, `useVision`, `useTranscribe` and `useAgent` give.
+
+```javascript
+import { useImageGen, useSpeech } from "catalyst-core/hooks";
+
+function Poster() {
+  const { generate, images, loading, error } = useImageGen({ provider: "openai", size: "1024x1024" });
+  return (
+    <>
+      <button disabled={loading} onClick={() => generate("A red boat on a calm lake")}>Draw</button>
+      {error && <p role="alert">{error}</p>}
+      {images.map((img) => <img key={img.url.slice(-16)} src={img.url} alt="" />)}
+    </>
+  );
+}
+
+function Reader({ text }) {
+  const { speak, loading, error } = useSpeech({ provider: "openai", voice: "alloy" });
+  // speak() makes the audio; playing it is up to you: audio.url is a data: URL that new Audio(url) can play.
+  const read = async () => {
+    const result = await speak(text);
+    if (result.audio) new Audio(result.audio.url).play();
+  };
+  return <button disabled={loading} onClick={read}>Read aloud</button>;
+}
+```
+
+- `useImageGen({ provider, model, size, n })`: `generate(prompt, overrides)` resolves `{ images, usage }`; each image has `mimeType`, `data` (base64)
+  and `url` (a `data:` URL for `<img src>`). Up to 4 images per call. Pass `images` in the overrides to edit existing pictures instead.
+- `useSpeech({ provider, model, voice, format })`: `speak(text)` resolves `{ audio, usage }`; `audio.url` plays with `new Audio(url)`.
+- `requestImage(args)` and `requestSpeech(args)` are the same calls without React, for pipelines and event handlers.
+- `useLiveTranscribe()` streams the microphone to a live model and gives you `listening`, `partial`, `text`, `level`, `seconds`, `start()` and
+  `stop()`. It uses Gemini Live: set `liveModel` in the `gemini` entry of `AI_CONFIG.providers`. Without one the route answers 400 ("no model specified and provider has no liveModel configured").
+
+### Pictures on the device (desktop browsers)
+
+Set `provider: "device"` to make the picture in the browser with SD-Turbo on WebGPU: free, nothing leaves the machine. The engine is not
+installed with `catalyst-ai`; your app owns it and registers it once:
+
+```bash
+npm install web-txt2img onnxruntime-web @xenova/transformers
+```
+
+```javascript
+import { registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks";
+
+registerDeviceImageEngine(() => import("web-txt2img"), { wasmPaths: "/ort/" });
+
+const { available, reason } = await deviceImageSupport(); // false, with the reason, when WebGPU or the package is missing
+```
+
+If the package is missing when a picture is requested, the error says: "On-device image generation needs the web-txt2img package. Install it
+with: npm i web-txt2img @xenova/transformers onnxruntime-web". `wasmPaths` is the folder (or CDN prefix, ending in `/`) that serves
+onnxruntime-web's `.wasm` files. Pictures are 512x512.
+
+Options and return values for every hook are in the [Hooks reference](/content/API%20Reference/hooks). What happens when something is missing is on the next page, [Errors](/content/Catalyst%20AI/errors).

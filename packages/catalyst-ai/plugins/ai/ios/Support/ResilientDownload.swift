@@ -55,9 +55,11 @@ final class ResilientDownload {
         while true {
             try Task.checkCancellation()
 
+            // Taken before the attempt: a resume that lands while it runs or fails still ends the backoff nap below at once.
+            let resumeMark = gate.ticket()
             if let reason = gate.pausedReason {
                 emit(.paused(reason, retryInSec: nil))
-                let resumed = await gate.nap(seconds: policy.heldRetrySec)
+                let resumed = await gate.nap(seconds: policy.heldRetrySec, onlyWhilePaused: true)
                 try Task.checkCancellation()
                 if !resumed {
                     // The page never said the network came back (it may have been suspended): try anyway.
@@ -69,7 +71,11 @@ final class ResilientDownload {
 
             var reason: PauseReason = .error
             do {
-                return try await attempt()
+                let size = try await attempt()
+                // Cancelled after the last byte was written but before the attempt returned: the caller would otherwise install the model
+                // and record it as downloaded for a download that was abandoned.
+                try Task.checkCancellation()
+                return size
             } catch let interrupted as DownloadInterrupted {
                 switch interrupted.kind {
                 case .paused:
@@ -86,7 +92,14 @@ final class ResilientDownload {
             }
 
             let size = partialSize()
-            if size > lastSize { idle = 0 } else { idle += 1 }
+            if size > lastSize {
+                idle = 0
+                // A slow link that is still moving bytes is not a stuck one: restart the weak-link backoff, or it would climb to its
+                // maximum and sleep that long after every window even though the file keeps growing.
+                if reason == .weak { weakStreak = 1 }
+            } else {
+                idle += 1
+            }
             lastSize = size
             if idle > policy.maxIdleRetries {
                 throw ModelDownloadError(
@@ -97,7 +110,7 @@ final class ResilientDownload {
 
             let delay = policy.backoff(attempt: reason == .weak ? weakStreak : max(idle, 1))
             emit(.paused(reason, retryInSec: Int(delay.rounded(.up))))
-            await gate.nap(seconds: delay) // the page's resumeDownload ends this early
+            await gate.nap(seconds: delay, since: resumeMark) // the page's resumeDownload ends this early, even one that arrived a moment ago
             try Task.checkCancellation()
             emit(.resuming)
         }

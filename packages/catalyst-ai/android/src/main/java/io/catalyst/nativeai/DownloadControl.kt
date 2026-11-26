@@ -33,7 +33,7 @@ internal class DownloadPolicy(
     /** First wait before retrying after a weak link or an error; doubles each time without progress, capped. */
     var resumeDelaySec: Double = 10.0,
     var maxDelaySec: Double = 120.0,
-    /** Attempts in a row that moved no bytes before the download gives up (the partial stays on disk). */
+    /** Retries, after the first attempt, that may move no bytes in a row before the download gives up (the partial stays on disk): 8 means 9 attempts in all. */
     var maxIdleRetries: Int = 8,
     /** While the page says "offline", try again on this interval anyway, in case it never hears the network return. */
     var heldRetrySec: Double = 30.0,
@@ -88,11 +88,33 @@ internal class DownloadGate {
         }
     }
 
-    /** Returns true when woken by [resume], false when [seconds] passed first. */
-    fun nap(seconds: Double): Boolean {
+    /** A mark in time. Passed to [nap] as `since`, a resume that happened after the mark ends the wait at once instead of being missed. */
+    fun ticket(): Long = synchronized(lock) { resumeTicket }
+
+    /** Waits only while the page still has the download paused: returns true at once if the pause was lifted since the caller looked. */
+    fun napWhilePaused(seconds: Double): Boolean {
         val deadline = System.nanoTime() + (max(seconds, 0.0) * 1e9).toLong()
         synchronized(lock) {
+            if (pausedReason == null) return true
             val ticket = resumeTicket
+            while (resumeTicket == ticket) {
+                val leftMs = (deadline - System.nanoTime()) / 1_000_000
+                if (leftMs <= 0) return false
+                lock.wait(leftMs)
+            }
+            return true
+        }
+    }
+
+    /**
+     * Returns true when woken by [resume], false when [seconds] passed first. With [since] (from [ticket]) a resume that already
+     * happened after that mark counts: the caller looked at the state, then resume() ran, then nap() started, and without the mark that
+     * resume would be missed and the full wait served.
+     */
+    fun nap(seconds: Double, since: Long? = null): Boolean {
+        val deadline = System.nanoTime() + (max(seconds, 0.0) * 1e9).toLong()
+        synchronized(lock) {
+            val ticket = since ?: resumeTicket
             while (resumeTicket == ticket) {
                 val leftMs = (deadline - System.nanoTime()) / 1_000_000
                 if (leftMs <= 0) return false
@@ -176,10 +198,12 @@ internal class ResilientDownload(
 
         while (true) {
             if (Thread.currentThread().isInterrupted) throw InterruptedException()
+            // Taken before the attempt: a resume that lands while it runs or fails still ends the backoff nap below at once.
+            val resumeMark = gate.ticket()
 
             gate.pausedReason?.let { reason ->
                 emit(DownloadStatus.Paused(reason, null))
-                val resumed = gate.nap(policy.heldRetrySec)
+                val resumed = gate.napWhilePaused(policy.heldRetrySec)
                 if (!resumed) {
                     // The page never said the network came back (it may have been suspended): try anyway.
                     log("Still paused by the page after ${policy.heldRetrySec.toInt()}s; trying again")
@@ -207,7 +231,14 @@ internal class ResilientDownload(
             }
 
             val size = partialSize()
-            if (size > lastSize) idle = 0 else idle++
+            if (size > lastSize) {
+                idle = 0
+                // A slow link that is still moving bytes is not a stuck one: restart the weak-link backoff, or it would climb to its
+                // maximum and sleep that long after every window even though the file keeps growing.
+                if (reason == PauseReason.WEAK) weakStreak = 1
+            } else {
+                idle++
+            }
             lastSize = size
             if (idle > policy.maxIdleRetries) {
                 throw DownloadException(
@@ -218,7 +249,7 @@ internal class ResilientDownload(
 
             val delay = policy.backoff(if (reason == PauseReason.WEAK) weakStreak else max(idle, 1))
             emit(DownloadStatus.Paused(reason, Math.ceil(delay).toInt()))
-            gate.nap(delay) // the page's resume command ends this early
+            gate.nap(delay, since = resumeMark) // the page's resume command ends this early, even one that arrived a moment ago
             emit(DownloadStatus.Resuming)
         }
     }

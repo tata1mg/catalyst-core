@@ -2,7 +2,8 @@
 // Normalises audio for on-device models: any format the platform can decode -> 16 kHz mono 16-bit WAV, capped in
 // length. Done in JS so Android and iOS get identical input regardless of what the file picker or recorder produced
 // (m4a, 3gp, 44.1 kHz stereo, ...). If the browser cannot decode a file, the original is sent unchanged and the
-// native engine decides; the failure is reported through `onError`, never swallowed.
+// native engine decides. The failure is reported through `onError` when the caller passes one; `onError` is optional, and
+// without it the fallback is silent, so a caller that needs to know must supply it.
 
 export const TARGET_RATE = 16000
 // Gemma-family audio encoders take short clips; longer input is truncated rather than rejected.
@@ -41,8 +42,11 @@ export function encodeWav(samples, sampleRate = TARGET_RATE) {
 /** Average channels to mono, linear-resample to 16 kHz, cap at maxSeconds. */
 export function toMono16k(channels, inputRate, { maxSeconds = MAX_AUDIO_SECONDS } = {}) {
     const length = channels[0].length
-    const mono = new Float32Array(length)
-    for (const channel of channels) for (let i = 0; i < length; i++) mono[i] += channel[i] / channels.length
+    // Only the first maxSeconds can reach the output, so only that much is mixed down: a long recording no longer costs a second
+    // full-length buffer and a full pass over every sample just to throw the tail away. (+2 frames: the resampler reads one ahead.)
+    const needed = Math.min(length, Math.ceil(inputRate * maxSeconds) + 2)
+    const mono = new Float32Array(needed)
+    for (const channel of channels) for (let i = 0; i < needed; i++) mono[i] += channel[i] / channels.length
 
     const outLength = Math.min(Math.floor((length * TARGET_RATE) / inputRate), TARGET_RATE * maxSeconds)
     const out = new Float32Array(outLength)
@@ -50,7 +54,7 @@ export function toMono16k(channels, inputRate, { maxSeconds = MAX_AUDIO_SECONDS 
     for (let i = 0; i < outLength; i++) {
         const position = i * ratio
         const index = Math.floor(position)
-        const next = Math.min(index + 1, length - 1)
+        const next = Math.min(index + 1, needed - 1)
         const fraction = position - index
         out[i] = mono[index] * (1 - fraction) + mono[next] * fraction
     }
@@ -116,6 +120,26 @@ export async function prepareAudioParts(messages, { decode = browserDecode, onEr
  * "data:audio/webm;codecs=opus;base64,..." -> "data:audio/webm;base64,...". Recorders label clips with codec parameters;
  * the server's media check wants the bare type. Anything that is not a base64 audio data URL is returned unchanged.
  */
+/**
+ * Whether a data URL is already what the in-browser worker takes: a 16 kHz, mono, 16-bit PCM WAV. Reads only the 44-byte header.
+ * Such a clip needs no conversion, so a decoder that is missing or fails is not a reason to refuse it.
+ */
+export function isWorkerReadyWav(dataUrl) {
+    if (typeof dataUrl !== "string") return false
+    const comma = dataUrl.indexOf(",")
+    if (comma === -1 || !/^data:audio\/(?:wav|x-wav|wave)/i.test(dataUrl)) return false
+    let head
+    try {
+        head = globalThis.atob(dataUrl.slice(comma + 1, comma + 1 + 64).replace(/=+$/, ""))
+    } catch {
+        return false
+    }
+    if (head.length < 36 || head.slice(0, 4) !== "RIFF" || head.slice(8, 12) !== "WAVE") return false
+    const u16 = (at) => head.charCodeAt(at) | (head.charCodeAt(at + 1) << 8)
+    const u32 = (at) => (u16(at) | (u16(at + 2) << 16)) >>> 0
+    return u16(20) === 1 && u16(22) === 1 && u32(24) === TARGET_RATE && u16(34) === 16
+}
+
 export function normalizeAudioMime(dataUrl) {
     if (typeof dataUrl !== "string") return dataUrl
     const match = /^data:(audio\/[^;,]+)(?:;[^;,]+)*;base64,/i.exec(dataUrl)
@@ -146,6 +170,10 @@ const rmsOf = (samples, from, to) => {
  * -> [{ samples, startSec, endSec, silent }]
  */
 export function splitAudio(samples, { chunkSeconds = CHUNK_SECONDS, searchSeconds = 4 } = {}) {
+    // A size that cannot hold even one sample makes no progress: the loop below would never end (0), or walk backwards (negative).
+    if (typeof chunkSeconds !== "number" || !Number.isFinite(chunkSeconds) || Math.floor(chunkSeconds * TARGET_RATE) < 1) {
+        throw new RangeError("chunkSeconds must be a finite positive number of seconds")
+    }
     const limit = Math.floor(chunkSeconds * TARGET_RATE)
     const search = Math.min(Math.floor(searchSeconds * TARGET_RATE), Math.floor(limit / 2))
     const chunks = []

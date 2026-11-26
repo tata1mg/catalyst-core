@@ -98,6 +98,50 @@ final class BridgeMessageValidatorTests: XCTestCase {
         XCTAssertNil(result.error)
     }
 
+    func testValidateMessage_RequestMicrophonePermission_ValidMessage() {
+        // The page sends no parameters, as for requestCameraPermission; an empty object and a null payload must both pass
+
+        let emptyPayload = createMockMessage(body: ["command": "requestMicrophonePermission", "data": [:] as [String: Any]])
+        let result = BridgeMessageValidator.validate(message: emptyPayload)
+
+        XCTAssertTrue(result.isValid, "Valid requestMicrophonePermission message should pass validation")
+        XCTAssertEqual(result.command, "requestMicrophonePermission")
+        XCTAssertNil(result.error)
+
+        let nullPayload = createMockMessage(body: ["command": "requestMicrophonePermission", "data": NSNull()])
+        XCTAssertTrue(BridgeMessageValidator.validate(message: nullPayload).isValid, "A null payload should pass validation")
+    }
+
+    func testValidateMessage_RequestMicrophonePermission_RejectsEveryOtherPayloadType() {
+        // A command that takes nothing must not wave an array, a number, a boolean or a string through with a warning
+
+        let payloads: [Any] = [[1, 2] as [Any], 7, true, "x"]
+        for data in payloads {
+            let result = BridgeMessageValidator.validate(message: createMockMessage(body: ["command": "requestMicrophonePermission", "data": data]))
+            XCTAssertFalse(result.isValid, "\(data) should be rejected")
+            XCTAssertEqual(result.error?.code, "INVALID_PARAMS")
+        }
+    }
+
+    func testValidateMessage_SpeechRecognitionCommands_ValidMessages() {
+        // The page sends the options as a JSON string (like the Android bridge); an object and no payload are fine too
+
+        let payloads: [(String, Any)] = [
+            ("getSpeechRecognitionSupport", #"{"language":"en-US"}"#),
+            ("startSpeechRecognition", #"{"language":"en-US"}"#),
+            ("startSpeechRecognition", ["language": "en-IN"] as [String: Any]),
+            ("startSpeechRecognition", NSNull()),
+            ("stopSpeechRecognition", NSNull()),
+            ("stopSpeechRecognition", [:] as [String: Any])
+        ]
+        for (command, data) in payloads {
+            let message = createMockMessage(body: ["command": command, "data": data])
+            let result = BridgeMessageValidator.validate(message: message)
+            XCTAssertTrue(result.isValid, "\(command) with \(data) should pass validation: \(String(describing: result.error))")
+            XCTAssertEqual(result.command, command)
+        }
+    }
+
     func testValidateMessage_OpenFileWithIntent_ValidMessage() {
         // Valid openFileWithIntent command
 

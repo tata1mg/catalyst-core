@@ -312,6 +312,19 @@ final class ModelDownloaderTests: XCTestCase {
         }
     }
 
+    func testRateLimitedAndTimedOutAnswersKeepThePartialAndAreRetryable() async throws {
+        try Data(repeating: 1, count: 100).write(to: partial)
+        try "\"v1\"".write(to: etagFile, atomically: true, encoding: .utf8)
+        for status in [429, 408] {
+            FakeServer.config.forceStatus = status
+            do { _ = try await makeDownloader().download(from: url); XCTFail() } catch let error as ModelDownloadError {
+                XCTAssertFalse(error.discardPartial, "HTTP \(status) is a reason to wait, not to drop the partial")
+                XCTAssertTrue(error.transient, "HTTP \(status) is retryable")
+            }
+            XCTAssertEqual(onDisk().count, 100)
+        }
+    }
+
     func testBodyShorterThanAnnounced_IsRejectedAndTheBytesKept() async throws {
         FakeServer.config.declaredLength = 5000
         FakeServer.config.body = FakeServer.config.body.prefix(3000)
@@ -430,5 +443,30 @@ final class ModelDownloaderTests: XCTestCase {
         let size = try await resilient.run { try await downloader.download(from: self.url) }
         XCTAssertEqual(size, 5000)
         XCTAssertEqual(FakeServer.requests.count, 1)
+    }
+
+}
+
+final class DownloadSizeCheckTests: XCTestCase {
+    func testACompleteDownloadHasNoProblem() {
+        XCTAssertNil(DownloadSizeCheck.problem(size: 1000, announcedTotal: 1000, expectedSize: 5000))
+    }
+
+    func testWithoutAnAnnouncedTotalTheRegistrySizeStandsIn() {
+        XCTAssertNil(DownloadSizeCheck.problem(size: 5000, announcedTotal: -1, expectedSize: 5000))
+        let short = DownloadSizeCheck.problem(size: 3000, announcedTotal: -1, expectedSize: 5000)
+        XCTAssertNotNil(short)
+        XCTAssertEqual(short?.transient, true)
+        XCTAssertEqual(short?.discardPartial, false)
+    }
+
+    func testALongFileIsDiscarded() {
+        let long = DownloadSizeCheck.problem(size: 6000, announcedTotal: 5000, expectedSize: 0)
+        XCTAssertEqual(long?.discardPartial, true)
+        XCTAssertEqual(long?.transient, false)
+    }
+
+    func testAFileThatCannotBeCheckedIsNotAccepted() {
+        XCTAssertEqual(DownloadSizeCheck.problem(size: 4321, announcedTotal: -1, expectedSize: 0)?.discardPartial, true)
     }
 }

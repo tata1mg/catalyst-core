@@ -4,8 +4,10 @@ import { useVoiceRecorder, MAX_SECONDS } from "./useVoiceRecorder"
 import { useAI, useTranscribe, usePipeline, transcribeStage, jsonStage, imageStage, requestImage, useLiveTranscribe, registerDeviceImageEngine, deviceImageSupport } from "catalyst-core/hooks"
 
 // #611 demo: audio (or typed text) -> transcript -> JSON scene spec -> generated image, as one typed pipeline.
-// Every model stage here is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
-// a voice recording's words must not reach a provider silently. requestImage comes from catalyst-core/hooks.
+// In the cloud mode every model stage is a cloud call, so nothing runs until the user agrees ("needs-consent" -> Allow button):
+// a voice recording's words must not reach a provider silently. In the on-device mode the text and speech stages run on the
+// phone's own model and recogniser, so no consent step applies to them (a stage that is marked `cloud` still asks).
+// requestImage comes from catalyst-core/hooks.
 
 const SCENE_SCHEMA = {
     type: "object",
@@ -41,6 +43,9 @@ const nativeAIAvailable = () => {
     return typeof window !== "undefined" && !!window.webkit?.messageHandlers?.PluginBridge && Array.isArray(window.CatalystPlugins?.["io.catalyst.ai"])
 }
 
+// The same limit catalyst-ai applies to an audio clip before it prepares it.
+const MAX_AUDIO_FILE_BYTES = 20 * 1024 * 1024
+
 export default function PipelineLab() {
     const [engine, setEngine] = useState("cloud") // "cloud" | "device"
     const [skipImage, setSkipImage] = useState(false) // device only: stop after the JSON scene so nothing leaves the device
@@ -51,6 +56,7 @@ export default function PipelineLab() {
     const [typed, setTyped] = useState("A calm morning by a lake, painted softly, with a small red boat.")
     const [audio, setAudio] = useState(null)
     const [pickError, setPickError] = useState(null)
+    const pickSeq = useRef(0)
 
     // Stateless cloud hook used by the transcribe and JSON stages. Held in a ref so the stage array stays stable.
     const ai = useAI({ provider: textProvider, sessionMode: "stateless" })
@@ -65,10 +71,28 @@ export default function PipelineLab() {
         deviceImageSupport().then(setDeviceImage, (e) => setDeviceImage({ available: false, reason: String(e?.message || e) }))
     }, [])
 
+    // The app's on-device model (a LiteRT-LM registry key). Gemma needs about 2.6 GB of storage and several GB of RAM; Qwen3 0.6B
+    // is a quarter of that, for small emulators and low-end phones. It writes the scene JSON; it cannot hear audio.
+    const NATIVE_MODELS = [
+        ["gemma-4-E2B", "Gemma 4 E2B (2.6 GB, text and audio)"],
+        ["qwen3-0.6B", "Qwen3 0.6B (0.6 GB, text only: small emulators)"],
+    ]
+    const [nativeModel, setNativeModel] = useState(() => {
+        try { return localStorage.getItem("lab.nativeModel") || "gemma-4-E2B" } catch { return "gemma-4-E2B" }
+    })
+    // Qwen3 0.6B cannot hear audio, so a recording must not be offered to it (live speech is fine: the phone's own
+    // recogniser turns it into text first).
+    // Only the on-device engine uses it; the cloud engine hears audio whatever model is picked here.
+    const nativeTextOnly = nativeAvailable && engine === "device" && nativeModel === "qwen3-0.6B"
+    const chooseNativeModel = (key) => {
+        setNativeModel(key)
+        try { localStorage.setItem("lab.nativeModel", key) } catch { /* the choice just is not remembered */ }
+    }
+
     // On-device hooks. Instantiating them loads nothing; a model only downloads when a device run first calls generate().
     const device = useAI({
         provider: nativeAvailable ? "native" : "transformers",
-        ...(!nativeAvailable && { model: GEMMA_WEB }),
+        ...(nativeAvailable ? { model: nativeModel } : { model: GEMMA_WEB }),
         sessionMode: "stateless",
         genConfig: { stream: true },
     })
@@ -80,7 +104,23 @@ export default function PipelineLab() {
     const asrRef = useRef(asr)
     asrRef.current = asr
 
-    const ask = async (content) => {
+    // Stop (the stage's signal) also stops the request in flight: the hook's own cancel() ends the generation instead of letting it finish unseen.
+    const cancelOnAbort = (hookRef, signal) => {
+        if (!signal) return () => {}
+        const stop = () => hookRef.current?.cancel?.()
+        if (signal.aborted) stop()
+        else signal.addEventListener("abort", stop, { once: true })
+        return () => signal.removeEventListener("abort", stop)
+    }
+    const ask = async (content, signal) => {
+        const detach = cancelOnAbort(aiRef, signal)
+        try {
+            return await askInner(content)
+        } finally {
+            detach()
+        }
+    }
+    const askInner = async (content) => {
         const result = await aiRef.current.generate({ messages: [{ role: "user", content }] })
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
@@ -88,18 +128,41 @@ export default function PipelineLab() {
 
     // Lifecycle: downloads stay cached, but a model only stays in GPU/RAM while its stage runs. Gemma (~3.4 GB), Whisper and
     // SD-Turbo (~2.3 GB) together ran the tab out of memory, so each is released as soon as its stage is done.
-    const askDevice = async (content) => {
-        const result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
-        deviceRef.current.unload?.()
+    const askDevice = async (content, signal) => {
+        const detach = cancelOnAbort(deviceRef, signal)
+        try {
+            return await askDeviceInner(content)
+        } finally {
+            detach()
+        }
+    }
+    const deviceRunSeq = useRef(0)
+    const askDeviceInner = async (content) => {
+        const mine = ++deviceRunSeq.current
+        let result
+        try {
+            result = await deviceRef.current.generate({ messages: [{ role: "user", content }] })
+        } finally {
+            // Also when generate() rejects: the model must not stay in GPU memory for the next stage (or a retry) to trip over.
+            // Not when a newer device call has started since (a cancelled stage that is retried right away): its model is the one
+            // loaded now, and unloading it here would pull it out from under that run.
+            if (mine === deviceRunSeq.current) await deviceRef.current.unload?.() // the image stage must not start until the model has really left GPU memory
+        }
         if (result?.error) throw result.error instanceof Error ? result.error : new Error(String(result.error))
         return (result?.output ?? "").trim()
     }
     // Speech to text on the device: Whisper in the browser, the platform model in the native app.
-    const hearOnDevice = async (data) => {
-        if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }])
-        const heard = await asrRef.current.transcribe(data)
+    const hearOnDevice = async (data, signal) => {
+        if (nativeAvailable) return askDevice([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }], signal)
+        const detach = cancelOnAbort(asrRef, signal) // Stop ends the browser transcription too, not only the stage's wait for it
+        let heard
+        try {
+            heard = await asrRef.current.transcribe(data)
+        } finally {
+            detach()
+        }
         if (!heard) throw asrRef.current.lastError() ?? new Error("The recording could not be transcribed")
-        if (heard.truncated) console.warn(`[pipeline-lab] recording is ${heard.durationSec}s; only the first ${heard.durationSec}s were transcribed`)
+        if (heard.truncated) console.warn(`[pipeline-lab] recording exceeded the ${heard.durationSec}s transcription limit; only the first ${heard.durationSec}s were transcribed`)
         return heard.text
     }
 
@@ -108,7 +171,7 @@ export default function PipelineLab() {
             schema: SCENE_SCHEMA,
             cloud: true,
             instructions: "Turn the text into a scene to illustrate.",
-            generate: async (prompt) => ask(prompt),
+            generate: async (prompt, ctx) => ask(prompt, ctx?.signal),
         })
         const draw = imageStage({
             requestImage: async (args) => {
@@ -125,12 +188,12 @@ export default function PipelineLab() {
         // stage, so no consent is needed. runPipeline reads `cloud` at run time, hence a getter.
         Object.defineProperty(draw, "cloud", { enumerable: true, get: () => providerRef.current !== "device" })
         const hear = transcribeStage(
-            (data) => ask([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }]),
+            (data, ctx) => ask([{ type: "audio", data }, { type: "text", text: "Transcribe this audio exactly. Reply with the transcript only." }], ctx?.signal),
             { cloud: true }
         )
         // Same chain on the device: speech and text stay local (cloud: false); only the picture stage can leave it.
-        const toJsonDevice = jsonStage({ schema: SCENE_SCHEMA, cloud: false, instructions: "Turn the text into a scene to illustrate.", generate: async (prompt) => askDevice(prompt) })
-        const hearDevice = transcribeStage((data) => hearOnDevice(data), { cloud: false })
+        const toJsonDevice = jsonStage({ schema: SCENE_SCHEMA, cloud: false, instructions: "Turn the text into a scene to illustrate.", generate: async (prompt, ctx) => askDevice(prompt, ctx?.signal) })
+        const hearDevice = transcribeStage((data, ctx) => hearOnDevice(data, ctx?.signal), { cloud: false })
         return { fromText: [toJson, draw], fromAudio: [hear, toJson, draw], deviceFromText: [toJsonDevice, draw], deviceFromAudio: [hearDevice, toJsonDevice, draw] }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -155,6 +218,47 @@ export default function PipelineLab() {
             activeText.run(finalText, { cloudPolicy: "allow" }) // the checkbox is the consent for this run
         },
     })
+    // On the device, voice goes through useTranscribe().listen(): the router picks the engine. Inside the app that is the phone's
+    // own recogniser (on-device, partial text as you talk, no model to load); if it cannot run, a recording goes to the
+    // on-device model instead. The cloud is denied outright, so a voice never leaves the phone from here.
+    const voice = useTranscribe({ routing: { cloud: "deny", cloudMedia: "deny" } })
+    // Moves on with every cancel: a listen() still pending when the user switched engine or mode may resolve afterwards, and must not start a pipeline.
+    const voiceRunSeq = useRef(0)
+    const cancelVoice = () => { voiceRunSeq.current++; voice.cancel() }
+    const listenAndRun = async () => {
+        const run = ++voiceRunSeq.current
+        const heardIt = await voice.listen()
+        if (!heardIt || run !== voiceRunSeq.current) return
+        setLiveText(heardIt.text)
+        setPickError(null)
+        activeText.run(heardIt.text, deviceOverrides)
+    }
+    const voiceLiveSrc = {
+              listening: voice.listening,
+              state: voice.status === "running" ? "starting" : voice.listening ? "listening" : "idle",
+              text: voice.text,
+              partial: voice.partial,
+              error:
+                  voice.error?.message ??
+                  (voice.status === "denied" || voice.status === "needs-consent"
+                      ? "Nothing on this phone can take your voice here, and the cloud is turned off for it."
+                      : null),
+              start: listenAndRun,
+              stop: voice.stopListening,
+    }
+    // Keep the voice controls for as long as the voice hook owns the microphone. If the phone's recogniser becomes
+    // unavailable mid-session and useTranscribe falls back to its recorder, platformSpeech flips to false, but the
+    // session (its text, state and stop) still belongs to `voice`, so the controls must not switch to the cloud hook.
+    const voiceOwnsSession = voice.status === "running" || voice.listening
+    // On the device the live source is always the router-backed one: the cloud `live` hook must never carry a run described as on-phone.
+    const liveSrc = onDevice || voiceOwnsSession ? voiceLiveSrc : live
+    // Which controls and consent text to show follows the source actually in use, not what the router could have picked: if the phone's
+    // recogniser fell back to the recorder, the session is still the on-device one and nothing is streamed to Gemini.
+    const onDeviceVoice = liveSrc === voiceLiveSrc
+    // When the phone's recogniser is not available the live option is hidden; a "live" mode chosen earlier falls back to text.
+    useEffect(() => {
+        if (onDevice && mode === "live" && !voice.platformSpeech && !voiceOwnsSession) setMode("text")
+    }, [onDevice, mode, voice.platformSpeech, voiceOwnsSession])
     const pipe = fromAudio ? activeAudio : activeText
     const input = mode === "live" ? liveText : fromAudio ? audio?.data : typed
     const recorder = useVoiceRecorder({
@@ -164,6 +268,17 @@ export default function PipelineLab() {
             activeAudio.run(data, onDevice ? deviceOverrides : voiceConsent ? { cloudPolicy: "allow" } : undefined)
         },
     })
+    // Picking a text-only model while an audio mode is open leaves that mode. Stop whatever is recording first, the same
+    // way the mode buttons do, so no stale clip is delivered afterwards.
+    useEffect(() => {
+        if (nativeTextOnly && (mode === "audio" || mode === "voice")) {
+            recorder.cancel()
+            live.cancel()
+            cancelVoice()
+            setMode("text")
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [nativeTextOnly, mode])
     const heard = activeAudio.steps.find((s) => s.type === "end" && s.stage === "transcribe")?.preview
     const running = pipe.status === "running"
 
@@ -179,9 +294,21 @@ export default function PipelineLab() {
     const onFile = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
+        // Every new selection first retires the one still being read, even if this one is then refused: a slower earlier read must not
+        // become the chosen clip after the person picked something else.
+        const mine = ++pickSeq.current
         if (!file.type.startsWith("audio/")) return setPickError(`Expected an audio file, got ${file.type || "unknown"}`)
+        // Audio is decoded in full before its 30 s cap applies, so an oversized file is refused before it is read into memory.
+        if (file.size > MAX_AUDIO_FILE_BYTES) return setPickError(`That recording is ${Math.round(file.size / 1048576)} MB; the limit is ${MAX_AUDIO_FILE_BYTES / 1048576} MB.`)
         setPickError(null)
-        setAudio({ name: file.name, data: await readAsDataUrl(file) })
+        try {
+            const data = await readAsDataUrl(file)
+            if (pickSeq.current === mine) setAudio({ name: file.name, data })
+        } catch (err) {
+            if (pickSeq.current !== mine) return
+            setAudio(null)
+            setPickError(`Could not read that file: ${err?.message || "read failed"}`)
+        }
     }
 
     const percentOf = (h) => (h.nativeDownloadProgress?.percent ?? h.downloadProgress?.percent ?? null)
@@ -202,16 +329,26 @@ export default function PipelineLab() {
 
             <div className="flex gap-2 mb-2">
                 {[["cloud", "☁️ Cloud models"], ["device", "📱 On-device models"]].map(([key, label]) => (
-                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); if (key === "device" && mode === "live") setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
+                    <button key={key} data-testid={`engine-${key}`} onClick={() => { recorder.cancel(); live.cancel(); cancelVoice(); if (key === "device" && mode === "live" && !voice.platformSpeech) setMode("text"); if (key === "device" && deviceImage.available && !nativeAvailable) setImageProvider("device"); setEngine(key) }} disabled={running} className={`${chip} ${engine === key ? "bg-green-600 border-green-600 text-white" : ""}`}>
                         {label}
                     </button>
                 ))}
             </div>
             {onDevice && (
                 <div data-testid="device-note" className="mb-4 text-[12px]">
+                    {nativeAvailable && (
+                        <label className="mb-2 block">
+                            <span className="mr-2">On-device model</span>
+                            <select data-testid="native-model" value={nativeModel} onChange={(e) => chooseNativeModel(e.target.value)} disabled={running} className="px-2 py-1 rounded-lg border border-[var(--border)] bg-neutral-900 text-white">
+                                {NATIVE_MODELS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                            </select>
+                        </label>
+                    )}
                     <p>
                         {nativeAvailable
-                            ? "Speech and text run on this phone's own model. "
+                            ? nativeTextOnly
+                                ? "Text runs on this phone's own model. This model cannot hear recordings, so audio and voice are off; speaking live still works because the phone's own recogniser turns it into text first. "
+                                : "Speech and text run on this phone's own model. "
                             : "Running in the browser on WebGPU: Gemma 4 E2B (~3.4 GB) writes the scene and Whisper base (~210 MB) hears speech. The first run downloads them, then they stay cached. "}
                         Your voice and words stay on this device. {imageProvider === "device" ? "The picture is made on this device too, so nothing leaves it." : `The picture is made by ${imageProvider}; only the finished scene description can go there. Choose On-device as the image model to keep that local too.`}
                     </p>
@@ -230,9 +367,9 @@ export default function PipelineLab() {
             )}
 
             <div className="flex gap-2 mb-4">
-                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live")).map((m) => (
-                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
-                        {m === "live" ? "Speak live (streaming)" : m === "voice" ? "Record, then send" : `Start from ${m}`}
+                {["text", "audio", "voice", "live"].filter((m) => !(onDevice && m === "live" && !voice.platformSpeech) && !(nativeTextOnly && (m === "audio" || m === "voice"))).map((m) => (
+                    <button key={m} data-testid={`mode-${m}`} onClick={() => { recorder.cancel(); live.cancel(); cancelVoice(); setMode(m) }} disabled={running} className={`${chip} ${mode === m ? "bg-purple-500 border-purple-500 text-white" : ""}`}>
+                        {m === "live" ? (onDevice ? "Speak live (on this phone)" : "Speak live (streaming)") : m === "voice" ? "Record, then send" : `Start from ${m}`}
                     </button>
                 ))}
             </div>
@@ -268,26 +405,28 @@ export default function PipelineLab() {
                 <div className="mb-3 text-[13px]">
                     <button
                         data-testid="live-mic"
-                        onClick={live.listening ? live.stop : live.start}
-                        disabled={running || live.state === "connecting" || live.state === "finishing" || (!live.listening && !voiceConsent)}
-                        className={`${chip} text-[14px] px-5 py-3 ${live.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
+                        onClick={liveSrc.listening ? liveSrc.stop : liveSrc.start}
+                        disabled={running || liveSrc.state === "connecting" || liveSrc.state === "starting" || liveSrc.state === "finishing" || (!liveSrc.listening && !onDeviceVoice && !voiceConsent)}
+                        className={`${chip} text-[14px] px-5 py-3 ${liveSrc.listening ? "bg-red-500 border-red-500 text-white" : "bg-purple-500 border-purple-500 text-white"} disabled:opacity-50`}
                     >
-                        {live.state === "connecting" ? "Connecting…" : live.state === "finishing" ? "Finishing…" : live.listening ? `● Live ${live.seconds}s (click to finish)` : "🎙 Start live"}
+                        {liveSrc.state === "connecting" || liveSrc.state === "starting" ? "Starting…" : liveSrc.state === "finishing" ? "Finishing…" : liveSrc.listening ? (onDeviceVoice ? "● Listening… (click to finish)" : `● Live ${liveSrc.seconds}s (click to finish)`) : "🎙 Start live"}
                     </button>
-                    {live.listening && (
+                    {liveSrc.listening && !onDeviceVoice && (
                         <div className="mt-2 h-2 w-full rounded bg-neutral-800 overflow-hidden">
                             <div data-testid="live-level" className="h-full bg-green-400" style={{ width: `${Math.round(live.level * 100)}%` }} />
                         </div>
                     )}
-                    <label className="mt-2 flex items-start gap-2 text-[12px]">
+                    {!onDeviceVoice && <label className="mt-2 flex items-start gap-2 text-[12px]">
                         <input type="checkbox" data-testid="voice-consent" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} className="mt-0.5" />
                         <span>I agree my voice is streamed to Gemini while I speak, and the text goes on to {textProvider} and {imageProvider} to make the picture.</span>
-                    </label>
+                    </label>}
                     <p data-testid="live-text" className="mt-3 min-h-[3rem] text-[15px] text-white">
-                        {[live.text, live.partial].filter(Boolean).join(" ") || (liveText ? liveText : <span className="text-[12px] text-[var(--text-2)]">Your words appear here as you speak.</span>)}
+                        {[liveSrc.text, liveSrc.partial].filter(Boolean).join(" ") || (liveText ? liveText : <span className="text-[12px] text-[var(--text-2)]">Your words appear here as you speak.</span>)}
                     </p>
-                    <p className="mt-1 text-[12px]">Click to finish when you are done. Nothing is recorded to a file; audio streams straight to Gemini over a short-lived key from the server.</p>
-                    {live.error && <p className="mt-2 text-[12px] text-red-400">{live.error}</p>}
+                    <p className="mt-1 text-[12px]">{onDeviceVoice
+                        ? "Your voice is turned into text on this device and never leaves it. It stops by itself when you pause; the text then goes to the on-device model."
+                        : "Click to finish when you are done. Nothing is recorded to a file; audio streams straight to Gemini over a short-lived key from the server."}</p>
+                    {liveSrc.error && <p className="mt-2 text-[12px] text-red-400">{liveSrc.error}</p>}
                 </div>
             ) : mode === "voice" ? (
                 <div className="mb-3 text-[13px]">

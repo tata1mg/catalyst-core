@@ -77,7 +77,7 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         let deadline = Date().addingTimeInterval(readinessTimeout)
         while Date() < deadline {
             if frameworkServer.isRunning(),
-               Self.canConnect(toLoopbackPort: frameworkServer.getServerPort()) {
+               Self.canConnect(to: "127.0.0.1", port: frameworkServer.getServerPort(), timeout: 2) {
                 return
             }
             Thread.sleep(forTimeInterval: 0.02)
@@ -93,22 +93,46 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         throw XCTSkip("\(message) — skipping loopback test outside CI")
     }
 
-    private static func canConnect(toLoopbackPort port: UInt16) -> Bool {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
+    /// One probe for every address family: connects to `host` (an IPv4 or IPv6 literal) and gives up after `timeout`, so a filtered or
+    /// stale interface cannot hold a test worker for the kernel's TCP retransmission time.
+    private static func canConnect(to host: String, port: UInt16, timeout: TimeInterval = 1) -> Bool {
+        var storage = sockaddr_storage()
+        let length: socklen_t
+        let family: Int32
+        var v4 = sockaddr_in()
+        var v6 = sockaddr_in6()
+        if inet_pton(AF_INET, host, &v4.sin_addr) == 1 {
+            family = AF_INET
+            v4.sin_family = sa_family_t(AF_INET)
+            v4.sin_port = port.bigEndian
+            length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            withUnsafeBytes(of: &v4) { raw in withUnsafeMutableBytes(of: &storage) { $0.copyMemory(from: raw) } }
+        } else if inet_pton(AF_INET6, host, &v6.sin6_addr) == 1 {
+            family = AF_INET6
+            v6.sin6_family = sa_family_t(AF_INET6)
+            v6.sin6_port = port.bigEndian
+            length = socklen_t(MemoryLayout<sockaddr_in6>.size)
+            withUnsafeBytes(of: &v6) { raw in withUnsafeMutableBytes(of: &storage) { $0.copyMemory(from: raw) } }
+        } else {
+            return false
+        }
+
+        let fd = socket(family, SOCK_STREAM, 0)
         guard fd != -1 else { return false }
         defer { close(fd) }
+        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
 
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = port.bigEndian
-        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-
-        let result = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-            }
+        let started = withUnsafePointer(to: &storage) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, length) }
         }
-        return result == 0
+        if started == 0 { return true }
+        guard errno == EINPROGRESS else { return false }
+
+        var pending = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+        guard poll(&pending, 1, Int32(timeout * 1000)) == 1 else { return false } // deadline passed: nothing accepted
+        var error: Int32 = 0
+        var size = socklen_t(MemoryLayout<Int32>.size)
+        return getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &size) == 0 && error == 0
     }
 
     private func serveTemporaryFile(content: String, fileName: String, mimeType: String) throws -> String? {
@@ -377,29 +401,16 @@ final class FrameworkServerUtilsLoopbackTests: XCTestCase {
         return nil
     }
 
-    private static func canConnect(toIPv4 ip: String, port: UInt16) -> Bool {
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
-        guard fd != -1 else { return false }
-        defer { close(fd) }
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = port.bigEndian
-        addr.sin_addr.s_addr = inet_addr(ip)
-        return withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
-            }
-        }
-    }
-
     func testListenerAcceptsLoopbackButNotTheNetworkAddress() throws {
         try requireRunningServer()
         let port = frameworkServer.getServerPort()
-        XCTAssertTrue(Self.canConnect(toIPv4: "127.0.0.1", port: port), "loopback must be reachable")
+        XCTAssertTrue(Self.canConnect(to: "127.0.0.1", port: port), "IPv4 loopback must be reachable")
+        // The listener is restricted to the loopback interface rather than to one address, so ::1 must work too.
+        XCTAssertTrue(Self.canConnect(to: "::1", port: port), "IPv6 loopback must be reachable")
 
         guard let lan = Self.nonLoopbackIPv4() else {
             throw XCTSkip("no non-loopback IPv4 interface on this machine to prove the negative case")
         }
-        XCTAssertFalse(Self.canConnect(toIPv4: lan, port: port), "listener must not accept connections on \(lan)")
+        XCTAssertFalse(Self.canConnect(to: lan, port: port), "listener must not accept connections on \(lan)")
     }
 }

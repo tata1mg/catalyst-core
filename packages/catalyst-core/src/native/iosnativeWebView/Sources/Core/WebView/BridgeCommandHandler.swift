@@ -140,6 +140,8 @@ class BridgeCommandHandler {
     }
 
     deinit {
+        // A recognition still running when the bridge goes away must stop, and the shared audio session must be given back.
+        speechRecognitionStore?.cleanup()
         commandLogger.debug("BridgeCommandHandler deallocated")
     }
 
@@ -217,6 +219,53 @@ class BridgeCommandHandler {
             }
 
             self.delegate?.sendJSONCallback(eventName: "CAMERA_PERMISSION_STATUS", data: response)
+        }
+    }
+
+    // MARK: Speech recognition (the platform recognizer, on-device only)
+
+    // Created on first use. Kept in an optional so teardown can tell whether one exists without creating it.
+    private var speechRecognitionStore: SpeechRecognitionManager?
+    /// Whether the page now in the web view is the app's own. Set by NativeBridge; nil means no check (tests).
+    var isSpeechPageTrusted: (() -> Bool)?
+    private var speechRecognition: SpeechRecognitionManager {
+        if let existing = speechRecognitionStore { return existing }
+        let created = SpeechRecognitionManager { [weak self] event, payload in
+            guard let self else { return }
+            if let trusted = self.isSpeechPageTrusted, !trusted() {
+                // The page that started recognition is gone: end the session instead of handing its words to whatever loaded next.
+                DispatchQueue.main.async { [weak self] in
+                    self?.speechRecognitionStore?.cleanup()
+                    self?.speechRecognitionStore = nil
+                }
+                return
+            }
+            self.delegate?.sendJSONCallback(eventName: event, data: payload)
+        }
+        speechRecognitionStore = created
+        return created
+    }
+
+    func getSpeechRecognitionSupport(config: String? = nil) {
+        speechRecognition.getSupport(language: SpeechRecognitionPolicy.parseLanguage(config))
+    }
+
+    func startSpeechRecognition(config: String? = nil) {
+        speechRecognition.start(language: SpeechRecognitionPolicy.parseLanguage(config))
+    }
+
+    func stopSpeechRecognition() {
+        speechRecognition.stop()
+    }
+
+    /// Asks for the microphone so the page can record with getUserMedia({ audio }). Answers on
+    /// MICROPHONE_PERMISSION_STATUS with "GRANTED" or "DENIED", the same plain string the Android shell sends.
+    func requestMicrophonePermission(config: String? = nil) {
+        commandLogger.debug("Microphone permission requested")
+        MicrophonePermission.request { [weak self] granted in
+            let status = MediaPermissionPolicy.statusString(granted: granted)
+            commandLogger.debug("Microphone permission status: \(status)")
+            self?.delegate?.sendStringCallback(eventName: "MICROPHONE_PERMISSION_STATUS", data: status)
         }
     }
 

@@ -36,6 +36,10 @@ describe("useAI provider resolution", () => {
 describe("allowCloudMedia", () => {
     it("allows media only for an explicit cloud choice, never for a fallback from native or web", () => {
         expect(allowCloudMedia("cloud")).toBe(true)
+        // resolveMode(undefined) is "cloud" too, but no provider at all is not an explicit cloud choice
+        expect(allowCloudMedia("cloud", true)).toBe(true)
+        expect(allowCloudMedia("cloud", false)).toBe(false)
+        expect(allowCloudMedia("native", true)).toBe(false)
         expect(allowCloudMedia("native")).toBe(false)
         expect(allowCloudMedia("local")).toBe(false)
     })

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react"
 import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolveRoutingPlatform } from "./aiProviders.js"
 import nativeBridge from "../utils/NativeBridge.js"
 import { useNetworkStatus } from "./useNetworkStatus.js"
-import { chooseCandidate, DEFAULT_TASK, isTask, normalizeRouting, recordObserved } from "./aiRouter.js"
+import { ERROR_CODES, createError } from "../../../errors/index.js"
+import { createGenerationGuard, createPendingSlot } from "./aiPending.js"
+import { chooseCandidate, GENERATE_TASKS, modalitiesOf, recordObserved, routingFor, taskOf } from "./aiRouter.js"
 import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
 function getBrowserConfig() {
@@ -27,27 +29,20 @@ function getRoutingConfig() {
     }
 }
 
+// The public config is fixed at build time, so it is parsed once per distinct value, not on every render of every useAI.
+let pricingRaw: string | undefined | null = null
+let pricingParsed: any = null
+let pricingApplied: any = undefined
 function getPricingConfig() {
+    const raw = process.env.AI_PUBLIC_CONFIG
+    if (raw === pricingRaw) return pricingParsed
+    pricingRaw = raw
     try {
-        const raw = process.env.AI_PUBLIC_CONFIG
-        return raw ? JSON.parse(raw)?.pricing || null : null
+        pricingParsed = raw ? JSON.parse(raw)?.pricing || null : null
     } catch (_) {
-        return null
+        pricingParsed = null
     }
-}
-
-function modalitiesOf(messages: any): Modality[] {
-    const set = new Set<Modality>(["text"])
-    for (const m of Array.isArray(messages) ? messages : []) {
-        if (!Array.isArray(m?.content)) continue
-        for (const part of m.content) if (part?.type === "image" || part?.type === "audio") set.add(part.type)
-    }
-    return [...set]
-}
-
-// What the call asks for: generate({ task }) wins over useAI({ task }); anything unrecognised is plain text generation.
-function taskOf(args: any, options: any) {
-    return isTask(args?.task) ? args.task : isTask(options?.task) ? options.task : DEFAULT_TASK
+    return pricingParsed
 }
 
 // Live checks, not the user agent: an iPhone Safari tab is a web target (it has no native module), a WebView build is not.
@@ -120,16 +115,26 @@ export function useAI(options: any = {}) {
     // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
     const network = useNetworkStatus()
     // Prices the developer set in AI_CONFIG.pricing win over catalyst-ai's built-in table (idempotent; older catalyst-ai ignores it).
-    _pkg?.setPricingOverrides?.(getPricingConfig())
+    // Only when the prices changed: setPricingOverrides normalises and replaces the whole table.
+    const pricing = getPricingConfig()
+    if (pricing !== pricingApplied) {
+        _pkg?.setPricingOverrides?.(pricing)
+        pricingApplied = pricing
+    }
 
     // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
     // nothing downloads) until a call is routed to it.
     const [selected, setSelected] = useState<Candidate | null>(null)
     const [route, setRoute] = useState<RouteDecision | null>(null)
-    const pending = useRef<{ args: any; id: string; settle: (result: any) => void } | null>(null)
+    const pending = useRef(createPendingSlot())
+    const guard = useRef(createGenerationGuard())
+    // The error the hooks already carried when a call was parked: only a NEW error means the model it waits for failed to start.
+    const errorWhenParked = useRef<unknown>(null)
     const loadedId = useRef<string | null>(null)
     const observed = useRef<Record<string, Observed> | null>(null)
-    const lastMetrics = useRef<any>(null)
+    // The last metrics seen per candidate: every provider hook keeps its previous completion, so one shared marker would record an old
+    // completion again each time the selection switches back and forth.
+    const lastMetrics = useRef<Record<string, any>>({})
 
     const nativeSel = auto && selected?.mode === "native" ? selected : null
     const webSel = auto && selected?.mode === "local" ? selected : null
@@ -141,7 +146,7 @@ export function useAI(options: any = {}) {
         ? _pkg.useCloudAI({
               ...options,
               ...(cloudSel && { provider: cloudSel.provider, model: cloudSel.model ?? options.model }),
-              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
+              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode, resolvedProvider !== undefined),
           })
         : emptyHook()
     const webResult = _pkg
@@ -169,20 +174,36 @@ export function useAI(options: any = {}) {
     const active: any = webSel ? webResult : nativeSel ? nativeResult : cloudResult
 
     // Run a call that was waiting for its model to be configured/initialised.
-    const ready = nativeSel ? !!nativeResult.modelReady : true
+    // The native model must be the one that was selected, not just any that is ready: after a switch the old one can still be ready for a render.
+    const nativeKey = nativeSel ? `${nativeSel.engine ?? ""}|${nativeSel.model ?? ""}|${nativeSel.modelPath ?? ""}` : null
+    // A catalyst-ai that predates `readyKey` reports only modelReady: then readiness cannot be tied to one model, and modelReady has to do
+    // (otherwise every native call would wait for a key that never comes).
+    const nativeReadyFor = (key: string | null) => !!nativeResult.modelReady && (nativeResult.readyKey === undefined || nativeResult.readyKey === key)
+    const ready = nativeSel ? nativeReadyFor(nativeKey) : true
     useEffect(() => {
-        const p = pending.current
-        if (!p || selected?.id !== p.id || !ready) return
-        pending.current = null
-        loadedId.current = selected.target === "onDevice" ? selected.id : loadedId.current
-        Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
+        const p = pending.current.takeIfReady(selected?.id, ready)
+        if (p) {
+            loadedId.current = selected?.target === "onDevice" ? selected.id : loadedId.current
+            Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
+            return
+        }
+        // The model it waits for failed to start: the call ends with that error, not never.
+        if (!ready && active?.error && active.error !== errorWhenParked.current) pending.current.fail(selected?.id, active.error)
     })
+    // Unmounting must not leave a parked call (and the images it holds) waiting for a model that will never be asked for it.
+    useEffect(
+        () => () => {
+            guard.current.cancel()
+            pending.current.cancel()
+        },
+        []
+    )
 
     // Feed each finished call's metrics (the same ones useAI reports) back into the router.
     const metrics = active?.metrics
     useEffect(() => {
-        if (!auto || !selected || !metrics || metrics === lastMetrics.current) return
-        lastMetrics.current = metrics
+        if (!auto || !selected || !metrics || metrics === lastMetrics.current[selected.id]) return
+        lastMetrics.current[selected.id] = metrics
         observed.current = observed.current || loadObserved()
         observed.current[selected.id] = recordObserved(observed.current[selected.id], metrics) as Observed
         saveObserved(observed.current)
@@ -190,16 +211,17 @@ export function useAI(options: any = {}) {
 
     if (typeof window === "undefined") return emptyHook()
 
-    if (!_pkg) {
-        console.error("\n[catalyst-core] useAI requires catalyst-ai.\n" + "Run: npm install catalyst-ai\n")
-        return emptyHook()
-    }
+    if (!_pkg) return notInstalledHook()
 
     if (auto) {
-        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
-        const generate = async (args: any, consent: Consent = {}) => {
+        // The routing decision for one call: availability, privacy, preference. `live` is for a caller that listens to the
+        // microphone itself (useTranscribe.listen): it may be given the phone's speech recogniser, which cannot take a
+        // recorded clip, so generate() never sees it. `extra` lets that caller report what only it knows (the shell's speech
+        // support), because this hook must not subscribe to the shell itself.
+        const decideFor = async (args: any, consent: Consent, live: boolean, extra: Partial<Signals> = {}): Promise<RouteDecision> => {
             const platform = detectPlatform()
-            const { policy, candidates } = normalizeRouting(getRoutingConfig(), platform, options.routing)
+            const rawRouting = getRoutingConfig()
+            const { policy, candidates } = routingFor(rawRouting, platform, options.routing, live)
             const priceOf = (model: string) => _pkg.lookupPricing?.(model) ?? _pkg.PRICING?.[model]
             const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && priceOf(c.model) ? { ...c, price: priceOf(c.model) } : c))
             const signals: Signals = {
@@ -208,32 +230,79 @@ export function useAI(options: any = {}) {
                 webgpu: typeof navigator !== "undefined" && !!(navigator as any).gpu,
                 online: typeof navigator === "undefined" || navigator.onLine !== false,
                 webModelLoaded: !!webResult.modelReady,
+                // Which model, so that candidate B is not treated as downloaded just because A is loaded.
+                webLoadedModel: webResult.modelReady ? (webResult.loadedModel ?? undefined) : null,
                 promptApi: priced.some((c) => c.engine === "prompt-api") ? await _pkg.getPromptApiAvailability?.() : undefined,
                 loadedId: loadedId.current,
+                ...extra,
             }
             observed.current = observed.current || loadObserved()
             const pool = consent.pin ? priced.filter((c) => c.id === consent.pin) : priced
-            const decision = chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
+            return chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
+        }
+
+        // Which engine would serve this call, without running it. Reads and writes nothing (no route state, no switch).
+        const decide = (args: any, consent: Consent = {}, extra: Partial<Signals> = {}) => decideFor(args, consent, true, extra)
+
+        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
+        const generate = async (args: any, consent: Consent = {}) => {
+            const task = taskOf(args, options)
+            if (!GENERATE_TASKS.includes(task)) {
+                // Routing could pick a model for this task, but generate() would still send an ordinary text request to it.
+                const error = createError(ERROR_CODES.AI_INVALID_REQUEST_BODY, {
+                    message: `generate() cannot run the "${task}" task: it takes messages and returns text. Use the call made for it (requestImage, requestSpeech, ...).`,
+                })
+                return { output: "", error, route: null }
+            }
+            const ticket = guard.current.begin()
+            // A call that is still parked for a model switch belongs to the past from this moment, not only once routing has decided: the
+            // model can become ready while this call is still being routed, and the old call would start generating first.
+            pending.current.cancel()
+            const decision = await decideFor(args, consent, false)
+            // cancel() (or unmount) while routing was still deciding, or a newer call began: nothing is parked yet for this one to end, so it ends here.
+            if (guard.current.stale(ticket)) return { output: "", error: null, route: decision }
+            // This is now the newest call, whatever it decides (run, ask or deny): a call still parked for a model switch belongs to the past
+            // and must not be dispatched when that model becomes ready.
+            pending.current.cancel()
             setRoute(decision)
             // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
             // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
             const withRoute = (result: any) => ({ ...(result || { output: "", error: null }), route: decision })
             if (decision.action !== "run" || !decision.candidate) return withRoute(null)
             const chosen = decision.candidate
-            const same = selected?.id === chosen.id
-            if (same && (chosen.mode !== "native" || nativeResult.modelReady)) {
+            // The same candidate id is not enough: the routing policy can change which provider or model an id stands for.
+            const same =
+                selected?.id === chosen.id &&
+                selected?.provider === chosen.provider &&
+                selected?.model === chosen.model &&
+                // A different engine or model path with the same id still configures the hook differently: it must go through setSelected,
+                // or (with a catalyst-ai that reports no readyKey) the old configuration would answer.
+                selected?.engine === chosen.engine &&
+                selected?.modelPath === chosen.modelPath &&
+                selected?.mode === chosen.mode
+            const chosenKey = `${chosen.engine ?? ""}|${chosen.model ?? ""}|${chosen.modelPath ?? ""}`
+            if (same && (chosen.mode !== "native" || nativeReadyFor(chosenKey))) {
                 loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
                 return withRoute(await active.generate(args))
             }
+            // The same on-device model failed to start and nothing changed: parking would wait for a new error that cannot come, because
+            // the hook does not restart its initialisation for an unchanged configuration. Report the failure that is already known.
+            if (same && chosen.mode === "native" && nativeResult.error) return withRoute({ output: "", error: nativeResult.error })
             // The hooks are configured from `selected`; switch it and run once the new model is ready.
             // A call still waiting for an earlier switch is superseded, not left hanging.
-            pending.current?.settle({ output: "", error: null })
             return new Promise((resolve) => {
-                pending.current = { args, id: chosen.id, settle: (result) => resolve(withRoute(result)) }
+                errorWhenParked.current = nativeResult.error ?? webResult.error ?? cloudResult.error ?? null
+                pending.current.park({ args, id: chosen.id, settle: (result) => resolve(withRoute(result)) })
                 setSelected(chosen)
             })
         }
-        return { ...active, unload: active.unload ?? (() => {}), generate, route, generateWithConsent: generate }
+        // cancel() also ends a call parked for a model switch: otherwise it would still run, with its media, once the model arrived.
+        const cancel = () => {
+            guard.current.cancel()
+            pending.current.cancel()
+            active.cancel?.()
+        }
+        return { ...active, unload: active.unload ?? (() => {}), decide, generate, route, generateWithConsent: generate, cancel }
     }
 
     // unload() frees an in-browser model from GPU/RAM; the other engines hold nothing in the page, so it is a no-op there.
@@ -244,6 +313,23 @@ export function useAI(options: any = {}) {
 }
 
 // Returned when catalyst-ai is missing — keeps hook shape stable so callers don't crash
+const NOT_INSTALLED = "useAI requires catalyst-ai, which is not installed. Run: npm install catalyst-ai"
+let notInstalledLogged = false
+
+/**
+ * What useAI returns when catalyst-ai is not installed. Importing the hooks and using everything else in catalyst-core works without it;
+ * only an AI call needs the package. The hook reports the problem through `error`, and generate() answers with the same error instead of
+ * doing nothing, so the app sees what to install wherever it looks.
+ */
+function notInstalledHook() {
+    if (!notInstalledLogged) {
+        notInstalledLogged = true
+        console.error(`\n[catalyst-core] ${NOT_INSTALLED}\n`)
+    }
+    const error = createError(ERROR_CODES.AI_PACKAGE_NOT_INSTALLED, { message: NOT_INSTALLED })
+    return { ...emptyHook(), error, generate: async () => ({ output: "", error }) }
+}
+
 function emptyHook() {
     return {
         output: "",

@@ -111,6 +111,13 @@ describe("catalyst-ai pricing command", () => {
         expect(after.AI_CONFIG.routing).toEqual(before.AI_CONFIG.routing)
     })
 
+    it("--set on a model that already has a price keeps the fields the command did not set (audioInput, perImage)", async () => {
+        write(aiConfig({ pricing: { "new-flash": { input: 1, output: 2, audioInput: 0.5, perImage: 0.04 } } }))
+        const h = harness()
+        expect(await cli.run(["--set", "new-flash=3,4"], h.io)).toBe(0)
+        expect(read().AI_CONFIG.pricing["new-flash"]).toMatchObject({ input: 3, output: 4, audioInput: 0.5, perImage: 0.04 })
+    })
+
     it("re-asks on a bad number and keeps the current value on Enter with --all", async () => {
         write(aiConfig({ pricing: { "new-flash": { input: 1, output: 2 }, "new-mini": { input: 3, output: 4 } } }))
         const h = harness(["abc", "5", "", "", "", "", "", "", "", "", ""]) // gpt-5 (built-in): bad input, then 5; rest kept
@@ -143,5 +150,14 @@ describe("catalyst-ai pricing command", () => {
         const noTty = { ...harness().io, ask: undefined, isTTY: false }
         expect(await cli.run([], noTty as any)).toBe(2)
         expect(await cli.run(["--bogus"], harness().io)).toBe(2)
+    })
+})
+
+describe("pricing CLI option parsing", () => {
+    it("--config with no path is an error, not a silent fall back to the default config file", () => {
+        const { parseArgs } = require("../scripts/pricing-cli.js")
+        expect(() => parseArgs(["--config"])).toThrow(/--config needs the path/)
+        expect(() => parseArgs(["--config", "--check"])).toThrow(/--config needs the path/)
+        expect(parseArgs(["--config", "my.json"]).config).toBe("my.json")
     })
 })

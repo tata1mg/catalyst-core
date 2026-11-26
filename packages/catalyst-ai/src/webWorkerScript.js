@@ -26,6 +26,8 @@ async function installResumableFetch(env) {
                 self.postMessage({ type: "log", msg: "[worker] origin-private storage unavailable: downloads are not resumable" });
                 return;
             }
+            // Partials nobody resumed for a month are dropped, so abandoned model downloads do not fill the browser's storage.
+            await storage.evictStale(30 * 24 * 60 * 60 * 1000).catch(() => {}); // finished before any download can reopen a partial
             resumable = createResumableFetch({
                 storage,
                 policy: downloadPolicy,
@@ -243,7 +245,7 @@ function isLooping(text) {
 async function generateWithMedia(model, messages, genConfig, media) {
     await loadGemma(model);
     const { processor, model: net, load_image } = gemma;
-    const prompt = processor.apply_chat_template(messages, { enable_thinking: false, add_generation_prompt: true });
+    const prompt = processor.apply_chat_template(messages, { enable_thinking: false, add_generation_prompt: true, tokenize: false });
     const image = media.images[0] ? await load_image(media.images[0]) : null;
     const audio = media.audios[0] ? await wavToFloat32(media.audios[0]) : null;
     const inputs = await processor(prompt, image, audio, { add_special_tokens: false });
@@ -276,13 +278,19 @@ async function generateWithMedia(model, messages, genConfig, media) {
             }
         },
     });
-    const { maxTokens, temperature, topP, repetitionPenalty } = genConfig;
+    const { maxTokens, temperature, topP, repetitionPenalty, noRepeatNgramSize, earlyStop, ...rest } = genConfig;
+    // Options this path cannot honour are reported, not dropped without a word: the same request behaves differently here
+    // than on the text path, and the caller should be able to see which settings did not apply.
+    const ignored = Object.keys(rest).filter((k) => k !== "stream" && k !== "language" && k !== "responseConstraint" && rest[k] !== undefined);
+    if (ignored.length) self.postMessage({ type: "log", msg: "[worker] media generation ignores: " + ignored.join(", ") });
     await net.generate({
         ...inputs,
         max_new_tokens: maxTokens ?? 512,
         do_sample: temperature > 0,
         ...(temperature > 0 && { temperature, top_p: topP }),
         ...(repetitionPenalty && { repetition_penalty: repetitionPenalty }),
+        ...(noRepeatNgramSize !== undefined && { no_repeat_ngram_size: noRepeatNgramSize }),
+        ...(earlyStop !== undefined && { early_stopping: earlyStop }),
         ...(stopper && { stopping_criteria: stopper }),
         streamer,
     });
@@ -296,6 +304,8 @@ self.onmessage = async (e) => {
     // These arrive while a model is still loading (the handler below is awaiting), so they must not queue behind it.
     if (type === "configure") {
         downloadPolicy = e.data.policy || {};
+        // A worker that is reused keeps its resumable fetch: it has to be given the new policy too, or it goes on with the old thresholds.
+        if (resumable) resumable.setPolicy(downloadPolicy);
         if (typeof e.data.online === "boolean") pageOnline = e.data.online;
         if (resumable) resumable.setOnline(pageOnline);
         return;
@@ -310,7 +320,10 @@ self.onmessage = async (e) => {
     try {
         if (media) {
             if (ASR_RE.test(model)) await generateSpeech(model, media, genConfig);
-            else await generateWithMedia(model, messages, genConfig, media);
+            else {
+                if (formatPrompt) self.postMessage({ type: "log", msg: "[worker] media generation uses the model's own chat template: formatPrompt is ignored" });
+                await generateWithMedia(model, messages, genConfig, media);
+            }
             return;
         }
         await loadPipeline(model);

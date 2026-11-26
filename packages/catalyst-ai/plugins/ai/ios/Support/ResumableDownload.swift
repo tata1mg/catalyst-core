@@ -61,6 +61,9 @@ enum ResumeRules {
         switch status {
         case 206:
             guard offset > 0, let range, range.start == offset, let total = range.total, total > offset else { return .restart }
+            // We asked for "from offset to the end": the answer must run to the last byte, and its body must be exactly that long.
+            guard let end = range.end, end == total - 1 else { return .restart }
+            if let length = contentLength, length > 0, length != end - offset + 1 { return .restart }
             if let expectedETag, etag?.trimmingCharacters(in: .whitespaces) != expectedETag { return .restart }
             return .append(total: total)
         case 200:
@@ -97,6 +100,21 @@ struct DownloadInterrupted: Error, Equatable {
     let kind: Kind
 }
 
+/// Whether a finished download is the whole file.
+enum DownloadSizeCheck {
+    /// nil when `size` is the complete file, otherwise why not. The total the server announced decides; with none, the registry's
+    /// `expectedSize` stands in. With neither there is nothing to compare against, and a file that cannot be checked is not accepted.
+    /// Short: the connection ended early, so keep it and resume. Long: it can only be wrong.
+    static func problem(size: Int64, announcedTotal: Int64, expectedSize: Int64) -> ModelDownloadError? {
+        let total = announcedTotal > 0 ? announcedTotal : expectedSize
+        if total <= 0 {
+            return ModelDownloadError(message: "Cannot verify the download: the server gave no size and none is known", discardPartial: true)
+        }
+        if size == total { return nil }
+        return ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total, transient: size < total)
+    }
+}
+
 /// Streams to disk through a FileHandle, so a ~2 GB model never sits on the heap, and resumes a kept partial.
 final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private let partial: URL
@@ -117,6 +135,8 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
     private var restartNeeded = false
     private var alreadyComplete = false
     private var failure: Error?
+    // `interruption` and `currentTask` are written from the bridge or throughput callbacks and read on the URLSession delegate queue.
+    private let stateLock = NSLock()
     private var interruption: DownloadInterrupted.Kind?
     private var window: ThroughputWindow
     private var currentTask: URLSessionDataTask?
@@ -131,11 +151,17 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
         return configuration
     }
 
+    /// The size the model registry says the file has. Used when the server announces none (a chunked 200), so a short file
+    /// can never be accepted as complete.
+    private let expectedSize: Int64
+
     init(partial: URL, configuration: URLSessionConfiguration? = nil,
+         expectedSize: Int64 = 0,
          policy: DownloadPolicy = .default, gate: DownloadGate? = nil,
          onLog: @escaping (String) -> Void = { _ in },
          onBytes: @escaping (_ loaded: Int64, _ total: Int64) -> Void) {
         self.partial = partial
+        self.expectedSize = expectedSize
         self.etagFile = partial.appendingPathExtension("etag")
         self.configuration = configuration ?? ModelDownloader.defaultConfiguration(policy: policy)
         self.policy = policy
@@ -147,8 +173,11 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
 
     /// Stop the transfer in flight and report why. The partial file and its ETag stay for the next attempt.
     func interrupt(_ kind: DownloadInterrupted.Kind) {
-        if interruption == nil { interruption = kind }
-        currentTask?.cancel()
+        let task: URLSessionDataTask? = stateLock.withLock {
+            if interruption == nil { interruption = kind }
+            return currentTask
+        }
+        task?.cancel()
     }
 
     /// Downloads into `partial` and returns its final size, verified against what the server announced.
@@ -163,7 +192,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             restartNeeded = false
             alreadyComplete = false
             failure = nil
-            interruption = nil
+            stateLock.withLock { interruption = nil }
             window = ThroughputWindow(minBytesPerSec: policy.minBytesPerSec, windowSec: policy.windowSec)
             // A pause that arrived between attempts is honoured before any bytes are requested.
             if let reason = gate?.pausedReason { throw DownloadInterrupted(kind: .paused(reason)) }
@@ -185,10 +214,7 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
 
         let size = fileSize()
         if size == 0 { throw ModelDownloadError(message: "Downloaded file is empty", discardPartial: true) }
-        if total > 0 && size != total {
-            // Short: the connection ended early, keep it and resume. Long: it can only be wrong.
-            throw ModelDownloadError(message: "Download incomplete (\(size) of \(total) bytes)", discardPartial: size > total, transient: size < total)
-        }
+        if let problem = DownloadSizeCheck.problem(size: size, announcedTotal: total, expectedSize: expectedSize) { throw problem }
         return size
     }
 
@@ -215,9 +241,12 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
             self.session = session
             let task = session.dataTask(with: request)
-            self.currentTask = task
+            stateLock.withLock { currentTask = task }
             // A pause from the page interrupts the transfer in flight instead of waiting for it to end.
             self.gate?.setPauseHandler { [weak self] reason in self?.interrupt(.paused(reason)) }
+            // A pause that arrived after the check at the top of download() but before the handler existed found nobody to tell, and
+            // registering does not replay it: look again now that the handler is in place.
+            if let reason = self.gate?.pausedReason { self.interrupt(.paused(reason)) }
             task.resume()
         }
     }
@@ -248,13 +277,16 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
             completionHandler(.allow)
         case .complete:
             alreadyComplete = true
+            total = offset // a 416 on this partial means it already is the whole file: its size is the total
             completionHandler(.cancel)
         case .restart:
             restartNeeded = true
             completionHandler(.cancel)
         case .fail(let status):
-            let client = (400..<500).contains(status)
-            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client, transient: status >= 500 || status == 429)
+            // Rate-limited (429) and request-timeout (408) answers say "try again later", not "this file cannot be had": the partial is kept.
+            let transient = status >= 500 || status == 429 || status == 408
+            let client = (400..<500).contains(status) && !transient
+            failure = ModelDownloadError(message: "HTTP \(status) from model server", discardPartial: client, transient: transient)
             completionHandler(.cancel)
         }
     }
@@ -277,13 +309,16 @@ final class ModelDownloader: NSObject, URLSessionDataDelegate {
         try? handle?.close()
         handle = nil
         gate?.setPauseHandler(nil)
-        currentTask = nil
+        let interrupted: DownloadInterrupted.Kind? = stateLock.withLock {
+            currentTask = nil
+            return interruption
+        }
         session.finishTasksAndInvalidate()
         let continuation = self.continuation
         self.continuation = nil
         // A deliberate cancel (.complete, .restart, a pause, a weak link, a recorded failure) is not a transport error.
         if let failure { continuation?.resume(throwing: failure) }
-        else if let interruption { continuation?.resume(throwing: DownloadInterrupted(kind: interruption)) }
+        else if let interrupted { continuation?.resume(throwing: DownloadInterrupted(kind: interrupted)) }
         else if restartNeeded || alreadyComplete { continuation?.resume() }
         else if let error { continuation?.resume(throwing: error) }
         else { continuation?.resume() }

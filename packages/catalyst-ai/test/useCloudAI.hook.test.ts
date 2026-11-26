@@ -37,6 +37,8 @@ describe("useCloudAI streaming", () => {
         const out = await gen(hook)
         await waitFor(() => expect(hook.result.current.metrics).not.toBeNull())
         expect(out.error).toBeNull()
+        // The counts come from the provider's usage frame (10/5/15), not from counting the two token events.
+        expect(hook.result.current.metrics).toMatchObject({ promptTokens: 10, completionTokens: 5, totalTokens: 15 })
         expect(hook.result.current.output).toContain("Hello ")
         expect(hook.result.current.output).toContain("\u0000SATTACH:")
         expect(hook.result.current.streaming).toBe(false)
@@ -57,6 +59,23 @@ describe("useCloudAI streaming", () => {
         await waitFor(() => expect(hook.result.current.metrics).not.toBeNull())
         expect(hook.result.current.output).toBe("ab")
         expect(hook.result.current.metrics).toMatchObject({ provider: "openai", completionTokens: 2, totalTokens: 2, cost: null })
+    })
+
+    it("an error frame in the stream ends the generation with a coded error, not a short successful answer", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ token: "partial " }, { error: "Claude stream error", code: "AI-000" }))))
+        const hook = renderHook(() => useCloudAI())
+        const out = await gen(hook)
+        expect(out.error).toBeTruthy()
+        expect(out.error.message).toMatch(/Claude stream error/)
+        expect(out.error.code).toBe("AI-000")
+        expect(hook.result.current.streaming).toBe(false)
+        expect(hook.result.current.metrics).toBeNull() // no metrics for a failed generation
+    })
+
+    it("an error frame with a code the registry does not know is reported as the upstream error", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => streamResponse(sse({ error: "boom", code: "NOT-A-CODE" }))))
+        const hook = renderHook(() => useCloudAI())
+        expect((await gen(hook)).error.code).toBe("AI-000")
     })
 
     it("sends and then reuses the conversation id in stateful mode", async () => {

@@ -129,6 +129,16 @@ describe("createPromptApiEngine", () => {
         expect(seen.at(-1)!.message).toMatch(/click or tap/)
     })
 
+    it("a NotAllowedError from a model that was already available is NOT blamed on a missing click", async () => {
+        const err = Object.assign(new Error("blocked by enterprise policy"), { name: "NotAllowedError" })
+        const { api } = fakeApi({ availability: "available", createError: err })
+        const { seen, finished } = run(api, [user("hi")])
+        await finished
+        expect(seen.at(-1)).toMatchObject({ type: "error" })
+        expect(seen.at(-1)!.message).toMatch(/NotAllowedError: blocked by enterprise policy/)
+        expect(seen.at(-1)!.message).not.toMatch(/click or tap/)
+    })
+
     it("errors cleanly when unavailable or without the API", async () => {
         for (const [api, msgs, pattern] of [
             [fakeApi({ availability: "unavailable" }).api, [user("hi")], /unavailable on this device.*22 GB/],
@@ -295,5 +305,16 @@ describe("desktop only", () => {
         engine.postMessage({ type: "generate", messages: [user("hi")], genConfig: {} })
         await finished
         expect(api.create).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("samplingFrom: genConfig reaches the session", () => {
+    it("passes temperature and topK together, and says what it cannot honour", async () => {
+        const { samplingFrom } = await import("../src/promptApiEngine.js")
+        const log = vi.fn()
+        expect(samplingFrom({ temperature: 0.2, top_k: 20, max_new_tokens: 50 }, log)).toEqual({ temperature: 0.2, topK: 20 })
+        expect(log).toHaveBeenCalledWith(expect.stringContaining("max_new_tokens"))
+        expect(samplingFrom({ temperature: 0.2 }, log)).toEqual({})
+        expect(samplingFrom({}, log)).toEqual({})
     })
 })

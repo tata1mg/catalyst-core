@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { assertEngineSupports, getModalities, toWebTemplate, webModelKind } from "./contentParts.js"
-import { prepareAudioParts } from "./audioPrep.js"
+import { PRE_PREP_LIMITS, assertEngineSupports, assertWebMediaCounts, getModalities, historyAsText, toWebTemplate, webModelKind } from "./contentParts.js"
+import { isWorkerReadyWav, prepareAudioParts } from "./audioPrep.js"
 import { prepareImageParts } from "./imagePrep.js"
 import { WORKER_SCRIPT } from "./webWorkerScript.js"
 import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
@@ -88,13 +88,22 @@ export function useWebAI({
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
+    // One number per generate(): cancel(), reset() and unload() move it on, so a run that was waiting for audio/image preparation
+    // can tell it was abandoned and must not create a worker or post its request when the wait ends.
+    const runToken = useRef(0)
     const historyRef = useRef([])
     const messagesRef = useRef([])
     const conversationIdRef = useRef(null)
 
     useEffect(() => () => {
+        // Unmounting is a cancel: a call still preparing its media is abandoned, and the pending generate() promise settles.
+        // Terminating the worker does not emit "done" or "error", so without this the caller would wait forever.
+        runToken.current++
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        const resolve = settleRef.current
+        settleRef.current = null
+        if (resolve) resolve()
     }, [])
 
     const formatPromptRef = useRef(formatPrompt)
@@ -114,24 +123,37 @@ export function useWebAI({
 
     const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
+            const token = ++runToken.current
+            // Taking over retires a generation that is still streaming right now, not only once this call has prepared its input: if
+            // this call then fails validation it never reaches the worker swap, and the stale-message guard would drop A's done/error,
+            // leaving streaming and busy set forever.
+            if (busyRef.current && workerRef.current) {
+                workerRef.current.terminate()
+                workerRef.current = null
+                busyRef.current = false
+                setStreaming(false)
+            }
             const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
             const kind = webModelKind(resolvedModel)
             // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
             // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
             // A speech-to-text model has no use for it: it only transcribes.
-            const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
+            // The registry as it was when this run started: the model is told about these components, so its answer is decoded with them even
+            // if the app re-renders with a different registry before the answer arrives.
+            const components = attachmentComponentsRef.current
+            const wantsComponents = Object.keys(components || {}).length > 0
             // Chrome's built-in model cannot follow the tag syntax reliably, but it can be held to a JSON schema: the
             // component is one of the registered names and the blocks are rendered by code (see attachmentSchema.js).
             const useSchema = promptApi && wantsComponents
             const systemText = kind === "asr"
                 ? null
                 : useSchema
-                    ? buildSchemaSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
-                    : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+                    ? buildSchemaSystemPrompt(systemPromptRef.current, components)
+                    : buildAttachmentSystemPrompt(systemPromptRef.current, components)
             const shown = (raw) => {
                 if (!wantsComponents) return raw
-                if (useSchema) return blocksToSentinels(raw, attachmentComponentsRef.current) ?? (raw.trimStart().startsWith("{") ? "" : convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current)))
-                return convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current))
+                if (useSchema) return blocksToSentinels(raw, components) ?? (raw.trimStart().startsWith("{") ? "" : convertAttachmentTags(raw, Object.keys(components)))
+                return convertAttachmentTags(raw, Object.keys(components))
             }
             const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
@@ -148,19 +170,32 @@ export function useWebAI({
             let template = null
             let outgoing = messages
             try {
-                assertEngineSupports(getModalities(messages), caps, "web")
-                if (kind === "asr" && !getModalities(messages).has("audio")) {
+                // The raw photo may be bigger than what is finally sent (it is resized first), so this check uses the looser pre-preparation
+                // limits; the strict ones apply to the prepared media in toWebTemplate below.
+                const requested = getModalities(messages, PRE_PREP_LIMITS)
+                assertEngineSupports(requested, caps, "web")
+                if (kind === "asr" && !requested.has("audio")) {
                     throw new Error(`${resolvedModel} is a speech-to-text model: attach an audio clip`)
                 }
                 if (mediaModel) {
-                    const prepared = await prepareImageParts(
-                        await prepareAudioParts(withSystem(messages), {
-                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
-                        }),
-                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
-                    )
+                    // Refuse a request the engine cannot take BEFORE spending CPU and memory decoding and resizing it.
+                    assertWebMediaCounts(messages)
+                    // A stateful chat replays earlier turns as text only (see historyAsText), so the media of this turn is the only media.
+                    const base = sessionMode === "stateful" ? [...historyAsText(messagesRef.current), ...messages] : messages
+                    // An audio clip that cannot be converted is an error here, not a reason to pass the original on: the worker takes
+                    // only 16 kHz mono WAV, so an m4a or mp3 sent as it is would end as an unexplained worker crash.
+                    let audioProblem = null
+                    const audioPrepared = await prepareAudioParts(withSystem(base), { onError: (e) => { audioProblem = audioProblem || e } })
+                    // (Audio that already is 16 kHz mono WAV needs no conversion, so a decoder that is missing does not matter for it.)
+                    const everyClipReady = base.every((m) => !Array.isArray(m?.content) || m.content.every((p) => p?.type !== "audio" || isWorkerReadyWav(p.data)))
+                    if (audioProblem && !everyClipReady) {
+                        throw Object.assign(new Error(`The audio could not be converted for the in-browser model: ${audioProblem.message}`), { reason: "invalid-part", modality: "audio" })
+                    }
+                    const prepared = await prepareImageParts(audioPrepared, {
+                        onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message),
+                    })
                     template = toWebTemplate(prepared)
-                } else if (promptApi && [...getModalities(messages)].some((m) => m !== "text")) {
+                } else if (promptApi && [...requested].some((m) => m !== "text")) {
                     // Same resize / 16 kHz conversion as the other engines; the engine itself turns the data URLs into Blobs.
                     outgoing = await prepareImageParts(
                         await prepareAudioParts(messages, {
@@ -168,11 +203,15 @@ export function useWebAI({
                         }),
                         { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
                     )
+                    getModalities(outgoing) // the strict size caps apply to what is actually sent
                 }
             } catch (inputErr) {
-                setError(inputErr)
+                if (token === runToken.current) setError(inputErr)
                 return
             }
+            // Preparing the audio or images takes time. If cancel(), reset() or unload() ran meanwhile, or a newer call took
+            // over, this run is abandoned: it must not create a worker or post a request nobody is waiting for.
+            if (token !== runToken.current) return false
 
             // A media-capable worker holds up to ~3.4 GB of weights (speech models far less), so it is kept alive between calls (same model, idle).
             const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
@@ -183,7 +222,7 @@ export function useWebAI({
 
             const genConfig = {
                 ...hookGenConfig,
-                ...(useSchema && { responseConstraint: buildAttachmentSchema(attachmentComponentsRef.current) }),
+                ...(useSchema && { responseConstraint: buildAttachmentSchema(components) }),
                 ...callGenConfig,
             }
             const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...outgoing] : outgoing
@@ -221,12 +260,16 @@ export function useWebAI({
 
             worker.onmessage = (e) => {
                 const msg = e.data
+                // This run was superseded (a newer generate(), cancel(), reset() or unload()): its worker may still be reporting, but the
+                // outcome, state and resolver now belong to someone else.
+                if (token !== runToken.current && msg.type !== "log") return
                 switch (msg.type) {
                     case "log":
                         console.log(msg.msg)
                         if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
                         break
                     case "download_status":
+                        if (workerRef.current !== worker) break // a late event from a worker that has been terminated
                         setFileStatus((prev) => ({ ...prev, [msg.file]: { state: msg.state, reason: msg.reason, retryInSec: msg.retryInSec } }))
                         break
                     case "progress":
@@ -278,7 +321,7 @@ export function useWebAI({
                                         ? crypto.randomUUID()
                                         : `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
                             }
-                            messagesRef.current = [...resolvedMessages, { role: "assistant", content: outputAccRef.current }]
+                            messagesRef.current = [...(mediaModel ? historyAsText(resolvedMessages) : resolvedMessages), { role: "assistant", content: outputAccRef.current }]
                         }
                         setStreaming(false)
                         setLoading(false)
@@ -292,6 +335,7 @@ export function useWebAI({
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, { message: msg.message }))
+                        setFileStatus({})
                         setStreaming(false)
                         setLoading(false)
                         busyRef.current = false
@@ -303,11 +347,13 @@ export function useWebAI({
             }
 
             worker.onerror = (e) => {
+                if (token !== runToken.current) return
                 console.error("[catalyst-ai/useWebAI] worker uncaught error:", e)
                 setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, {
                     message: e.message || "Worker crashed",
                     cause: e,
                 }))
+                setFileStatus({})
                 setStreaming(false)
                 setLoading(false)
                 busyRef.current = false
@@ -316,14 +362,26 @@ export function useWebAI({
                 settle()
             }
 
-            worker.postMessage({
-                type: "generate",
-                model: resolvedModel,
-                messages: template ? template.messages : withSystem(resolvedMessages),
-                media: template ? { images: template.images, audios: template.audios } : null,
-                genConfig,
-                formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
-            })
+            try {
+                worker.postMessage({
+                    type: "generate",
+                    model: resolvedModel,
+                    messages: template ? template.messages : withSystem(resolvedMessages),
+                    media: template ? { images: template.images, audios: template.audios } : null,
+                    genConfig,
+                    formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
+                })
+            } catch (sendErr) {
+                // postMessage throws synchronously when the request cannot be cloned (a function inside genConfig, say). That is a bad
+                // request, not a crash: report it, free the worker, and let the awaiting call finish with the error.
+                setError(createError(ERROR_CODES.AI_INVALID_REQUEST_BODY, { message: `The request could not be sent to the model: ${sendErr?.message || sendErr}`, cause: sendErr }))
+                setStreaming(false)
+                setLoading(false)
+                busyRef.current = false
+                worker.terminate()
+                workerRef.current = null
+                settle()
+            }
             return true
         },
         [modelProp, hookGenConfig, sessionMode, promptApi]
@@ -338,10 +396,21 @@ export function useWebAI({
             const outcome = { output: "", error: null }
             outcomeRef.current = outcome
             settle() // a superseded call must not hang
-            const settled = new Promise((resolve) => { settleRef.current = resolve })
-            const started = await run(args)
+            let mine = null
+            const settled = new Promise((resolve) => { mine = resolve; settleRef.current = resolve })
+            // Preparing media can take long. Cancel, reset, unload or a newer call settle this one, and it must not keep waiting for the preparation.
+            const preparing = run(args)
+            const first = await Promise.race([preparing, settled.then(() => "abandoned")])
+            if (first === "abandoned") {
+                preparing.catch(() => {}) // the abandoned preparation ends on its own (it sees the run was superseded); nothing waits for it
+                if (settleRef.current === mine) settleRef.current = null
+                return outcome
+            }
+            const started = first
             if (!started) {
-                settleRef.current = null // refused before any worker started: the error is already recorded
+                // Refused, or abandoned while preparing, before any worker started. Only clear the resolver if it is still this
+                // call's: a newer call may have installed its own meanwhile, and wiping that one would leave it waiting forever.
+                if (settleRef.current === mine) settleRef.current = null
                 return outcome
             }
             await settled
@@ -351,6 +420,10 @@ export function useWebAI({
     )
 
     const cancel = useCallback(() => {
+        // A cancelled call resolves with nothing: whatever had streamed in before is not its result.
+        outcomeRef.current.output = ""
+        outcomeRef.current.error = null
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         // Only a running generation has to be killed to stop it. An idle worker holds the loaded model (~3.4 GB for
@@ -358,11 +431,15 @@ export function useWebAI({
         // terminating here made each new image reload the whole model.
         if (busyRef.current && workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
         busyRef.current = false
+        setFileStatus({}) // the download that was paused is gone with its worker
+        setDownloadProgress(null) // ...and so is its progress
+        setLoading(false)
         setStreaming(false)
         settle()
     }, [settle])
 
     const reset = useCallback(() => {
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         outputAccRef.current = ""
@@ -374,6 +451,7 @@ export function useWebAI({
         setMetrics(null)
         setModelReady(false)
         setDownloadProgress(null)
+        setFileStatus({})
         setStreaming(false)
         setLoading(false)
         settle()
@@ -385,6 +463,7 @@ export function useWebAI({
      * done and something else (e.g. an image model) needs the memory.
      */
     const unload = useCallback(() => {
+        runToken.current++
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
@@ -392,6 +471,7 @@ export function useWebAI({
         busyRef.current = false
         setModelReady(false)
         setDownloadProgress(null)
+        setFileStatus({})
         setStreaming(false)
         setLoading(false)
         settle()
@@ -408,6 +488,8 @@ export function useWebAI({
         loading,
         error,
         modelReady,
+        // The model that is loaded, so a caller that switches models can tell A being ready from B being ready.
+        loadedModel: modelReady && workerRef.current ? workerModelRef.current : null,
         downloadProgress,
         // True while a model file waits for the connection; the reason is "offline", "weak" or "error".
         downloadPaused,

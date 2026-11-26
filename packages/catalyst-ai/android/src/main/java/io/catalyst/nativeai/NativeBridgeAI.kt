@@ -12,6 +12,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -37,6 +38,10 @@ class NativeBridgeAI(
     private val TAG = "NativeBridgeAI"
 
     private var engine: Engine? = null
+    // The model file the loaded engine was built from. A different request must not be answered by this engine.
+    private var loadedModelPath: String? = null
+    // Set when a registry model is resolved: the multimodal engine tiers are not tried for a model that has no media executors.
+    private var textOnlyModel = false
 
     // What the loaded engine was actually initialised with. Image/audio parts are refused (not dropped) when false.
     private var visionEnabled = false
@@ -56,13 +61,25 @@ class NativeBridgeAI(
             sizeHint = 2_588_147_712L
         ),
         "qwen3-0.6B" to ModelEntry(
-            url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm",
-            filename = "qwen3_0_6b_mixed_int4.litertlm",
-            sizeHint = 497_516_544L
+            url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm",
+            filename = "Qwen3-0.6B.litertlm",
+            sizeHint = 613_722_264L,
+            textOnly = true,
+            legacyFilenames = listOf("Qwen3-0.6B-it-int4.litertlm", "qwen3_0_6b_mixed_int4.litertlm"),
         ),
     )
 
-    data class ModelEntry(val url: String, val filename: String, val sizeHint: Long)
+    /**
+     * [textOnly]: the model has no vision or audio executors, so the multimodal engine tiers are skipped (each failed attempt costs a full
+     * initialisation). [legacyFilenames]: files an earlier version stored this model under; removed once the current file is in place.
+     */
+    data class ModelEntry(
+        val url: String,
+        val filename: String,
+        val sizeHint: Long,
+        val textOnly: Boolean = false,
+        val legacyFilenames: List<String> = emptyList(),
+    )
 
     /**
      * Returns false if init was already in progress (duplicate guard).
@@ -124,11 +141,18 @@ class NativeBridgeAI(
             mediaFiles.forEach { it.delete() }
             throw e
         }
-        val tokenFlow = conversation.sendMessageAsync(contents).map { message ->
-            message.contents.contents
-                .filterIsInstance<Content.Text>()
-                .joinToString("") { it.text }
-        }.onCompletion { mediaFiles.forEach { it.delete() } }
+        // onCompletion only exists once a Flow has been returned. If submitting the message throws, nothing will ever run it, so
+        // the temp media files are removed here before the failure goes on.
+        val tokenFlow = try {
+            conversation.sendMessageAsync(contents).map { message ->
+                message.contents.contents
+                    .filterIsInstance<Content.Text>()
+                    .joinToString("") { it.text }
+            }.onCompletion { mediaFiles.forEach { it.delete() } }
+        } catch (e: Exception) {
+            mediaFiles.forEach { it.delete() }
+            throw e
+        }
         return Pair(activeConvId, tokenFlow)
     }
 
@@ -138,8 +162,7 @@ class NativeBridgeAI(
      * ahead of the text. Temp files are removed when the response flow completes or is cancelled.
      */
     private fun buildContents(prompt: String, genConfig: JSONObject, mediaFiles: MutableList<File>): Contents {
-        val parts = genConfig.optJSONArray("inputParts")
-        if (parts == null || parts.length() == 0) return Contents.of(prompt)
+        val parts = readInputParts(genConfig) ?: return Contents.of(prompt)
 
         val dir = File(context.cacheDir, "ai_input").also { it.mkdirs() }
         val items = mutableListOf<Content>()
@@ -180,18 +203,31 @@ class NativeBridgeAI(
         val modelKey = options.optString("model", "gemma-4-E2B")
         val entry = MODEL_REGISTRY[modelKey]
             ?: throw Exception("Unknown model '$modelKey'. Available: ${MODEL_REGISTRY.keys.joinToString()}")
+        textOnlyModel = entry.textOnly
         log("Model registry lookup: $modelKey")
         progress("lookup", 0, 0, 0, modelKey)
         return downloadModel(entry, DownloadPolicy.from(options.optJSONObject("download")))
     }
 
     private fun ensureEngine(modelPath: String) {
-        if (engine != null) {
+        if (engine != null && loadedModelPath == modelPath) {
             log("Engine already loaded — reusing warm instance")
             return
         }
+        engine?.let { previous ->
+            // Another model was asked for (the page switched from Gemma to Qwen, say). Keeping the old engine would answer with the
+            // wrong model and hold its memory, so release it and its conversation before loading the new one.
+            log("Model changed ($loadedModelPath -> $modelPath): releasing the previous engine")
+            try { nativeConversation?.close() } catch (e: Exception) { log("closing the previous conversation failed: ${e.message}") }
+            nativeConversation = null
+            nativeConversationId = null
+            try { previous.close() } catch (e: Exception) { log("closing the previous engine failed: ${e.message}") }
+            engine = null
+            loadedModelPath = null
+        }
         progress("engine_init", 0, 0, 0, "loading")
         engine = tryCreateEngine(modelPath)
+        loadedModelPath = modelPath
         log("LiteRT-LM engine ready")
         progress("engine_init", 100, 0, 0, "ready")
     }
@@ -204,22 +240,26 @@ class NativeBridgeAI(
     private fun tryCreateEngine(modelPath: String): Engine {
         log("[tryCreateEngine] modelPath=$modelPath")
         val cacheDir = File(context.cacheDir, "litertlm").also { it.mkdirs() }.absolutePath
-        data class Attempt(val label: String, val main: Backend, val vision: Backend?, val audio: Backend?)
+        // The backends are built inside the attempt's try, not while this list is assembled: a backend factory that throws (a GPU the device
+        // does not have) must count as that attempt failing, and the next one must still be tried.
+        data class Attempt(val label: String, val main: () -> Backend, val vision: (() -> Backend)?, val audio: (() -> Backend)?)
         val attempts = listOf(
-            Attempt("GPU+vision+audio", Backend.GPU(), Backend.GPU(), Backend.CPU()),
-            Attempt("CPU+vision+audio", Backend.CPU(), Backend.CPU(), Backend.CPU()),
-            Attempt("GPU text-only", Backend.GPU(), null, null),
-            Attempt("CPU text-only", Backend.CPU(), null, null),
+            Attempt("GPU+vision+audio", { Backend.GPU() }, { Backend.GPU() }, { Backend.CPU() }),
+            Attempt("CPU+vision+audio", { Backend.CPU() }, { Backend.CPU() }, { Backend.CPU() }),
+            Attempt("GPU text-only", { Backend.GPU() }, null, null),
+            Attempt("CPU text-only", { Backend.CPU() }, null, null),
         )
         var last: Exception? = null
-        for (a in attempts) {
+        // A text-only model has no vision or audio executors: the first two tiers can only fail, and each failure is a full initialisation.
+        val usable = if (textOnlyModel) attempts.filter { it.vision == null } else attempts
+        for (a in usable) {
             log("[tryCreateEngine] Attempting ${a.label}...")
             try {
                 val config = EngineConfig(
                     modelPath = modelPath,
-                    backend = a.main,
-                    visionBackend = a.vision,
-                    audioBackend = a.audio,
+                    backend = a.main(),
+                    visionBackend = a.vision?.invoke(),
+                    audioBackend = a.audio?.invoke(),
                     cacheDir = cacheDir,
                 )
                 val eng = Engine(config)
@@ -233,6 +273,8 @@ class NativeBridgeAI(
                 last = e
             }
         }
+        // Each attempt above is logged at debug level; the outcome that matters must survive a production log filter.
+        Log.e(TAG, "[AI] Engine initialization failed after ${attempts.size} configurations: ${last?.javaClass?.simpleName}: ${last?.message}", last)
         throw last ?: IllegalStateException("No engine configuration succeeded")
     }
 
@@ -257,6 +299,7 @@ class NativeBridgeAI(
         var knownTotal = entry.sizeHint
         val downloader = ResumableDownloader(
             userAgent = "CatalystCore/1.0 LiteRT-LM",
+            expectedSize = entry.sizeHint,
             policy = policy,
             gate = DownloadGate.shared,
             log = { log(it) },
@@ -293,6 +336,8 @@ class NativeBridgeAI(
             modelFile.delete()
             if (!tempFile.renameTo(modelFile)) throw Exception("could not move the model into place")
             etagFile.delete()
+            // The replacement is in place: only now are the files of earlier versions (hundreds of megabytes) safe to delete.
+            LegacyModelFiles.remove(modelsDir, entry.legacyFilenames).forEach { log("Removed an old copy of the model: $it") }
             log("Download complete: ${size / 1_000_000}MB saved to ${modelFile.absolutePath}")
             progress("download", 100, size, size, "complete")
         } catch (e: Exception) {
@@ -320,4 +365,15 @@ sealed class InitResult {
         val systemPrompt: String,
     ) : InitResult()
     data class Error(val cause: Exception) : InitResult()
+}
+
+/**
+ * genConfig.inputParts for a turn. Absent, null or an empty array means a text-only turn. Any other shape is an error:
+ * reading it as "no media" would answer a request that carried a photo or a recording as if it had not.
+ */
+internal fun readInputParts(genConfig: JSONObject): JSONArray? {
+    if (!genConfig.has("inputParts") || genConfig.isNull("inputParts")) return null
+    val raw = genConfig.get("inputParts")
+    if (raw !is JSONArray) throw IllegalArgumentException("inputParts must be an array of media parts")
+    return if (raw.length() == 0) null else raw
 }

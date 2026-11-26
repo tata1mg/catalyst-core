@@ -442,6 +442,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 val protocol = if (useHttps) "https" else "http"
                 currentUrl = "$protocol://$local_ip:$port/$initial_url"
                 customWebView.updateLastTargetUrl(currentUrl)
+                customWebView.setTrustedAppUrl(currentUrl)
             
 
             // Check for notification and handle via /notification endpoint
