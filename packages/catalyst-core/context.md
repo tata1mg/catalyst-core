@@ -1,7 +1,7 @@
 # Catalyst Core — Claude Context Reference
 
 > Machine-first. Dense. No prose filler. Read this when MCP is unavailable.
-> Source: https://github.com/tata1mg/catalyst-core | Version: 1.2.0
+> Source: https://github.com/tata1mg/catalyst-core | Version: 1.3.1
 
 ---
 
@@ -73,6 +73,10 @@ Key exports from `catalyst-core` package:
     "API_URL": "https://api.example.com",
     "CLIENT_ENV_VARIABLES": ["API_URL"],
 
+    "CSP_NONCE_ENABLE": false,
+    "SCRIPT_INTEGRITY_ENABLE": false,
+    "OFFLINE_SNAPSHOTS_ENABLE": true,
+
     "WEBVIEW_CONFIG": {
         "appId": "com.yourcompany.myapp",
         "appName": "MyApp",
@@ -101,6 +105,11 @@ Key exports from `catalyst-core` package:
 
         "notifications": {
             "enabled": false
+        },
+
+        "location": {
+            "enabled": false,
+            "usageDescription": "Shown in the iOS location prompt"
         }
     }
 }
@@ -116,6 +125,10 @@ Key exports from `catalyst-core` package:
 - `android.buildType` / `ios.buildType`: leave `"debug"` or omit; `"release"` is deprecated, use `--release`
 - `CLIENT_ENV_VARIABLES`: only listed keys are sent to browser bundle — security boundary
 - `accessControl.enabled: false` → all URLs allowed; `true` → only allowedUrls pass
+- `CSP_NONCE_ENABLE: true` (1.3.0+): every script and modulepreload tag Catalyst renders carries a per-request nonce, not styles. The `Content-Security-Policy` header is the app's to set. Catalyst sets `res.locals.cspNonce` after the app's middlewares have run, so a middleware from `addMiddlewares` that only reads it gets `undefined` (header `'nonce-undefined'`): generate the nonce in the middleware and assign `res.locals.cspNonce`; Catalyst uses that value for the tags (a value outside the base64 alphabet is replaced)
+- `SCRIPT_INTEGRITY_ENABLE: true` (1.3.1+): `catalyst build` writes sha384 hashes to `build/.vite/integrity.json`; the production server adds `integrity` + `crossorigin="anonymous"` to the script and modulepreload tags in the document. Read at build time: rebuild after turning it on (flag on + no file → startup warning, scripts served without integrity). Not covered: scripts loaded by static `import` or `import()`, CSS, scripts added in `server/document.js`. No effect in `catalyst start`. Assets on another origin need CORS headers
+- `OFFLINE_SNAPSHOTS_ENABLE: false` (1.3.0+): the build skips `catalyst-sw.js` and `catalyst-offline-manifest.json` and the client never registers the worker; route `offline` flags are ignored. For apps that ship their own service worker
+- `location.enabled: true` (1.3.0+): adds the Android location permissions and the WebView geolocation prompt, and `NSLocationWhenInUseUsageDescription` on iOS (`location.usageDescription` sets the text). Off → `navigator.geolocation` requests in the app are denied
 
 ---
 
@@ -179,6 +192,9 @@ export const onRequestError = ({ req, res, error }) => {} // anything else in th
 - Request hooks are not awaited: keep them synchronous. Use `req.originalUrl` (`req.path` is `/` inside hooks). Sending a response ends the request
 - `onServerError` is read but never called in practice (Express 4 never passes an error to `listen`)
 - A throwing hook is logged and skipped: PROCESS-001 (preServerInit), PROCESS-002 (request hooks)
+- A `server/index.js` that exists but fails to import stops startup with the import error (1.3.0+); before 1.3.0 it was skipped. From 1.1.0 to 1.2.1 an import of a `_moduleAliases` alias in it failed this way, so `preServerInit` never ran
+- `Otel.init({ errorSampling: { ENABLED: true } })` (1.3.0+): unsampled traces wait in memory until the request ends and the failed ones are exported; the server logs a memory heartbeat while it is on
+- `setMetaData` tags are rendered by `MetaTag` only, apart from the title (1.3.0+). `<script type="application/ld+json">` renders in the page body, not `<head>`
 
 ---
 

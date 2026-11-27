@@ -39,10 +39,11 @@ const FAKE_MANIFEST = {
     "src/js/components/Widget": { file: "widget.def456.js", css: ["widget.def456.css"] },
 }
 
-function mockManifest() {
+function mockManifest(integrityManifest: Record<string, unknown> = {}) {
     vi.doMock(MANIFEST_CACHE, () => ({
         getManifest: () => FAKE_MANIFEST,
         getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+        getIntegrityManifest: () => integrityManifest,
     }))
 }
 
@@ -237,6 +238,40 @@ describe("SSR handler — critical asset collection", () => {
 })
 
 describe("SSR handler — deferred assets discovered during render", () => {
+    it("adds integrity and crossorigin to critical and deferred scripts listed in the integrity manifest", async () => {
+        const homeUrl = "http://localhost/assets/home.abc123.js"
+        const widgetUrl = "http://localhost/assets/widget.def456.js"
+        const homeHash = "sha384-nrRBJlKm9Dvo5pXLPVhxDdZA1L+cmiRxZeD4vsLg5KD91ezcV2K4jNTgM1coLR63"
+        const widgetHash = "sha384-YxXJh6SJ9O4vCdR2fb9/lg26CbNfX98m5EldbvHRax5/NZz0AQ0ZED7fat7rrdCp"
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest({
+            [homeUrl]: homeHash,
+            [widgetUrl]: widgetHash,
+        })
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+
+        // Critical script and its modulepreload link, rendered in <head>.
+        const home = makeReqRes("/")
+        await handler(home.req, home.res)
+        await home.res.waitForEnd()
+        const homeHtml = home.res.getHtml()
+        const script = homeHtml.match(/<script type="module"[^>]*home\.abc123\.js[^>]*>/)?.[0] ?? ""
+        const preload = homeHtml.match(/<link rel="modulepreload"[^>]*home\.abc123\.js[^>]*>/)?.[0] ?? ""
+        for (const tag of [script, preload]) {
+            expect(tag).toContain(`integrity="${homeHash}"`)
+            expect(tag).toContain('crossorigin="anonymous"')
+        }
+
+        // Deferred script, streamed after the document.
+        const widget = makeReqRes("/widget")
+        await handler(widget.req, widget.res)
+        await widget.res.waitForEnd()
+        expect(widget.res.getHtml()).toContain(
+            `<script type="module" integrity="${widgetHash}" crossorigin="anonymous" src="${widgetUrl}"></script>`
+        )
+    })
+
     it("serializes render-tracked component keys and flushes deferred CSS/JS after the document", async () => {
         vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
         mockManifest()

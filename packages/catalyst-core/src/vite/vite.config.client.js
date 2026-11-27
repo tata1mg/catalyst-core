@@ -5,6 +5,7 @@ import { sharedViteConfig as baseConfig, getClientEnvVariables } from "./vite.co
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
+import { scriptIntegrityPlugin } from "./script-integrity-plugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 
 const createClientConfig = async () => {
@@ -23,6 +24,8 @@ const createClientConfig = async () => {
             }),
             injectCacheKeyPlugin(),
             ...(customViteConfig?.clientPlugins || []),
+            // Hashes the built JS. It waits for the other plugins' closeBundle hooks.
+            scriptIntegrityPlugin(),
         ],
 
         build: {
