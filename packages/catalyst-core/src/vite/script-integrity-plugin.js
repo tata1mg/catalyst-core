@@ -31,8 +31,13 @@ export const collectScriptIntegrity = (buildDir, viteManifest = {}) => {
         if (typeof file !== "string" || !/\.m?js$/.test(file) || integrity[file]) continue
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - file comes from the Vite build manifest written by this build, never from a request.
         const filePath = path.join(buildDir, file)
-        // A file the manifest lists but the build did not write throws here and
-        // fails the build, so no script ships without the hash the flag promises.
+        if (!fs.existsSync(filePath)) {
+            // Not fatal, but that script will be served without integrity.
+            console.warn(
+                `SCRIPT_INTEGRITY_ENABLE: ${file} is in the build manifest but not on disk, so it gets no integrity hash.`
+            )
+            continue
+        }
         integrity[file] = hashFile(filePath)
     }
     return integrity

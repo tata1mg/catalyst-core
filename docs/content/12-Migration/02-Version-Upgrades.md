@@ -8,14 +8,13 @@ id: 0.0.1-beta.4
 
 ## Upgrading From 1.3.0 To 1.3.1
 
-`1.3.1` adds script integrity behind a flag and fixes the CSP nonce reaching the app's middlewares. Nothing changes until you turn a flag on.
+`1.3.1` adds script integrity behind a flag. Nothing changes until you turn it on.
 
 ```bash
 npm install catalyst-core@1.3.1
 ```
 
-- Apps with `CSP_NONCE_ENABLE` on that read `res.locals.cspNonce` in a middleware should upgrade. In 1.3.0 the value was not set yet when the middleware ran, so the `Content-Security-Policy` header carried `'nonce-undefined'`. A workaround that sets `res.locals.cspNonce` yourself keeps working and can stay.
-- `SCRIPT_INTEGRITY_ENABLE: true` adds `integrity` to the script tags Catalyst renders. It is read at build time, so rebuild after turning it on. Read the limits in [Security](/content/Best%20Practices/security#subresource-integrity) first: scripts loaded through imports are not checked.
+`SCRIPT_INTEGRITY_ENABLE: true` adds `integrity` to the script tags Catalyst renders. It is read at build time, so rebuild after turning it on. Read the limits in [Security](/content/Best%20Practices/security#subresource-integrity) first: scripts loaded through imports are not checked.
 
 ## Upgrading From 1.2.x To 1.3.0
 
@@ -36,7 +35,7 @@ Two fixes can also change what you see:
 - `preServerInit` runs again for apps whose `server/index.js` imports an alias from `_moduleAliases`. Since 1.1.0 the hook was skipped for those apps without a message, so work in it, such as `Otel.init`, starts running after the upgrade.
 - `MetaTag` is the only owner of the tags from `setMetaData`, apart from the title. The server no longer renders them twice.
 
-If you turn on `CSP_NONCE_ENABLE` and set the `Content-Security-Policy` header from a middleware, use 1.3.1. See the section above.
+If you turn on `CSP_NONCE_ENABLE` and set the `Content-Security-Policy` header from a middleware, generate the nonce in that middleware and assign it to `res.locals.cspNonce`. Catalyst sets its own value after the app's middlewares have run, so a middleware that only reads it gets `undefined`.
 
 ## Upgrading From 1.2.0 To 1.2.1
 

@@ -2,7 +2,7 @@ import crypto from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
     collectScriptIntegrity,
     isScriptIntegrityEnabled,
@@ -68,9 +68,15 @@ describe("script-integrity plugin", () => {
         })
     })
 
-    it("throws when the manifest lists a JS file that is not on disk", () => {
+    it("warns and skips a JS file the manifest lists that is not on disk", () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
         const manifest = { ...viteManifest, "_gone.js": { file: "client/assets/gone.js" } }
-        expect(() => collectScriptIntegrity(buildDir, manifest)).toThrow(/gone\.js/)
+        expect(collectScriptIntegrity(buildDir, manifest)).toEqual({
+            "client/assets/main-abc.js": sha384("console.log('main')"),
+            "client/assets/vendor-def.js": sha384("console.log('vendor')"),
+        })
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("client/assets/gone.js"))
+        warn.mockRestore()
     })
 
     it("runs last and waits for the other plugins' closeBundle hooks", () => {
