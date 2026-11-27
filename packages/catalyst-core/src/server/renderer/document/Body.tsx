@@ -28,11 +28,13 @@ export function Body(props) {
         safeArea = DEFAULT_SAFE_AREA,
         nativeWebView = false,
         pprShell = false,
+        nonce,
     } = props
 
     return (
         <body>
             <script
+                nonce={nonce}
                 /* eslint-disable-next-line risxss/catch-potential-xss-react */
                 dangerouslySetInnerHTML={{
                     __html: `window.__SAFE_AREA_INITIAL__ = ${JSON.stringify(safeArea)}; window.__CATALYST_NATIVE_WEBVIEW__ = ${nativeWebView ? "true" : "false"}`,
@@ -40,11 +42,16 @@ export function Body(props) {
             />
             {process.env.NODE_ENV === "development" && (
                 // Base pinned to Vite's resolved base by server/expressServer.js.
-                <script type="module" src={`${process.env.APP_MOUNT_PATH || ""}/client/index.js`}></script>
+                <script
+                    type="module"
+                    nonce={nonce}
+                    src={`${process.env.APP_MOUNT_PATH || ""}/client/index.js`}
+                ></script>
             )}
             {jsx}
             {!pprShell && (
                 <script
+                    nonce={nonce}
                     /* eslint-disable */
                     dangerouslySetInnerHTML={{
                         __html: `

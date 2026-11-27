@@ -378,7 +378,7 @@ describe("runtimeFailure", () => {
         const out = lines(runtimeFailure({ error, cwd: app }))
         expect(out[2]).toBe(`  Failed to resolve import "@api/client" from "src/Home.js".`)
         expect(out).toContain(`  at ${path.join("src", "Home.js")}:1:8`)
-        expect(out.find((l) => l.startsWith("  hint"))).toMatch(/alias @api is not defined/)
+        expect(out.find((l) => l.startsWith("  hint"))).toMatch(/@api is not an alias/)
         expect(out).toContain("  docs  https://catalyst.1mg.com/errors/unresolved-import")
     })
 

@@ -589,3 +589,83 @@ describe("SSR handler — static cache guards", () => {
         expect(page.html).toContain("static page")
     })
 })
+
+describe("SSR handler — PPR and static routes with CSP_NONCE_ENABLE and runInParallel", () => {
+    beforeEach(() => {
+        ;(process.env as any).PPR_ENABLE = true
+    })
+
+    const parallelWork = async (work: () => Promise<unknown>) => {
+        const AppModule: any = await import("./fixtures/template/src/js/containers/App/index.jsx")
+        return vi
+            .spyOn(AppModule.default, "serverSideFunction")
+            .mockImplementation(async ({ runInParallel }: any) => runInParallel(work()))
+    }
+
+    it("stamps each PPR response's generated nonce on every script, on a miss and on a hit", async () => {
+        ;(process.env as any).CSP_NONCE_ENABLE = true
+        // An entry chunk, so the shell's <head> has a script and a modulepreload of its own.
+        vi.doMock("../../src/server/manifestCache.js", () => ({
+            getManifest: () => ({}),
+            getAssetManifest: () => ({ essential: { main: { file: "main.abc.js" } } }),
+            getIntegrityManifest: () => ({}),
+        }))
+        const get = await load()
+        const first = await get("/ppr", { cookies: USER_A })
+        const second = await get("/ppr", { cookies: USER_B })
+        expect([first.mode, second.mode]).toEqual(["ppr-miss", "ppr-hit"])
+        const nonces = [first, second].map((page) => page.res.locals.cspNonce)
+        expect(nonces[0]).not.toBe(nonces[1])
+        for (const [i, page] of [first, second].entries()) {
+            const scripts = page.html.match(/<script\b[^>]*>/gi) || []
+            expect(scripts.length).toBeGreaterThan(0)
+            for (const tag of scripts) expect(tag).toContain(`nonce="${nonces[i]}"`)
+            const head = page.html.slice(0, page.html.indexOf("</head>"))
+            for (const tag of head.match(/<(script|link rel="modulepreload")\b[^>]*main\.abc\.js[^>]*>/g) || ["none"])
+                expect(tag).toContain(`nonce="${nonces[i]}"`)
+            expect(head.match(/main\.abc\.js/g)).toHaveLength(2)
+        }
+        vi.doUnmock("../../src/server/manifestCache.js")
+    })
+
+    it("finishes a PPR request only after the work passed to runInParallel settles", async () => {
+        let release!: () => void
+        const gate = new Promise<void>((resolve) => (release = resolve))
+        await parallelWork(() => gate)
+        const get = await load()
+        let ended = false
+        const page = get("/ppr", { cookies: USER_A }).then((p) => ((ended = true), p))
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        expect(ended).toBe(false)
+        release()
+        expect((await page).mode).toBe("ppr-miss")
+    })
+
+    it("reports a runInParallel failure on a PPR route through onAppServerSideError", async () => {
+        const onAppServerSideError = vi.fn()
+        mockHooks({ onAppServerSideError })
+        await parallelWork(() => Promise.reject(Object.assign(new Error("parallel"), { status_code: 502 })))
+        const get = await load()
+        const page = await get("/ppr", { cookies: USER_A })
+        expect(page.mode).toBe("ppr-miss")
+        expect(onAppServerSideError).toHaveBeenCalledWith(
+            expect.objectContaining({ error: expect.objectContaining({ message: "parallel" }) })
+        )
+        expect(page.html).toContain("window.__STATUS_CODE__=502")
+    })
+
+    it("does not replay a cached static page when runInParallel work fails", async () => {
+        const onAppServerSideError = vi.fn()
+        mockHooks({ onAppServerSideError })
+        const spy = await parallelWork(() => Promise.resolve())
+        const get = await load()
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+        expect((await get("/static")).mode).toBe("static-cache-hit")
+        spy.mockImplementation(async ({ runInParallel }: any) =>
+            runInParallel(Promise.reject(new Error("parallel")))
+        )
+        const page = await get("/static")
+        expect(page.mode).toBeUndefined()
+        expect(onAppServerSideError).toHaveBeenCalledTimes(1)
+    })
+})

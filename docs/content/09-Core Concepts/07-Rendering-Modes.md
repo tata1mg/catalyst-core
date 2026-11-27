@@ -49,7 +49,7 @@ Home.pprFallback = <HomeSkeleton /> // what the cached shell shows until the app
 A PPR response is written in three parts:
 
 1. **Shell**, prerendered once per `pathname | getPPRShellKey()` with `prerenderToNodeStream` and replayed from an in-memory LRU: the document (`<head>`, inlined CSS, preloads) and `pprFallback`. It is written as soon as `App.serverSideFunction` has run, before route data is fetched.
-2. **App**, the postponed hole: resumed with `resumeToPipeableStream` when this request's `serverFetcher` data is ready, so existing fetchers work unchanged.
+2. **App**, the postponed hole: resumed with `resumeToPipeableStream` when this request's `serverFetcher` data and any work `App.serverSideFunction` passed to `runInParallel` are ready, so existing fetchers work unchanged. A `runInParallel` failure goes to `onAppServerSideError` and the app renders with its status as `window.__STATUS_CODE__`.
 3. **Trailer**: this request's `__INITIAL_STATE__`, router data, rendered `split()` keys, deferred CSS/JS, and any cookies/redirects set after the headers went out (replayed client-side; a late redirect is replayed only to a relative or `http(s)` URL, and any other is logged and dropped).
 
 The whole app is inside the hole, so the shell never contains request data. Per-request markup in the app's custom Document (CSRF inputs, per-user scripts) must be wrapped in `<PPRDynamic>`. As a safety net, a shell that contains one of the request's cookie values (or a `|`, `:` or `.` separated part of one) of 12 or more characters is not cached. Shorter values are not checked, because short strings such as `1`, `true` or `en` also occur in ordinary markup and would stop every page from caching; keeping per-request values out of the shell is the app's job. On the client, wrap the hydrated root in `<PPRHydrationBoundary>` so it has a Suspense boundary at the same position as the server (apps created from the current templates already do). Without it hydration fails and the page re-renders on the client; on a PPR response the browser console then shows an error naming the fix.
@@ -71,6 +71,8 @@ hydrateRoot(container, <PPRHydrationBoundary>{Application}</PPRHydrationBoundary
 ```
 
 On a streaming (non-PPR) response both render their children as they are.
+
+With a CSP nonce (`CSP_NONCE_ENABLE`, or `res.locals.cspNonce` set by the app), the shell is built with a placeholder in every nonce attribute and each response writes its own nonce in its place. Shells for requests with and without a nonce are cached apart.
 
 Optional app hooks (`server/index.js`):
 
