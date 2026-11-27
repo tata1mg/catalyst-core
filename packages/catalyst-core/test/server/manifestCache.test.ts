@@ -113,6 +113,7 @@ describe("manifestCache (production load path)", () => {
             expect(mod.getIntegrityManifest()).toEqual({})
             expect(warn).toHaveBeenCalledWith(
                 expect.stringContaining("SCRIPT_INTEGRITY_ENABLE is on but"),
+                expect.stringContaining("integrity.json"),
                 expect.any(String)
             )
         })
@@ -132,6 +133,7 @@ describe("manifestCache (production load path)", () => {
             expect(warn).not.toHaveBeenCalledWith("Could not load build manifests:", expect.any(String))
             expect(warn).toHaveBeenCalledWith(
                 expect.stringContaining("SCRIPT_INTEGRITY_ENABLE is on but"),
+                expect.stringContaining("integrity.json"),
                 expect.any(String)
             )
         })

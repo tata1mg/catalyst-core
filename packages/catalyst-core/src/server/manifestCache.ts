@@ -50,8 +50,10 @@ function loadManifests() {
         try {
             integrityManifest = toUrlKeys(JSON.parse(fs.readFileSync(integrityPath, "utf-8")))
         } catch (error) {
+            // Constant message; the path and the error are passed as arguments.
             console.warn(
-                `SCRIPT_INTEGRITY_ENABLE is on but ${integrityPath} could not be loaded, so scripts are served without integrity. Rebuild with the flag on.`,
+                "SCRIPT_INTEGRITY_ENABLE is on but the integrity file could not be loaded, so scripts are served without integrity. Rebuild with the flag on.",
+                integrityPath,
                 error.message
             )
         }
