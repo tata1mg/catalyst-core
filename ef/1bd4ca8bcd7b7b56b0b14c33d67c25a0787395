@@ -1,0 +1,44 @@
+packages/catalyst-ai/plugins/ai/ios/Support/EngineFallback.swift
+  s_f9b68111c2008f::t_cf787b6525eefc 39-41,61-62,76
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_f9b68111c2008f::t_cf787b6525eefc 70,95-97,112,165-172,187,199-209
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/DownloadReviewTests.swift
+  s_f9b68111c2008f::t_9ce53cd05f59ae 98-117,119
+packages/catalyst-ai/src/attachmentTags.js
+  s_f9b68111c2008f::t_f3fe54a119f153 18-37,41-82
+packages/catalyst-ai/src/metrics.js
+  s_f9b68111c2008f::t_2039b785f2e4d4 97-98
+packages/catalyst-ai/test/attachmentTags.test.ts
+  s_f9b68111c2008f::t_bd43e7f60d7601 1-36
+packages/catalyst-ai/test/useWebAI.messages.test.ts
+  s_f9b68111c2008f::t_9cb52e77f71789 146-147,155-156
+  s_f9b68111c2008f::t_c2328079cedd20 309,364
+  s_f9b68111c2008f::t_bd43e7f60d7601 284-308,310-363,365-372
+packages/catalyst-ai/plugins/ai/ios/Support/ResilientDownload.swift
+  s_f9b68111c2008f::t_9ce53cd05f59ae 74-78
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_b58bd883a61609 132-135,142-143,146-147,254-256,341,356-375,392-400,426-427,483
+packages/catalyst-ai/test/useCloudAI.hook.test.ts
+  s_f9b68111c2008f::t_9cb52e77f71789 40-41
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/EngineFallbackTests.swift
+  s_f9b68111c2008f::t_78c578c1c88428 61,85,113,118-153
+packages/catalyst-ai/test/metrics.test.ts
+  s_f9b68111c2008f::t_2039b785f2e4d4 97-98,101-104
+  s_f9b68111c2008f::t_ff9df948a1b15e 99-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ef1bd4ca8bcd7b7b56b0b14c33d67c25a0787395",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

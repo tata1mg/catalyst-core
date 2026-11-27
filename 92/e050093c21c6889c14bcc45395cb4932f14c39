@@ -1,0 +1,48 @@
+benchmarks/harness/compose.py
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-58
+  s_2b5c6c7a2de2aa::t_4a5a472cac169f 59-65
+benchmarks/harness/extract_lighthouse_images.py
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-12
+benchmarks/harness/late.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,14,21,24
+benchmarks/harness/waterfall.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,33
+benchmarks/pokedex/results/README.md
+  s_2b5c6c7a2de2aa::t_87f82542fc6b71 1-48
+benchmarks/harness/render.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4
+benchmarks/harness/images.mjs
+  s_2b5c6c7a2de2aa::t_42136e3db49602 1
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4,7-9,30,33,41-43,45-47
+benchmarks/harness/record.mjs
+  s_2b5c6c7a2de2aa::t_89d64531ebd03e 36-40
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 1-35
+benchmarks/pokedex/results/sveltekit/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_cd34934924cf0f 4-36
+benchmarks/pokedex/results/catalyst-1.1.0/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_71e4fca5204d57 4-37
+benchmarks/harness/lhreports.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 14
+benchmarks/README.md
+  s_2b5c6c7a2de2aa::t_87f82542fc6b71 11,18,20,22,24-31
+benchmarks/harness/early.mjs
+  s_2b5c6c7a2de2aa::t_a7069332c66d45 4-5,32
+benchmarks/pokedex/results/exact/data/after-load-typing.json
+  s_2b5c6c7a2de2aa::t_db28669382dfa2 4-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92e050093c21c6889c14bcc45395cb4932f14c39",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

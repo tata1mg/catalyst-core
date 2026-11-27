@@ -1,0 +1,21 @@
+packages/catalyst-ai/src/webWorkerScript.js
+  s_f9b68111c2008f::t_cde0439993ce46 248
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_6db2f8786cc485 243-245,247-250,260-262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbdd38be8d82de9a8a9be88c41a81981dfc4a84c",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

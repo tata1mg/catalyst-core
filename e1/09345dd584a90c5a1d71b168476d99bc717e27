@@ -1,0 +1,23 @@
+packages/catalyst-ai/src/promptApiEngine.js
+  s_f9b68111c2008f::t_d95aefaea71e3c 101-113,199
+packages/catalyst-ai/test/promptApiEngine.test.ts
+  s_f9b68111c2008f::t_d95aefaea71e3c 300-310
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_d95aefaea71e3c 120,243-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e109345dd584a90c5a1d71b168476d99bc717e27",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

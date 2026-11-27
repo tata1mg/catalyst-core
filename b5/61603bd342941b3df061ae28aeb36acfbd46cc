@@ -1,0 +1,45 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_b51c9b0dcf5264::t_11b44bbba1bc53 213-214
+packages/catalyst-core/test/hooks/useMicrophone.test.ts
+  s_b51c9b0dcf5264::t_f77d561a705735 1-90
+packages/catalyst-ai/src/index.js
+  s_b51c9b0dcf5264::t_e5a3cc01ec74c3 12
+packages/catalyst-core/src/native/bridge/hooks/index.ts
+  s_b51c9b0dcf5264::t_8306f2bcca663b 4-7
+packages/catalyst-core/test/hooks/useTranscribe.test.ts
+  s_b51c9b0dcf5264::t_f77d561a705735 1-130,132-196
+  s_b51c9b0dcf5264::t_51b8d96ae26d6b 131
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_b51c9b0dcf5264::t_11b44bbba1bc53 109-114
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_b51c9b0dcf5264::t_7d32d3aff0d6bb 4,77-79,100,102-103,189,222
+  s_b51c9b0dcf5264::t_51b8d96ae26d6b 101
+packages/catalyst-ai/src/audioPrep.js
+  s_b51c9b0dcf5264::t_e5a3cc01ec74c3 10-14,132-190
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_b51c9b0dcf5264::t_11b44bbba1bc53 62-67,92
+packages/catalyst-ai/test/audioPrep.test.ts
+  s_b51c9b0dcf5264::t_e5a3cc01ec74c3 119-176
+packages/catalyst-core/src/native/bridge/hooks/useTranscribe.ts
+  s_b51c9b0dcf5264::t_8306f2bcca663b 224-225
+  s_b51c9b0dcf5264::t_0c67ebe559c159 1-76,79-137,139-157,159-162,164-223,226-266,268-271
+  s_b51c9b0dcf5264::t_51b8d96ae26d6b 77-78,138,158,163,267
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_b51c9b0dcf5264::t_fcec18e8707145 1-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b561603bd342941b3df061ae28aeb36acfbd46cc",
+  "prompts": {},
+  "sessions": {
+    "s_b51c9b0dcf5264": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14779470-e579-476b-994f-ca5f906d20c2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

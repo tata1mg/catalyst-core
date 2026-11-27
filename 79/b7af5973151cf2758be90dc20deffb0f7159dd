@@ -1,0 +1,46 @@
+packages/catalyst-core/src/cli/buildErrors.js
+  4619bd4d72873107 72-74,79,109,116-170,218-219
+packages/catalyst-core/src/scripts/build.js
+  4619bd4d72873107 100-101,127,159-160,174,334
+packages/catalyst-core/src/cli/hints.js
+  4619bd4d72873107 13-14,16,18
+packages/catalyst-core/test/cli/buildErrors.test.ts
+  4619bd4d72873107 118-214,238
+packages/catalyst-core/test/scripts/build.test.ts
+  4619bd4d72873107 123,173-196,214-215
+packages/catalyst-core/test/cli/diagnostic.test.ts
+  4619bd4d72873107 381
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "79b7af5973151cf2758be90dc20deffb0f7159dd",
+  "prompts": {
+    "4619bd4d72873107": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5f0bb4c4-884c-4674-a59c-88a0247cd265",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 202,
+      "total_deletions": 12,
+      "accepted_lines": 201,
+      "overriden_lines": 0
+    },
+    "d3647a0818cd96a4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8594851-1431-4186-a8c1-874a28f6b0de",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

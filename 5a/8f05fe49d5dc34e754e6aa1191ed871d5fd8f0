@@ -1,0 +1,25 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/GeolocationPromptsTest.kt
+  s_f9b68111c2008f::t_78e712dd3d208c 1-90
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/GeolocationPrompts.kt
+  s_f9b68111c2008f::t_a389aa5df2206e 1-56
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_f9b68111c2008f::t_a389aa5df2206e 32,56-58,375-376,378,1340-1341
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_f9b68111c2008f::t_a1558ca2223427 1632,1648,1832
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a8f05fe49d5dc34e754e6aa1191ed871d5fd8f0",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

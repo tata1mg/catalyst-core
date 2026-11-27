@@ -1,0 +1,32 @@
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_ee1da9130d683f::t_4664ba56eee0dc 85
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_ee1da9130d683f::t_4664ba56eee0dc 63,70
+  s_ee1da9130d683f::t_fc2db28cc81ce1 71
+packages/catalyst-core/changelog.md
+  s_ee1da9130d683f::t_4664ba56eee0dc 3-7
+packages/catalyst-core/test/server/ChunkExtractor.test.ts
+  s_ee1da9130d683f::t_4664ba56eee0dc 125-138
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_ee1da9130d683f::t_4664ba56eee0dc 645-667
+packages/catalyst-core/src/server/renderer/ChunkExtractor.ts
+  s_ee1da9130d683f::t_4664ba56eee0dc 120-123
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_ee1da9130d683f::t_4664ba56eee0dc 676-677
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eba1ecb6f9076fc3bb2d62a3985fba956716c5a4",
+  "prompts": {},
+  "sessions": {
+    "s_ee1da9130d683f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aaa90215-d573-4b8d-a78e-27f47f95cb9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

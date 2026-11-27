@@ -1,0 +1,26 @@
+packages/catalyst-core/test/cli/themeHelpers.test.ts
+  s_f9b68111c2008f::t_66a1a75c218aa7 6-7,9-11,13-20
+  s_f9b68111c2008f::t_46dfbc67d65c68 146
+packages/catalyst-core/test/cli/spinner.test.ts
+  s_f9b68111c2008f::t_106efd0175c660 4-5,7-9,11-18
+  s_f9b68111c2008f::t_64b304f6fa2696 185
+packages/catalyst-core/test/cli/theme.test.ts
+  s_f9b68111c2008f::t_66a1a75c218aa7 7,9-12,14
+  s_f9b68111c2008f::t_a9b08097bf8751 165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "825b6b312a13067fd7151c5143f63af8082254d4",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

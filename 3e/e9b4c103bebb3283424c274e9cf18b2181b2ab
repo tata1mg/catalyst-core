@@ -1,0 +1,33 @@
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_f9b68111c2008f::t_79532da0969745 313-358,360-361
+packages/catalyst-core/mcp_v2/conversion-tasks.json
+  s_f9b68111c2008f::t_79532da0969745 126,132
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_79532da0969745 727,732-741
+  s_f9b68111c2008f::t_af8fcc0d52ad8f 11-12,742-743
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_f9b68111c2008f::t_79532da0969745 1623-1627
+  s_f9b68111c2008f::t_2b7116611a6cb1 1621-1622,1628
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_79532da0969745 511-558
+  s_f9b68111c2008f::t_011947b5cc5e20 510,559
+packages/catalyst-core/mcp_v2/tools/conversion.js
+  s_f9b68111c2008f::t_79532da0969745 8-9,403-415
+  s_f9b68111c2008f::t_f0be8ca799f658 416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ee9b4c103bebb3283424c274e9cf18b2181b2ab",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

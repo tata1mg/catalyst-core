@@ -1,0 +1,23 @@
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_f9b68111c2008f::t_68c84e5ea865d8 7-15
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_68c84e5ea865d8 13-16,815,863
+packages/catalyst-core/test/cli/themeHelpers.test.ts
+  s_f9b68111c2008f::t_68c84e5ea865d8 66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7b0bf506d0b628f9c9eead34a64bfcabf2c9f6d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

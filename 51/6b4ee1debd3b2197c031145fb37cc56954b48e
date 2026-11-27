@@ -1,0 +1,23 @@
+packages/catalyst-ai/src/route.js
+  s_f9b68111c2008f::t_00bb90f12f3efa 12-16,809,857
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Plugins/PluginBridge.swift
+  s_f9b68111c2008f::t_19560b22544171 187-192
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_f9b68111c2008f::t_da4c714f36a4f1 5-17,149-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "516b4ee1debd3b2197c031145fb37cc56954b48e",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

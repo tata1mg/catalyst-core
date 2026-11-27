@@ -1,0 +1,31 @@
+packages/catalyst-ai/src/useImageGen.js
+  s_f9b68111c2008f::t_38336def51c08b 62,64-66
+packages/catalyst-ai/src/useSpeech.js
+  s_f9b68111c2008f::t_38336def51c08b 40,42-44
+packages/catalyst-core/test/hooks/aiPipeline.test.ts
+  s_f9b68111c2008f::t_2a3a69642c3f79 180
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_f9b68111c2008f::t_8faa48d04d79ef 152-153
+  s_f9b68111c2008f::t_38336def51c08b 230-238
+packages/catalyst-core/test/hooks/aiPipeline.branches.test.ts
+  s_f9b68111c2008f::t_38336def51c08b 3,96-104
+  s_f9b68111c2008f::t_e8c909d4ce94c9 105-106
+packages/catalyst-ai/test/useImageSpeechHooks.test.ts
+  s_f9b68111c2008f::t_38336def51c08b 79,81,85,133,135,137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "364ea5ed18f66f086e0c5c08e384c1ceefe0c7a0",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

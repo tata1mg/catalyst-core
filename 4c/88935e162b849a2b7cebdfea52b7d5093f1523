@@ -1,0 +1,45 @@
+benchmarks/harness/early-input.mjs
+  s_c90446c13dcb57::t_3656140368f20f 2-3,5-7,12,14,18-20,22,31-33,37-39,41,44-45,53-55,62,65,75,81,84-85,87-95,99-101
+benchmarks/DISCUSSION.md
+  s_c90446c13dcb57::t_faa5b17dccf4cd 49-50,87-91
+benchmarks/README.md
+  s_c90446c13dcb57::t_7793d4b4ba8084 9,14-15,18-19,21,37,47-48
+benchmarks/harness/lib.mjs
+  s_c90446c13dcb57::t_5b90fb6166b6d2 2-3,5,11-14,47-88
+benchmarks/harness/lighthouse.mjs
+  s_c90446c13dcb57::t_9111c2162e7c23 8,10,20-22,47,56,71
+benchmarks/harness/navigation.mjs
+  s_c90446c13dcb57::t_227a9dfd413d4e 9,13,15,47,75
+benchmarks/harness/record.mjs
+  s_c90446c13dcb57::t_624a648701869e 11,41,46
+benchmarks/harness/run.mjs
+  s_c90446c13dcb57::t_a3410dacecd2fe 2,8-15,20-23,25,31,39-43,51-73
+benchmarks/harness/summary.mjs
+  s_c90446c13dcb57::t_323f992da79ef7 6,15-23,50,54,66-70,104,108-125,127-129,137
+benchmarks/harness/waterfall.mjs
+  s_c90446c13dcb57::t_ce8dbe964301ce 1-151
+benchmarks/pokedex/app/api.js
+  s_c90446c13dcb57::t_e2d6cf248d9766 1-2
+benchmarks/pokedex/app/package.json
+  s_c90446c13dcb57::t_08786d8ab8060b 20
+benchmarks/pokedex/fetch.mjs
+  s_c90446c13dcb57::t_17a1bd0a764b9f 5,17,31-34
+benchmarks/pokedex/results/data/waterfall.json
+  s_c90446c13dcb57::t_43f85e2f61516d 1-399
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c88935e162b849a2b7cebdfea52b7d5093f1523",
+  "prompts": {},
+  "sessions": {
+    "s_c90446c13dcb57": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7434ed21-4f9a-4cdc-adcd-173a087a825f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vaibhav Misra <vaibhav.misra@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+packages/catalyst-ai/test/route.image.edit.test.ts
+  s_86d86931dd4995::t_57344d1d1bb212 1-125
+packages/catalyst-ai/src/useImageGen.js
+  s_86d86931dd4995::t_fbde12c5dad261 26,28
+  s_86d86931dd4995::t_45d14564781f7d 6-18,23,34
+packages/catalyst-core/test/hooks/aiPipeline.test.ts
+  s_86d86931dd4995::t_45d14564781f7d 144-151
+packages/catalyst-ai/test/useImageGen.edit.test.ts
+  s_86d86931dd4995::t_d37f499fcb32cb 1-32
+packages/catalyst-ai/src/imageGen.js
+  s_86d86931dd4995::t_45d14564781f7d 5-6,17,22-32,36-37,44,48,54,58,66-90,95,98,107,119
+packages/catalyst-ai/src/route.js
+  s_86d86931dd4995::t_45d14564781f7d 760-761,794,796
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_86d86931dd4995::t_fdd119e24a80be 329-330,339-340
+packages/catalyst-ai/src/cloudMedia.js
+  s_86d86931dd4995::t_45d14564781f7d 224-225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c0f4ea73fa8cedb62505769298f448ccf63e3a2",
+  "prompts": {},
+  "sessions": {
+    "s_86d86931dd4995": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3618db4-4e33-46c9-b987-2ff817c0e579",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+packages/catalyst-core/src/vite/vite.config.client.js
+  s_7aa30e1fd93549::t_653cc259255d16 9,52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f1fa571e606ac60672d8742d139d8e2377855e0a",
+  "prompts": {},
+  "sessions": {
+    "s_7aa30e1fd93549": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be4da623-3db1-4e03-b016-8af13511cce7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "ajay upreti <ajay.upreti@1mg.com>"
+    }
+  }
+}

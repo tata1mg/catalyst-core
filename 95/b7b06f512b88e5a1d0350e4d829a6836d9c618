@@ -1,0 +1,23 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_874bac4edb3a15 8
+packages/catalyst-core/test/hooks/useAI.helpers.test.ts
+  s_f9b68111c2008f::t_874bac4edb3a15 2
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_f9b68111c2008f::t_874bac4edb3a15 506-532
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "95b7b06f512b88e5a1d0350e4d829a6836d9c618",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

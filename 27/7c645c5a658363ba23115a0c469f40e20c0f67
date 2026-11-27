@@ -1,0 +1,42 @@
+"docs/content/10-Catalyst AI/02-Quick-Start.md"
+  s_f9b68111c2008f::t_df76548499c1a5 86-88
+  s_f9b68111c2008f::t_ddc9ce1251c029 84
+  s_f9b68111c2008f::t_531f996165c81c 85
+"docs/content/10-Catalyst AI/01-What-is-Catalyst-AI.md"
+  s_f9b68111c2008f::t_ddc9ce1251c029 89
+  s_f9b68111c2008f::t_df76548499c1a5 96
+  s_f9b68111c2008f::t_fb4d079d6fbe3b 76,97
+packages/catalyst-core/test/hooks/useAI.hook.test.ts
+  s_f9b68111c2008f::t_9f3d69cb9c26a3 1-104,106-110
+  s_f9b68111c2008f::t_593c77f47ce24f 105
+"docs/content/10-Catalyst AI/05-Errors.md"
+  s_f9b68111c2008f::t_ddc9ce1251c029 41-42
+  s_f9b68111c2008f::t_5ebbf549c922ab 1-40,43-48
+"docs/content/10-Catalyst AI/03-Recipes.md"
+  s_f9b68111c2008f::t_df76548499c1a5 56,68-73,76,85,109,139
+  s_f9b68111c2008f::t_ddc9ce1251c029 154-155
+  s_f9b68111c2008f::t_310375640643cb 1-55,57-67,74-75,77-84,86-108,110-138,140-153,156-158,160
+  s_f9b68111c2008f::t_997d685e73207d 159
+"docs/content/10-Catalyst AI/04-Choosing-a-Hook.md"
+  s_f9b68111c2008f::t_19b4b8e9404479 2-4,7,128
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_c892ff22130a2e 61,732,960
+examples/useai/README.md
+  s_f9b68111c2008f::t_292a7074d62ce4 39-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "277c645c5a658363ba23115a0c469f40e20c0f67",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,262 @@
+benchmarks/pokedex/results/lifecycle/raw/session-exact-immutable-slow4g.json
+  s_2b5c6c7a2de2aa::t_00646fda9d77c1 1-1749
+benchmarks/pokedex/catalyst-prehydrate/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-53
+benchmarks/pokedex/catalyst-safe/package.json
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-38
+benchmarks/harness/late.mjs
+  s_2b5c6c7a2de2aa::t_61b409213dfc28 15-16
+  s_2b5c6c7a2de2aa::t_b11ab8980b50f2 20
+benchmarks/pokedex/results/lifecycle/raw/newtab-catalyst-1.1.0-slow4g.json
+  s_2b5c6c7a2de2aa::t_effaf30c25aa2f 1-2248
+benchmarks/pokedex/results/lifecycle/raw/session-catalyst-1.1.0-slow4g.json
+  s_2b5c6c7a2de2aa::t_effaf30c25aa2f 1-2185
+benchmarks/pokedex/exact-ppr/package.json
+  s_2b5c6c7a2de2aa::t_c5e7a1d46539bc 1-9
+benchmarks/pokedex/catalyst-safe/server/document.js
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-20
+benchmarks/pokedex/catalyst-prehydrate/config/config.json
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-10
+benchmarks/pokedex/results/lifecycle/raw/newtab-exact-slow4g.json
+  s_2b5c6c7a2de2aa::t_effaf30c25aa2f 1-1749
+benchmarks/pokedex/exact-ppr/app.contract
+  s_2b5c6c7a2de2aa::t_b323e533d545eb 88-93
+  s_2b5c6c7a2de2aa::t_c5e7a1d46539bc 1-47,49-87,94-136
+  s_2b5c6c7a2de2aa::t_ec40d4cbeb953b 48
+benchmarks/pokedex/results/lifecycle/raw/journey-catalyst-1.1.0-cpu4x.json
+  s_2b5c6c7a2de2aa::t_00646fda9d77c1 1-10042
+benchmarks/pokedex/results/lifecycle/raw2/repeat-exact-cpu4x.json
+  s_2b5c6c7a2de2aa::t_bb5b992f96de23 1-8608
+benchmarks/pokedex/results/lifecycle/raw/session-sveltekit-slow4g.json
+  s_2b5c6c7a2de2aa::t_00646fda9d77c1 1-1967
+benchmarks/pokedex/catalyst-prehydrate/package.json
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-38
+benchmarks/pokedex/exact-ppr/app.json
+  s_2b5c6c7a2de2aa::t_c5e7a1d46539bc 1-22
+benchmarks/pokedex/catalyst-safe/config/config.json
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-10
+benchmarks/pokedex/results/lifecycle/raw/newtab-exact-immutable-slow4g.json
+  s_2b5c6c7a2de2aa::t_effaf30c25aa2f 1-1759
+benchmarks/harness/waterfall.mjs
+  s_2b5c6c7a2de2aa::t_61b409213dfc28 24-25
+benchmarks/pokedex/catalyst-prehydrate/server/document.js
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-20
+benchmarks/pokedex/catalyst-safe/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_738f2dac8afba8 1-53
+benchmarks/pokedex/data-api.mjs
+  s_2b5c6c7a2de2aa::t_e61157e9679050 1-6
+benchmarks/pokedex/exact-ppr/app.ts
+  s_2b5c6c7a2de2aa::t_c5e7a1d46539bc 1-22
+benchmarks/pokedex/catalyst-ppr/server/server.js
+  s_2b5c6c7a2de2aa::t_777877c136f6d6 1-11
+benchmarks/pokedex/results/lifecycle/raw/journey-exact-slow4g.json
+  s_2b5c6c7a2de2aa::t_81efd1c5cdc57f 1-5986
+benchmarks/pokedex/results/lifecycle/raw/journey-exact-immutable-slow4g.json
+  s_2b5c6c7a2de2aa::t_81efd1c5cdc57f 1-6674
+benchmarks/pokedex/results/lifecycle/raw2/repeat-sveltekit-cpu4x.json
+  s_2b5c6c7a2de2aa::t_bb5b992f96de23 1-8699
+benchmarks/pokedex/results/lifecycle/raw/session-exact-slow4g.json
+  s_2b5c6c7a2de2aa::t_00646fda9d77c1 1-1749
+benchmarks/pokedex/results/lifecycle/raw/newtab-sveltekit-slow4g.json
+  s_2b5c6c7a2de2aa::t_effaf30c25aa2f 1-2074
+benchmarks/harness/early.mjs
+  s_2b5c6c7a2de2aa::t_4b30f69f14d212 23
+benchmarks/harness/lhreports.mjs
+  s_2b5c6c7a2de2aa::t_a0a0ed528c8715 4
+benchmarks/harness/record.mjs
+  s_2b5c6c7a2de2aa::t_c87aada48a1a12 25,34
+benchmarks/pokedex/catalyst-ppr-flush/.gitignore
+  s_2b5c6c7a2de2aa::t_1c199bcebcbcfe 1-10
+benchmarks/pokedex/catalyst-ppr-flush/api.js
+  s_2b5c6c7a2de2aa::t_0f0dfe68e5c0cc 1-15
+benchmarks/pokedex/catalyst-ppr-flush/client/index.js
+  s_2b5c6c7a2de2aa::t_a07f632d6bedc6 1-23
+benchmarks/pokedex/catalyst-ppr-flush/client/styles.js
+  s_2b5c6c7a2de2aa::t_f0b48306ec39a0 1-3
+benchmarks/pokedex/catalyst-ppr-flush/config/config.json
+  s_2b5c6c7a2de2aa::t_f8fce700d864d7 1-10
+benchmarks/pokedex/catalyst-ppr-flush/package.json
+  s_2b5c6c7a2de2aa::t_9b5cb85268d48a 1-38
+benchmarks/pokedex/catalyst-ppr-flush/server/document.js
+  s_2b5c6c7a2de2aa::t_3114dc5e42f731 1-14
+benchmarks/pokedex/catalyst-ppr-flush/server/index.js
+  s_2b5c6c7a2de2aa::t_9cc30439a5f892 1-2
+benchmarks/pokedex/catalyst-ppr-flush/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_7fa5e5c0536ed8 1
+benchmarks/pokedex/catalyst-ppr-flush/server/server.js
+  s_2b5c6c7a2de2aa::t_535a9fb4bcfb04 1-14
+benchmarks/pokedex/catalyst-ppr-flush/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_9a64852a8c925c 1-16
+benchmarks/pokedex/catalyst-ppr-flush/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_f06c69df810c31 1-10
+benchmarks/pokedex/catalyst-ppr-flush/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_57bef6220a50a3 1-66
+benchmarks/pokedex/catalyst-ppr-flush/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_b0267b908230cf 1-28
+benchmarks/pokedex/catalyst-ppr-flush/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_fa79c2567fc03c 1-7
+benchmarks/pokedex/catalyst-ppr-flush/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_405bc804346e41 1-42
+benchmarks/pokedex/catalyst-ppr-flush/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_c8759fc941be9a 1-11
+benchmarks/pokedex/catalyst-ppr-flush/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_b6cc2259e10398 1-3
+benchmarks/pokedex/catalyst-ppr-flush/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_e902a435b78370 1-6
+benchmarks/pokedex/catalyst-ppr/.gitignore
+  s_2b5c6c7a2de2aa::t_9135867f70fadf 1-10
+benchmarks/pokedex/catalyst-ppr/api.js
+  s_2b5c6c7a2de2aa::t_a89d2e68adb64d 1-15
+benchmarks/pokedex/catalyst-ppr/client/index.js
+  s_2b5c6c7a2de2aa::t_1dc39c94ba0ba1 1-23
+benchmarks/pokedex/catalyst-ppr/client/styles.js
+  s_2b5c6c7a2de2aa::t_9a1868adab5b2a 1-3
+benchmarks/pokedex/catalyst-ppr/config/config.json
+  s_2b5c6c7a2de2aa::t_baf3813499837f 1-10
+benchmarks/pokedex/catalyst-ppr/package.json
+  s_2b5c6c7a2de2aa::t_e5322561b24c47 1-38
+benchmarks/pokedex/catalyst-ppr/server/document.js
+  s_2b5c6c7a2de2aa::t_64115ffbdee21d 1-14
+benchmarks/pokedex/catalyst-ppr/server/index.js
+  s_2b5c6c7a2de2aa::t_de70ba536d280f 1-2
+benchmarks/pokedex/catalyst-ppr/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_33afedd75e0860 1
+benchmarks/pokedex/catalyst-ppr/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_34a3ffefcdc19d 1-16
+benchmarks/pokedex/catalyst-ppr/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_57ef9cc2c2be6e 1-10
+benchmarks/pokedex/catalyst-ppr/src/js/pages/Home/Home.js
+  s_2b5c6c7a2de2aa::t_4871e0c9941c3c 1-66
+benchmarks/pokedex/catalyst-ppr/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_45e8be1d0ffa4e 1-28
+benchmarks/pokedex/catalyst-ppr/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_15e0db3df6431a 1-7
+benchmarks/pokedex/catalyst-ppr/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_2da36aece13859 1-42
+benchmarks/pokedex/catalyst-ppr/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_be0475afab13b8 1-11
+benchmarks/pokedex/catalyst-ppr/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_2c3a86c6534e40 1-3
+benchmarks/pokedex/catalyst-ppr/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_86bc1e7c0b6316 1-6
+benchmarks/pokedex/catalyst-prehydrate/.gitignore
+  s_2b5c6c7a2de2aa::t_b2eeeea6277c02 1-10
+benchmarks/pokedex/catalyst-prehydrate/api.js
+  s_2b5c6c7a2de2aa::t_d7f67742626c48 1-15
+benchmarks/pokedex/catalyst-prehydrate/client/index.js
+  s_2b5c6c7a2de2aa::t_e20189bb91f406 1-23
+benchmarks/pokedex/catalyst-prehydrate/client/styles.js
+  s_2b5c6c7a2de2aa::t_a1979feb90970a 1-3
+benchmarks/pokedex/catalyst-prehydrate/server/index.js
+  s_2b5c6c7a2de2aa::t_a9755b4d7767a6 1-2
+benchmarks/pokedex/catalyst-prehydrate/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_bc5ec8fa930a8d 1
+benchmarks/pokedex/catalyst-prehydrate/server/server.js
+  s_2b5c6c7a2de2aa::t_b191328af81639 1-11
+benchmarks/pokedex/catalyst-prehydrate/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_c8fd4b67b4dfb1 1-16
+benchmarks/pokedex/catalyst-prehydrate/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_2604bda54b8dc4 1-10
+benchmarks/pokedex/catalyst-prehydrate/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_9dc0d2092c42d6 1-28
+benchmarks/pokedex/catalyst-prehydrate/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_28f2aecdb53b52 1-7
+benchmarks/pokedex/catalyst-prehydrate/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_1f733c71f1a849 1-42
+benchmarks/pokedex/catalyst-prehydrate/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_c56fa9f1daa806 1-10
+benchmarks/pokedex/catalyst-prehydrate/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_4d55285c5708a4 1-3
+benchmarks/pokedex/catalyst-prehydrate/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_5dae707ba32c75 1-6
+benchmarks/pokedex/catalyst-safe/.gitignore
+  s_2b5c6c7a2de2aa::t_83cc9223c8f18e 1-10
+benchmarks/pokedex/catalyst-safe/api.js
+  s_2b5c6c7a2de2aa::t_5e705269650340 1-15
+benchmarks/pokedex/catalyst-safe/client/index.js
+  s_2b5c6c7a2de2aa::t_2db24629b1094d 1-23
+benchmarks/pokedex/catalyst-safe/client/styles.js
+  s_2b5c6c7a2de2aa::t_04691a43bb3dde 1-3
+benchmarks/pokedex/catalyst-safe/server/index.js
+  s_2b5c6c7a2de2aa::t_e1b29d3f48f6f0 1-2
+benchmarks/pokedex/catalyst-safe/server/pokemon.json
+  s_2b5c6c7a2de2aa::t_43f6dfa086d1e0 1
+benchmarks/pokedex/catalyst-safe/server/server.js
+  s_2b5c6c7a2de2aa::t_8e41be945ca82d 1-11
+benchmarks/pokedex/catalyst-safe/src/js/containers/App/index.js
+  s_2b5c6c7a2de2aa::t_2bdd86f328afe4 1-16
+benchmarks/pokedex/catalyst-safe/src/js/layouts/MainLayout/MainLayout.js
+  s_2b5c6c7a2de2aa::t_8ab782b3698d97 1-10
+benchmarks/pokedex/catalyst-safe/src/js/pages/Pokemon/Pokemon.js
+  s_2b5c6c7a2de2aa::t_8cd1adace39062 1-28
+benchmarks/pokedex/catalyst-safe/src/js/routes/index.js
+  s_2b5c6c7a2de2aa::t_d65b59ab675558 1-7
+benchmarks/pokedex/catalyst-safe/src/js/routes/utils.js
+  s_2b5c6c7a2de2aa::t_6727a863c1704e 1-42
+benchmarks/pokedex/catalyst-safe/src/static/css/base/index.scss
+  s_2b5c6c7a2de2aa::t_721ca268be5ade 1-10
+benchmarks/pokedex/catalyst-safe/src/static/css/base/styles.scss
+  s_2b5c6c7a2de2aa::t_f8ba2bb7b11b35 1-3
+benchmarks/pokedex/catalyst-safe/webpackConfig.js
+  s_2b5c6c7a2de2aa::t_ac81c91d203da5 1-6
+benchmarks/pokedex/proxy-immutable.mjs
+  s_2b5c6c7a2de2aa::t_68bb1d3275f49a 1-10
+benchmarks/pokedex/results/catalyst-prehydrate/data/early-typing.json
+  s_2b5c6c7a2de2aa::t_61c447118bdbc5 1-139
+benchmarks/pokedex/results/catalyst-safe/data/early-typing.json
+  s_2b5c6c7a2de2aa::t_2f57a694bb3f72 1-139
+benchmarks/pokedex/results/lifecycle-safe/raw/journey-catalyst-1.1.0-slow4g.json
+  s_2b5c6c7a2de2aa::t_255703bf219a60 1-6552
+benchmarks/pokedex/results/lifecycle-safe/summary.md
+  s_2b5c6c7a2de2aa::t_113d6b73ec5def 1-32
+benchmarks/pokedex/results/lifecycle/raw/journey-catalyst-1.1.0-slow4g.json
+  s_2b5c6c7a2de2aa::t_f555cb81de9fb4 1-6552
+benchmarks/pokedex/results/lifecycle/raw/journey-exact-cpu4x.json
+  s_2b5c6c7a2de2aa::t_4a45e7d610b56d 1-9853
+benchmarks/pokedex/results/lifecycle/raw/journey-exact-immutable-cpu4x.json
+  s_2b5c6c7a2de2aa::t_831da329f30cf5 1-9817
+benchmarks/pokedex/results/lifecycle/raw/journey-sveltekit-cpu4x.json
+  s_2b5c6c7a2de2aa::t_26527ca08fd641 1-9682
+benchmarks/pokedex/results/lifecycle/raw/newtab-catalyst-1.1.0-cpu4x.json
+  s_2b5c6c7a2de2aa::t_7eb79e818f1a5e 1-1862
+benchmarks/pokedex/results/lifecycle/raw/newtab-exact-cpu4x.json
+  s_2b5c6c7a2de2aa::t_81a34678c40f0c 1-1509
+benchmarks/pokedex/results/lifecycle/raw/newtab-exact-immutable-cpu4x.json
+  s_2b5c6c7a2de2aa::t_a237a12d539d5b 1-1509
+benchmarks/pokedex/results/lifecycle/raw/newtab-sveltekit-cpu4x.json
+  s_2b5c6c7a2de2aa::t_da1c60c1309133 1-1979
+benchmarks/pokedex/results/lifecycle/raw/session-catalyst-1.1.0-cpu4x.json
+  s_2b5c6c7a2de2aa::t_75d275146bb094 1-1877
+benchmarks/pokedex/results/lifecycle/raw/session-exact-immutable-cpu4x.json
+  s_2b5c6c7a2de2aa::t_b4c0585c1e5143 1-1509
+benchmarks/pokedex/results/lifecycle/raw/session-sveltekit-cpu4x.json
+  s_2b5c6c7a2de2aa::t_f961d2499a93a1 1-1992
+benchmarks/pokedex/results/lifecycle/summary.md
+  s_2b5c6c7a2de2aa::t_321d6c98eae0e8 1-104
+benchmarks/pokedex/results/exact-ppr/data/after-load-typing.json
+  s_c4963effa9e059::t_eed129adc1adbf 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1dc84e6ca7ccc30d23cba1c7f803459bc1e4521b",
+  "prompts": {},
+  "sessions": {
+    "s_2b5c6c7a2de2aa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6262eb03-15cc-4029-b154-169af436687c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    },
+    "s_c4963effa9e059": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f65b349-bc98-40b8-b074-233cf5082947",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
