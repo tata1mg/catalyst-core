@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.1] - 2026-11-27
+
+### Added
+
+- Script integrity. With `SCRIPT_INTEGRITY_ENABLE: true` in `config/config.json`, `catalyst build` writes a sha384 hash of every built JS file to `build/.vite/integrity.json`, and the production server adds `integrity` and `crossorigin="anonymous"` to the script and modulepreload tags it renders. Rebuild after turning it on: a server that starts with the flag on and no hashes logs a warning and serves the scripts without `integrity`. Only the tags in the document are checked. Scripts those files load through a static `import` or `import()` are not, and neither is CSS. It has no effect in `catalyst start`.
+
+### Fixes
+
+- With `CSP_NONCE_ENABLE` on, `res.locals.cspNonce` is set before the app's middlewares run. In 1.3.0 it was set in the render handler, so a middleware that read it to build the `Content-Security-Policy` header, as the Security guide shows, sent `'nonce-undefined'` and the browser blocked Catalyst's inline scripts. An app that sets its own `res.locals.cspNonce` still wins.
+
 ## [1.3.0] - 2026-11-25
 
 This release adds the server features that 1mg's mweb app ran on its own branch, and fixes `preServerInit` being skipped for some apps since 1.1.0. There are no breaking changes to the public API. Three behaviour changes are listed below.

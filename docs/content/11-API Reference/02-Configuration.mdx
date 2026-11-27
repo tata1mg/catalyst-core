@@ -30,7 +30,7 @@ These keys are optional:
 | Key | Type | Default | Purpose |
 |-----|------|---------|---------|
 | `CSP_NONCE_ENABLE` | `boolean` | `false` | Adds a per-request CSP nonce to every script tag Catalyst renders (not CSS). See [Security](/content/Best%20Practices/security) |
-| `SCRIPT_INTEGRITY_ENABLE` | `boolean` | `false` | Adds Subresource Integrity hashes to every script and modulepreload tag Catalyst renders. See [Security](/content/Best%20Practices/security) |
+| `SCRIPT_INTEGRITY_ENABLE` | `boolean` | `false` | Adds Subresource Integrity hashes to the script and modulepreload tags Catalyst renders in the document. Scripts loaded through imports are not covered. Rebuild after changing it. See [Security](/content/Best%20Practices/security) |
 | `OFFLINE_SNAPSHOTS_ENABLE` | `boolean` | `true` | Set to `false` to skip Catalyst's service worker and offline manifest, e.g. when the app ships its own service worker. See [Route Offline Snapshots](/content/Core%20Concepts/route-offline-snapshots) |
 
 ## Client-Exposed Environment Variables

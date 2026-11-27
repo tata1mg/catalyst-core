@@ -61,7 +61,7 @@ Any custom script you add in `server/document.js` needs the same nonce applied b
 
 ## Subresource Integrity
 
-Catalyst can add an `integrity` hash to the scripts it renders. The browser then refuses to run a script whose content does not match the hash, which protects users if a file on your CDN is changed.
+Catalyst can add an `integrity` hash to the script tags it renders. The browser then refuses to run a tagged script whose content does not match the hash. It covers the scripts named in the document, not every JS file the page loads; see the limits below before relying on it.
 
 Enable it via `SCRIPT_INTEGRITY_ENABLE` in `config/config.json`:
 
@@ -71,13 +71,17 @@ Enable it via `SCRIPT_INTEGRITY_ENABLE` in `config/config.json`:
 }
 ```
 
-When enabled, `catalyst build` computes a sha384 hash of every built JS file and writes them to `build/.vite/integrity.json`. In production the server adds `integrity` and `crossorigin="anonymous"` to the `<script type="module">` tags and `modulepreload` links in the document, and to the scripts it streams after it. Rebuild after changing the flag.
+When enabled, `catalyst build` computes a sha384 hash of every built JS file and writes them to `build/.vite/integrity.json`. In production the server adds `integrity` and `crossorigin="anonymous"` to the `<script type="module">` tags and `modulepreload` links in the document, and to the scripts it streams after it.
+
+The flag is read at build time and at server start, so rebuild after turning it on. A server that starts with the flag on and no `integrity.json` logs a warning and serves the scripts without `integrity`.
 
 Things to know:
 
-- The files must reach the browser exactly as they were built. Turn off anything that rewrites JS after the build, such as a CDN's automatic minification, or the browser will block the scripts.
+- Only the tags in the document are checked. A script that one of those files loads with a static `import` has no tag, so the browser fetches it without a hash. On a page split into many chunks, most JS files are loaded this way.
+- Chunks loaded later through `import()`, such as a route loaded on client-side navigation, are not checked either.
+- The files must reach the browser exactly as they were built. Turn off anything that rewrites JS after the build, such as a CDN's automatic minification or a build step that runs after `catalyst build`, or the browser will block the scripts.
 - If assets are served from another origin, that origin must send CORS headers (`Access-Control-Allow-Origin`). Module scripts already need this.
-- Chunks loaded later through `import()`, such as a route loaded on client-side navigation, are not checked. Browsers do not support integrity for dynamic imports. CSS is not covered either.
+- CSS is not covered.
 - Scripts you add yourself in `server/document.js` are not covered.
 - It has no effect in `catalyst start`.
 
