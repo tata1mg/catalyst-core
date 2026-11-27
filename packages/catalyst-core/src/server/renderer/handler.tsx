@@ -9,6 +9,7 @@ import { StaticRouter, matchRoutes as NestedMatchRoutes } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
 import { renderToPipeableStream } from "react-dom/server"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
+import { generateNonce, isCspNonceEnabled, isValidNonce } from "../utils/cspNonce.js"
 import { serverDataFetcher } from "../../web-router/components/RouterDataProvider.jsx"
 import { getMetaData } from "../../web-router/utils/metaDataUtils.jsx"
 import {
@@ -30,7 +31,6 @@ import {
     generateModulePreloadLinkElements,
 } from "./extract.js"
 import path from "path"
-import crypto from "node:crypto"
 import { Transform } from "node:stream"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -217,17 +217,7 @@ if ((process.env.OTEL_ENABLE as any) === true) {
 
 const SSR_SERVICE = process.env.SERVICE_NAME || `pwa-${process.env.APPLICATION}-node-server`
 
-// Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script Catalyst injects
-// carries a per-request nonce so the app can serve a nonce-based CSP without opening up
-// 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
-// Same boolean contract as OTEL_ENABLE above.
-const CSP_NONCE_ENABLE = (process.env.CSP_NONCE_ENABLE as any) === true
-const generateNonce = () => crypto.randomBytes(16).toString("base64")
-// An app-supplied nonce goes into raw HTML strings as well as React props, so
-// only the base64 alphabet a CSP nonce may use is accepted; anything else is
-// replaced with a generated one.
-const isValidNonce = (value: unknown): value is string =>
-    typeof value === "string" && /^[A-Za-z0-9+/_-]+={0,2}$/.test(value)
+const CSP_NONCE_ENABLE = isCspNonceEnabled()
 
 const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
@@ -535,9 +525,10 @@ async function _handler(req: any, res: any) {
         }
         const store = await createStore({}, req, res)
 
-        // If app-level middleware already generated a nonce for its CSP header
-        // (res.locals.cspNonce), reuse it so the header and the script tags match.
-        // Otherwise generate one here and expose it the same way.
+        // res.locals.cspNonce is set before the app's middlewares run (see
+        // cspNonceMiddleware) and may be replaced by the app's own nonce. Use it
+        // so the header and the script tags match; a missing or invalid value
+        // is replaced with a generated one.
         const nonce = CSP_NONCE_ENABLE
             ? isValidNonce(res.locals.cspNonce)
                 ? res.locals.cspNonce
