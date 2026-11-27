@@ -1579,8 +1579,10 @@ jobs:
                   done
                   # docs/server/server.js sends these in production; each must
                   # appear exactly once (DAST flags duplicates and a missing CSP).
+                  # X-Frame-Options and X-Content-Type-Options come from nginx
+                  # in front of the site, so they are not checked here.
                   curl -s -o /dev/null -D /tmp/headers.txt http://localhost:3005/
-                  for header in content-security-policy x-frame-options x-content-type-options access-control-allow-origin; do
+                  for header in content-security-policy access-control-allow-origin; do
                       count=$(grep -ci "^$header:" /tmp/headers.txt || true)
                       echo "$header: $count"
                       if [ "$count" != "1" ]; then

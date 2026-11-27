@@ -59,12 +59,14 @@ const SITE_ORIGIN = (
     process.env.SITE_URL || 'https://catalyst.1mg.com'
 ).replace(/\/$/, '')
 
+// X-Frame-Options and X-Content-Type-Options are not set here: the nginx in
+// front of catalyst.1mg.com already adds both, and sending them from the app
+// too produced duplicate headers. Framing is also covered by the CSP's
+// frame-ancestors, which applies to every response.
 export function securityHeaders(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN)
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
     res.vary('Origin')
-    res.setHeader('X-Content-Type-Options', 'nosniff')
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
     res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
     if (process.env.NODE_ENV === 'production') {
