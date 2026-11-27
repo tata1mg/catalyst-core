@@ -41,6 +41,7 @@ import {
     shellCache,
     STATIC_PAGE_CACHE_MAX,
     STATIC_PAGE_CACHE_MAX_BYTES,
+    STATIC_PAGE_CACHE_TTL_MS,
     cssSignature,
     createNoncePlaceholder,
     applyNonce,
@@ -661,6 +662,7 @@ const staticPageCache = new ShellCache({
     maxEntries: STATIC_PAGE_CACHE_MAX,
     maxBytes: STATIC_PAGE_CACHE_MAX_BYTES,
     sizeOf: (page: any) => page.buffer.byteLength,
+    maxAgeMs: STATIC_PAGE_CACHE_TTL_MS,
 })
 export const clearStaticPageCache = () => staticPageCache.clear()
 

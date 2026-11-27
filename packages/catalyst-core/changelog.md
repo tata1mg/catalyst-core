@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Partial prerendering (`Component.renderMode = "ppr"`, behind `PPR_ENABLE`) and a static full-page cache (`renderMode = "static"`). See Rendering Modes.
+- Partial prerendering (`Component.renderMode = "ppr"`, behind `PPR_ENABLE`) and a static full-page cache (`renderMode = "static"`, bounded by `STATIC_PAGE_CACHE_MAX` / `STATIC_PAGE_CACHE_MAX_BYTES`, optional expiry with `STATIC_PAGE_CACHE_TTL_MS`). See Rendering Modes.
 - `react` and `react-dom` are now peer dependencies (`^19.0.0`) instead of exact dependencies, so an app's own React is the only copy. PPR needs React 19.2 or newer: on an older React, PPR routes render on the streaming path and the server logs one error saying so. New apps are created with React 19.2.9.
 - New apps wrap the hydrated root in `<PPRHydrationBoundary>`. On a PPR response without it, the browser console shows an error naming the fix.
 

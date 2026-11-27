@@ -1,5 +1,5 @@
 // Unit tests for the PPR helpers in src/server/renderer/ppr.ts.
-import { test } from "vitest"
+import { test, vi } from "vitest"
 import assert from "node:assert/strict"
 import { EventEmitter } from "node:events"
 import {
@@ -210,6 +210,30 @@ test("learned preloads are replayed only once two responses for the key agree", 
     assert.deepEqual(l.get("home|dpr3"), [], "a response without the image stops the preload")
     l.record("third", ["x"])
     assert.equal(l.entries.size, 1, "bounded: cleared when full")
+})
+
+test("ShellCache with maxAgeMs drops an entry once it is older than the limit", () => {
+    vi.useFakeTimers()
+    try {
+        const cache = new ShellCache({ maxBytes: () => 100, sizeOf: (v: string) => v.length, maxAgeMs: () => 1000 })
+        cache.set("a", "page")
+        vi.advanceTimersByTime(999)
+        assert.equal(cache.get("a"), "page")
+        vi.advanceTimersByTime(1)
+        assert.equal(cache.get("a"), undefined)
+        assert.equal(cache.stats().size, 0)
+        assert.equal(cache.bytes, 0)
+        // Storing it again restarts its age; without a limit entries never expire.
+        cache.set("a", "page")
+        vi.advanceTimersByTime(500)
+        assert.equal(cache.get("a"), "page")
+        const forever = new ShellCache()
+        forever.set("b", "page")
+        vi.advanceTimersByTime(10 ** 9)
+        assert.equal(forever.get("b"), "page")
+    } finally {
+        vi.useRealTimers()
+    }
 })
 
 test("ShellCache: a build started before delete/clear does not publish; concurrent builds are capped", async () => {

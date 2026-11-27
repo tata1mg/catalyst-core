@@ -25,6 +25,9 @@ export const PPR_SHELL_CACHE_MAX = () => toInt(process.env.PPR_SHELL_CACHE_MAX, 
 export const STATIC_PAGE_CACHE_MAX = () => toInt(process.env.STATIC_PAGE_CACHE_MAX, 50)
 export const STATIC_PAGE_CACHE_MAX_BYTES = () =>
     toInt(process.env.STATIC_PAGE_CACHE_MAX_BYTES, 64 * 1024 * 1024)
+// A cached static page older than this is rendered again on its next request. Unset or 0 means
+// pages stay until they are evicted or the server restarts.
+export const STATIC_PAGE_CACHE_TTL_MS = () => toInt(process.env.STATIC_PAGE_CACHE_TTL_MS, 0)
 export const PPR_SHELL_BUILDS_MAX = () => toInt(process.env.PPR_SHELL_BUILDS_MAX, 8)
 // How long the prerender waits for the static parts before it is cut (the hole never settles).
 export const PPR_PRERENDER_SETTLE_MS = () => toInt(process.env.PPR_PRERENDER_SETTLE_MS, 50)
@@ -42,6 +45,8 @@ type ShellCacheOptions = {
     /** Total size budget; negative means none. */
     maxBytes?: () => number
     sizeOf?: (value: any) => number
+    /** Entries older than this many ms are dropped on read; 0 means no expiry. */
+    maxAgeMs?: () => number
 }
 
 export class ShellCache {
@@ -53,15 +58,20 @@ export class ShellCache {
     maxEntries: () => number
     maxBytes: () => number
     sizeOf: (value: any) => number
+    maxAgeMs: () => number
+    storedAt: Map<string, number>
 
     constructor({
         maxEntries = PPR_SHELL_CACHE_MAX,
         maxBytes = () => -1,
         sizeOf = () => 0,
+        maxAgeMs = () => 0,
     }: ShellCacheOptions = {}) {
         this.maxEntries = maxEntries
         this.maxBytes = maxBytes
         this.sizeOf = sizeOf
+        this.maxAgeMs = maxAgeMs
+        this.storedAt = new Map()
         this.bytes = 0
         this.map = new Map()
         this.inflight = new Map()
@@ -74,6 +84,11 @@ export class ShellCache {
     }
     get(key: string) {
         const value = this.map.get(key)
+        const maxAge = this.maxAgeMs()
+        if (value && maxAge > 0 && Date.now() - (this.storedAt.get(key) ?? 0) >= maxAge) {
+            this.remove(key)
+            return undefined
+        }
         if (value) {
             this.map.delete(key)
             this.map.set(key, value)
@@ -84,6 +99,7 @@ export class ShellCache {
         if (!this.map.has(key)) return
         this.bytes -= this.sizeOf(this.map.get(key))
         this.map.delete(key)
+        this.storedAt.delete(key)
     }
     set(key: string, value: any) {
         this.remove(key)
@@ -91,6 +107,7 @@ export class ShellCache {
         const maxBytes = this.maxBytes()
         if (maxBytes >= 0 && size > maxBytes) return
         this.map.set(key, value)
+        this.storedAt.set(key, Date.now())
         this.bytes += size
         while (this.map.size > this.maxEntries() || (maxBytes >= 0 && this.bytes > maxBytes))
             this.remove(this.map.keys().next().value as string)
@@ -107,6 +124,7 @@ export class ShellCache {
     }
     clear() {
         this.map.clear()
+        this.storedAt.clear()
         this.bytes = 0
         this.inflight.clear()
         this.versions.clear()

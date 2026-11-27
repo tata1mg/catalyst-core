@@ -12,7 +12,7 @@ Every route in Catalyst renders in one of three modes. They trade off how fresh 
 | --------- | ------------------- | ----------------------------------- | ---------------- | ------------------- |
 | Streaming | Nothing              | Everything (data + render)          | Yes (always)      | `serverFetcher` / `clientFetcher` |
 | PPR       | Document + route skeleton (`pprFallback`) | The whole app, rendered with this request's data | No (bots get streaming) | `serverFetcher` / `clientFetcher`, or `usePPRRouteData()` |
-| Static    | The entire page      | Nothing, until cache is refreshed   | Yes               | `serverFetcher` / `clientFetcher` |
+| Static    | The entire page      | Nothing, until the cache entry expires or is evicted | Yes               | `serverFetcher` / `clientFetcher` |
 
 ## Streaming (default)
 
@@ -108,7 +108,9 @@ StaticDemo.renderMode = "static"
 
 The entire page — not just a shell — is rendered once (via `prerenderToNodeStream` with no abort/postpone, so it waits for the whole tree, including `serverFetcher` data, to fully resolve) and cached in full, keyed by pathname plus the sorted query string. Every later request, bots included, runs `App.serverSideFunction` (so its redirects, auth checks and cookies still apply) and then replays those bytes with no data fetch and no render.
 
-Requests with a CSP nonce in `res.locals.cspNonce` or native safe-area headers are rendered fresh instead. The cached page includes the store state of the request that rendered it, so use static mode only for routes whose store holds nothing per-user. As a safety net, a page that contains one of the request's cookie values of 12 or more characters is not cached (the same check as for PPR shells; shorter values are not detected).
+Requests with a CSP nonce in `res.locals.cspNonce` (including every request when `CSP_NONCE_ENABLE` is on) or native safe-area headers are rendered fresh instead.
+
+The first request's page, including its store state, is sent to every later visitor of that URL. Use static mode only when the HTML is the same for everyone: nothing may depend on the user, session, cookies, auth headers, locale or `Accept-Language`, device or user agent, or an A/B bucket. `App.serverSideFunction` still runs on every request, so redirects and auth checks there apply, but anything it puts in the store is only rendered for the request that fills the cache. Catalyst has one safety net, and it is best effort: a page that contains one of the request's cookie values of 12 or more characters is not cached (the same check as for PPR shells). Shorter values, and content derived from a cookie or header rather than copied from it, are not detected.
 
 `renderMode` is read from the matched route's component. On a directly imported component, set it on the component as above. When the route is wrapped with `split()`, set it on the wrapper too: the server checks it synchronously and can't await the lazy import.
 
@@ -121,7 +123,7 @@ StaticDemo.renderMode = "static"
 
 **Refreshing the cache during development:** append `?__refresh_static_cache` to the URL to force one request to bypass the cache and re-render (which also repopulates that route's cache entry with the new output). This only works when `NODE_ENV !== "production"` — in production the query param is ignored and the cached page is always served, since a client-controlled way to force a full re-render would defeat the point of the cache.
 
-The cache is in-process and per-server, bounded by `STATIC_PAGE_CACHE_MAX` pages (default 50) and `STATIC_PAGE_CACHE_MAX_BYTES` of HTML (default 64 MiB; least recently used pages are evicted first, a page larger than the whole budget is not cached, and a negative value means no byte budget). It's cleared on restart/redeploy, and (like the PPR shell cache) isn't currently exposed as a public API for a consuming app to clear programmatically at runtime.
+The cache is in-process and per-server, bounded by `STATIC_PAGE_CACHE_MAX` pages (default 50) and `STATIC_PAGE_CACHE_MAX_BYTES` of HTML (default 64 MiB; least recently used pages are evicted first, a page larger than the whole budget is not cached, and a negative value means no byte budget). Set `STATIC_PAGE_CACHE_TTL_MS` to render a page again on the first request after it is that old; unset, a page stays until it is evicted. It's cleared on restart/redeploy, and (like the PPR shell cache) isn't currently exposed as a public API for a consuming app to clear programmatically at runtime.
 
 ## x-rendering-mode reference
 

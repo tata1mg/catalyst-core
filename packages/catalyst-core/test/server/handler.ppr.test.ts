@@ -575,6 +575,16 @@ describe("SSR handler — static cache guards", () => {
         expect(next.mode).toBe("static-cache-miss")
     })
 
+    it("renders a cached static page again once it is older than STATIC_PAGE_CACHE_TTL_MS", async () => {
+        ;(process.env as any).STATIC_PAGE_CACHE_TTL_MS = 20
+        const get = await load()
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+        expect((await get("/static")).mode).toBe("static-cache-hit")
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+        expect((await get("/static")).mode).toBe("static-cache-hit")
+    })
+
     it("does not cache a static page larger than STATIC_PAGE_CACHE_MAX_BYTES", async () => {
         ;(process.env as any).STATIC_PAGE_CACHE_MAX_BYTES = 10
         const get = await load()
