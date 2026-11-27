@@ -29,9 +29,7 @@ ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
 
 // Code signing
-CODE_SIGN_IDENTITY = Apple Development
-CODE_SIGN_IDENTITY[sdk=iphoneos*] = iPhone Developer
-CODE_SIGN_STYLE = Manual
+CODE_SIGN_STYLE = Automatic
 
 // Module settings
 CLANG_ENABLE_MODULES = NO

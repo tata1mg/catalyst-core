@@ -123,8 +123,14 @@ function getDecisionForBits(traceId, start, end, rate) {
     return value / maxValue < rate
 }
 
-// Custom Status Aware Sampler
+/**
+ * Sampler used when errorSampling.ENABLED is set. A span with a valid parent
+ * follows the parent's sampled flag. A root is head-sampled at `samplingRate`.
+ * Anything not sampled is still recorded (RECORD), so PromotingSpanProcessor
+ * can export it later if the request ends in an error.
+ */
 class StatusAwareSampler {
+    /** @param {number} samplingRate - head sampling rate, 0 to 1 */
     constructor(samplingRate) {
         this.samplingRate = samplingRate
     }
@@ -154,8 +160,19 @@ class StatusAwareSampler {
     }
 }
 
-// Custom Span Processor for Status Aware Error Sampling
+/**
+ * Span processor for status-aware error sampling. Head-sampled spans go
+ * straight to a BatchSpanProcessor. Unsampled spans are buffered per trace
+ * until the root span ends; the root's status then decides whether the trace
+ * is promoted (exported after all) or dropped.
+ */
 class PromotingSpanProcessor {
+    /**
+     * @param {object} exporter - trace exporter handed to the BatchSpanProcessor
+     * @param {object} config - samplingRate, rate5xx, rate4xx, exportFullTraceOnError,
+     *   promoteHandledErrors, reportActualPromotionRate, skipPromotionCodes,
+     *   promoteBotTraffic and batchProcessorConfig, as built in init()
+     */
     constructor(exporter, config) {
         this.exporter = exporter
         this.config = config
@@ -174,6 +191,7 @@ class PromotingSpanProcessor {
         }
     }
 
+    /** Forwards head-sampled spans; unsampled spans need nothing at start. */
     onStart(span, parentContext) {
         const isSampled = (span.spanContext().traceFlags & TraceFlags.SAMPLED) !== 0
         if (isSampled) {
@@ -181,6 +199,11 @@ class PromotingSpanProcessor {
         }
     }
 
+    /**
+     * Sampled spans are batched. A span of an already promoted trace is
+     * exported. Any other span is buffered under its trace id, and a root span
+     * triggers the promotion decision for that trace.
+     */
     onEnd(span) {
         const traceId = span.spanContext().traceId
         const isSampled = (span.spanContext().traceFlags & TraceFlags.SAMPLED) !== 0
@@ -389,10 +412,12 @@ class PromotingSpanProcessor {
         }
     }
 
+    /** Flushes the batch processor. Buffered, unpromoted spans are not exported. */
     forceFlush() {
         return this.batchProcessor.forceFlush()
     }
 
+    /** Stops the cleanup timer, discards both buffers and shuts the batch processor down. */
     shutdown() {
         if (this.cleanupInterval) {
             clearInterval(this.cleanupInterval)

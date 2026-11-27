@@ -6,6 +6,10 @@ const {
     versionOlderThan,
     catalystGeneration,
     VITE_RUNTIME_VERSION,
+    SINGLE_APP_ICON_MIN_VERSION,
+    checkSingleAppIcon,
+    hasAndroidSizedIcons,
+    hasIosSizedIcons,
 } = require("../lib/helpers")
 
 // Tasks that require a minimum catalyst-core version.
@@ -13,8 +17,9 @@ const {
 const VERSION_GATES = {
     T7b_NATIVE_SCRIPTS: {
         minVersion: "0.0.3-canary.7",
-        reason: "Native build scripts (buildApp:android, buildApp:ios, setupEmulator) were added in canary.7.",
-        upgradeNote: "Update catalyst-core to ^0.0.3-canary.7 or later and run npm install.",
+        reason: "Native build scripts (buildApp:android, buildApp:ios, setupEmulator:*) were added in 0.0.3-canary.7. The one-step scripts (android, ios, android:release, ios:release) need catalyst-core 1.2.0 or later.",
+        upgradeNote:
+            "Update catalyst-core to 1.2.0 or later and run npm install, then add the android, ios, android:release and ios:release scripts.",
     },
     T8_CLIENT_ENTRY: {
         minVersion: "0.1.0-canary.1",
@@ -23,6 +28,58 @@ const VERSION_GATES = {
             "Update catalyst-core to ^0.1.0-canary.1 or later and run npm install. Also ensure client/index.js follows the new template pattern.",
     },
 }
+
+// From catalyst-core 1.2.0, `npm run android` / `npm run ios` set up the
+// toolchain (after asking), start the dev server and run the app, and the
+// :release scripts build the signed store files. Exact lines from the
+// create-catalyst-app templates.
+const ONE_STEP_NATIVE_SCRIPTS = {
+    android: "catalyst buildApp:android",
+    ios: "catalyst buildApp:ios",
+    "android:release": "catalyst buildApp:android --release",
+    "ios:release": "catalyst buildApp:ios --release",
+}
+const ONE_STEP_NATIVE_MIN_VERSION = "1.2.0"
+// Before 1.2.0: build with buildApp:<platform>, set up with setupEmulator:<platform>.
+const LEGACY_NATIVE_SCRIPTS = [
+    "buildApp",
+    "buildApp:ios",
+    "buildApp:android",
+    "setupEmulator",
+    "setupEmulator:ios",
+    "setupEmulator:android",
+]
+
+/** True when the installed catalyst-core has the one-step native scripts (1.2.0+, canaries included). */
+function hasOneStepNativeScripts(installedVersion) {
+    return Boolean(installedVersion) && !versionOlderThan(installedVersion, ONE_STEP_NATIVE_MIN_VERSION)
+}
+
+/**
+ * What WEBVIEW_CONFIG still needs on 1.2.0+: appId (unless the platform key
+ * sets it) and appName, plus an iOS-valid bundle id. Mirrors appIdSource /
+ * appIdProblem in src/native/nativeConfig.js. url is not required: without
+ * it a release builds its start URL from LOCAL_IP, port and useHttps (or
+ * --url), so `noUrl` is advice, not a gap.
+ */
+function missingAppIdentity(webviewConfig, platform) {
+    const wv = webviewConfig || {}
+    const block = (wv[platform] && typeof wv[platform] === "object" && wv[platform]) || {}
+    const keys = platform === "android" ? ["packageName"] : ["bundleIdentifier", "appBundleId"]
+    const set = (value) => typeof value === "string" && value.trim()
+    const platformKey = keys.find((key) => set(block[key]))
+    const appId = platformKey ? block[platformKey].trim() : set(wv.appId) ? wv.appId.trim() : null
+    const missing = []
+    if (!appId) missing.push("appId")
+    if (!set(wv.appName) && !set(block.appName)) missing.push("appName")
+    const noUrl = !set(wv.url)
+    const invalidIosId = platform === "ios" && appId && !/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(appId)
+    return { missing, appId, invalidIosId, noUrl }
+}
+
+// Advice for a 1.2.0+ app with no WEBVIEW_CONFIG.url; not a gap.
+const NO_URL_NOTE =
+    "WEBVIEW_CONFIG.url is not set. A release then uses LOCAL_IP, port and useHttps (or --url), and in a terminal asks for the website when that host is local or private. Set url to the deployed https:// origin to make releases explicit."
 
 let _projectInfo
 let _conversionTasks
@@ -50,6 +107,73 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
     // ── Per-task detectors (3-step model) ─────────────────────────────────────
     //
+    /** T13/T14 on 1.2.0+: public/icon.png, unless the platform's sized icons replace it. Null before 1.2.0. */
+    function singleIconStatus(p) {
+        if (installedVersion && versionOlderThan(installedVersion, SINGLE_APP_ICON_MIN_VERSION)) return null
+        const sized = p === "android" ? hasAndroidSizedIcons(root) : hasIosSizedIcons(root)
+        if (sized) return null
+        const single = checkSingleAppIcon(root)
+        const code = p === "android" ? "ANDROID-010" : "IOS-005"
+        if (!single)
+            return {
+                status: "gap",
+                native_risk: `No app icon, so the ${p === "android" ? "Android" : "iOS"} build uses the Catalyst placeholder.`,
+                reason: "public/icon.png not found. Add a square PNG of at least 1024x1024 pixels with no transparency; both platforms build their icons from it.",
+            }
+        if (single.problem)
+            return {
+                status: "gap",
+                native_risk: `public/icon.png ${single.problem}, so the build fails with ${code}.`,
+                reason: `public/icon.png ${single.problem}`,
+            }
+        if (p === "ios" && single.info.hasAlpha)
+            return {
+                status: "gap",
+                native_risk:
+                    "public/icon.png has an alpha channel. Debug builds only warn, but an iOS release fails with IOS-006 (the App Store rejects transparent icons).",
+                reason: "public/icon.png has transparency; flatten it onto a solid background",
+            }
+        return { status: "completed" }
+    }
+
+    function legacyAndroidIconStatus() {
+        const required = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].map(
+            (d) => `public/android/appIcons/icon-${d}.png`
+        )
+        const missing = required.filter((f) => !fileExists(f))
+        if (missing.length)
+            return {
+                status: "gap",
+                native_risk:
+                    "Missing Android icon densities — build will fall back to bundled catalyst icon. Expected naming: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png inside public/android/appIcons/. On catalyst-core 1.2.0+ one public/icon.png is enough.",
+                reason: `Missing Android icons: ${missing.join(", ")}`,
+            }
+        return { status: "completed" }
+    }
+
+    function legacyIosIconStatus() {
+        const required = [
+            "icon-20x20-2x",
+            "icon-20x20-3x",
+            "icon-29x29-2x",
+            "icon-29x29-3x",
+            "icon-40x40-2x",
+            "icon-40x40-3x",
+            "icon-60x60-2x",
+            "icon-60x60-3x",
+            "icon-1024x1024-1x",
+        ].map((name) => `public/ios/appIcons/${name}.png`)
+        const missing = required.filter((f) => !fileExists(f))
+        if (missing.length)
+            return {
+                status: "gap",
+                native_risk:
+                    "Missing iOS icon sizes — Xcode build may fail or App Store submission will be rejected. Expected naming: icon-{WxH}-{scale}.png e.g. icon-60x60-3x.png inside public/ios/appIcons/. On catalyst-core 1.2.0+ one public/icon.png is enough.",
+                reason: `Missing iOS icons: ${missing.join(", ")}`,
+            }
+        return { status: "completed" }
+    }
+
     // Each detector returns one of:
     //   { status: 'completed', note? }
     //   { status: 'gap',            native_risk, reason, files? }
@@ -71,9 +195,17 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk: "App will not start — catalyst-core requires config/config.json at boot.",
                     reason: "config/config.json not found",
                 }
-            const missing = ["NODE_SERVER_PORT", "WEBVIEW_CONFIG", "API_URL"].filter(
-                (k) => config[k] === undefined
-            )
+            // What catalyst start/build/serve refuse to start without, plus
+            // WEBVIEW_CONFIG for native builds. API_URL is the app's own key.
+            const missing = [
+                "NODE_SERVER_HOSTNAME",
+                "NODE_SERVER_PORT",
+                "BUILD_OUTPUT_PATH",
+                "PUBLIC_STATIC_ASSET_PATH",
+                "PUBLIC_STATIC_ASSET_URL",
+                "CLIENT_ENV_VARIABLES",
+                "WEBVIEW_CONFIG",
+            ].filter((k) => config[k] === undefined)
             if (missing.length)
                 return {
                     status: "gap",
@@ -271,21 +403,27 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
 
         T7b_NATIVE_SCRIPTS: () => {
             const scripts = pkg.scripts || {}
-            const required = [
-                "buildApp",
-                "buildApp:ios",
-                "buildApp:android",
-                "setupEmulator",
-                "setupEmulator:ios",
-                "setupEmulator:android",
-            ]
-            const missing = required.filter((name) => !scripts[name])
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk: `Native Catalyst commands are unavailable: ${missing.join(", ")}.`,
-                    reason: `Missing package scripts: ${missing.join(", ")}`,
-                }
+            if (hasOneStepNativeScripts(installedVersion)) {
+                // 1.2.0+: the four one-step scripts. buildApp:* and setupEmulator:*
+                // still work but are not needed.
+                const missing = Object.keys(ONE_STEP_NATIVE_SCRIPTS).filter((name) => !scripts[name])
+                if (missing.length)
+                    return {
+                        status: "gap",
+                        native_risk: `Native Catalyst commands are unavailable: ${missing.join(", ")}.`,
+                        reason: `Missing package scripts: ${missing.join(", ")}. Add to package.json scripts: ${missing
+                            .map((name) => `"${name}": "${ONE_STEP_NATIVE_SCRIPTS[name]}"`)
+                            .join(", ")}`,
+                    }
+            } else {
+                const missing = LEGACY_NATIVE_SCRIPTS.filter((name) => !scripts[name])
+                if (missing.length)
+                    return {
+                        status: "gap",
+                        native_risk: `Native Catalyst commands are unavailable: ${missing.join(", ")}.`,
+                        reason: `Missing package scripts: ${missing.join(", ")}. On catalyst-core 1.2.0 or later, add the android, ios, android:release and ios:release scripts instead.`,
+                    }
+            }
             if (generation === "current" && (scripts.devBuild || scripts.devServe))
                 return {
                     status: "gap",
@@ -304,6 +442,18 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk: "No WEBVIEW_CONFIG — Android build cannot start.",
                     reason: "WEBVIEW_CONFIG missing (see T1_CONFIG)",
                 }
+            if (hasOneStepNativeScripts(installedVersion)) {
+                // 1.2.0+: the build installs the SDK, JDK and emulator itself, so
+                // only the app's identity is needed (the android block is optional).
+                const { missing, noUrl } = missingAppIdentity(webviewConfig, "android")
+                if (missing.length)
+                    return {
+                        status: "gap",
+                        native_risk: `A release asks for a missing app id (or, without a terminal, fails with NATIVE-003), and a missing appName keeps the template's default display name. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
+                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop") and appName; url (the deployed https:// origin) is recommended.`,
+                    }
+                return noUrl ? { status: "completed", note: NO_URL_NOTE } : { status: "completed" }
+            }
             const android = webviewConfig.android
             if (!android)
                 return {
@@ -331,6 +481,22 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
                     native_risk: "No WEBVIEW_CONFIG — iOS build cannot start.",
                     reason: "WEBVIEW_CONFIG missing (see T1_CONFIG)",
                 }
+            if (hasOneStepNativeScripts(installedVersion)) {
+                const { missing, appId, invalidIosId, noUrl } = missingAppIdentity(webviewConfig, "ios")
+                if (invalidIosId)
+                    return {
+                        status: "gap",
+                        native_risk: `"${appId}" is not a valid iOS bundle id (letters, digits and - only), so every iOS build fails with NATIVE-010.`,
+                        reason: "Set WEBVIEW_CONFIG.ios.bundleIdentifier to an id without underscores; it wins over appId on iOS.",
+                    }
+                if (missing.length)
+                    return {
+                        status: "gap",
+                        native_risk: `A release asks for a missing app id (or, without a terminal, fails with NATIVE-003), and a missing appName keeps the template's default display name. Missing: ${missing.map((k) => `WEBVIEW_CONFIG.${k}`).join(", ")}.`,
+                        reason: `WEBVIEW_CONFIG missing: ${missing.join(", ")}. Set appId (e.g. "com.acme.shop") and appName; url (the deployed https:// origin) is recommended.`,
+                    }
+                return noUrl ? { status: "completed", note: NO_URL_NOTE } : { status: "completed" }
+            }
             const ios = webviewConfig.ios
             if (!ios)
                 return {
@@ -404,43 +570,12 @@ function handle_get_conversion_status({ project_path, include_not_applicable = f
             return { status: "completed" }
         },
 
-        T13_ANDROID_ICONS: () => {
-            const required = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"].map(
-                (d) => `public/android/appIcons/icon-${d}.png`
-            )
-            const missing = required.filter((f) => !fileExists(f))
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Missing Android icon densities — build will fall back to bundled catalyst icon. Expected naming: icon-mdpi.png, icon-hdpi.png, icon-xhdpi.png, icon-xxhdpi.png, icon-xxxhdpi.png inside public/android/appIcons/.",
-                    reason: `Missing Android icons: ${missing.join(", ")}`,
-                }
-            return { status: "completed" }
-        },
+        // From 1.2.0 public/icon.png is the app icon on both platforms; the sized
+        // sets in public/<platform>/appIcons are optional overrides. Before
+        // 1.2.0 only the sized sets count.
+        T13_ANDROID_ICONS: () => singleIconStatus("android") || legacyAndroidIconStatus(),
 
-        T14_IOS_ICONS: () => {
-            const required = [
-                "icon-20x20-2x",
-                "icon-20x20-3x",
-                "icon-29x29-2x",
-                "icon-29x29-3x",
-                "icon-40x40-2x",
-                "icon-40x40-3x",
-                "icon-60x60-2x",
-                "icon-60x60-3x",
-                "icon-1024x1024-1x",
-            ].map((name) => `public/ios/appIcons/${name}.png`)
-            const missing = required.filter((f) => !fileExists(f))
-            if (missing.length)
-                return {
-                    status: "gap",
-                    native_risk:
-                        "Missing iOS icon sizes — Xcode build may fail or App Store submission will be rejected. Expected naming: icon-{WxH}-{scale}.png e.g. icon-60x60-3x.png inside public/ios/appIcons/.",
-                    reason: `Missing iOS icons: ${missing.join(", ")}`,
-                }
-            return { status: "completed" }
-        },
+        T14_IOS_ICONS: () => singleIconStatus("ios") || legacyIosIconStatus(),
 
         T15_OFFLINE_HTML: () => {
             if (!fileExists("public/offline.html"))
@@ -891,4 +1026,11 @@ function handle_get_conversion_tasks({ project_path, filter = "all", include_not
     }
 }
 
-module.exports = { init, handle_get_conversion_status, handle_get_conversion_tasks }
+module.exports = {
+    init,
+    handle_get_conversion_status,
+    handle_get_conversion_tasks,
+    hasOneStepNativeScripts,
+    missingAppIdentity,
+    ONE_STEP_NATIVE_SCRIPTS,
+}

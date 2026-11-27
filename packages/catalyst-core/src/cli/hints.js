@@ -10,10 +10,12 @@
  */
 const HINTS = [
     {
-        test: /Failed to resolve import ["']([^"']+)["']/,
+        // Case-insensitive so Rollup's "Rollup failed to resolve import" matches too.
+        test: /Failed to resolve import ["']([^"']+)["']/i,
         hint: (match) =>
+            // @x is either an app alias or a scoped npm package; say both.
             match[1].startsWith("@")
-                ? `The alias ${match[1].split("/")[0]} is not defined in package.json _moduleAliases. Add it, or import with a relative path.`
+                ? `${match[1].split("/")[0]} is not an alias in package.json _moduleAliases and not an installed package. Add the alias, install the package, or import with a relative path.`
                 : `Check the path, or install the package with npm install ${match[1]}.`,
         docs: "https://catalyst.1mg.com/errors/unresolved-import",
     },
@@ -26,6 +28,11 @@ const HINTS = [
                 ? `Something is already on ${where}. Free it with \`lsof -ti :${port} | xargs kill\`, or set NODE_SERVER_PORT in config/config.json.`
                 : `Something is already on ${where}. Stop it, or set NODE_SERVER_PORT in config/config.json.`
         },
+    },
+    {
+        test: /listen EADDRNOTAVAIL\b(?:.*?address not available\s+(\S+):\d+)?/i,
+        hint: (match) =>
+            `NODE_SERVER_HOSTNAME ${match[1] ? `${match[1]} ` : ""}is not an address of this machine; set it to localhost (or this machine's address) in config/config.json.`,
     },
     {
         test: /SDK location not found|ANDROID_HOME/i,

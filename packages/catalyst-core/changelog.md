@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.3.0] - 2026-11-25
+
+This release adds the server features that 1mg's mweb app ran on its own branch, and fixes `preServerInit` being skipped for some apps since 1.1.0. There are no breaking changes to the public API. Three behaviour changes are listed below.
+
+### Added
+
+- CSP nonce. With `CSP_NONCE_ENABLE: true` in `config/config.json`, every script and modulepreload link Catalyst renders carries a per-request nonce. Set `res.locals.cspNonce` in a middleware to use your own; a value outside the base64 alphabet is replaced with a generated one. Styles are not nonced.
+- OpenTelemetry error sampling. `Otel.init({ errorSampling: { ENABLED: true } })` keeps unsampled traces in memory until the request ends and exports the ones that failed. While it is on, the server logs a memory heartbeat. See the Observability guide for the options.
+- `OFFLINE_SNAPSHOTS_ENABLE: false` turns off Catalyst's service worker and offline manifest, for apps that ship their own worker.
+- `App.serverSideFunction` receives `runInParallel(...promises)`. Work passed to it runs alongside the route's `serverFetcher`, and both finish before the store is serialized.
+- Native: `WEBVIEW_CONFIG.location.enabled` adds the Android location permissions and the WebView geolocation prompt, and `NSLocationWhenInUseUsageDescription` on iOS (`location.usageDescription` sets the text).
+
+### Fixes
+
+- `preServerInit` runs again for apps whose `server/index.js` imports an alias from `_moduleAliases`. Since 1.1.0 the module loader was registered after `server/index.js` was imported, so the import failed and the hook was skipped without a message.
+- `MetaTag` is the only owner of the tags from `setMetaData`, apart from the title. The server no longer renders them twice, and the previous page's description and canonical no longer stay after a client navigation.
+- A failed `catalyst build` prints the bundler's own error (missing package, missing export, Sass error and so on) instead of only `BUNDLE-000` and stack frames.
+- SSR builds resolve the `module-sync` condition, which fixes two copies of react-router being loaded on Node 22.
+
+### Behaviour changes
+
+- A `server/index.js` that exists but fails to import now stops startup with the import error. It used to be skipped.
+- `<script type="application/ld+json">` from `setMetaData` renders in the page body, where `MetaTag` sits, instead of in `<head>`.
+- Route-data cache keys are HTML-escaped (`&` becomes `&amp;`). Server and client compute them the same way, so this matters only to code that builds a key by hand.
+
+## [1.2.1] - 2026-11-17
+
+- `useIntent()` adds `openInBrowser(url)`, which opens a link outside the WebView: in the default browser, or in the app that owns the link when one is installed. Only `http` and `https` URLs are accepted; any other scheme fails with an error.
+- The Android and iOS apps send `WEBVIEW_CONFIG.appInfo` in an `X-App-Info` request header, next to the `X-Safe-Area-*` headers. The header is left out when `appInfo` is empty.
+- iOS: with `edgeToEdge.enabled`, the WebView no longer adds the safe-area insets itself, matching Android. Pages draw under the status bar and home indicator, so pad them with `useSafeArea()`. Apps that relied on the automatic inset will see their content move up.
+
+## [1.2.0] - 2026-11-13
+
+This release builds, runs and releases the Android and iOS apps from the CLI, without opening Android Studio or Xcode. The web runtime has no breaking changes. Universal apps should read the breaking changes below and the 1.1.x to 1.2.0 section of the Version Upgrades guide. After upgrading, run `npm audit fix`: the `body-parser` floor is raised to `^1.20.9`.
+
+### One command to run, one to release
+
+New apps have four scripts. `npm run android` and `npm run ios` check the toolchain and install what is missing after asking, start the dev server when nothing answers on `NODE_SERVER_PORT`, and build, install and open the app on an emulator, simulator or phone. Android also saves the app as a debug APK in `build-output/android/debug/` that can be shared. `npm run android:release` writes a signed App Bundle, a signed APK and `upload_certificate.pem` to `build-output/android/<version>-<build>/`, and `npm run ios:release` writes a signed IPA and a zip of its dSYMs to `build-output/ios/<version>-<build>/`. The scripts run `catalyst buildApp:android` and `catalyst buildApp:ios`, with `--release` for the store builds, so older apps keep `buildApp:<platform>` and build a release with `npm run buildApp:<platform> -- --release`. `setupEmulator:android` and `setupEmulator:ios` still work and are no longer needed.
+
+### App config
+
+A native app needs `WEBVIEW_CONFIG.appId`, `appName` and `url`. `appId` is the Android application id and the iOS bundle id, and `android.packageName` and `ios.bundleIdentifier` (then `ios.appBundleId`) win over it. `url` is the deployed site a release opens; debug builds load the dev server. New apps get `appId` and `appName` from the project name. A release run in a terminal asks once for an app id or website that is missing or a placeholder, and saves the answer to `config/config.json`.
+
+### Signing
+
+Signing files live in `credentials/android/` and `credentials/ios/`, which new apps keep out of git. The first Android release in a terminal creates one upload key per app after asking; back it up, because Google Play only accepts updates signed with it. `npx catalyst credentials:export <platform>` prints the folder as one value for the `CATALYST_ANDROID_CREDENTIALS` or `CATALYST_IOS_CREDENTIALS` CI secret. On a Mac signed in to Xcode, an iOS release signs with the Apple account or an installed App Store profile and needs no files; the order the build tries is in the iOS release guide. The version comes from `package.json`, and the build number is `CATALYST_BUILD_NUMBER` or the minutes since 2024-01-01 UTC. Android apps target API 36 and align their native libraries for 16 KB memory pages.
+
+### Breaking changes
+
+- An iOS bundle id with an underscore fails with `NATIVE-010`. Set `ios.bundleIdentifier` to an id without one.
+- A release with a placeholder app id (any `com.example.` id or a template id) fails with `NATIVE-003`. A release whose start URL is `localhost`, a private or link-local address, a `.local` name or this machine fails with `NATIVE-001`, unless `WEBVIEW_CONFIG.allowPrivateHost` is `true`. Run in a terminal, the build asks for the value instead.
+- A debug build no longer installs on a connected phone by itself. A terminal run asks once where to run the app and remembers the answer in `.catalyst/local.json`; without a terminal the emulator or simulator is used. Pass `--device` for the phone.
+- The first debug build rewrites `config/config.json` once: a value equal to this machine's LAN address, and a private `LOCAL_IP` that `NODE_SERVER_HOSTNAME` also holds, go back to `localhost`. Each change is printed. It never runs for a release, in CI or with `allowPrivateHost: true`.
+- Keystore passwords in `android.keystoreConfig` and `android.keystore` are no longer used. Apps that uploaded a build signed with the keystore shipped in the template, or with a key generated by an earlier release build, need an upload key reset in Play Console.
+
+### create-catalyst-app
+
+New apps get a new starter page, an animated HTML splash screen that is on by default (`splashScreen.minDuration` `7000`), a restyled offline page, a placeholder `public/icon.png`, and a `server/index.js` with an empty stub for `preServerInit` and each per-request hook. Their `.gitignore` covers `credentials/`, `.catalyst/` and `build-output/`.
+
+### Fixes
+
+- `MetaTag` waits for a `split()` route's chunk before it replaces the head tags, so the server's tags are no longer removed before the route's `setMetaData` is available.
+- Startup warns when `server/index.js` puts a lifecycle hook inside `export default { ... }`, where Catalyst never calls it. Export each hook by name.
+- `npm run start` prints a hint when `NODE_SERVER_HOSTNAME` is not an address of this machine.
+
 ## [1.1.0] - 2026-10-22
 
 This release contains everything in 1.0.2, namely the HTML splash screen, experimental WebMCP support and the new CLI output, plus one fix. There are no breaking API changes.

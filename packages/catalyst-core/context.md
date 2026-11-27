@@ -1,7 +1,7 @@
 # Catalyst Core — Claude Context Reference
 
 > Machine-first. Dense. No prose filler. Read this when MCP is unavailable.
-> Source: https://github.com/tata1mg/catalyst-core | Version: 0.1.0-canary.4
+> Source: https://github.com/tata1mg/catalyst-core | Version: 1.2.0
 
 ---
 
@@ -46,13 +46,18 @@ Key exports from `catalyst-core` package:
 │   ├── index.js             ← required. client hydration entry
 │   └── styles.js            ← required. global CSS imports
 ├── public/
-│   ├── offline.html         ← required for native. shown when device offline
+│   ├── offline.html         ← native: shown when device offline
+│   ├── icon.png             ← native app icon, both platforms (1.2.0+). square PNG >= 1024px, no alpha for iOS release
+│   ├── splashscreen.html    ← optional animated HTML splash, both platforms (1.0.2+)
 │   ├── android/
-│   │   ├── splashscreen.png ← required for native Android
-│   │   └── appIcons/        ← mdpi hdpi xhdpi xxhdpi xxxhdpi .png
+│   │   ├── splashscreen.png ← optional native splash image (else launcher icon)
+│   │   └── appIcons/        ← optional override: icon-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}.png
 │   └── ios/
-│       ├── splashscreen.png ← required for native iOS
-│       └── appIcons/        ← 20 29 40 58 60 80 87 120 1024 .png
+│       ├── splashscreen.png ← optional native splash image (else loader)
+│       └── appIcons/        ← optional override: icon-{WxH}-{scale}.png, e.g. icon-60x60-3x.png
+├── credentials/             ← signing files, credentials/android/ + credentials/ios/. git-ignored. back up
+├── build-output/            ← native outputs: android/debug/, <platform>/<version>-<build>/. git-ignored
+├── .catalyst/               ← per-machine CLI state (local.json). git-ignored
 └── package.json             ← anchor. must have catalyst-core in deps
 ```
 
@@ -66,31 +71,27 @@ Key exports from `catalyst-core` package:
 {
     "NODE_SERVER_PORT": 3005,
     "API_URL": "https://api.example.com",
-    "CLIENT_ENV_KEYS": ["API_URL"],
-
-    "splashScreen": {
-        "duration": 1000,
-        "backgroundColor": "#ffffff"
-    },
+    "CLIENT_ENV_VARIABLES": ["API_URL"],
 
     "WEBVIEW_CONFIG": {
-        "useHttps": false,
+        "appId": "com.yourcompany.myapp",
+        "appName": "MyApp",
+        "url": "https://www.myapp.com",
+        "LOCAL_IP": "localhost",
+        "port": "3005",
+
+        "splashScreen": {
+            "backgroundColor": "#ffffff",
+            "minDuration": 1200
+        },
 
         "android": {
-            "buildType": "debug",
-            "sdkPath": "/path/to/android/sdk",
-            "emulatorName": "Pixel_6_API_33",
-            "appName": "MyApp",
-            "appBundleId": "com.example.myapp",
             "buildOptimisation": false,
             "cachePattern": "*.css,*.js"
         },
 
         "ios": {
-            "buildType": "Debug",
-            "simulatorName": "iPhone 15",
-            "appName": "MyApp",
-            "appBundleId": "com.example.myapp"
+            "developmentTeam": "ABCDE12345"
         },
 
         "accessControl": {
@@ -107,11 +108,13 @@ Key exports from `catalyst-core` package:
 
 **Field rules:**
 
-- `splashScreen` is top-level, NOT inside `WEBVIEW_CONFIG`
-- `android.buildType`: lowercase `"debug"` | `"release"` — debug disables caching (required for HMR)
-- `ios.buildType`: PascalCase `"Debug"` | `"Release"` — case-sensitive
-- `appBundleId`: reverse-DNS format `com.org.appname`
-- `CLIENT_ENV_KEYS`: only listed keys are sent to browser bundle — security boundary
+- `splashScreen` goes inside `WEBVIEW_CONFIG`; a top-level `splashScreen` is never read. Options: `backgroundColor` (#rrggbb), `duration` (image splash), `minDuration` (HTML splash), `imageWidth`, `imageHeight`, `cornerRadius`. The native build passes the colour to `public/splashscreen.html` as `window.__CATALYST_SPLASH__ = { backgroundColor }`
+- `appId`: reverse-DNS `com.org.appname`; Android application id and iOS bundle id. The platform keys win over it: `android.packageName` on Android, `ios.bundleIdentifier` then `ios.appBundleId` on iOS
+- iOS bundle id: letters, digits, `-` and `.` only. An underscore (valid on Android) fails every iOS build with NATIVE-010 (1.2.0+); set `ios.bundleIdentifier` without it
+- `android` / `ios` blocks are optional from 1.2.0; before 1.2.0 the builds read sdkPath, emulatorName, appBundleId, simulatorName from them
+- `url`: https origin the release app loads; debug builds ignore it
+- `android.buildType` / `ios.buildType`: leave `"debug"` or omit; `"release"` is deprecated, use `--release`
+- `CLIENT_ENV_VARIABLES`: only listed keys are sent to browser bundle — security boundary
 - `accessControl.enabled: false` → all URLs allowed; `true` → only allowedUrls pass
 
 ---
@@ -162,13 +165,20 @@ const Page = () => {
 ### Lifecycle hooks (server/index.js):
 
 ```js
-export const preServerInit = () => {} // before server starts
-export const onServerError = (err) => {} // server failed to start
-export const onRouteMatch = (ctx) => {} // after route matching (hit or miss)
-export const onFetcherSuccess = (ctx) => {} // after serverFetcher runs
-export const onRenderError = (err, ctx) => {} // render failed
-export const onRequestError = (err, ctx) => {} // outermost catch
+// Named exports only. Hooks inside `export default { ... }` are never called; startup warns (1.2.0+).
+export const preServerInit = async () => {} // once, before server starts; awaited
+export const onRouteMatch = ({ req, res, matches, store }) => {} // each page request, after route matching
+export const onAppServerSideSuccess = ({ req, res, store }) => {} // App.serverSideFunction resolved
+export const onAppServerSideError = ({ req, res, store, error }) => {} // App.serverSideFunction threw
+export const onFetcherSuccess = ({ req, res, store }) => {} // route serverFetcher resolved
+export const onFetcherError = ({ req, res, store, error }) => {} // route data or page prep (metadata, assets) failed
+export const onRenderError = ({ req, res, store, error }) => {} // React server render failed
+export const onRequestError = ({ req, res, error }) => {} // anything else in the request threw
 ```
+
+- Request hooks are not awaited: keep them synchronous. Use `req.originalUrl` (`req.path` is `/` inside hooks). Sending a response ends the request
+- `onServerError` is read but never called in practice (Express 4 never passes an error to `listen`)
+- A throwing hook is logged and skipped: PROCESS-001 (preServerInit), PROCESS-002 (request hooks)
 
 ---
 
@@ -314,15 +324,15 @@ const info = await getDeviceInfo()
 
 ### Tier 2 — Native Build (first native build won't run without these)
 
-| ID                 | Task                                                                                      | Key check      |
-| ------------------ | ----------------------------------------------------------------------------------------- | -------------- |
-| T9_WEBVIEW_ANDROID | WEBVIEW_CONFIG.android with buildType, sdkPath, emulatorName, appName                     | all 4 fields   |
-| T10_WEBVIEW_IOS    | WEBVIEW_CONFIG.ios with buildType, appBundleId, simulatorName, appName                    | all 4 fields   |
-| T11_ACCESS_CONTROL | WEBVIEW_CONFIG.accessControl.enabled=true + allowedUrls non-empty                         | both set       |
-| T12_SPLASH_SCREEN  | splashScreen at top level + public/android/splashscreen.png + public/ios/splashscreen.png | config + files |
-| T13_ANDROID_ICONS  | public/android/appIcons/{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}.png                              | all 5          |
-| T14_IOS_ICONS      | public/ios/appIcons/{20,29,40,58,60,80,87,120,1024}.png                                   | all 9          |
-| T15_OFFLINE_HTML   | public/offline.html                                                                       | file exists    |
+| ID                 | Task                                                                                                                                                  | Key check      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| T9_WEBVIEW_ANDROID | WEBVIEW_CONFIG.appId (not com.example.*), appName, url (https origin)                                                                                 | all 3 fields   |
+| T10_WEBVIEW_IOS    | T9 fields + WEBVIEW_CONFIG.ios.developmentTeam (iPhone and release builds)                                                                            | team ID set    |
+| T11_ACCESS_CONTROL | WEBVIEW_CONFIG.accessControl.enabled=true + allowedUrls non-empty                                                                                     | both set       |
+| T12_SPLASH_SCREEN  | WEBVIEW_CONFIG.splashScreen set (images optional; HTML splash in public/splashscreen.html)                                                            | config present |
+| T13_ANDROID_ICONS  | 1.2.0+: public/icon.png (square PNG >= 1024px, else ANDROID-010) or public/android/appIcons/icon-{density}.png; before 1.2.0 all 5 icon-{density}.png | icon present   |
+| T14_IOS_ICONS      | 1.2.0+: public/icon.png (else IOS-005; alpha fails a release with IOS-006) or public/ios/appIcons/icon-{WxH}-{scale}.png; before 1.2.0 all 9 sizes    | icon present   |
+| T15_OFFLINE_HTML   | public/offline.html                                                                                                                                   | file exists    |
 
 ### Tier 3 — Enhancements (feature-gated, only if feature is used)
 
@@ -353,37 +363,54 @@ T9 + T10 → T19
 ### Commands:
 
 ```bash
-npm run start                    # dev server — port 3005
+npm run start                    # dev server: port 3005
 npm run build                    # production build
 npm run serve                    # serve production build
-npm run setupEmulator:android    # configure Android emulator
-npm run setupEmulator:ios        # configure iOS simulator
-npm run buildApp:android         # build + install on Android emulator
-npm run buildApp:ios             # build + install on iOS simulator
+npm run android                  # catalyst buildApp:android: install toolchain if missing, start dev server, run on emulator or phone
+npm run ios                      # catalyst buildApp:ios: same on simulator or iPhone (macOS)
+npm run android:release          # signed AAB + APK in build-output/android/<version>-<build>/
+npm run ios:release              # signed IPA + dSYM zip in build-output/ios/<version>-<build>/
+npx catalyst credentials:export android|ios   # CI secret value + backup of credentials/<platform>/
 ```
 
-### Android build sequence:
+Older apps have `buildApp:android` / `buildApp:ios` scripts: same commands.
 
-1. `npm run start` (keep running)
-2. `npm run buildApp:android`
-    - Reads `WEBVIEW_CONFIG.android` from config.json
-    - Requires: `sdkPath`, `emulatorName`, `appName`, `buildType`
-    - For release: requires keystore + `appBundleId` → produces `.aab`
-    - For debug: HMR works, no caching (`buildType: "debug"`)
+### Debug build (`npm run android` / `npm run ios`):
 
-### iOS build sequence:
+- Installs missing JDK 17 to 23, Android SDK packages, emulator, iOS runtime or simulator after asking
+- Starts `catalyst start` when nothing answers on NODE_SERVER_PORT; no need to run it first
+- Emulator/simulator by default; `--device` uses the connected phone; the pick is remembered in `.catalyst/local.json`
+- Loads the dev server, never `url`: Android via `adb reverse` on localhost, simulator on localhost, iPhone on `<mac>.local`
+- Keep `LOCAL_IP` as `localhost`; never put a LAN IP in config.json. A `LOCAL_IP` that is a real host (staging, not this machine) is loaded instead of the dev server
+- First debug build per checkout (1.2.0+) rewrites config.json once: values equal to this machine's LAN IP, and a private `LOCAL_IP` that `NODE_SERVER_HOSTNAME` also holds, go back to `localhost`. Each change is printed. Never for a release, in CI or with `allowPrivateHost: true`
+- A connected phone is no longer picked by itself (1.2.0): a terminal run asks once; without a terminal the emulator/simulator is used
+- Android also writes a shareable debug APK to `build-output/android/debug/`
+- Physical iPhone needs `ios.developmentTeam` and an Apple account signed in to Xcode once
 
-1. `npm run start` (keep running)
-2. `npm run buildApp:ios`
-    - Reads `WEBVIEW_CONFIG.ios` from config.json
-    - Requires: `buildType` (PascalCase), `simulatorName`, `appName`, `appBundleId`
-    - Requires Xcode + `xcode-select --install`
+### Release build (`npm run android:release` / `npm run ios:release`):
+
+- Loads `WEBVIEW_CONFIG.url` (or `--url <u>`); refuses localhost/private hosts (NATIVE-001) unless `allowPrivateHost: true`
+- Refuses `com.example.*` and template app ids (NATIVE-003); an invalid id (e.g. underscore on iOS) fails with NATIVE-010
+- In a terminal, a missing or placeholder app id or website is asked once and saved to config.json
+- Version from package.json; build number = minutes since 2024-01-01 UTC, or `CATALYST_BUILD_NUMBER`
+- Android: upload key in `credentials/android/` (created once, in a terminal only; back it up, Play only accepts updates signed with it); writes .aab, a signed .apk for test phones and upload_certificate.pem. targetSdk 36, native libraries 16 KB page aligned
+- Android: passwords in `android.keystoreConfig` / `android.keystore` are no longer used (1.2.0). An app that uploaded a build signed with the template keystore or an earlier generated key needs an upload key reset in Play Console
+- iOS: writes .ipa + `<name>-dSYMs.zip`. Signs with the first of: (1) .p12 + .mobileprovision + p12Password in `credentials/ios/`; (2) `ios.provisioningProfile` (installed profile); (3) App Store Connect API key `AuthKey_<KEYID>.p8` + ascIssuerId in `credentials/ios/signing.properties`; (4) an App Store profile installed on this Mac for the bundle id (saved as `ios.provisioningProfile` in a terminal); (5) the Apple account signed in to Xcode (team saved as `ios.developmentTeam`). A Mac signed in to Xcode needs no files; none of the five → IOS-010
+- CI: secrets `CATALYST_ANDROID_CREDENTIALS` / `CATALYST_IOS_CREDENTIALS` from `credentials:export`
+- Store upload is manual (Play Console, Transporter)
+- `buildType: "release"` still works but is deprecated
+
+### Agents and CI (no TTY, or CI set):
+
+- Nothing is prompted. Flags: `--release`, `--device`, `--url <u>`, `--yes` (installs), `--accept-licenses` (Android SDK and Xcode licences)
+- A missing answer fails at once with NATIVE-005 naming the flag
+- `--yes` never creates a signing key; the Android upload key needs a person at a terminal
 
 ### buildOptimisation (Android only):
 
 - `buildOptimisation: true` → static assets bundled into APK, loaded from device storage
 - ~90% faster initial load, near-zero network requests for JS/CSS
-- Disable during development (`buildOptimisation: false`, `buildType: "debug"`)
+- Disable during development (`buildOptimisation: false`)
 
 ### Cache behaviour:
 
@@ -399,19 +426,26 @@ Use MCP `debug_issue` with symptom text. Matches via keyword scoring against kno
 
 ### Most common native build errors:
 
-**`sdkPath not found` / Android SDK error**
+**Android SDK error**
 
-- Check `WEBVIEW_CONFIG.android.sdkPath` points to actual SDK dir (not Studio install dir)
-- Find it: Android Studio → SDK Manager → SDK Location at top
+- The SDK is found in `android.sdkPath`, `ANDROID_HOME`, `ANDROID_SDK_ROOT`, then the default location; run `npm run android` in a terminal (or with `--yes --accept-licenses`) to install what is missing
 
-**`appBundleId invalid`**
+**NATIVE-003 placeholder app id**
 
-- Must be reverse-DNS: `com.org.app` — no uppercase, no spaces, 3+ segments
+- Set `WEBVIEW_CONFIG.appId` to your own reverse-DNS id, e.g. `com.yourcompany.myapp`
 
-**`buildType case error`**
+**NATIVE-001 release host**
 
-- Android: lowercase `"debug"` / `"release"`
-- iOS: PascalCase `"Debug"` / `"Release"`
+- Set `WEBVIEW_CONFIG.url` to the deployed https origin, or pass `--url`
+
+**NATIVE-010 invalid app id**
+
+- iOS bundle ids allow letters, digits, `-` and `.`; an `appId` with `_` fails every iOS build (1.2.0+). Set `ios.bundleIdentifier` without the underscore; Android keeps `appId`
+
+**App icon errors (1.2.0+)**
+
+- ANDROID-010 / IOS-005: `public/icon.png` is not a PNG, not square or under 1024px
+- IOS-006: `public/icon.png` has an alpha channel; flatten it before an iOS release
 
 **Blank page on native / hydration mismatch**
 

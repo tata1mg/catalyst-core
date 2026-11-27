@@ -1,22 +1,17 @@
 const baseWebviewConfig = {
+    appId: 'com.yourcompany.myapp',
+    appName: 'My App',
+    url: 'https://www.myapp.com',
     port: '3005',
-    LOCAL_IP: '192.168.XX.XX',
+    LOCAL_IP: 'localhost',
     appInfo: 'android-v2.1.0',
-    useHttps: true,
     profiler: {
         enabled: false,
     },
     android: {
-        appName: 'My App',
-        packageName: 'com.example.myapp',
-        buildType: 'debug',
-        sdkPath: '/Users/yourname/Library/Android/sdk',
-        emulatorName: 'Pixel_5_API_30',
+        emulatorName: 'Pixel_8_API_36',
     },
     ios: {
-        appName: 'My App',
-        appBundleId: 'com.example.myapp',
-        buildType: 'Debug',
         simulatorName: 'iPhone 17 Pro',
     },
     accessControl: {
@@ -49,16 +44,14 @@ const appConfig = {
 const universalAppConfig = {
     WEBVIEW_CONFIG: {
         ...baseWebviewConfig,
+        appId: 'com.yourcompany.myawesomeapp',
+        appName: 'My Awesome App',
         android: {
             ...baseWebviewConfig.android,
-            appName: 'My Awesome App',
-            packageName: 'com.example.myawesomeapp',
             cachePattern: '*.css,*.js',
         },
         ios: {
             ...baseWebviewConfig.ios,
-            appName: 'My Awesome App',
-            appBundleId: 'com.example.myawesomeapp',
             cachePattern: '*.css,*.js',
         },
         accessControl: {
@@ -79,7 +72,6 @@ const webviewConfigApi = {
     WEBVIEW_CONFIG: {
         ...baseWebviewConfig,
         appInfo: 'android-5Feb2026-v2.1.0',
-        useHttps: false,
         accessControl: {
             enabled: true,
             allowedUrls: ['*.yourdomain.com*', 'http://localhost:*'],

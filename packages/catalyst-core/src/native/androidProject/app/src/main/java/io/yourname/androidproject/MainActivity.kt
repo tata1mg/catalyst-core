@@ -8,7 +8,9 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 import org.json.JSONObject
 import java.util.Properties
@@ -51,6 +53,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     private var isHardwareAccelerationEnabled = false
     private var currentUrl: String = ""
     private var edgeToEdgeEnabled = false
+    private var backCallback: OnBackPressedCallback? = null
     private var latestSafeAreaInsets: SafeAreaInsets = SafeAreaInsets.ZERO
     private var splashOverlay: SplashOverlay? = null
 
@@ -76,6 +79,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
             }
         }
     }
+
+    // targetSdk 35+ draws every window edge-to-edge on Android 15+, and Android 16 removed
+    // the opt-out. With edgeToEdge off in the config, the shell pads its root view by the
+    // system-bar insets instead, so content still sits between the bars.
+    private val systemDrawsEdgeToEdge: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
 
     private fun configureEdgeToEdge() {
         edgeToEdgeEnabled = EdgeToEdgeUtils.isEnabled(properties)
@@ -119,6 +128,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         // Track inset changes (first layout, rotation, cutout, bar visibility); insets stay unconsumed
         var lastCachedInsets = cachedInsets
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            // edgeToEdge off on Android 15+: pad by the bars, and hand the children insets
+            // without them so the WebView doesn't inset its content a second time.
+            var childInsets = insets
+            if (!edgeToEdgeEnabled && systemDrawsEdgeToEdge) {
+                val barTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                val bars = insets.getInsets(barTypes)
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                childInsets = WindowInsetsCompat.Builder(insets).setInsets(barTypes, Insets.NONE).build()
+            }
+
             val updatedInsets = SafeAreaUtils.fromWindowInsets(
                 insets,
                 edgeToEdgeEnabled,
@@ -141,21 +160,27 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 lastCachedInsets = updatedInsets
             }
 
-            insets
+            childInsets
         }
         ViewCompat.requestApplyInsets(rootView)
     }
 
-    private fun buildSafeAreaHeaders(): Map<String, String> = mapOf(
-        "X-Safe-Area-Top" to latestSafeAreaInsets.top.toString(),
-        "X-Safe-Area-Right" to latestSafeAreaInsets.right.toString(),
-        "X-Safe-Area-Bottom" to latestSafeAreaInsets.bottom.toString(),
-        "X-Safe-Area-Left" to latestSafeAreaInsets.left.toString(),
-        "X-Catalyst-Native-WebView" to "1",
-        // Prevent caching of SSR response so updated headers are always used
-        "Cache-Control" to "no-cache, no-store, must-revalidate",
-        "Pragma" to "no-cache"
-    )
+    private fun buildSafeAreaHeaders(): Map<String, String> {
+        val appInfo = properties.getProperty("appInfo", "")
+        return buildMap {
+            put("X-Safe-Area-Top", latestSafeAreaInsets.top.toString())
+            put("X-Safe-Area-Right", latestSafeAreaInsets.right.toString())
+            put("X-Safe-Area-Bottom", latestSafeAreaInsets.bottom.toString())
+            put("X-Safe-Area-Left", latestSafeAreaInsets.left.toString())
+            put("X-Catalyst-Native-WebView", "1")
+            // Prevent caching of SSR response so updated headers are always used
+            put("Cache-Control", "no-cache, no-store, must-revalidate")
+            put("Pragma", "no-cache")
+            if (appInfo.isNotEmpty()) {
+                put("X-App-Info", appInfo)
+            }
+        }
+    }
 
     // Public method for NativeBridge to get current safe area insets
     fun getCurrentSafeAreaInsets(): SafeAreaInsets = latestSafeAreaInsets
@@ -327,7 +352,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         }
         
         // Initialize keyboard utility (pass webView so keyboard events reach WebPerfCollector)
-        keyboardUtil = KeyboardUtil(this, binding.webviewContainer, binding.webview, edgeToEdgeEnabled)
+        keyboardUtil = KeyboardUtil(
+            this,
+            binding.webviewContainer,
+            binding.webview,
+            edgeToEdgeEnabled || systemDrawsEdgeToEdge
+        )
         keyboardUtil.initialize()
         
         // Enable hardware acceleration for the window
@@ -381,7 +411,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
         setupSafeAreaHandling()
 
         // Setup back press handler (modern API)
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        // Android 16 turns predictive back on by default; OnBackPressedDispatcher is the
+        // supported path for it. The callback steps aside to let the system leave the app
+        // and is re-armed in onResume, since a task moved to the back keeps this activity.
+        backCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (customWebView.canGoBack()) {
                     if (BuildConfig.DEBUG) {
@@ -397,7 +430,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                     onBackPressedDispatcher.onBackPressed()
                 }
             }
-        })
+        }.also { onBackPressedDispatcher.addCallback(this, it) }
         
         // Load URL based on environment and deep link data
         try {
@@ -471,6 +504,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope by MainScope() {
 
     override fun onResume() {
         super.onResume()
+        backCallback?.isEnabled = true
         customWebView.onResume()
     }
 

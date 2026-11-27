@@ -157,6 +157,106 @@ describe("extractBuildErrors (vite)", () => {
             { file: "src/App.js", line: 3, column: 14, message: "Unexpected token" },
         ])
     })
+
+    it("reads Vite's error during build block when no pattern matches", () => {
+        const vite = (output: string) => extractBuildErrors(output, { toolchain: "vite" })
+        const rollup = [
+            "vite v6.4.6 building for production...",
+            `${ESC}[31m✗${ESC}[39m Build failed in 263ms`,
+            `${ESC}[31merror during build:${ESC}[39m   `,
+            '[vite]: Rollup failed to resolve import "not-a-real-pkg" from "/abs/app/src/js/containers/Home/Home.js".  ',
+            "This is most likely unintended because it can break your application at runtime.",
+            "If you do want to externalize this module explicitly add it to",
+            "`build.rollupOptions.external`",
+            "    at viteLog (file:///abs/app/node_modules/vite/dist/node/chunks/dep.js:46345:15)",
+            "    at onwarn (file:///abs/app/node_modules/vite/dist/node/chunks/dep.js:46000:5)",
+        ].join("\n")
+        expect(vite(rollup)).toEqual([
+            {
+                message:
+                    '[vite]: Rollup failed to resolve import "not-a-real-pkg" from "/abs/app/src/js/containers/Home/Home.js".',
+                details: [
+                    "This is most likely unintended because it can break your application at runtime.",
+                    "If you do want to externalize this module explicitly add it to",
+                    "`build.rollupOptions.external`",
+                ].join("\n"),
+            },
+        ])
+        expect(hintFor(vite(rollup)[0].message).hint).toBe(
+            "Check the path, or install the package with npm install not-a-real-pkg."
+        )
+
+        // Sass reports the same error three times; only the first copy is kept.
+        const frame = [
+            "    ╷",
+            "421 │ .broken { color: $nope; }",
+            "    │                  ^^^^^",
+            "    ╵",
+            "  ../../src/js/containers/Home/Home.module.scss 421:18  root stylesheet",
+        ]
+        const sass = [
+            "error during build:",
+            "[vite:css] [sass] Undefined variable.",
+            ...frame,
+            "file: /abs/app/src/js/containers/Home/Home.module.scss",
+            "",
+            "[sass] Undefined variable.",
+            ...frame,
+            "",
+            "Error: Undefined variable.",
+            ...frame,
+            "    at _wrapJsFunctionForAsync_closure.$protected (/abs/app/node_modules/sass/sass.dart.js:5024:15)",
+        ].join("\n")
+        expect(vite(sass)).toEqual([
+            {
+                message: "[vite:css] [sass] Undefined variable.",
+                details: [...frame, "file: /abs/app/src/js/containers/Home/Home.module.scss"].join("\n"),
+            },
+        ])
+
+        // A config that throws has no detail beyond its message.
+        const config = [
+            "failed to load config from /abs/app/node_modules/catalyst-core/dist/vite/vite.config.client.js",
+            "error during build:",
+            "Error: boom in buildConfig",
+            "    at file:///abs/app/buildConfig.js:5:7",
+        ].join("\n")
+        expect(vite(config)).toEqual([{ message: "Error: boom in buildConfig", details: undefined }])
+
+        // A Rolldown transform error is still read with its location, inside the block.
+        const rolldown = [
+            "[PARSE_ERROR] from an earlier log, not this failure",
+            "    ╭─[ ../../src/old/Stale.js:1:1 ]",
+            "error during build:",
+            "[plugin vite-plugin-jsx-in-js] /abs/app/src/js/containers/Home/Home.js",
+            "Error: Transform failed with 1 error:",
+            "",
+            "[PARSE_ERROR] Expected identifier",
+            "   ╭─[ ../../src/js/containers/Home/Home.js:7:6 ]",
+            "    at transformWithOxc (file:///abs/app/node_modules/vite/dist/node/chunks/config.js:1:1)",
+        ].join("\n")
+        expect(vite(rolldown)).toEqual([
+            {
+                file: "../../src/js/containers/Home/Home.js",
+                line: 7,
+                column: 6,
+                message: "Expected identifier",
+            },
+        ])
+    })
+
+    it("finds nothing without the marker, and the tail drops stack frames", () => {
+        const output = [
+            "<--- Last few GCs --->",
+            "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory",
+            "    at Module._compile (node:internal/modules/cjs/loader:1554:14)",
+            "    at node:internal/main/run_main_module:36:49",
+        ].join("\n")
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([])
+        expect(outputTail(output)).toBe(
+            "<--- Last few GCs --->\nFATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory"
+        )
+    })
 })
 
 describe("outputTail", () => {
@@ -180,7 +280,7 @@ describe("outputTail", () => {
 describe("hintFor", () => {
     it("explains an unresolved import as a missing alias or package", () => {
         expect(hintFor('Failed to resolve import "@api/client" from "src/App.js"')).toEqual({
-            hint: "The alias @api is not defined in package.json _moduleAliases. Add it, or import with a relative path.",
+            hint: "@api is not an alias in package.json _moduleAliases and not an installed package. Add the alias, install the package, or import with a relative path.",
             docs: "https://catalyst.1mg.com/errors/unresolved-import",
         })
         expect(hintFor("Failed to resolve import 'lodash'").hint).toBe(
@@ -195,6 +295,18 @@ describe("hintFor", () => {
         expect(hintFor("EADDRINUSE").hint).toBe(
             "Something is already on that port. Stop it, or set NODE_SERVER_PORT in config/config.json."
         )
+    })
+
+    it("names NODE_SERVER_HOSTNAME when the server cannot bind its address", () => {
+        expect(hintFor("listen EADDRNOTAVAIL: address not available 10.255.255.1:3005").hint).toBe(
+            "NODE_SERVER_HOSTNAME 10.255.255.1 is not an address of this machine; set it to localhost (or this machine's address) in config/config.json."
+        )
+        expect(hintFor("listen EADDRNOTAVAIL: address not available fe80::1:3005").hint).toMatch(
+            /^NODE_SERVER_HOSTNAME fe80::1 is not/
+        )
+        expect(hintFor("listen EADDRNOTAVAIL").hint).toMatch(/^NODE_SERVER_HOSTNAME is not an address/)
+        // An outgoing connection is not the server's own address.
+        expect(hintFor("connect EADDRNOTAVAIL 10.0.0.1:443")).toBeNull()
     })
 
     it("covers the native setup failures it understands", () => {

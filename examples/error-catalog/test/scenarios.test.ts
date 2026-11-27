@@ -395,7 +395,7 @@ describe("Error Catalog Contract Fixtures", () => {
         }
     }
 
-    it("completeness: covers all 75 error codes", () => {
+    it("completeness: covers all 104 error codes", () => {
         const scenarioCodes = new Set(scenarios.map((s) => s.code))
         let viaScenario = 0
         let viaLedger = 0

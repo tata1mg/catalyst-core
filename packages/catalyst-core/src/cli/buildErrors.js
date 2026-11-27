@@ -59,9 +59,8 @@ const VITE_ERROR_PATTERNS = [
 //     [PARSE_ERROR] Unexpected token
 //         ╭─[ ../../src/App.js:82:16 ]
 //
-// Warnings print in the same shape, so these only count after Vite's
-// "error during build:" header. Frame columns are 1-based.
-const VITE_FAILURE_HEADER = /^error during build:$/i
+// Warnings print in the same shape, so these only count inside Vite's
+// "error during build:" report (viteErrorBlock). Frame columns are 1-based.
 const ROLLDOWN_DIAGNOSTIC = /^\[(?<code>[A-Z][A-Z0-9_]*)\]\s+(?<message>.+)$/
 const ROLLDOWN_FRAME = /^╭─\[\s*(?<file>.+?):(?<line>\d+):(?<column>\d+)\s*\]$/
 
@@ -79,23 +78,23 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
     if (!output) return []
 
     const patterns = toolchain === "vite" ? VITE_ERROR_PATTERNS : ERROR_PATTERNS
+    // Vite's report sits under "error during build:"; the build log above it
+    // can only produce false matches, so scan the report alone when there is one.
+    const block = toolchain === "vite" ? viteErrorBlock(output) : null
 
     const found = []
     const seen = new Set()
-    let viteFailed = false
+    // Rolldown diagnostics are read only from Vite's failure report.
+    const viteFailed = block !== null
     // The Rolldown diagnostic still waiting for its code frame.
     let awaitingFrame = null
 
-    for (const raw of String(output).split("\n")) {
+    for (const raw of block || String(output).split("\n")) {
         const line = raw.replace(ANSI, "").trimEnd()
         if (!line.trim()) continue
         if (NOISE.some((pattern) => pattern.test(line.trim()))) continue
 
         if (toolchain === "vite") {
-            if (VITE_FAILURE_HEADER.test(line.trim())) {
-                viteFailed = true
-                continue
-            }
             const frame = viteFailed && ROLLDOWN_FRAME.exec(line.trim())
             if (frame) {
                 if (awaitingFrame) {
@@ -155,12 +154,69 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
         if (found.length >= MAX_ERRORS) break
     }
 
-    if (found.length === 0 && toolchain !== "vite") {
-        const wrong = gradleWhatWentWrong(output)
+    if (found.length === 0) {
+        const wrong = toolchain === "vite" ? viteErrorDuringBuild(block) : gradleWhatWentWrong(output)
         if (wrong) found.push(wrong)
     }
 
     return found
+}
+
+const VITE_MARKER = /^error during build:$/i
+const STACK_FRAME = /^\s+at\s/
+const MAX_DETAIL_LINES = 12
+
+/**
+ * The lines after Vite's last "error during build:" marker, up to the first
+ * stack frame. Null when there is no marker (a crash, an out-of-memory kill).
+ */
+function viteErrorBlock(output) {
+    const lines = String(output)
+        .replace(ANSI, "")
+        .split("\n")
+        .map((line) => line.trimEnd())
+    const start = lines.findLastIndex((line) => VITE_MARKER.test(line.trim()))
+    if (start === -1) return null
+
+    const block = []
+    for (const line of lines.slice(start + 1)) {
+        if (STACK_FRAME.test(line)) break
+        block.push(line)
+    }
+    return block
+}
+
+/**
+ * Vite's own explanation, for failures none of the patterns know (a Rolldown
+ * resolve or export error, a Sass error, a config that throws):
+ *
+ *     error during build:
+ *     [vite]: Rolldown failed to resolve import "x" from "/app/src/Home.js".
+ *     This is most likely unintended because it can break your application at runtime.
+ *         at viteLog (file:///app/node_modules/vite/...)
+ *
+ * The first line is the message; the rest, up to the stack, is detail.
+ */
+function viteErrorDuringBuild(block) {
+    if (!block) return null
+    const start = block.findIndex((line) => line.trim())
+    if (start === -1) return null
+
+    const message = block[start].trim()
+    // Sass repeats its report two more times under other prefixes
+    // ("[sass] Undefined variable.", "Error: Undefined variable."); the first
+    // copy is enough.
+    const core = message.replace(/^(?:\[[^\]]*\]:?\s*)+/, "")
+    const details = []
+    for (const line of block.slice(start + 1)) {
+        if (core && line.trim().endsWith(core)) break
+        if (!details.length && !line.trim()) continue
+        details.push(line)
+    }
+    const shown = details.slice(0, MAX_DETAIL_LINES)
+    while (shown.length && !shown[shown.length - 1].trim()) shown.pop()
+
+    return { message, details: shown.length ? shown.join("\n") : undefined }
 }
 
 /**
@@ -208,6 +264,8 @@ const TAIL_NOISE = [
     /^For more on this, please refer to/i,
     /^BUILD FAILED in /i,
     /^\*\s*(Try|Get more help)/i,
+    // Stack frames: the bundler's internals, never the cause.
+    /^at /,
 ]
 
 function outputTail(output, lines = 12) {

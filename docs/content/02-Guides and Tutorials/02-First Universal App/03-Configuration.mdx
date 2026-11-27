@@ -22,17 +22,17 @@ Set the display name that appears in device launchers, app stores, and system se
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
-    "android": {
-      "appName": "My Awesome App"
-    },
-    "ios": {
-      "appName": "My Awesome App"
-    }
+    "appId": "com.yourcompany.myapp",
+    "appName": "My Awesome App"
   }
 }
 ```
 
+`appName` is used on both platforms. `appId` is the Android application id and the iOS bundle id; see [Universal App Deployment](/content/Deployment/universal-app-deployment#configure-the-app).
+
 ### Platform-Specific Names
+
+Without a top-level `appName`, each platform reads its own:
 
 ```json
 {
@@ -51,7 +51,7 @@ Set the display name that appears in device launchers, app stores, and system se
 
 ## App Icon
 
-Customize app icons for both Android and iOS platforms.
+The simplest icon is one file: `public/icon.png`, a square PNG of at least 1024x1024 pixels with no transparency. Catalyst turns it into the Android launcher icons and a single 1024 iOS AppIcon. New apps start with a placeholder there. To control each size yourself, use the folders below; they take precedence over `public/icon.png`.
 
 ### Android Icons
 
@@ -70,7 +70,7 @@ Place density-specific icons in `public/android/appIcons/`:
 **Behavior:**
 - Automatically applied during build
 - Missing densities use nearest available resource
-- Falls back to default Catalyst icon if none provided
+- Falls back to `public/icon.png`, then to the default Catalyst icon
 
 ### iOS Icons
 
@@ -161,7 +161,7 @@ Configure a custom splashscreen displayed during app startup.
 
 To show an animation while the app loads, add `public/splashscreen.html`. It goes at the root of `public/`, not in `public/android` or `public/ios`, and both platforms use the same file. It only takes effect when `splashScreen` is set in the config.
 
-On launch the app shows the native splash image, then the HTML splash, and then the app once its first page has loaded. Set `minDuration` to keep the animation on screen for at least that many milliseconds, even when the page loads sooner. If the page takes longer than 10 seconds, the HTML splash is dismissed anyway. `duration` is ignored in this mode.
+On launch the app shows the native splash image, then the HTML splash, and then the app once its first page has loaded. Set `minDuration` to keep the animation on screen for at least that many milliseconds, even when the page loads sooner. If the page takes longer than 10 seconds, the HTML splash is dismissed anyway. `duration` is ignored in this mode. New apps ship an HTML splash with `minDuration` set to `7000` so its animation can finish. Lower it for a shorter splash, or set it to `0` to dismiss the splash as soon as the page loads.
 
 ```json title="config/config.json"
 {
@@ -181,6 +181,15 @@ The file has a few rules:
 - Do not make network requests. Android blocks them.
 - The page has no access to the native bridge.
 - Prefer CSS `transform` and `opacity` animations. The splash runs while the app is loading, so heavy JavaScript competes with it.
+
+The native build tells the page which colour the native splash uses. Both platforms add a script at the start of `<head>` that sets `window.__CATALYST_SPLASH__` to `{ backgroundColor: "#rrggbb" }`, taken from `splashScreen.backgroundColor`, or white when that is not set. Paint the page with it so the native layer and the page read as one surface. The value is only set for a six-digit hex colour. For any other value, and when you open the file in a browser, `window.__CATALYST_SPLASH__` is undefined, so keep a fallback colour in your CSS.
+
+```js
+var cfg = window.__CATALYST_SPLASH__
+if (cfg && cfg.backgroundColor) {
+  document.documentElement.style.background = cfg.backgroundColor
+}
+```
 
 ```html title="public/splashscreen.html"
 <!doctype html>
@@ -322,6 +331,8 @@ Let the WebView draw behind the status bar and navigation bar.
 
 When edge-to-edge is enabled, the app is responsible for keeping content clear of the system bars. Read the insets with [`useSafeArea()`](/content/API%20Reference/hooks#usesafearea) and apply them as padding. The values are in CSS pixels on both platforms. On Android they also update when the insets change, for example when the user switches navigation mode. When edge-to-edge is disabled, the insets are `0`.
 
+On iOS the WebView does not pad the page itself, the same as on Android, so the page draws under the status bar and the home indicator until it applies the insets. Before 1.2.1, iOS added the safe-area padding on its own.
+
 On Android 10 (API 29) and later the system bars are fully transparent. Below API 29 the navigation bar keeps a translucent scrim.
 
 ---
@@ -457,43 +468,12 @@ Control network access and navigation through URL whitelisting.
 
 ## Protocol Configuration
 
-Control whether the webview uses HTTP or HTTPS protocol.
-
-### Configuration
+A release build loads `WEBVIEW_CONFIG.url`, and its scheme decides the protocol. Use `https://` for store builds; plain `http://` builds with a warning. Debug builds load the dev server over HTTP, or `LOCAL_IP` when it is a real host.
 
 ```json title="config/config.json"
 {
   "WEBVIEW_CONFIG": {
-    "useHttps": true
-  }
-}
-```
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `useHttps` | boolean | `false` | Use HTTPS protocol |
-
-**Behavior:**
-- `true` - Uses HTTPS protocol
-- `false` - Uses HTTP protocol
-
-### Example: Development vs Production
-
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "useHttps": false,  // HTTP for local development
-    "accessControl": {
-      "enabled": false
-    }
-  }
-}
-```
-
-```json
-{
-  "WEBVIEW_CONFIG": {
-    "useHttps": true,   // HTTPS for production
+    "url": "https://www.myapp.com",
     "accessControl": {
       "enabled": true,
       "allowedUrls": ["https://api.myapp.com/*"]
@@ -501,6 +481,8 @@ Control whether the webview uses HTTP or HTTPS protocol.
   }
 }
 ```
+
+Apps without `url` still use `useHttps` (default `false`) with `LOCAL_IP` and `port` for the release host.
 
 ---
 
@@ -518,7 +500,7 @@ Control whether the webview uses HTTP or HTTPS protocol.
 4. **Whitelisting** - Start with minimal URLs, add as needed
 5. **Protocol** - Always use HTTPS in production
 6. **Testing** - Test configuration on both platforms before release
-7. **iOS Build Type** - Use `Debug` or `Release` with exact casing when you add `WEBVIEW_CONFIG.ios.buildType`
+7. **Release Builds** - Use `npm run android:release` and `npm run ios:release`; `buildType: "release"` is deprecated
 
 ---
 
