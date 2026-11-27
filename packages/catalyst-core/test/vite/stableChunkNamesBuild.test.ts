@@ -48,9 +48,12 @@ function writeApp(dir: string, edits: Edits = {}) {
             `export const util = (x) => "${edits.app || "u"}:" + x`,
             // imported both statically and lazily: Rollup inlines the lazy import inside Vite's preload call
             `import { inl } from "./lib/inline.js"`,
+            `import { lazyBadge } from "./ui.js"`,
             `export const load = (n) =>`,
             `    n === "shared"`,
             `        ? import("./lib/shared.js").then((m) => m.s)`,
+            `        : n === "badge"`,
+            `          ? lazyBadge()`,
             `        : n === "inline"`,
             `          ? import("./lib/inline.js").then((m) => m.inl + inl)`,
             `          : pages[n]().then((m) => m.default())`,
@@ -62,13 +65,22 @@ function writeApp(dir: string, edits: Edits = {}) {
         `import { util } from "../app.js"\nexport const s = util("shared")\nexport const t = 2\n`
     )
     write(dir, "src/lib/inline.js", `export const inl = "i"\n`)
+    // a second hub (like mweb's AnimationLoader next to app): every page imports it, and it lazily imports a
+    // widget with CSS, so its CSS lists live in the table's per-hub section
+    write(
+        dir,
+        "src/ui.js",
+        `export const ui = (x) => "[" + x + "]"\nexport const lazyBadge = () => import("./widgets/badge.js").then((m) => m.b)\n`
+    )
+    write(dir, "src/widgets/badge.js", `import "./badge.css"\nexport const b = "badge"\n`)
+    write(dir, "src/widgets/badge.css", `.badge{color:blue}\n`)
     write(dir, "src/widgets/w.js", `import "./w.css"\nexport const w = "+w${edits.widget || ""}"\n`)
     write(dir, "src/widgets/w.css", `.w{color:red}\n`)
     for (let i = 0; i < PAGES; i++) {
-        const lines = [`import { util } from "../app.js"`]
+        const lines = [`import { util } from "../app.js"`, `import { ui } from "../ui.js"`]
         if (hasCss(i)) lines.push(`import "./p${i}.css"`)
         lines.push(usesWidget(i) ? `import { w } from "../widgets/w.js"` : `const w = ""`)
-        lines.push(`export default () => util("p${i}${edits.page?.[i] || ""}") + w`)
+        lines.push(`export default () => ui(util("p${i}${edits.page?.[i] || ""}")) + w`)
         write(dir, `src/pages/p${i}.js`, lines.join("\n") + "\n")
         if (hasCss(i)) write(dir, `src/pages/p${i}.css`, `.p${i}{margin:${i}px${edits.pageCss?.[i] || ""}}\n`)
     }
@@ -113,7 +125,8 @@ async function buildApp(
                             ? `${ASSETS}/css/[name]-[hash][extname]`
                             : `${ASSETS}/[name]-[hash][extname]`,
                     // Catalyst puts catalyst-core into an `app` manual chunk; here the app's own hub module.
-                    manualChunks: (id: string) => (id.endsWith("/src/app.js") ? "app" : undefined),
+                    manualChunks: (id: string) =>
+                        id.endsWith("/src/app.js") ? "app" : id.endsWith("/src/ui.js") ? "ui" : undefined,
                 },
             },
         },
@@ -169,7 +182,7 @@ console.log(JSON.stringify(results))
 
 let tmp: string
 let runner: string
-const pageNames = [...Array.from({ length: PAGES }, (_, i) => `p${i}`), "shared", "inline"]
+const pageNames = [...Array.from({ length: PAGES }, (_, i) => `p${i}`), "shared", "inline", "badge"]
 
 // Loads every page from a build (one fresh Node process per build) and returns what each page rendered and the
 // stylesheets Vite's preload helper added for it.
@@ -234,10 +247,15 @@ describe("stable-chunk-names plugin on a real Vite build", () => {
     it("removes every hashed file name from the hub", () => {
         const app = Object.keys(on).find((f) => stem(f) === "app")!
         const code = fs.readFileSync(path.join(onDir, "build", app), "utf8")
-        const otherFiles = baseNames(on).filter((f) => !f.startsWith("app-"))
-        for (const f of otherFiles) expect(code).not.toContain(f.replace(/\.(js|css)$/, ""))
+        // every lazily imported chunk (static imports, like app's import of ui, keep their names)
+        const lazy = baseNames(on).filter((f) => /^(p\d+|shared|badge)-/.test(f))
+        expect(lazy.length).toBeGreaterThan(PAGES)
+        for (const f of lazy) expect(code).not.toContain(f.replace(/\.(js|css)$/, ""))
         expect(code).not.toContain("__vite__mapDeps")
         expect(code).toContain(`__ccQ("src/pages/p0"`)
+        // the second hub is rewritten too, with its CSS lists under its own key
+        const ui = Object.keys(on).find((f) => stem(f) === "ui")!
+        expect(fs.readFileSync(path.join(onDir, "build", ui), "utf8")).toContain(`__ccQ("src/widgets/badge"`)
         // The inlined lazy import is left to Vite, which gives its marker no deps: `void 0`, or `[]` when it pairs
         // the marker with an import() that names no chunk (every import() left in the hub names none).
         expect(code).toMatch(/Promise\.resolve\(\)\.then\(\(\)=>\w+\),(void 0|\[\])\)/)
@@ -252,7 +270,8 @@ describe("stable-chunk-names plugin on a real Vite build", () => {
             expect.arrayContaining([expect.stringMatching(/\/p1-/), expect.stringMatching(/\/w-/)])
         )
         expect(a.p2.css).toEqual([])
-        expect(a.p1.value).toBe("u:p1+w")
+        expect(a.p1.value).toBe("[u:p1]+w")
+        expect(a.badge).toEqual({ value: "badge", css: [expect.stringMatching(/\/badge-[\w-]+\.css$/)] })
         expect(a.shared.value).toBe("u:shared")
         expect(a.inline.value).toBe("ii")
     })
@@ -356,8 +375,15 @@ describe("stable-chunk-names plugin build environment", () => {
 
     it("leaves an app with no hub (fewer than 20 importers) byte-identical", async () => {
         const dir = appDir("small")
-        // only 2 pages import the hub
-        for (let i = 2; i < PAGES; i++) write(dir, `src/pages/p${i}.js`, `export default () => "p${i}"\n`)
+        // only 2 pages import app, none import ui
+        for (let i = 0; i < PAGES; i++)
+            write(
+                dir,
+                `src/pages/p${i}.js`,
+                i < 2
+                    ? `import { util } from "../app.js"\nexport default () => util("p${i}")\n`
+                    : `export default () => "p${i}"\n`
+            )
         write(dir, "src/lib/shared.js", `export const s = "u:shared"\n`)
         const offBuild = await buildApp(dir, { on: false })
         const onBuild = await buildApp(dir, { on: true })

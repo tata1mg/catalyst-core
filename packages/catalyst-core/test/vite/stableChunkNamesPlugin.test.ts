@@ -210,6 +210,26 @@ describe("stable-chunk-names plugin", () => {
         }
     })
 
+    it("fails the build if something moved the chunk table off its own line in main", () => {
+        const { plugin, ctx, chunks, render } = setup()
+        render(`${A}/app-!~{002}~.js`, HUB_CODE)
+        const mainCode = render(`${A}/main-!~{001}~.js`, `import"./app-!~{002}~.js";`).code
+        const bundle: Record<string, any> = {
+            [`${A}/main-h1.js`]: {
+                type: "chunk",
+                fileName: `${A}/main-h1.js`,
+                preliminaryFileName: `${A}/main-!~{001}~.js`,
+                isEntry: true,
+                name: "main",
+                code: `var x=1;${mainCode}`,
+            },
+        }
+        expect(Object.keys(chunks)).toContain(`${A}/main-!~{001}~.js`)
+        expect(() => plugin.generateBundle.handler.call(ctx, { format: "es" }, bundle)).toThrow(
+            /no longer on its own line/
+        )
+    })
+
     it("rewrites nested preload calls, each with its own import", () => {
         const { render } = setup()
         const nested = `export const n=C(()=>import("./Home-!~{003}~.js").then(()=>C(()=>import("./Paytm-!~{005}~.js"),__VITE_PRELOAD__)),__VITE_PRELOAD__);`
