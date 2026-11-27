@@ -1,0 +1,19 @@
+packages/catalyst-core/src/vite/stable-chunk-names-plugin.js
+  s_0de668bd323846::t_18704403c95d0f 1,36-38,69-70,153-160,172-175,251-253,255-260,286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "390bb1f35f0816ea2766334d219ced5b6f437c23",
+  "prompts": {},
+  "sessions": {
+    "s_0de668bd323846": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29a35bd5-5d94-458f-b05d-78fdf3199a26",
+        "model": "unknown"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
