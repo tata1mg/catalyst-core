@@ -138,6 +138,73 @@ describe("SSR handler", () => {
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("renders a 404 and reports onFetcherError when the step after the fetchers throws", async () => {
+        // getMetaData runs right after the fetchers; a throw there takes the FETCHER catch.
+        let calls = 0
+        vi.doMock("../../src/web-router/utils/metaDataUtils.jsx", async (importOriginal) => {
+            const actual: any = await importOriginal()
+            return {
+                ...actual,
+                getMetaData: (...args: any[]) => {
+                    if (++calls === 1) throw new Error("meta boom")
+                    return actual.getMetaData(...args)
+                },
+            }
+        })
+        const onFetcherError = vi.fn()
+        vi.doMock("@catalyst/template/server/index.js", () => ({
+            onRouteMatch: undefined,
+            onFetcherSuccess: undefined,
+            onFetcherError,
+            onAppServerSideSuccess: undefined,
+            onAppServerSideError: undefined,
+            onRenderError: undefined,
+            onRequestError: undefined,
+            getEarlyHintLinks: undefined,
+        }))
+        try {
+            const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+            const { req, res } = makeReqRes("/")
+
+            await handler(req, res)
+            await res.waitForEnd()
+
+            expect(res.status).toHaveBeenCalledWith(404)
+            expect(res.getHtml()).toContain("<html")
+            expect(onFetcherError).toHaveBeenCalledWith(
+                expect.objectContaining({ error: expect.objectContaining({ message: "meta boom" }) })
+            )
+            const logged = (console.error as any).mock.calls.flat().join("\n")
+            expect(logged).toMatch(/meta boom|FETCHER/)
+        } finally {
+            vi.doUnmock("../../src/web-router/utils/metaDataUtils.jsx")
+            vi.doUnmock("@catalyst/template/server/index.js")
+        }
+    })
+
+    it("answers 500 when the render throws before streaming starts, and restores the safe-area global", async () => {
+        const previous = { top: 1, right: 2, bottom: 3, left: 4 }
+        ;(globalThis as any).__SAFE_AREA_INITIAL__ = previous
+        try {
+            const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+            const { req, res } = makeReqRes("/")
+            res.set = vi.fn(() => {
+                throw new Error("set boom")
+            })
+
+            await handler(req, res)
+            await res.waitForEnd()
+
+            expect(res.statusCode).toBe(500)
+            expect(res.getHtml()).toContain("Internal Server Error")
+            expect((globalThis as any).__SAFE_AREA_INITIAL__).toBe(previous)
+            const logged = (console.error as any).mock.calls.flat().join("\n")
+            expect(logged).toMatch(/set boom|RENDER/)
+        } finally {
+            delete (globalThis as any).__SAFE_AREA_INITIAL__
+        }
+    })
+
     it("propagates a throwing App.serverSideFunction: logs SERVER_SIDE_FUNCTION, still responds", async () => {
         const AppModule = await import(
             "../server/fixtures/template/src/js/containers/App/index.jsx"

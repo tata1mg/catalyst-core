@@ -59,6 +59,8 @@ const hooks = {
     }),
     onRenderError: undefined,
     onRequestError: undefined,
+    // vitest throws on reading an export the factory leaves out, and the handler reads every hook.
+    getEarlyHintLinks: undefined,
 }
 
 // Same contract as withObservability in src/otel.js: a throw marks the span

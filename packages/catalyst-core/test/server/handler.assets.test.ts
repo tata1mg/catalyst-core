@@ -1,3 +1,4 @@
+import { validateHeaderValue } from "node:http"
 import { Writable } from "node:stream"
 import fs from "node:fs"
 import os from "node:os"
@@ -29,6 +30,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const TEMPLATE_DOC = "@catalyst/template/server/document"
 const MANIFEST_CACHE = "../../src/server/manifestCache.js"
+const HOOKS = "@catalyst/template/server/index.js"
 
 // Fake build manifest. HomePage's __cacheKey → a critical chunk with CSS;
 // WIDGET_CACHE_KEY → a deferred chunk with its own CSS (registered during
@@ -45,6 +47,23 @@ function mockManifest(integrityManifest: Record<string, unknown> = {}) {
         getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
         getIntegrityManifest: () => integrityManifest,
     }))
+}
+
+// Server hooks with overrides. Every name handler.jsx reads must be defined (as undefined if unused):
+// vitest throws on reading an export a mock factory does not define.
+const HOOK_NAMES = [
+    "onRouteMatch",
+    "onFetcherSuccess",
+    "onFetcherError",
+    "onAppServerSideSuccess",
+    "onAppServerSideError",
+    "onRenderError",
+    "onRequestError",
+    "getEarlyHintLinks",
+]
+function mockHooks(overrides: Record<string, unknown>) {
+    const none = Object.fromEntries(HOOK_NAMES.map((name) => [name, undefined]))
+    vi.doMock(HOOKS, () => ({ ...none, ...overrides }))
 }
 
 // A real Writable so renderToPipeableStream's Transform → res pipe works.
@@ -83,6 +102,13 @@ function makeReqRes(url = "/", userAgent = "test") {
     })
     res.send = vi.fn(() => {
         res.headersSent = true
+        return res
+    })
+    res.locals = {}
+    res.append = vi.fn((k: string, v: string) => {
+        // Throws ERR_INVALID_CHAR on the same values a real ServerResponse rejects.
+        validateHeaderValue(k, v)
+        res.headers[k] = res.headers[k] ? `${res.headers[k]}, ${v}` : v
         return res
     })
     res.getHtml = () => Buffer.concat(chunks).toString("utf8")
@@ -126,6 +152,7 @@ afterEach(() => {
     vi.resetModules()
     vi.doUnmock(TEMPLATE_DOC)
     vi.doUnmock(MANIFEST_CACHE)
+    vi.doUnmock(HOOKS)
     try {
         fs.rmSync(buildDir, { recursive: true, force: true })
     } catch {
@@ -448,5 +475,229 @@ describe("SSR handler — CSP nonce (CSP_NONCE_ENABLE)", () => {
 
         expect(res.getHtml()).not.toContain("nonce=")
         expect(res.locals.cspNonce).toBeUndefined()
+    })
+})
+
+describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE)", () => {
+    // At runtime process.env is replaced by a plain object built from config.json, so booleans stay
+    // booleans; the real process.env would turn `true` into "true".
+    let realEnv: NodeJS.ProcessEnv
+    beforeEach(() => {
+        realEnv = process.env
+        process.env = { ...realEnv }
+    })
+    afterEach(() => {
+        process.env = realEnv
+    })
+
+    it("sends the route script and its static imports as a Link header; imports get no <script> of their own", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        process.env.EARLY_HINTS_LINKS = JSON.stringify([
+            { url: "https://api.example.com", rel: "preconnect" },
+        ])
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": {
+                    ...FAKE_MANIFEST["src/js/routes/HomePage"],
+                    imports: ["_vendor.js"],
+                },
+                "_vendor.js": { file: "vendor.111.js" },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+            getIntegrityManifest: () => ({}),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        const home = "http://localhost/assets/home.abc123.js"
+        const vendor = "http://localhost/assets/vendor.111.js"
+        expect(res.headers.link).toBe(
+            [
+                `<${home}>; rel=preload; as=script; crossorigin; fetchpriority=high`,
+                "<https://api.example.com>; rel=preconnect",
+                `<${vendor}>; rel=preload; as=script; crossorigin; fetchpriority=high`,
+            ].join(", ")
+        )
+        const html = res.getHtml()
+        expect(html).toContain(`<script type="module" src="${home}">`)
+        expect(html).toContain(`<link rel="modulepreload" href="${vendor}"`)
+        expect(html).not.toContain(`<script type="module" src="${vendor}">`)
+    })
+
+    it.each([
+        ["a sync", (links: any) => () => links],
+        ["an async", (links: any) => async () => links],
+    ])("adds entries returned by %s getEarlyHintLinks hook", async (_label, makeHook) => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const hook = vi.fn(makeHook([{ url: "https://cdn.example.com", rel: "preconnect" }]))
+        mockHooks({ getEarlyHintLinks: hook })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(hook).toHaveBeenCalledWith(expect.objectContaining({ req, res }))
+        expect(res.headers.link).toBe(
+            [
+                "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high",
+                "<https://cdn.example.com>; rel=preconnect",
+            ].join(", ")
+        )
+    })
+
+    it("counts the header budget in UTF-8 bytes, not string length", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const route =
+            "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high"
+        // "é" is 1 UTF-16 code unit but 2 UTF-8 bytes; 20 of them make the entry 20 bytes longer on the
+        // wire than its .length. Budget = exact .length of both entries, so only a byte count drops it.
+        const vendor = `<http://localhost/assets/vendor.${"é".repeat(20)}.js>; rel=preload; as=script; crossorigin; fetchpriority=high`
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = route.length + 2 + vendor.length
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": {
+                    ...FAKE_MANIFEST["src/js/routes/HomePage"],
+                    imports: ["_vendor.js"],
+                },
+                "_vendor.js": { file: `vendor.${"é".repeat(20)}.js` },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+            getIntegrityManifest: () => ({}),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBe(route)
+    })
+
+    it("skips app entries Node would reject in a header and still renders the page", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        process.env.EARLY_HINTS_LINKS = JSON.stringify([
+            { url: "https://cdn.example.com/बैनर.webp", rel: "preload", as: "image" },
+        ])
+        mockHooks({
+            getEarlyHintLinks: () => [
+                { url: "https://cdn.example.com/a\r\nSet-Cookie: x=1", rel: "preload", as: "image" },
+                { url: "https://api.example.com", rel: "preconnect" },
+            ],
+        })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.statusCode).toBe(200)
+        expect(res.headers.link).toBe(
+            [
+                "<http://localhost/assets/home.abc123.js>; rel=preload; as=script; crossorigin; fetchpriority=high",
+                "<https://api.example.com>; rel=preconnect",
+            ].join(", ")
+        )
+        expect(res.getHtml()).toContain("<html")
+    })
+
+    it("renders the page without the header when Node rejects the Link value", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        // Manifest file names are not filtered; one above U+00FF makes the whole value invalid.
+        vi.doMock(MANIFEST_CACHE, () => ({
+            getManifest: () => ({
+                ...FAKE_MANIFEST,
+                "src/js/routes/HomePage": { ...FAKE_MANIFEST["src/js/routes/HomePage"], file: "होम.js" },
+            }),
+            getAssetManifest: () => ({ ssrTrue: {}, ssrFalse: {}, essential: {} }),
+            getIntegrityManifest: () => ({}),
+        }))
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.append).toHaveBeenCalled()
+        expect(res.statusCode).toBe(200)
+        expect(res.headers.link).toBeUndefined()
+        expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("Link header skipped"))
+        expect(res.getHtml()).toContain("<html")
+    })
+
+    it.each([
+        ["an array from config.json", [{ url: "https://api.example.com", rel: "preconnect" }], 4096, true],
+        ["a JSON string that does not parse", "[{", 4096, false],
+        ["a JSON value that is not an array", '{"url":"https://api.example.com"}', 4096, false],
+        ["no byte budget (negative)", [{ url: "https://api.example.com", rel: "preconnect" }], -1, true],
+    ])("reads EARLY_HINTS_LINKS given as %s", async (_label, links, budget, included) => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        ;(process.env as any).EARLY_HINTS_LINKS = links
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = budget
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toContain("<http://localhost/assets/home.abc123.js>; rel=preload")
+        expect(res.headers.link.includes("<https://api.example.com>; rel=preconnect")).toBe(included)
+    })
+
+    it("skips the rest of the request when the getEarlyHintLinks hook sends a response", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const onAppServerSideSuccess = vi.fn()
+        mockHooks({
+            getEarlyHintLinks: async ({ res }: any) => {
+                res.status(302).send()
+                return []
+            },
+            onAppServerSideSuccess,
+        })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+
+        expect(res.statusCode).toBe(302)
+        expect(onAppServerSideSuccess).not.toHaveBeenCalled()
+        expect(res.getHtml()).toBe("")
+    })
+
+    it("sends no Link header when the flag is off", async () => {
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toBeUndefined()
+        expect(res.append).not.toHaveBeenCalled()
     })
 })

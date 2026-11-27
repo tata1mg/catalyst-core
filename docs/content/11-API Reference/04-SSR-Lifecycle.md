@@ -18,6 +18,7 @@ The hooks are listed in the order Catalyst calls them.
 |------|--------------|----------|
 | `preServerInit` | Once, before the server starts, in dev and production | nothing |
 | `onRouteMatch` | On each page request, after the URL is matched to your routes | `{ req, res, matches, store }` |
+| `getEarlyHintLinks` | On each page request, after `onRouteMatch`, when `CLOUDFLARE_EARLY_HINTS_ENABLE` is on | `{ req, res, matches }` |
 | `onAppServerSideSuccess` | After `App.serverSideFunction` resolves | `{ req, res, store }` |
 | `onAppServerSideError` | After `App.serverSideFunction` throws | `{ req, res, store, error }` |
 | `onFetcherSuccess` | After the matched route's `serverFetcher` resolves | `{ req, res, store }` |
@@ -69,6 +70,19 @@ If a request hook sends a response, for example with `res.redirect()` or `res.st
 `onFetcherError` runs when loading the route's data or preparing the page (its metadata and assets) fails during SSR. The page still renders, with the error's `status_code` when the fetcher returned one, and 404 otherwise. When `App.serverSideFunction` throws, the page also still renders, using the error's `status_code` if it has one.
 
 When a hook itself throws, Catalyst logs it and carries on. A failing `preServerInit` is reported as `PROCESS-001`, and a failing request hook as `PROCESS-002`.
+
+## Early Hints links
+
+`getEarlyHintLinks` adds entries to the Early Hints `Link` header (see [Configuration](/content/API%20Reference/configuration-api#early-hints)). Use it for URLs that change per release or per route; fixed entries belong in `EARLY_HINTS_LINKS`. The CDN learns the header from one response and replays it to later visitors of the same URL, so don't return anything derived from the user, session, cookies, A/B bucket or device. It returns an array of `{ url, rel: "preconnect" | "preload", as?, type?, crossorigin?, fetchPriority? }` entries, the same shape as `EARLY_HINTS_LINKS`.
+
+```javascript title="server/index.js"
+export const getEarlyHintLinks = ({ req, res, matches }) => [
+    { url: "https://cdn.example.com", rel: "preconnect" },
+    { url: "https://cdn.example.com/hero.webp", rel: "preload", as: "image" },
+]
+```
+
+Unlike the other request hooks, Catalyst waits for this one, so it may return a promise; keep it fast, since the response waits too. Its entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. If it throws or returns something other than an array, it adds nothing and the rest of the header is still sent. Like the other request hooks, a hook that sends a response (for example `res.redirect()`) skips the rest of the request. An entry whose `url`, `as` or `type` holds anything other than visible ASCII (for example an unencoded non-ASCII path or a line break), or `<`, `>` or `"`, is skipped with a warning; percent-encode such paths.
 
 ## Rendering Flow
 
