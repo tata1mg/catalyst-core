@@ -1,0 +1,159 @@
+packages/catalyst-core/test/server/Head.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-18
+packages/catalyst-core/test/scripts/preServerInit.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-84
+packages/catalyst-core/src/scripts/start.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 50-52,55
+packages/catalyst-core/test/cli/diagnostic.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 381
+packages/catalyst-core/src/otel.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 3-18,25-26,33,35-470,480-482,495-498,502,524-553,561,576-601,609-616
+packages/catalyst-core/test/scripts/build.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 123,173-196,214-215
+packages/catalyst-core/src/vite/vite.config.client.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 8,27-28
+packages/catalyst-core/test/server/handler.runInParallel.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-406
+packages/catalyst-core/src/cli/hints.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 13-14,16,18
+packages/catalyst-core/src/native/buildAndroid/assets.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 7,713-714,723
+packages/catalyst-core/context.md
+  s_ee1da9130d683f::t_4b0e4afc8476aa 4,76-79,108-112,128-131,140,195-197
+packages/catalyst-core/src/native/buildAndroid/location.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-51
+packages/catalyst-core/src/web-router/components/RouterDataProvider.tsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 13,199-202
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 96-111
+packages/create-catalyst-app/templates/none-ts/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 31
+packages/catalyst-core/test/scripts/serve.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 103-116
+packages/catalyst-core/src/native/buildIos/config.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 132-133,505-510
+packages/catalyst-core/package.json
+  s_ee1da9130d683f::t_4b0e4afc8476aa 3
+packages/create-catalyst-app/package.json
+  s_ee1da9130d683f::t_4b0e4afc8476aa 4
+packages/catalyst-core/src/server/renderer/extract.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 90-101,106-107,109-114,121-122,165-167,169,171-177,190-192,194-196,198-200,203
+"docs/content/14-Best Practices/04-CSRF.md"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 30-87,135
+packages/create-catalyst-app/templates/rtk-js/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 33
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 28-35,151-171
+  s_ee1da9130d683f::t_10d40ff1a3f7bf 172
+packages/catalyst-core/src/vite/FastRefresh.jsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 3,7
+packages/create-catalyst-app/templates/redux-js/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 33
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 103,295,428
+packages/catalyst-core/src/web-router/components/MetaTag.tsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-2,6-19,24,28,30-33,40-44,51-54,56-63
+packages/catalyst-core/src/cli/buildErrors.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 72-74,79,108-109,116-172,218-219
+packages/catalyst-core/test/server/handler.ppr.test.ts
+  s_ee1da9130d683f::t_dd5cca460bad76 623-626
+  s_ee1da9130d683f::t_184d6a90532c8a 661-667
+  s_ee1da9130d683f::t_2a79146881a002 592-606,613-622,627,629-630,632-660,668-671
+  s_ee1da9130d683f::t_5b1e66469a5152 607-612,628,631
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_ee1da9130d683f::t_4b0e4afc8476aa 3,7,16-19,52-56,98-101,356-379,836-838,1324-1352
+  s_ee1da9130d683f::t_d56429bc08598f 1353
+.release-meta.json
+  s_ee1da9130d683f::t_4b0e4afc8476aa 2,4-5
+packages/catalyst-core/src/offline/registerServiceWorker.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 12-13
+packages/catalyst-core/test/cli/buildErrors.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 118-214,238
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 42,46,224,241-274,298,315,338,351,366-451
+  s_ee1da9130d683f::t_303eff6857e329 452
+packages/create-catalyst-app/templates/none-js/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 30
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 79,84-95
+  s_ee1da9130d683f::t_53e102b4fdfd16 96
+packages/catalyst-core/src/vite/vite.config.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1,195-201,204-209,212,219,222-224,353,407-422
+packages/catalyst-core/src/server/manifestCache.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 6,10-22,45-60,67-73
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 57,72,266-277,529-530,563,588-589,592-594,600,613,626-627,1224-1233,1270-1279,1288-1316,1322,1325-1329,1399,1422-1423,1439-1440,1460-1461,1467-1469,1486-1487
+  s_ee1da9130d683f::t_da100ef9f33ff3 434-435,448-455,457-462,468,504,513,545,551-552,595,700,738,799,812,846-847,871,942,960-961,1015-1023,1038,1042-1054,1163,1177,1240-1241,1245-1247,1317
+  s_ee1da9130d683f::t_140859f09be6ed 1342-1346,1358-1365,1371,1376-1379,1382-1396
+  s_ee1da9130d683f::t_40cde6b7632d09 1397
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 54,72-149,156
+"docs/content/02-Guides and Tutorials/10-Customising-Shell.md"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 81-92,125
+packages/catalyst-core/test/server/extract.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 110-152
+packages/catalyst-core/src/vite/script-integrity-plugin.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-81
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 2,109-139,169-171,173-182,188,197-198,203,213-216,224,235,238-239,248,250,284,292
+packages/catalyst-core/test/server/otel.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 123,354,362
+packages/catalyst-core/test/vite/scriptIntegrityPlugin.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-111
+packages/catalyst-core/src/scripts/build.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 100-101,127,159-160,174,334,368-372,374-397,399
+packages/catalyst-core/src/server/renderer/document/Head.tsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 19,27,34-37
+packages/catalyst-core/src/scripts/serve.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 82-84,87-88
+packages/catalyst-ai/package.json
+  s_ee1da9130d683f::t_4b0e4afc8476aa 3
+packages/catalyst-core/test/native/locationPermissions.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-73
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1,76-85
+"docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 69-82
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1765-1899
+packages/catalyst-core/changelog.md
+  s_ee1da9130d683f::t_4b0e4afc8476aa 9-38
+  s_ee1da9130d683f::t_d34a6312a461da 39
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 92-94
+packages/catalyst-core/test/server/otel.errorSampling.test.ts
+  s_ee1da9130d683f::t_4b0e4afc8476aa 1-461
+packages/create-catalyst-app/templates/rtk-ts/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 34
+docs/content/12-Migration/02-Version-Upgrades.md
+  s_ee1da9130d683f::t_4b0e4afc8476aa 29-58
+  s_ee1da9130d683f::t_d06c9866ab2c49 59
+"docs/content/02-Guides and Tutorials/06-Observability.md"
+  s_ee1da9130d683f::t_4b0e4afc8476aa 89-116
+packages/catalyst-core/src/server/renderer/document/Body.tsx
+  s_ee1da9130d683f::t_4b0e4afc8476aa 31,37,45-49
+  s_ee1da9130d683f::t_cbfcfd034f6f91 54
+packages/create-catalyst-app/templates/redux-ts/package.json
+  s_ee1da9130d683f::t_8cc2e5fc12acb0 34
+"docs/content/09-Core Concepts/07-Rendering-Modes.md"
+  s_ee1da9130d683f::t_6cb5e74f4a2c71 52,75
+  s_ee1da9130d683f::t_508ee7cce57193 76
+package-lock.json
+  s_ee1da9130d683f::t_8d08add1c19b27 13494,13513,14117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1648eac2a01cf49cfd308d8387096e60cd9190b",
+  "prompts": {},
+  "sessions": {
+    "s_ee1da9130d683f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aaa90215-d573-4b8d-a78e-27f47f95cb9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

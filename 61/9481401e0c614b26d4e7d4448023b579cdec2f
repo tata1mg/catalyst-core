@@ -1,0 +1,30 @@
+packages/catalyst-core/changelog.md
+  s_ee1da9130d683f::t_6e54b9b6372d08 5
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_ee1da9130d683f::t_6e54b9b6372d08 44,665
+"docs/content/09-Core Concepts/07-Rendering-Modes.md"
+  s_ee1da9130d683f::t_6e54b9b6372d08 15,111-113,126
+packages/catalyst-core/src/server/renderer/ppr.ts
+  s_ee1da9130d683f::t_6e54b9b6372d08 28-30,48-49,61-62,68,73-74,87-91,102,110,127
+packages/catalyst-core/test/server/handler.ppr.test.ts
+  s_ee1da9130d683f::t_6e54b9b6372d08 578-587
+packages/catalyst-core/test/server/ppr.test.ts
+  s_ee1da9130d683f::t_6e54b9b6372d08 2,215-236
+  s_ee1da9130d683f::t_446c0ddeb4f60e 237-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "619481401e0c614b26d4e7d4448023b579cdec2f",
+  "prompts": {},
+  "sessions": {
+    "s_ee1da9130d683f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aaa90215-d573-4b8d-a78e-27f47f95cb9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
