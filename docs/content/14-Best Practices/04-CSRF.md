@@ -27,6 +27,64 @@ Recommended controls:
 - request logging and rate limiting on sensitive endpoints
 - strict input validation on every mutating API
 
+## Content-Security-Policy Nonce
+
+Every `<script>` Catalyst renders — critical and deferred JS, the SSR bot/component markers, `FastRefresh`, and the serialized initial state — can carry a per-request CSP nonce. This lets you ship a `script-src` policy without `'unsafe-inline'`. It does not cover CSS: Catalyst's inline `<style>` tags are never nonced, so a `style-src` policy still needs `'unsafe-inline'` (or another approach) if you inline styles.
+
+Enable it via `CSP_NONCE_ENABLE` in `config/config.json`:
+
+```json title="config/config.json"
+{
+  "CSP_NONCE_ENABLE": true
+}
+```
+
+It's off by default — no tags change unless you turn it on.
+
+When enabled, Catalyst generates one nonce per request and stores it on `res.locals.cspNonce`. Read it from your own middleware (registered in `addMiddlewares`) to set a matching header:
+
+```javascript title="server/server.js"
+export const addMiddlewares = (app) => {
+  app.use((req, res, next) => {
+    res.setHeader(
+      "Content-Security-Policy",
+      `script-src 'self' 'nonce-${res.locals.cspNonce}'`
+    );
+    next();
+  });
+};
+```
+
+Middleware runs before the document renders, so if you'd rather generate the nonce yourself (e.g. to reuse one already produced by `helmet` or another library), set `res.locals.cspNonce` before the request reaches the renderer — Catalyst reuses it instead of generating a new one, keeping the header and the rendered tags in sync.
+
+Any custom script you add in `server/document.js` needs the same nonce applied by hand — see the `nonce` prop in [Customising Shell](/content/Guides%20and%20Tutorials/customising-shell#props-reference).
+
+## Subresource Integrity
+
+Catalyst can add an `integrity` hash to the script tags it renders. The browser then refuses to run a tagged script whose content does not match the hash. It covers the scripts named in the document, not every JS file the page loads; see the limits below before relying on it.
+
+Enable it via `SCRIPT_INTEGRITY_ENABLE` in `config/config.json`:
+
+```json title="config/config.json"
+{
+  "SCRIPT_INTEGRITY_ENABLE": true
+}
+```
+
+When enabled, `catalyst build` computes a sha384 hash of every built JS file and writes them to `build/.vite/integrity.json`. In production the server adds `integrity` and `crossorigin="anonymous"` to the `<script type="module">` tags and `modulepreload` links in the document, and to the scripts it streams after it.
+
+The flag is read at build time and at server start, so rebuild after turning it on. A server that starts with the flag on and no `integrity.json` logs a warning and serves the scripts without `integrity`.
+
+Things to know:
+
+- Only the tags in the document are checked. A script that one of those files loads with a static `import` has no tag, so the browser fetches it without a hash. On a page split into many chunks, most JS files are loaded this way.
+- Chunks loaded later through `import()`, such as a route loaded on client-side navigation, are not checked either.
+- The files must reach the browser exactly as they were built. Turn off anything that rewrites JS after the build, such as a CDN's automatic minification or a build step that runs after `catalyst build`, or the browser will block the scripts.
+- If assets are served from another origin, that origin must send CORS headers (`Access-Control-Allow-Origin`). Module scripts already need this.
+- CSS is not covered.
+- Scripts you add yourself in `server/document.js` are not covered.
+- It has no effect in `catalyst start`.
+
 ## CSRF
 
 Protect every state-changing endpoint. If you use cookie-based auth or forms, apply CSRF protection and send the token back with each mutating request.
@@ -74,3 +132,4 @@ Important behavior:
 
 - [Adding Express Middlewares](/content/Guides%20and%20Tutorials/adding-express-middlewares)
 - [Configuration API](/content/11-API%20Reference/02-Configuration.mdx)
+- [Customising Shell](/content/Guides%20and%20Tutorials/customising-shell)

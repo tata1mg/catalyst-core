@@ -106,6 +106,49 @@ describe("HTML / React element generators", () => {
     })
 })
 
+describe("script integrity (SRI) from the integrity manifest", () => {
+    const hash = "sha384-YxXJh6SJ9O4vCdR2fb9/lg26CbNfX98m5EldbvHRax5/NZz0AQ0ZED7fat7rrdCp"
+    const integrityManifest = {
+        "https://cdn.test/a.js": hash,
+        "https://cdn.test/bad.js": 'x" onload="alert(1)',
+    }
+
+    it("adds integrity and crossOrigin to script elements with an entry, and leaves the rest unchanged", () => {
+        const els = generateScriptElements(
+            ["https://cdn.test/a.js", "https://cdn.test/b.js"],
+            "n1",
+            integrityManifest,
+        )
+        expect(els[0].props).toMatchObject({ integrity: hash, crossOrigin: "anonymous", nonce: "n1" })
+        expect(els[1].props).not.toHaveProperty("integrity")
+        expect(els[1].props).not.toHaveProperty("crossOrigin")
+    })
+
+    it("adds integrity and crossOrigin to modulepreload links", () => {
+        const els = generateModulePreloadLinkElements(
+            ["https://cdn.test/a.js"],
+            "crit",
+            undefined,
+            integrityManifest,
+        )
+        expect(els[0].props).toMatchObject({ integrity: hash, crossOrigin: "anonymous" })
+    })
+
+    it("adds integrity and crossorigin to deferred script strings", () => {
+        expect(generateScriptStrings(["https://cdn.test/a.js"], "n1", integrityManifest)).toBe(
+            `<script type="module" nonce="n1" integrity="${hash}" crossorigin="anonymous" src="https://cdn.test/a.js"></script>`,
+        )
+    })
+
+    it("ignores an entry whose value is not a valid hash", () => {
+        expect(generateScriptStrings(["https://cdn.test/bad.js"], undefined, integrityManifest)).toBe(
+            '<script type="module" src="https://cdn.test/bad.js"></script>',
+        )
+        expect(generateScriptElements(["https://cdn.test/bad.js"], undefined, integrityManifest)[0].props)
+            .not.toHaveProperty("integrity")
+    })
+})
+
 describe("readCssFromDisk", () => {
     it("returns an empty string when given no paths", () => {
         expect(readCssFromDisk([], "/whatever")).toBe("")

@@ -32,6 +32,7 @@ import {
     generateCustomLinkHeader,
 } from "./extract.js"
 import path from "path"
+import crypto from "node:crypto"
 import { Transform } from "node:stream"
 
 import CustomDocument from "@catalyst/template/server/document"
@@ -40,7 +41,7 @@ import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
-import { getManifest, getAssetManifest } from "../manifestCache.js"
+import { getManifest, getAssetManifest, getIntegrityManifest } from "../manifestCache.js"
 import { wrapSSRError, formatError } from "../../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
 
@@ -277,6 +278,18 @@ const fitLinkBudget = (links: string[]) => {
     return kept
 }
 
+// Config-driven (config.json → CSP_NONCE_ENABLE): when on, every script Catalyst injects
+// carries a per-request nonce so the app can serve a nonce-based CSP without opening up
+// 'unsafe-inline'. Off by default — no behavior change unless explicitly enabled.
+// Same boolean contract as OTEL_ENABLE above.
+const CSP_NONCE_ENABLE = (process.env.CSP_NONCE_ENABLE as any) === true
+const generateNonce = () => crypto.randomBytes(16).toString("base64")
+// An app-supplied nonce goes into raw HTML strings as well as React props, so
+// only the base64 alphabet a CSP nonce may use is accepted; anything else is
+// replaced with a generated one.
+const isValidNonce = (value: unknown): value is string =>
+    typeof value === "string" && /^[A-Za-z0-9+/_-]+={0,2}$/.test(value)
+
 const traceHook = (fn: any, spanName: string) =>
     typeof fn === "function" ? withSyncObservability(SSR_SERVICE, fn, spanName) : fn
 
@@ -387,7 +400,8 @@ const _renderMarkUp = async (
     store: any,
     allMatches: any,
     context: any,
-    chunkExtractor: any
+    chunkExtractor: any,
+    nonce?: string
 ) => {
     const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
     // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
@@ -421,10 +435,21 @@ const _renderMarkUp = async (
         buildDir
     )
 
-    const jsScripts = generateScriptElements(criticalAssets.scripts)
-    const criticalPreloadLinks = generateModulePreloadLinkElements(criticalAssets.js, "critical-js")
+    const integrityManifest = getIntegrityManifest()
+    const jsScripts = generateScriptElements(criticalAssets.scripts, nonce, integrityManifest)
+    const criticalPreloadLinks = generateModulePreloadLinkElements(
+        criticalAssets.js,
+        "critical-js",
+        nonce,
+        integrityManifest
+    )
     const deferredPreloadUrls = getDeferredPreloadScriptUrls(deferredRouteKey, criticalAssets.js)
-    const deferredPreloadLinks = generateModulePreloadLinkElements(deferredPreloadUrls, "deferred-js")
+    const deferredPreloadLinks = generateModulePreloadLinkElements(
+        deferredPreloadUrls,
+        "deferred-js",
+        nonce,
+        integrityManifest
+    )
 
     // Build Head props
     const shellStart = renderStart({
@@ -445,7 +470,7 @@ const _renderMarkUp = async (
     // The response status also reaches the document as `statusCode`, which Body
     // exposes as window.__STATUS_CODE__. `errorCode` stays for custom documents.
     const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
-    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status }
+    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status, nonce }
 
     const CompleteDocument = () => {
         // CustomDocument is an OPTIONAL export (server/document.js) — its
@@ -469,6 +494,7 @@ const _renderMarkUp = async (
                     fetcherData={finalProps.fetcherData}
                     metaTags={finalProps.metaTags}
                     publicAssetPath={finalProps.publicAssetPath}
+                    nonce={finalProps.nonce}
                 />
                 <Body
                     initialState={finalProps.initialState}
@@ -476,6 +502,7 @@ const _renderMarkUp = async (
                     statusCode={finalProps.statusCode}
                     fetcherData={finalProps.fetcherData}
                     safeArea={finalProps.safeArea}
+                    nonce={finalProps.nonce}
                 />
             </html>
         )
@@ -510,14 +537,18 @@ const _renderMarkUp = async (
                         ? chunkExtractor.getDeferredAssets()
                         : { js: [], scripts: [], css: [] }
 
+                    const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+
                     // Tell client which components were SSR'd so split() can
                     // eagerly import them (prevents Suspense fallback flash)
-                    this.push(`<script>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`)
+                    this.push(
+                        `<script${nonceAttr}>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`
+                    )
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         this.push(
                             // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag - renderedKeys are internal bundler component-module keys tracked by ChunkExtractor, never request/user input, and are JSON.stringify-escaped before embedding.
-                            `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
+                            `<script${nonceAttr}>window.__SSR_RENDERED_COMPONENTS__=new Set(${JSON.stringify(renderedKeys)})</script>`
                         )
                     }
 
@@ -530,7 +561,7 @@ const _renderMarkUp = async (
                         this.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
                     }
                     if (!isBot) {
-                        this.push(generateScriptStrings(deferredAssets.scripts))
+                        this.push(generateScriptStrings(deferredAssets.scripts, nonce, integrityManifest))
                     }
 
                     cb()
@@ -543,6 +574,8 @@ const _renderMarkUp = async (
             tail.pipe(res)
 
             const { pipe } = renderToPipeableStream(<CompleteDocument />, {
+                // Nonces React's own streamed inline scripts (Suspense boundary swaps)
+                nonce,
                 onShellReady() {
                     res.setHeader("content-type", "text/html")
                     pipe(tail)
@@ -577,6 +610,16 @@ const tracedAppServerSideFunction = withObservability(
     "App.serverSideFunction"
 )
 const tracedServerDataFetcher = withObservability(SSR_SERVICE, serverDataFetcher, "serverDataFetcher")
+// Waits for the promises passed to runInParallel. Its own span keeps their time and any rejection
+// in the trace, which serverSideFunction's span covered when it awaited them itself.
+const tracedParallelWork = withObservability(
+    SSR_SERVICE,
+    async (work: Promise<{ error: any } | null>[]) => {
+        const failed = (await Promise.all(work)).find(Boolean)
+        if (failed) throw failed.error
+    },
+    "App.serverSideFunction.runInParallel"
+)
 const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMetaData")
 
 // ── Express middleware ──────────────────────────────────────────────────
@@ -584,7 +627,8 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
  * SSR request handler. Execution pipeline per request:
  *   1. Match route → collect assets
  *   2. App.serverSideFunction (app-level server hook)
- *   3. serverDataFetcher (route-level data fetching)
+ *   3. serverDataFetcher (route-level data fetching), alongside anything
+ *      serverSideFunction passed to runInParallel()
  *   4. renderMarkUp → renderToPipeableStream (stream to client)
  *
  * res.headersSent is checked after each async step: if a user hook
@@ -608,6 +652,16 @@ async function _handler(req: any, res: any) {
         }
         const store = await createStore({}, req, res)
 
+        // If app-level middleware already generated a nonce for its CSP header
+        // (res.locals.cspNonce), reuse it so the header and the script tags match.
+        // Otherwise generate one here and expose it the same way.
+        const nonce = CSP_NONCE_ENABLE
+            ? isValidNonce(res.locals.cspNonce)
+                ? res.locals.cspNonce
+                : generateNonce()
+            : undefined
+        if (nonce) res.locals.cspNonce = nonce
+
         const cachedRoutes = getCachedRoutes()
         const allMatches = cachedRoutes ? NestedMatchRoutes(cachedRoutes, req.originalUrl) || [] : []
         let allTags: any = []
@@ -621,17 +675,64 @@ async function _handler(req: any, res: any) {
             if (earlyHintLinks.length && res.locals) res.locals.earlyHintLinks = earlyHintLinks
         }
 
+        const parallelWork: Promise<{ error: any } | null>[] = []
+
+        // Handle each promise immediately so a rejection is never unhandled. A reason that isn't an
+        // object (null, undefined, a string) becomes an Error, since the tracing wrapper and the catch
+        // below read its properties.
+        const runInParallel = (...promises: unknown[]) => {
+            for (const promise of promises) {
+                parallelWork.push(
+                    Promise.resolve(promise).then(
+                        () => null,
+                        (error) => ({ error: asError(error) })
+                    )
+                )
+            }
+        }
+
+        // Every exit below waits through this, so each request records its parallel work on one span.
+        // No span when nothing was registered, so apps that never call runInParallel trace as before.
+        let parallelDone: Promise<{ error: any } | null> | null = null
+        const waitForParallelWork = () => {
+            if (!parallelWork.length) return null
+            if (!parallelDone) {
+                parallelDone = tracedParallelWork(parallelWork).then(
+                    () => null,
+                    (error: any) => ({ error })
+                )
+            }
+            return parallelDone
+        }
+
         try {
-            await tracedAppServerSideFunction({ store, req, res })
+            await tracedAppServerSideFunction({ store, req, res, runInParallel })
             safeCall(onAppServerSideSuccess, { req, res, store })
 
-            if (res.headersSent) return
+            if (res.headersSent) {
+                // The response is already out, but registered work still finishes before the handler returns.
+                if (parallelWork.length) await waitForParallelWork()
+                return
+            }
+
+            // Page fetchers can now run while parallel work is still running.
+            const fetcherResult = tracedServerDataFetcher(
+                { routes: cachedRoutes, req, res, url: req.originalUrl },
+                { store }
+            )
+            const parallelResult = waitForParallelWork()
+
+            // Both finish before any fetcher hook runs or store state is serialized.
+            // A fetcher rejection is ignored here and rethrown by the await below.
+            await fetcherResult.catch(() => {})
+            const failed = await parallelResult
+
+            // A response a fetcher already sent (e.g. a redirect) wins over a parallel failure.
+            // Otherwise it takes the same catch below as a rejected serverSideFunction.
+            if (failed && !res.headersSent) throw failed.error
 
             try {
-                fetcherData = await tracedServerDataFetcher(
-                    { routes: cachedRoutes, req, res, url: req.originalUrl },
-                    { store }
-                )
+                fetcherData = await fetcherResult
 
                 if (res.headersSent) return
 
@@ -654,7 +755,8 @@ async function _handler(req: any, res: any) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 } else {
                     safeCall(onFetcherSuccess, { req, res, store })
@@ -670,7 +772,8 @@ async function _handler(req: any, res: any) {
                         store,
                         allMatches,
                         context,
-                        chunkExtractor
+                        chunkExtractor,
+                        nonce
                     )
                 }
             } catch (error: any) {
@@ -690,12 +793,16 @@ async function _handler(req: any, res: any) {
                     store,
                     allMatches,
                     context,
-                    chunkExtractor
+                    chunkExtractor,
+                    nonce
                 )
             }
         } catch (error: any) {
             if (isRenderFailure(error)) throw error
             logSSRError("SERVER_SIDE_FUNCTION", error, req)
+            // serverSideFunction can throw with parallel work still running. A parallel failure is
+            // only traced here; the hook below still gets the error this catch received.
+            if (parallelWork.length) await waitForParallelWork()
             safeCall(onAppServerSideError, { req, res, store, error })
 
             if (res.headersSent) return
@@ -710,7 +817,8 @@ async function _handler(req: any, res: any) {
                 store,
                 allMatches,
                 context,
-                chunkExtractor
+                chunkExtractor,
+                nonce
             )
         }
     } catch (error: any) {

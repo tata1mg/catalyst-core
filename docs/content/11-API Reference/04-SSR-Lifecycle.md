@@ -8,6 +8,8 @@ id: ssr-lifecycle
 
 Catalyst calls lifecycle hooks that you export from `server/index.js`. Each hook is a named export, and every one is optional. New apps from `create-catalyst-app` start with all of them as empty functions, so you can fill in the ones you need and delete the rest.
 
+Catalyst reads the hooks by name, so a hook placed inside `export default { ... }` is never called. Since 1.2.0, startup prints a warning that names each hook it found there. Move each one to its own export, such as `export const onRouteMatch = ...`.
+
 ## Server Hooks
 
 The hooks are listed in the order Catalyst calls them.
@@ -88,9 +90,22 @@ Catalyst uses React streaming SSR for the HTML response:
 
 1. The Node server receives the request.
 2. Catalyst matches the URL to your routes and calls `onRouteMatch`.
-3. `App.serverSideFunction` runs, then the matched route's `serverFetcher`.
+3. `App.serverSideFunction` runs, then the matched route's `serverFetcher`. Promises passed to `runInParallel` keep running alongside the fetcher (see below).
 4. React renders the document and route tree on the server.
 5. HTML is streamed to the browser.
 6. The client hydrates the tree and takes over navigation.
+
+### Running work alongside the route fetcher
+
+`App.serverSideFunction` receives `runInParallel(...promises)`. Work passed to it starts right away and keeps running while the route's `serverFetcher` runs. Catalyst waits for both before it calls any fetcher hook, renders, or serializes the store.
+
+```javascript
+App.serverSideFunction = ({ store, req, res, runInParallel }) => {
+    // Starts now and overlaps with the route's serverFetcher.
+    runInParallel(store.dispatch(loadUser(req)))
+}
+```
+
+If a registered promise rejects, the request takes the same path as a rejected `serverSideFunction` and `onAppServerSideError` is called, unless a fetcher already sent a response such as a redirect. Apps that never call `runInParallel` keep the old order.
 
 For route-level data, see [Data Fetching](/content/data-fetching).

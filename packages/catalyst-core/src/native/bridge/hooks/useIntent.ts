@@ -13,6 +13,8 @@ export interface UseIntentResult extends HookState {
     openFile: (fileUrl: string, mimeType?: string | null) => void
     /** Alias of `openFile`, named to match the shared hook contract. */
     execute: (fileUrl: string, mimeType?: string | null) => void
+    /** Open a URL in the device's default browser, outside the WebView. */
+    openInBrowser: (url: string) => void
     /** Drop the current result and error. */
     clear: () => void
     /** Drop the current error, keeping any data. */
@@ -54,6 +56,7 @@ export const useIntent = (): UseIntentResult => {
             isLoading: false,
             processingState: null,
             openFile: () => {},
+            openInBrowser: () => {},
             success: null,
             reset: () => {},
         }
@@ -105,6 +108,19 @@ export const useIntent = (): UseIntentResult => {
         }, "intent file open")
     }
 
+    const openInBrowser = (url: string) => {
+        if (!url) {
+            base.handleNativeError("URL is required")
+            return
+        }
+
+        console.log("🌐 Open in browser requested:", url)
+
+        base.executeOperation(() => {
+            nativeBridge.file.openInBrowser(url)
+        }, "open in browser")
+    }
+
     return {
         data: base.data,
         loading: base.loading,
@@ -118,6 +134,7 @@ export const useIntent = (): UseIntentResult => {
         isLoading: base.loading,
         processingState: base.progress?.phase || null,
         openFile,
+        openInBrowser,
         success: base.data?.success || null,
         reset: base.clear,
     }

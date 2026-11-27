@@ -97,6 +97,15 @@ public struct WebView: UIViewRepresentable, Equatable {
                                                     action: #selector(Coordinator.handleCameraPinch(_:)))
         webView.addGestureRecognizer(pinchGesture)
 
+        // Prevent UIKit from auto-applying safe-area insets when edge-to-edge is enabled.
+        // In edge-to-edge mode, padding is handled in web content via safe-area values.
+        if ConfigConstants.EdgeToEdge.enabled {
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+            if #available(iOS 13.0, *) {
+                webView.scrollView.automaticallyAdjustsScrollIndicatorInsets = false
+            }
+        }
+
         #if DEBUG
         // Enable Safari Web Inspector (only available in iOS 16.4+)
         if #available(iOS 16.4, *) {
@@ -124,7 +133,10 @@ public struct WebView: UIViewRepresentable, Equatable {
         if let url = URL(string: urlString) {
             let status = NetworkMonitor.shared.currentStatus
             if status.isOnline {
-                let request = URLRequest(url: url)
+                var request = URLRequest(url: url)
+                if !ConfigConstants.appInfo.isEmpty {
+                    request.setValue(ConfigConstants.appInfo, forHTTPHeaderField: "X-App-Info")
+                }
                 logWithTimestamp("🚀 Calling webView.load()")
                 let loadStart = CFAbsoluteTimeGetCurrent()
                 CatalystPerf.add([

@@ -98,7 +98,8 @@ public enum CatalystConstants {
                 "setVideoStreamFps",
                 "startTransition",
                 "commitTransition",
-                "cancelTransition"
+                "cancelTransition",
+                "openInBrowser"
             ]
 
             if isTraceExportEnabled() {

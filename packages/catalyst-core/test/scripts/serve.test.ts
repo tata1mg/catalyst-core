@@ -100,3 +100,17 @@ it("passes --inspect through to the server", async () => {
     }
     expect(spawned[0].args[0]).toBe("--inspect")
 })
+
+it("registers the module loader before preServerInit imports server/index.js", async () => {
+    await serve()
+    await vi.waitFor(() => expect(spawned).toHaveLength(1))
+
+    // register() only applies to modules imported after it, so with the loader
+    // second, an alias import in server/index.js failed and preServerInit
+    // silently never ran.
+    const { args } = spawned[0]
+    const loader = args.findIndex((arg) => arg.startsWith("data:text/javascript,"))
+    const preInit = args.findIndex((arg) => arg.endsWith("preServerInit.js"))
+    expect(loader).toBeGreaterThan(-1)
+    expect(preInit).toBeGreaterThan(loader)
+})
