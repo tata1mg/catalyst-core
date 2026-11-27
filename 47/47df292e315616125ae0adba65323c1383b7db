@@ -1,0 +1,24 @@
+packages/catalyst-core/test/server/ppr.test.ts
+  s_ee1da9130d683f::t_5d066a12fd710c 131
+packages/catalyst-core/test/server/handler.ppr.test.ts
+  s_ee1da9130d683f::t_0b9a5289c653c8 667-684
+  s_ee1da9130d683f::t_3ea7b88275930c 685-724
+packages/catalyst-core/test/server/handler.runInParallel.test.ts
+  s_ee1da9130d683f::t_65e0df6f45c945 62-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4747df292e315616125ae0adba65323c1383b7db",
+  "prompts": {},
+  "sessions": {
+    "s_ee1da9130d683f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aaa90215-d573-4b8d-a78e-27f47f95cb9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
