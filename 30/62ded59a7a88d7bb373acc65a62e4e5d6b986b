@@ -1,0 +1,26 @@
+packages/catalyst-core/test/vite/stableChunkNamesPlugin.test.ts
+  s_0de668bd323846::t_ba7788fff9da1a 2,12-24,27,67,80,93-94,118-119,159,170
+  s_0de668bd323846::t_0147c3abe581fa 201-212
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_0de668bd323846::t_bce920b93eafb6 34
+packages/catalyst-core/src/vite/stable-chunk-names-plugin.js
+  s_0de668bd323846::t_dd167794e54b3c 163-169,337,357
+packages/catalyst-core/vitest.config.ts
+  s_0de668bd323846::t_a55aac4677d39d 76-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3062ded59a7a88d7bb373acc65a62e4e5d6b986b",
+  "prompts": {},
+  "sessions": {
+    "s_0de668bd323846": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "29a35bd5-5d94-458f-b05d-78fdf3199a26",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
