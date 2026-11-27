@@ -1,0 +1,46 @@
+errors/AI/AI-010.md
+  s_f9b68111c2008f::t_c3d0903276a13d 1-15
+"docs/content/11-API Reference/05-AI.md"
+  s_f9b68111c2008f::t_b497ceab8df300 109
+  s_f9b68111c2008f::t_ac0ae134624d9e 71-72,81,103-104
+  s_f9b68111c2008f::t_ddf999c9c4849d 1-70,73-80,82-102,105-108,110
+packages/catalyst-core/test/hooks/hookRequirements.test.ts
+  s_f9b68111c2008f::t_5e2579be1e7c2f 1-3,14,20-47,49-54,60-66,68,70-83
+  s_f9b68111c2008f::t_d27b8ddf56ae56 5,18
+  s_f9b68111c2008f::t_7852f92ec0f04d 4,6-13,15-17,19,55-59,67,69
+  s_f9b68111c2008f::t_a0099d715e86cc 48
+examples/error-catalog/scenarios/index.js
+  s_f9b68111c2008f::t_c3d0903276a13d 67-68
+examples/error-catalog/README.md
+  s_f9b68111c2008f::t_c3d0903276a13d 72
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_97f7d3480d76ea 298
+packages/catalyst-core/test/hooks/catalystAiNotInstalled.test.ts
+  s_f9b68111c2008f::t_924092f93dd72a 35
+  s_f9b68111c2008f::t_70921e9d9a8b74 21-28
+packages/catalyst-core/src/errors/registry.js
+  s_f9b68111c2008f::t_c3d0903276a13d 105,745-753
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_f9b68111c2008f::t_924092f93dd72a 1,26
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_ac0ae134624d9e 40-60,62-64
+  s_f9b68111c2008f::t_b497ceab8df300 61,732,960
+errors/index.json
+  s_f9b68111c2008f::t_c3d0903276a13d 632-638
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a4b603c1fa25bdef5616da7f4e8f161ac9d730d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

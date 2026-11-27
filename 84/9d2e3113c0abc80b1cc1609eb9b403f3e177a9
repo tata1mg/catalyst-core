@@ -1,0 +1,24 @@
+packages/catalyst-core/test/hooks/aiAgent.test.ts
+  s_f9b68111c2008f::t_470ac1ec128407 232-237,240-244,248-254,257-262,298
+  s_f9b68111c2008f::t_07793fc469e4a8 238-239,255-256
+  s_f9b68111c2008f::t_fb6721a3674e77 263-297
+  s_f9b68111c2008f::t_8a9ed48778c401 245-247
+packages/catalyst-core/src/native/bridge/hooks/aiAgent.ts
+  s_f9b68111c2008f::t_470ac1ec128407 110-126,128-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "849d2e3113c0abc80b1cc1609eb9b403f3e177a9",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

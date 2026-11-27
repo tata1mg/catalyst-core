@@ -1,0 +1,49 @@
+packages/catalyst-core/src/native/bridge/hooks/useTranscribe.ts
+  s_f9b68111c2008f::t_42fb4ac73ff8bc 432-434,437,440
+  s_f9b68111c2008f::t_58c16e2f4d1877 441-444
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/EngineFallbackTests.swift
+  s_f9b68111c2008f::t_f4466ae0e65ed8 97-107
+packages/catalyst-ai/test/liveTranscribe.session.test.ts
+  s_f9b68111c2008f::t_7039703bb13c42 381-383,386
+  s_f9b68111c2008f::t_ad06c8965ec0d2 353-380,384-385,387
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_f9b68111c2008f::t_c57f0e2c906ab0 184
+  s_f9b68111c2008f::t_0907f590766ac2 183,185-192
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_98a3036f74c566 609,612
+packages/catalyst-ai/test/cloudMedia.test.ts
+  s_f9b68111c2008f::t_feb245aa878031 223-226,228-229,231-232,234-235
+  s_f9b68111c2008f::t_3d971abaa04884 227,230,233
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_f9b68111c2008f::t_64faaf86ad31ca 83-91
+packages/catalyst-ai/test/route.image.test.ts
+  s_f9b68111c2008f::t_feb245aa878031 172-181
+packages/catalyst-core/test/hooks/useTranscribe.listen.test.ts
+  s_f9b68111c2008f::t_0907f590766ac2 242-260
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_f9b68111c2008f::t_64faaf86ad31ca 103-109,118
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_f9b68111c2008f::t_42fb4ac73ff8bc 200,202
+packages/catalyst-ai/plugins/ai/ios/Support/EngineFallback.swift
+  s_f9b68111c2008f::t_64faaf86ad31ca 62-67
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_98a3036f74c566 979-980
+packages/catalyst-ai/src/liveTranscribe.js
+  s_f9b68111c2008f::t_ad06c8965ec0d2 203-209,278-280,282,286,297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "520239cea201eadfd25564e1034c208648553ede",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

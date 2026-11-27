@@ -1,0 +1,24 @@
+packages/catalyst-ai/plugins/ai/Tests/AISupportTests/EngineFallbackTests.swift
+  s_f9b68111c2008f::t_38706080a8d5cd 102,108-115
+  s_f9b68111c2008f::t_dfcb654b549eb5 116
+packages/catalyst-ai/plugins/ai/ios/Support/EngineFallback.swift
+  s_f9b68111c2008f::t_38706080a8d5cd 64-66
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_f9b68111c2008f::t_38706080a8d5cd 83,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "826ab5418ffe393a9372121c15a8187b3a115eb3",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+"docs/content/11-API Reference/01-Hooks.md"
+  s_9ac4708a3dac9c::t_f4b85ec4f0a13f 1020-1050
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1ed61418defae91d039930bad4bfabc0feef0cf",
+  "prompts": {},
+  "sessions": {
+    "s_9ac4708a3dac9c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d15cf701-6fbd-4ff0-9958-732976753fc9",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

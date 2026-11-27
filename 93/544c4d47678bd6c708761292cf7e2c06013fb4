@@ -1,0 +1,27 @@
+packages/catalyst-core/test/hooks/aiGeneration.test.ts
+  s_f9b68111c2008f::t_f98d161f300308 28,49,53,56
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_d679ace6c33253 205,285-301
+packages/catalyst-core/src/native/bridge/hooks/aiGeneration.ts
+  s_f9b68111c2008f::t_d679ace6c33253 21-25,30,37,43,59,68,76
+packages/catalyst-core/test/hooks/aiGeneration.gaps.test.ts
+  s_f9b68111c2008f::t_e5951ed4c408a3 18
+packages/catalyst-core/test/hooks/catalystAiNotInstalled.test.ts
+  s_f9b68111c2008f::t_efb2df4b9f104c 1-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "93544c4d47678bd6c708761292cf7e2c06013fb4",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

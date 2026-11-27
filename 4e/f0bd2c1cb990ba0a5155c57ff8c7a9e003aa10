@@ -1,0 +1,68 @@
+packages/catalyst-core/mcp_v2/conversion-tasks.json
+  s_f9b68111c2008f::t_1360fd514831b2 126,132
+packages/catalyst-core/src/native/bridge/hooks/useMicrophone.ts
+  s_f9b68111c2008f::t_87568d9416b66d 80-91
+packages/catalyst-ai/test/contentParts.test.ts
+  s_f9b68111c2008f::t_c9af21f322c0e8 240-241
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Utils/FrameworkServerUtils.swift
+  s_f9b68111c2008f::t_bad41383129a46 149-153
+packages/catalyst-ai/src/route.d.ts
+  s_f9b68111c2008f::t_c9af21f322c0e8 35-38
+packages/catalyst-ai/src/audioPrep.js
+  s_f9b68111c2008f::t_c9af21f322c0e8 5-6
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/utils/MicrophoneUtils.kt
+  s_f9b68111c2008f::t_87568d9416b66d 39-40
+packages/catalyst-ai/README.md
+  s_f9b68111c2008f::t_15f5260682ab6e 138
+  s_f9b68111c2008f::t_3015dc6d7ef925 31,40-46,84-89,93-137,139-188
+  s_f9b68111c2008f::t_e467d1374609de 189
+packages/catalyst-core/src/native/bridge/hooks/usePipeline.ts
+  s_f9b68111c2008f::t_9427e880312322 20-23,25-28
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_4fb0f5f4f48d89 640-649
+examples/useai/README.md
+  s_f9b68111c2008f::t_15f5260682ab6e 26-38
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_bad41383129a46 243-244
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_f429c28c3aa411 1092-1097,1099-1132
+  s_f9b68111c2008f::t_66c1ae404f7af4 772,806,846-855,857-875,877-879,890-891,895-896,903-904,914-915,1024-1025,1032,1046,1073,1086,1088-1090
+  s_f9b68111c2008f::t_ee257e1b521a58 814-816,948-977
+  s_f9b68111c2008f::t_9427e880312322 1098
+  s_f9b68111c2008f::t_fb7d3cf2b7bcd5 747,752,757,759,764-771,792-793,803-805
+  s_f9b68111c2008f::t_61658ca2e4305b 856,876
+  s_f9b68111c2008f::t_80af6e23ffe044 327-329,339
+  s_f9b68111c2008f::t_8684cfda001518 340,978,1091
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_c9af21f322c0e8 9-11
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_f9b68111c2008f::t_1360fd514831b2 377,380-381
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_405f03d9500d3c 803-804,807
+packages/catalyst-ai/src/cloudMedia.js
+  s_f9b68111c2008f::t_c9af21f322c0e8 4-6
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_f9b68111c2008f::t_d80d0d5518196b 1616,1624,1640
+packages/catalyst-core/src/native/bridge/hooks/speechBus.ts
+  s_f9b68111c2008f::t_87568d9416b66d 143
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_c9af21f322c0e8 7-10
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_f9b68111c2008f::t_f429c28c3aa411 169-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ef0bd2c1cb990ba0a5155c57ff8c7a9e003aa10",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

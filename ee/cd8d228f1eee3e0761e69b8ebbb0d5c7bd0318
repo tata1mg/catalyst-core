@@ -1,0 +1,25 @@
+"docs/content/10-Catalyst AI/01-What-is-Catalyst-AI.md"
+  s_f9b68111c2008f::t_a9c2dcb0a422d8 1-83
+"docs/content/10-Catalyst AI/02-Quick-Start.md"
+  s_f9b68111c2008f::t_a9c2dcb0a422d8 1-89
+"docs/content/10-Catalyst AI/03-Hooks-and-Errors.md"
+  s_f9b68111c2008f::t_a9c2dcb0a422d8 1-111
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_a9c2dcb0a422d8 61,732,960
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eecd8d228f1eee3e0761e69b8ebbb0d5c7bd0318",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

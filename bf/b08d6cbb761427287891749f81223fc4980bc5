@@ -1,0 +1,28 @@
+packages/catalyst-ai/test/audioPrep.browserDecode.test.ts
+  s_f9b68111c2008f::t_56d1ae487f6bb8 3-4,14,24,37
+  s_f9b68111c2008f::t_1db54de259b561 1-2,5-13,15-23,25-36,38-40
+packages/catalyst-ai/test/pricingCli.paths.test.ts
+  s_f9b68111c2008f::t_3781b42d655f45 1-108
+packages/catalyst-core/test/server/aiBodyParser.config.test.ts
+  s_f9b68111c2008f::t_1db54de259b561 1-26
+packages/catalyst-core/test/hooks/aiGeneration.gaps.test.ts
+  s_f9b68111c2008f::t_1db54de259b561 1-50
+packages/catalyst-ai/test/route.refusals.test.ts
+  s_f9b68111c2008f::t_ce33481b472a13 1-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bfb08d6cbb761427287891749f81223fc4980bc5",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

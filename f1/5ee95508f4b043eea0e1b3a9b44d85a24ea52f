@@ -1,0 +1,25 @@
+packages/catalyst-ai/test/modelRegistryParity.test.ts
+  s_f9b68111c2008f::t_3c8cf89daf5b32 1-41
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_13a58545f74919 72
+packages/catalyst-ai/android/src/main/java/io/catalyst/nativeai/NativeBridgeAI.kt
+  s_f9b68111c2008f::t_37055b7b5f0cbf 60-62
+packages/catalyst-ai/plugins/ai/ios/NativeBridgeAI.swift
+  s_f9b68111c2008f::t_43c9364c84c05c 29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f15ee95508f4b043eea0e1b3a9b44d85a24ea52f",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

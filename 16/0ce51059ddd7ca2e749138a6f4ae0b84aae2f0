@@ -1,0 +1,23 @@
+src/server/renderer/deferred.js
+  s_5300fba1238c4b::t_c85b9567b9e1a5 92-132
+src/server/renderer/handler.jsx
+  s_5300fba1238c4b::t_a3e28ade4597e9 55,398-401,413-414,417-418
+test/deferred.test.mjs
+  s_5300fba1238c4b::t_9d5a0597d35941 17,355-368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "160ce51059ddd7ca2e749138a6f4ae0b84aae2f0",
+  "prompts": {},
+  "sessions": {
+    "s_5300fba1238c4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52c6839b-f9d4-4258-b194-5d59e7761a27",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Vindresh Kumar Singh <vindresh.singh@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+packages/catalyst-core/src/server/utils/aiBodyParser.ts
+  s_f9b68111c2008f::t_aad0857bc9b562 32-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e914b1dc4e9e887a0a3480e50e01802c37263d8",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+packages/catalyst-core/test/hooks/aiPending.test.ts
+  s_f9b68111c2008f::t_d4d751b50746e7 1-51
+packages/catalyst-core/test/hooks/aiAgent.test.ts
+  s_f9b68111c2008f::t_07614a90f74856 299-336
+packages/catalyst-core/src/native/bridge/hooks/aiPending.ts
+  s_f9b68111c2008f::t_d4d751b50746e7 1-46
+packages/catalyst-core/src/native/bridge/hooks/aiRouter.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 299-307
+packages/catalyst-core/test/hooks/aiPipeline.branches.test.ts
+  s_f9b68111c2008f::t_79da26f47eb91f 107-130
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_5bc374045de010 118-119,174,253
+  s_f9b68111c2008f::t_d4d751b50746e7 8,117,167-173,176-177,254,258-263
+packages/catalyst-core/src/native/bridge/hooks/speechBus.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 147-154
+packages/catalyst-core/src/native/bridge/hooks/useVision.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 146-147,162-164,187
+packages/catalyst-core/test/hooks/aiRouting.test.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 540-549
+packages/catalyst-core/test/hooks/useSpeechRecognition.test.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 193-205
+packages/catalyst-core/test/hooks/useVision.test.ts
+  s_f9b68111c2008f::t_5a513284aef0ca 161-187
+  s_f9b68111c2008f::t_1106fb9964ecc0 131
+packages/catalyst-core/src/native/bridge/hooks/aiAgent.ts
+  s_f9b68111c2008f::t_07614a90f74856 138-154,226-239,264-267
+packages/catalyst-core/src/native/bridge/hooks/aiPipeline.ts
+  s_f9b68111c2008f::t_79da26f47eb91f 90-91,182-185,216-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63b3ef5c0547904c42c779515abf0267e25a49ac",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

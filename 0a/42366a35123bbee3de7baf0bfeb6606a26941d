@@ -1,0 +1,22 @@
+examples/error-catalog/README.md
+  s_f9b68111c2008f::t_c2c48faf3cbfc5 4,7,16,58,176
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_d4da967a1400a8 234
+  s_f9b68111c2008f::t_c2c48faf3cbfc5 230-233,235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a42366a35123bbee3de7baf0bfeb6606a26941d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

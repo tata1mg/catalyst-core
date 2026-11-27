@@ -1,0 +1,32 @@
+packages/catalyst-core/test/hooks/aiAgent.test.ts
+  s_f9b68111c2008f::t_35d7479d62269c 327-328,331
+  s_f9b68111c2008f::t_23ef1ae31d8265 338-393
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_a909088cd5a583 215-217,232-233
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_f9b68111c2008f::t_a909088cd5a583 246-247
+packages/catalyst-core/test/cli/themeHelpers.test.ts
+  s_f9b68111c2008f::t_89917f00b5ff93 6-7
+  s_f9b68111c2008f::t_65581ef7dffec8 128-129
+  s_f9b68111c2008f::t_35b06f4dde7d55 45,52,126
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_35b06f4dde7d55 724-725,930,960
+packages/catalyst-core/src/native/bridge/hooks/aiAgent.ts
+  s_f9b68111c2008f::t_09d51f50467e2f 161-166,177-178,232-233,236,254-256,271,273-277,280,285-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a83b5047a0f619085f816025cbae2f10e6910820",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}
