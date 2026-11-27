@@ -50,10 +50,19 @@ const VITE_ERROR_PATTERNS = [
     /\[(?:vite|plugin)[^\]]*\]\s*(?<message>Could not (?:load|resolve)[^:]*)(?::.*)?$/i,
     // Failed to resolve import "x" from "y"
     /^(?<message>Failed to resolve (?:import|entry)[^.]*)\.?$/i,
-    // file.js:12:3: error: message   (esbuild transform failures)
-    /^(?<file>[^\s:][^:]*):(?<line>\d+):(?<column>\d+):\s*ERROR:\s*(?<message>.+)$/i,
     // Bare "error during build:" is a header, not a message -- see NOISE.
 ]
+
+// Rolldown (Vite 8) diagnostics: "[CODE] message", with the location on a
+// later code-frame line:
+//
+//     [PARSE_ERROR] Unexpected token
+//         ╭─[ ../../src/App.js:82:16 ]
+//
+// Warnings print in the same shape, so these only count inside Vite's
+// "error during build:" report (viteErrorBlock). Frame columns are 1-based.
+const ROLLDOWN_DIAGNOSTIC = /^\[(?<code>[A-Z][A-Z0-9_]*)\]\s+(?<message>.+)$/
+const ROLLDOWN_FRAME = /^╭─\[\s*(?<file>.+?):(?<line>\d+):(?<column>\d+)\s*\]$/
 
 // "imported by <file>" tells us which of the user's files to point at, which
 // is far more useful than the missing path they typed.
@@ -75,11 +84,51 @@ function extractBuildErrors(output, { toolchain = "native" } = {}) {
 
     const found = []
     const seen = new Set()
+    // Rolldown diagnostics are read only from Vite's failure report.
+    const viteFailed = block !== null
+    // The Rolldown diagnostic still waiting for its code frame.
+    let awaitingFrame = null
 
     for (const raw of block || String(output).split("\n")) {
         const line = raw.replace(ANSI, "").trimEnd()
         if (!line.trim()) continue
         if (NOISE.some((pattern) => pattern.test(line.trim()))) continue
+
+        if (toolchain === "vite") {
+            const frame = viteFailed && ROLLDOWN_FRAME.exec(line.trim())
+            if (frame) {
+                if (awaitingFrame) {
+                    awaitingFrame.error.file = frame.groups.file
+                    // Only a parse error is positioned in the file on disk. Rolldown
+                    // reports the others (e.g. UNRESOLVED_IMPORT) against the module
+                    // as plugins transformed it, so their line points elsewhere.
+                    if (awaitingFrame.code === "PARSE_ERROR") {
+                        awaitingFrame.error.line = Number(frame.groups.line)
+                        awaitingFrame.error.column = Number(frame.groups.column)
+                    }
+                    awaitingFrame = null
+                }
+                continue
+            }
+            const diagnostic = viteFailed && ROLLDOWN_DIAGNOSTIC.exec(line.trim())
+            if (diagnostic) {
+                const { code, message } = diagnostic.groups
+                awaitingFrame = null
+                if (!seen.has(message)) {
+                    if (found.length >= MAX_ERRORS) break
+                    seen.add(message)
+                    const error = {
+                        file: undefined,
+                        line: undefined,
+                        column: undefined,
+                        message: message.trim(),
+                    }
+                    found.push(error)
+                    awaitingFrame = { code, error }
+                }
+                continue
+            }
+        }
 
         for (const pattern of patterns) {
             const match = pattern.exec(line.trim())
@@ -138,11 +187,11 @@ function viteErrorBlock(output) {
 }
 
 /**
- * Vite's own explanation, for failures none of the patterns know (a Rollup
+ * Vite's own explanation, for failures none of the patterns know (a Rolldown
  * resolve or export error, a Sass error, a config that throws):
  *
  *     error during build:
- *     [vite]: Rollup failed to resolve import "x" from "/app/src/Home.js".
+ *     [vite]: Rolldown failed to resolve import "x" from "/app/src/Home.js".
  *     This is most likely unintended because it can break your application at runtime.
  *         at viteLog (file:///app/node_modules/vite/...)
  *

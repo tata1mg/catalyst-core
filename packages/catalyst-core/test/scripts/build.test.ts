@@ -54,6 +54,16 @@ vi.mock("child_process", async (importOriginal) => {
 
 const plain = (text: string) => text.replace(theme.ANSI, "")
 
+// The shape Vite 8 prints when Rolldown fails to parse a file.
+const rolldownParseError = [
+    "error during build:",
+    "Build failed with 1 error:",
+    "",
+    "[PARSE_ERROR] Expected ';' but found 'x'",
+    "    ╭─[ src/js/App.js:3:10 ]",
+    "",
+].join("\n")
+
 let appDir: string
 let stderr: string
 let stdout: string
@@ -112,7 +122,7 @@ afterEach(() => {
 
 describe("catalyst build failure output", () => {
     it("reports both bundles when only one bundle's error is recognised", async () => {
-        steps.server = { output: "src/js/App.js:3:10: ERROR: Expected ';' but found 'x'\n", code: 1 }
+        steps.server = { output: rolldownParseError, code: 1 }
         steps.client = { output: "something the patterns do not know\n", code: 1 }
 
         expect(await runBuild()).toBe(1)
@@ -151,9 +161,8 @@ describe("catalyst build failure output", () => {
 
 describe("catalyst build failure reporting", () => {
     it("reports one cause once when it broke both bundles", async () => {
-        const error = "src/js/App.js:3:10: ERROR: Expected ';' but found 'x'\n"
-        steps.server = { output: error, code: 1 }
-        steps.client = { output: error, code: 1 }
+        steps.server = { output: rolldownParseError, code: 1 }
+        steps.client = { output: rolldownParseError, code: 1 }
 
         expect(await runBuild()).toBe(1)
         const text = plain(stderr)

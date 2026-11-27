@@ -100,11 +100,8 @@ describe("extractBuildErrors (vite)", () => {
         ])
     })
 
-    it("reads resolve and esbuild transform failures", () => {
-        const output = [
-            'Failed to resolve entry for package "lodash".',
-            "src/Home.js:3:14: ERROR: Unexpected token",
-        ].join("\n")
+    it("reads a resolve failure", () => {
+        const output = 'Failed to resolve entry for package "lodash".'
         expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
             {
                 file: undefined,
@@ -112,7 +109,52 @@ describe("extractBuildErrors (vite)", () => {
                 column: undefined,
                 message: 'Failed to resolve entry for package "lodash"',
             },
-            { file: "src/Home.js", line: 3, column: 14, message: "Unexpected token" },
+        ])
+    })
+
+    // Shapes copied from a real Vite 8.3.8 build of a broken app (colour codes,
+    // stack frames and the import-path help trimmed).
+    it("reads Rolldown errors, with a line only where it matches the file on disk", () => {
+        const output = [
+            "error during build:",
+            "Build failed with 1 error:",
+            "",
+            "[plugin vite-plugin-jsx-in-js] /app/src/js/components/SEO/SEO.js",
+            "Error: Transform failed with 1 error:",
+            "",
+            `${ESC}[31m[PARSE_ERROR] ${ESC}[0mUnexpected token`,
+            "    ╭─[ ../../src/js/components/SEO/SEO.js:82:16 ]",
+            "    │",
+            " 82 │ const broken = ;",
+            "────╯",
+            "[UNRESOLVED_IMPORT] Could not resolve './missing' in ../../src/js/App.js",
+            "     ╭─[ ../../src/js/App.js:126:23 ]",
+            "  errors: [Getter/Setter]",
+        ].join("\n")
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            { file: "../../src/js/components/SEO/SEO.js", line: 82, column: 16, message: "Unexpected token" },
+            // Rolldown positions this against the transformed module, not the
+            // file on disk, so only the file is kept.
+            {
+                file: "../../src/js/App.js",
+                line: undefined,
+                column: undefined,
+                message: "Could not resolve './missing' in ../../src/js/App.js",
+            },
+        ])
+    })
+
+    it("does not mistake Rolldown warnings printed before the failure for errors", () => {
+        const output = [
+            "[EVAL] Use of direct `eval` function is strongly discouraged.",
+            "       ╭─[ ../lottie-web/build/player/lottie.js:14422:33 ]",
+            "[INEFFECTIVE_DYNAMIC_IMPORT] src/a.js is dynamically imported by src/b.js but also statically imported by src/c.js.",
+            "error during build:",
+            "[PARSE_ERROR] Unexpected token",
+            "    ╭─[ src/App.js:3:14 ]",
+        ].join("\n")
+        expect(extractBuildErrors(output, { toolchain: "vite" })).toEqual([
+            { file: "src/App.js", line: 3, column: 14, message: "Unexpected token" },
         ])
     })
 
@@ -181,21 +223,24 @@ describe("extractBuildErrors (vite)", () => {
         ].join("\n")
         expect(vite(config)).toEqual([{ message: "Error: boom in buildConfig", details: undefined }])
 
-        // esbuild's transform error still matches its pattern, inside the block.
-        const esbuild = [
-            "src/old/Stale.js:1:1: ERROR: from an earlier log, not this failure",
+        // A Rolldown transform error is still read with its location, inside the block.
+        const rolldown = [
+            "[PARSE_ERROR] from an earlier log, not this failure",
+            "    ╭─[ ../../src/old/Stale.js:1:1 ]",
             "error during build:",
-            "[vite-plugin-jsx-in-js] Transform failed with 1 error:",
-            '/abs/app/src/js/containers/Home/Home.js:7:6: ERROR: Expected identifier but found "="',
-            "file: /abs/app/src/js/containers/Home/Home.js:7:6",
-            "    at failureErrorWithLog (/abs/app/node_modules/esbuild/lib/main.js:1467:15)",
+            "[plugin vite-plugin-jsx-in-js] /abs/app/src/js/containers/Home/Home.js",
+            "Error: Transform failed with 1 error:",
+            "",
+            "[PARSE_ERROR] Expected identifier",
+            "   ╭─[ ../../src/js/containers/Home/Home.js:7:6 ]",
+            "    at transformWithOxc (file:///abs/app/node_modules/vite/dist/node/chunks/config.js:1:1)",
         ].join("\n")
-        expect(vite(esbuild)).toEqual([
+        expect(vite(rolldown)).toEqual([
             {
-                file: "/abs/app/src/js/containers/Home/Home.js",
+                file: "../../src/js/containers/Home/Home.js",
                 line: 7,
                 column: 6,
-                message: 'Expected identifier but found "="',
+                message: "Expected identifier",
             },
         ])
     })

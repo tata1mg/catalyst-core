@@ -5,8 +5,32 @@ import { sharedViteConfig as baseConfig, getClientEnvVariables } from "./vite.co
 import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
+import { hoistImportsPlugin } from "./hoist-imports-plugin.js"
 import { scriptIntegrityPlugin } from "./script-integrity-plugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
+
+// Long-lived vendor chunks, highest priority first. Rolldown pulls each
+// captured module's dependencies into the same group, and a higher-priority
+// group claims a module first. `app` (catalyst-core) must stay last: it
+// imports the app's routes (router/ClientRouter), so ranked any higher it
+// would pull these vendors in with them. prop-types sits in vendor-react
+// because vendor-ads (react-dfp, react-google-recaptcha) depends on it: left
+// to that group, every page that uses prop-types would load the ads vendor.
+const chunkGroups = [
+    ["vendor-react", /[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types)[\\/]/],
+    ["vendor-router", /[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history)[\\/]/],
+    ["vendor-network", /[\\/]node_modules[\\/]axios[\\/]/],
+    ["vendor-lottie", /[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/],
+    ["vendor-ads", /[\\/]node_modules[\\/](react-google-recaptcha|react-async-script|react-dfp)[\\/]/],
+    [
+        "vendor-ui",
+        /[\\/]node_modules[\\/](react-loadable-visibility|react-detect-offline|normalize\.css)[\\/]/,
+    ],
+    ["app", /[\\/]node_modules[\\/]catalyst-core[\\/]/],
+]
+
+// Keep CSS out of the groups so cssCodeSplit works correctly.
+const isStyle = (id) => /\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)
 
 const createClientConfig = async () => {
     const customViteConfig = await loadCustomViteConfig()
@@ -23,6 +47,7 @@ const createClientConfig = async () => {
                 publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
             }),
             injectCacheKeyPlugin(),
+            hoistImportsPlugin(),
             ...(customViteConfig?.clientPlugins || []),
             // Hashes the built JS. It waits for the other plugins' closeBundle hooks.
             scriptIntegrityPlugin(),
@@ -30,7 +55,7 @@ const createClientConfig = async () => {
 
         build: {
             target: "esnext",
-            minify: "esbuild",
+            minify: "oxc",
             sourcemap: false,
             manifest: true,
             ssrManifest: true,
@@ -44,7 +69,7 @@ const createClientConfig = async () => {
             // Since ALL CSS is served via external <link> tags (never inlined),
             // per-chunk CSS is fine — more files but each is small and cacheable.
 
-            rollupOptions: {
+            rolldownOptions: {
                 // Advisory warnings about third-party code the app author
                 // cannot act on: a dependency's misplaced /*#__PURE__*/ comment
                 // and unused re-exports from our own entry. Genuine problems
@@ -71,7 +96,7 @@ const createClientConfig = async () => {
                     },
                     chunkFileNames: "client/assets/[name]-[hash].js",
                     assetFileNames: (assetInfo) => {
-                        const extType = assetInfo.name.split(".").pop()
+                        const extType = (assetInfo.names?.[0] ?? assetInfo.name ?? "").split(".").pop()
                         if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
                             return "client/assets/images/[name]-[hash][extname]"
                         }
@@ -84,60 +109,21 @@ const createClientConfig = async () => {
                         return "client/assets/[name]-[hash][extname]"
                     },
 
-                    // Each manual chunk gets its own [hash] from chunkFileNames,
+                    // Each group gets its own [hash] from chunkFileNames,
                     // so a change in one group does not bust caches for the others.
-                    // Keep CSS out of manual chunks so cssCodeSplit works correctly.
-                    manualChunks(id) {
-                        if (/\.(css|scss|sass|less|styl)(\?.*)?$/.test(id)) {
-                            return undefined
-                        }
-                        if (!/[\\/]node_modules[\\/]/.test(id)) {
-                            return undefined
-                        }
-                        if (
-                            /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(
-                                id
-                            )
-                        ) {
-                            return "vendor-react"
-                        }
-                        if (/[\\/]node_modules[\\/](react-router(?:-dom|-config)?|history)[\\/]/.test(id)) {
-                            return "vendor-router"
-                        }
-                        if (/[\\/]node_modules[\\/]axios[\\/]/.test(id)) {
-                            return "vendor-network"
-                        }
-                        if (/[\\/]node_modules[\\/]lottie[^\\/]*[\\/]/.test(id)) {
-                            return "vendor-lottie"
-                        }
-                        if (
-                            /[\\/]node_modules[\\/](react-google-recaptcha|react-async-script|react-dfp)[\\/]/.test(
-                                id
-                            )
-                        ) {
-                            return "vendor-ads"
-                        }
-                        if (
-                            /[\\/]node_modules[\\/](react-loadable-visibility|react-detect-offline|normalize\.css)[\\/]/.test(
-                                id
-                            )
-                        ) {
-                            return "vendor-ui"
-                        }
-                        if (/[\\/]node_modules[\\/]catalyst-core[\\/]/.test(id)) {
-                            return "app"
-                        }
-                        // Other node_modules → let Vite pack them with the chunks that use them.
-                        return undefined
+                    codeSplitting: {
+                        groups: chunkGroups.map(([name, pattern], index) => ({
+                            name,
+                            priority: chunkGroups.length - index,
+                            test: (id) => !isStyle(id) && pattern.test(id),
+                        })),
                     },
+                    comments: { legal: false },
                 },
             },
 
             modulePreload: false,
             chunkSizeWarningLimit: 2000,
-        },
-        esbuild: {
-            legalComments: "none",
         },
 
         define: {

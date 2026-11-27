@@ -411,8 +411,13 @@ export function manifestCategorizationPlugin(options = {}) {
             )
         },
 
-        generateBundle(options, bundle) {
-            processedManifest = processBundle(bundle)
+        // Runs after every other generateBundle hook, so it sees the imports the
+        // hoist-imports plugin adds (that plugin is enforce: "post").
+        generateBundle: {
+            order: "post",
+            handler(options, bundle) {
+                processedManifest = processBundle(bundle)
+            },
         },
 
         // Write the file after all files are written (manifest.json is available)

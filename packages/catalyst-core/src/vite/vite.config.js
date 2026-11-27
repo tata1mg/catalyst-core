@@ -1,4 +1,4 @@
-import { defineConfig, transformWithEsbuild, defaultServerConditions } from "vite"
+import { defineConfig, transformWithOxc, defaultServerConditions } from "vite"
 import react from "@vitejs/plugin-react"
 import svgr from "vite-plugin-svgr"
 import { builtinModules, createRequire } from "node:module"
@@ -67,10 +67,9 @@ function jsxInJsPlugin() {
             if (!id.endsWith(".js")) return null
             if (id.includes("node_modules")) return null
             if (!/</.test(code)) return null
-            return transformWithEsbuild(code, id, {
-                loader: "jsx",
-                jsx: "automatic",
-                jsxDev: !isProduction,
+            return transformWithOxc(code, id, {
+                lang: "jsx",
+                jsx: { runtime: "automatic", development: !isProduction },
             })
         },
     }
@@ -324,7 +323,7 @@ const candidateBrowserDeps = [
     "react-google-recaptcha",
     "history",
     "lottie-web",
-    // Pre-bundle alongside React so esbuild marks react/react-router as external
+    // Pre-bundle alongside React so the dep optimizer marks react/react-router as external
     // and avoids a duplicate React instance (which causes useContext null errors)
     "@tata1mg/slowboi-react",
     "invariant",
@@ -344,7 +343,7 @@ const candidateBrowserDeps = [
     "fast-average-color",
     "react-dfp",
     "web-vitals",
-    // Referenced by manualChunks in vite.config.client.js — pre-bundle so the
+    // Referenced by the chunk groups in vite.config.client.js — pre-bundle so the
     // first navigation that pulls them in doesn't trigger a full-page reload.
     "react-loadable-visibility",
     "react-detect-offline",
@@ -443,10 +442,8 @@ export const sharedViteConfig = {
                 // "@tata1mg/slowoi-react",
                 "catalyst-core/router/ClientRouter",
             ],
-            esbuildOptions: {
-                format: "esm",
-                target: "node2022",
-                loader: {
+            rolldownOptions: {
+                moduleTypes: {
                     ".js": "jsx",
                 },
             },
@@ -501,17 +498,15 @@ export const sharedViteConfig = {
         // pre-bundled module instance as catalyst-core's main entry:
         // WebMcpProvider reads router state through a React context
         // (OneMgRouterContext, via useRouterState()) that RouterDataProvider
-        // populates. If esbuild's dep scanner pre-bundles the subpath as its
+        // populates. If the dep optimizer pre-bundles the subpath as its
         // own separate optimized chunk, that chunk gets its own
         // `createContext()` call — a second, unlinked context instance that
         // WebMcpProvider reads from empty, throwing "must be used within a
         // RouterDataProvider" even though one genuinely is an ancestor.
         // Same rationale as the existing ClientRouter exclusion below.
         exclude: ["catalyst-core/router/ClientRouter", "catalyst-core/webmcp", "catalyst-core/webmcp/shim"],
-        esbuildOptions: {
-            format: "esm",
-            target: "node2022",
-            loader: {
+        rolldownOptions: {
+            moduleTypes: {
                 ".js": "jsx",
             },
         },
