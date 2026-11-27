@@ -4,10 +4,41 @@ import expressStaticGzip from 'express-static-gzip'
 
 // Server middlewares are added here.
 
-// No Content-Security-Policy on purpose: the SSR shell ships inline bootstrap
-// scripts and styles, so a policy would need 'unsafe-inline' and protect
-// almost nothing, while still being flagged by scanners. A real fix is
-// nonce-based inline scripts in the catalyst renderer, tracked separately.
+// The SSR shell ships inline bootstrap scripts and styles, so script-src and
+// style-src need 'unsafe-inline'. The policy still blocks scripts from other
+// origins, plugins, <base> hijacking, form posts and fetches to other
+// origins, and framing by other sites. Every origin below is one the site
+// loads today:
+//   img-src     onemg.gumlet.io                  landing and social images
+//               img.youtube.com, placehold.co    video thumbnails (VideoLinkGrid)
+//               github.com, avatars.githubusercontent.com
+//                                                contributor avatars on release
+//                                                pages (github.com/<login>.png
+//                                                redirects to avatars.*)
+//   media-src   github.com, release-assets.githubusercontent.com
+//                                                release films (release-pages.json;
+//                                                /releases/download redirects to
+//                                                release-assets.*)
+//   connect-src raw.githubusercontent.com        error catalogue (data/errorsSource.js)
+//               cloudflareinsights.com           Cloudflare Web Analytics beacon
+//   script-src  static.cloudflareinsights.com    Cloudflare Web Analytics script,
+//                                                injected at the edge
+// Production only: the dev build loads assets and hot updates from the
+// webpack dev server on another port.
+const CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://onemg.gumlet.io https://img.youtube.com https://placehold.co https://github.com https://avatars.githubusercontent.com",
+    "media-src 'self' https://github.com https://release-assets.githubusercontent.com",
+    "font-src 'self' data:",
+    "connect-src 'self' https://raw.githubusercontent.com https://cloudflareinsights.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+].join('; ')
+
 const PERMISSIONS_POLICY = [
     'accelerometer=()',
     'camera=()',
@@ -28,14 +59,19 @@ const SITE_ORIGIN = (
     process.env.SITE_URL || 'https://catalyst.1mg.com'
 ).replace(/\/$/, '')
 
+// X-Frame-Options and X-Content-Type-Options are not set here: the nginx in
+// front of catalyst.1mg.com already adds both, and sending them from the app
+// too produced duplicate headers. Framing is also covered by the CSP's
+// frame-ancestors, which applies to every response.
 export function securityHeaders(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', SITE_ORIGIN)
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
     res.vary('Origin')
-    res.setHeader('X-Content-Type-Options', 'nosniff')
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN')
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
     res.setHeader('Permissions-Policy', PERMISSIONS_POLICY)
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+    }
     next()
 }
 
