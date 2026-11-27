@@ -673,6 +673,8 @@ async function _handler(req: any, res: any) {
         if (CLOUDFLARE_EARLY_HINTS_ENABLE) {
             const earlyHintLinks = await getEarlyHintLinks(req, res, allMatches)
             if (earlyHintLinks.length && res.locals) res.locals.earlyHintLinks = earlyHintLinks
+            // A hook that redirected or responded skips the rest of the request, like onRouteMatch.
+            if (res.headersSent) return
         }
 
         const parallelWork: Promise<{ error: any } | null>[] = []

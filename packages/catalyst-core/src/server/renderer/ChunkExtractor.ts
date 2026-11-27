@@ -117,6 +117,10 @@ export class ChunkExtractor {
         if (!wasDepOnly && (this.critical.js.has(jsUrl) || this.deferred.js.has(jsUrl))) return
 
         if (!wasDepOnly) bucket.js.add(jsUrl)
+        // A static dep of a deferred chunk that is then requested as critical moves to the critical
+        // bucket, so its <script> goes in the head instead of after the body. (collectAssets adds route
+        // chunks before render, so this order doesn't happen today; the bucket shouldn't depend on it.)
+        else if (bucket === this.critical && this.deferred.js.delete(jsUrl)) this.critical.js.add(jsUrl)
 
         // Collect direct + transitive CSS as relative file paths (not URLs)
         const cssPart = Array.isArray(manifestEntry.css) ? manifestEntry.css : []

@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- Early Hints. With `CLOUDFLARE_EARLY_HINTS_ENABLE: true` in `config/config.json`, server-rendered responses carry a `Link` header with the route's scripts and app-supplied preconnect/preload entries (`EARLY_HINTS_LINKS`, the `getEarlyHintLinks` hook in `server/index.js`), so a CDN with Early Hints can replay it as a `103`. See Configuration.
+- Behaviour change, with or without the flag: a route's static imports are now rendered as `<link rel="modulepreload">` in the head, so the browser fetches them alongside the route chunk instead of after it. Only the route chunk gets a `<script type="module">`.
+
 ## [1.3.1] - 2026-11-27
 
 ### Added

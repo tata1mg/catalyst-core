@@ -82,7 +82,7 @@ export const getEarlyHintLinks = ({ req, res, matches }) => [
 ]
 ```
 
-Unlike the other request hooks, Catalyst waits for this one, so it may return a promise; keep it fast, since the response waits too. Its entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. If it throws or returns something other than an array, it adds nothing and the rest of the header is still sent. An entry whose `url`, `as` or `type` holds anything other than visible ASCII (for example an unencoded non-ASCII path or a line break), or `<`, `>` or `"`, is skipped with a warning; percent-encode such paths.
+Unlike the other request hooks, Catalyst waits for this one, so it may return a promise; keep it fast, since the response waits too. Its entries go into the header after the route scripts and `EARLY_HINTS_LINKS`, and count against `EARLY_HINTS_MAX_LINK_BYTES`. If it throws or returns something other than an array, it adds nothing and the rest of the header is still sent. Like the other request hooks, a hook that sends a response (for example `res.redirect()`) skips the rest of the request. An entry whose `url`, `as` or `type` holds anything other than visible ASCII (for example an unencoded non-ASCII path or a line break), or `<`, `>` or `"`, is skipped with a warning; percent-encode such paths.
 
 ## Rendering Flow
 

@@ -642,6 +642,29 @@ describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE
         expect(res.getHtml()).toContain("<html")
     })
 
+    it("skips the rest of the request when the getEarlyHintLinks hook sends a response", async () => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        const onAppServerSideSuccess = vi.fn()
+        mockHooks({
+            getEarlyHintLinks: async ({ res }: any) => {
+                res.status(302).send()
+                return []
+            },
+            onAppServerSideSuccess,
+        })
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+
+        expect(res.statusCode).toBe(302)
+        expect(onAppServerSideSuccess).not.toHaveBeenCalled()
+        expect(res.getHtml()).toBe("")
+    })
+
     it("sends no Link header when the flag is off", async () => {
         vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
         mockManifest()

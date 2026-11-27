@@ -122,6 +122,20 @@ describe("ChunkExtractor", () => {
         expect(ce.getDeferredAssets()).toEqual({ js: [], scripts: [], css: ["assets/shared.css"] })
     })
 
+    it("moves a static import of a deferred chunk to critical when a route then requests it", () => {
+        const ce = new ChunkExtractor({
+            manifest: {
+                "widgets/Lazy": { file: "assets/lazy.js", imports: ["widgets/Shared"] },
+                "widgets/Shared": { file: "assets/shared.js", css: ["assets/shared.css"] },
+            },
+        })
+        ce.addComponent("widgets/Lazy")
+        ce.preloadRouteCss([{ route: { component: { __cacheKey: "widgets/Shared" } } }])
+        const shared = "https://cdn.example.com/static/assets/shared.js"
+        expect(ce.getCriticalAssets()).toEqual({ js: [shared], scripts: [shared], css: ["assets/shared.css"] })
+        expect(ce.getDeferredAssets().js).toEqual(["https://cdn.example.com/static/assets/lazy.js"])
+    })
+
     it("leaves global.__CHUNK_EXTRACTOR__ alone when registerGlobal is false", () => {
         const rendering = new ChunkExtractor()
         new ChunkExtractor({ registerGlobal: false })
