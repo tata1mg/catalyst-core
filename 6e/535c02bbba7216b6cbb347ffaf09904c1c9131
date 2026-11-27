@@ -1,0 +1,16 @@
+packages/catalyst-core/test/vite/stableChunkNamesBuild.test.ts
+  h_83a1406b041db4 51,55-56,68-76,80,83,128-129,185,250-253,256-258,273-274,378-386
+packages/catalyst-core/test/vite/stableChunkNamesPlugin.test.ts
+  h_83a1406b041db4 213-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e535c02bbba7216b6cbb347ffaf09904c1c9131",
+  "prompts": {},
+  "humans": {
+    "h_83a1406b041db4": {
+      "author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
