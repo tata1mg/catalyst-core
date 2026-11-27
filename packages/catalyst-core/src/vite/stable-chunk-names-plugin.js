@@ -1,3 +1,4 @@
+import fs from "fs"
 import path from "path"
 import crypto from "crypto"
 import MagicString from "magic-string"
@@ -32,8 +33,9 @@ import MagicString from "magic-string"
  *   covered transitively: a chunk's hash includes its CSS file names, and a target's hash its imports' hashes.
  *
  * Fallback: every import() in a hub that names another chunk must be the single import inside a Vite preload
- * call. Otherwise that hub is left exactly as Vite emits it, and the build warns with the reason. Imports that
- * name no chunk of the build (a computed or non-relative specifier) are left as they are.
+ * call. Otherwise that hub is left exactly as Vite emits it, and the build warns with the reason. Left as they
+ * are, because they name no chunk of the build: imports with a computed or non-relative specifier, and preload
+ * calls around no import at all (Rollup inlines a dynamic import of a module that is in the hub itself).
  */
 
 const NAME = "stable-chunk-names"
@@ -63,6 +65,8 @@ function __ccP(i,p,f,n){return __ccT().then(function(t){var e=t.j[i],d=${
 };return p(f,d.map(function(k){return t.p+t.s[k]+t.x}),n?import.meta.url:void 0)})}
 function __ccQ(i,p,n){return __ccP(i,p,function(){return __ccI(i)},n)}
 `
+
+const countMarkers = (code) => code.split(PRELOAD_MARKER).length - 1
 
 const isMarker = (node) =>
     (node?.type === "Identifier" && node.name === PRELOAD_MARKER) ||
@@ -146,6 +150,14 @@ const uniqueIds = (files, chunks, root) => {
     return new Set(values).size === values.length && !values.some((id) => id in Object.prototype) ? ids : null
 }
 
+const realPath = (p) => {
+    try {
+        return fs.realpathSync(p)
+    } catch {
+        return path.resolve(p)
+    }
+}
+
 const baseName = (fileName) => fileName.slice(fileName.lastIndexOf("/") + 1)
 
 export const isStableChunkNamesEnabled = (value) => value === true || value === "true"
@@ -157,7 +169,10 @@ export const isStableChunkNamesEnabled = (value) => value === true || value === 
  * @param {string} [options.root] - path stable ids are relative to (defaults to the app root)
  */
 export function stableChunkNamesPlugin({ minImporters = DEFAULT_MIN_IMPORTERS, root } = {}) {
-    const appRoot = root || process.env.src_path || process.cwd()
+    // Rollup's module ids are real paths, so the root must be too: a root reached through a symlink (a CI
+    // workspace, macOS /tmp) would otherwise put "../../private/..." into every id, and the ids would change
+    // with the checkout path.
+    const appRoot = realPath(root || process.env.src_path || process.cwd())
     // per output: placeholder file name -> { imports, importedCss } recorded at renderChunk time
     let records = new Map()
     let plan = null // { hubs: Set<fileName>, table: Map<sid, targetFileName>, rewritten: Set<fileName> }
@@ -233,7 +248,16 @@ export function stableChunkNamesPlugin({ minImporters = DEFAULT_MIN_IMPORTERS, r
             if (!owner) return fail("dynamic import outside a Vite preload call", node)
         }
         const calls = []
+        // Preload calls around no import(): Rollup inlined a dynamic import of a module in the same chunk as
+        // `Promise.resolve().then(() => ns)`. They name no chunk; Vite turns their marker into `void 0`.
+        let inlined = 0
         for (const { call, fn, imports: own } of preloads) {
+            if (own.length === 0) {
+                if (countMarkers(code.slice(call.start, call.end)) !== 1)
+                    return fail("preload call with no import and more than one marker", call)
+                inlined++
+                continue
+            }
             if (own.length !== 1) return fail(`preload callback with ${own.length} dynamic imports`, call)
             const [, , url, ...rest] = call.arguments
             if (rest.length || (url && !isImportMetaUrl(url)))
@@ -259,7 +283,7 @@ export function stableChunkNamesPlugin({ minImporters = DEFAULT_MIN_IMPORTERS, r
             }
         }
         const out = s.toString()
-        if (out.includes(PRELOAD_MARKER)) return fail("a Vite preload marker outside a preload call")
+        if (countMarkers(out) !== inlined) return fail("a Vite preload marker outside a preload call")
         if (/\bimport\(\s*["']\.\.?\//.test(out)) return fail("a relative import() left after the rewrite")
         s.append(helperFor(hk, primary))
         return s

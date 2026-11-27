@@ -193,6 +193,19 @@ describe("stable-chunk-names plugin", () => {
         )
     })
 
+    it("keeps preload calls around an inlined import (no import(), names no chunk) and rewrites the rest", () => {
+        const { render, warnings } = setup()
+        // what Rollup emits when the target module is in the hub itself (also imported statically)
+        const inlined = [
+            `const i=k(()=>C(()=>Promise.resolve().then(()=>g),__VITE_PRELOAD__),{},"../../src/js/x.js");`,
+            `const j=()=>C(()=>Promise.resolve().then(()=>h),true?__VITE_PRELOAD__:void 0);`,
+        ].join("\n")
+        const out = render(`${A}/app-!~{002}~.js`, `${HUB_CODE}\n${inlined}`).code
+        expect(out).toContain(inlined)
+        expect(out).toContain(`__ccQ("src/js/pages/Home/index",C,0)`)
+        expect(warnings).toEqual([])
+    })
+
     it("leaves imports that name no chunk (computed, URL) as they are and rewrites the rest", () => {
         const { render, warnings } = setup()
         // e.g. react-router's own `import(route.module)` in vendor-router; Vite doesn't wrap these either
@@ -235,9 +248,14 @@ describe("stable-chunk-names plugin", () => {
             /preload callback with 2 dynamic imports/,
         ],
         [
-            "a preload callback with no import",
-            `const d=C(()=>Promise.resolve({}),__VITE_PRELOAD__);`,
-            /preload callback with 0 dynamic imports/,
+            "a preload call with no import and two markers",
+            `const d=C(()=>Promise.resolve(__VITE_PRELOAD__),__VITE_PRELOAD__);`,
+            /no import and more than one marker/,
+        ],
+        [
+            "a preload marker next to an inlined import",
+            `const d=C(()=>Promise.resolve().then(()=>g),__VITE_PRELOAD__);const m=__VITE_PRELOAD__;`,
+            /preload marker outside a preload call/,
         ],
         [
             "a preload marker outside a preload call",
