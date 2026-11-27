@@ -6,6 +6,15 @@ on:
     push:
         branches: ["main"]
 
+# A new push to a pull request cancels the run still going for the previous
+# push: its result no longer matters, and it would otherwise hold runners
+# (macOS ones above all) that the new run then queues behind. Pushes to
+# main are keyed by commit, so they never cancel each other and every one
+# still writes its coverage baseline and caches.
+concurrency:
+    group: ci-${{ github.event.pull_request.number || github.sha }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     # Single source of truth for "what changed" -- every other job reads
     # this job's outputs via `if:` instead of re-diffing itself. Job-level
@@ -13,10 +22,12 @@ jobs:
     # `if:` still reports a Success status, so it doesn't leave a required
     # check hanging forever the way a workflow-level path filter would.
     #
-    # Root/shared paths (workflow files, lockfiles, node version, shared
-    # scripts) are OR'd into every platform filter below, not just `web` --
-    # a change to node.js.yml itself or to package-lock.json should still
-    # trigger android/ios, since either could affect what those jobs run.
+    # The workflow files are OR'd into every platform filter below, not
+    # just `web` -- a change to node.js.yml itself could affect what any of
+    # those jobs run. The repo-level scripts/ folder is added only to the
+    # filters whose jobs run something from it (the web jobs and the two
+    # release checks); the Gradle and Xcode jobs do not, so a scripts-only
+    # change does not start them.
     detect-changes:
         runs-on: ubuntu-latest
         outputs:
@@ -53,6 +64,9 @@ jobs:
                   predicate-quantifier: some-with-excludes
                   filters: |
                       # Changes that can affect every platform's CI.
+                      workflows: &workflows
+                        - '.github/workflows/**'
+                      # Plus the repo-level scripts, for the jobs that run them.
                       shared: &shared
                         - '.github/workflows/**'
                         - 'scripts/**'
@@ -85,18 +99,20 @@ jobs:
                         - '!packages/catalyst-ai/android/**'
                         - 'examples/error-catalog/**'
                       android:
-                        - *shared
+                        - *workflows
                         - 'packages/catalyst-core/src/native/androidProject/**'
                       ios:
-                        - *shared
+                        - *workflows
                         - 'packages/catalyst-core/src/native/iosnativeWebView/**'
+                        # Generates the localhost.p12 the app target bundles.
+                        - 'packages/catalyst-core/src/native/buildIos/localhostCert.js'
                       # The optional catalyst-ai native library: its own sources,
                       # plus the androidProject build wiring that includes and
                       # links it (settings.gradle.kts / app build.gradle.kts /
                       # version catalog) and the JS that syncs it into the build
                       # tree for an ai.enabled build.
                       ai_android:
-                        - *shared
+                        - *workflows
                         - *node_deps
                         - 'packages/catalyst-ai/android/**'
                         - 'packages/catalyst-core/src/native/androidProject/settings.gradle.kts'
@@ -146,11 +162,12 @@ jobs:
         permissions:
             contents: read
             actions: write
-        # First stage of the web chain (lint -> unit-and-contract-tests ->
-        # web-integration-smoke). Chained intentionally, not for a technical
-        # dependency between them, but to fail fast on the cheapest check
-        # first and give the PR checks graph a clear top-to-bottom shape
-        # instead of 3 jobs bunched under one identical-needs edge.
+        # The four web jobs (lint, unit-and-contract-tests,
+        # web-integration-smoke, error-catalog) run in parallel behind
+        # detect-changes. They used to be chained lint -> unit -> smoke,
+        # which put about 80s of waiting in front of the slowest job for
+        # no technical reason. A failure in any of them still cancels the
+        # rest of the run through its fail-fast step.
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -197,14 +214,9 @@ jobs:
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     unit-and-contract-tests:
-        # `lint` already `needs: detect-changes` and only runs when
-        # detect-changes.outputs.web == 'true', so needing `lint` here is
-        # enough — a redundant direct edge on detect-changes would only be
-        # there for the `if:` to read its output. Gate on `lint` succeeding
-        # instead: this job can't run unless web changed (lint skipped ⇒ this
-        # skips too).
-        needs: [lint]
-        if: needs.lint.result == 'success'
+        # Parallel with lint -- see the lint job.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
         # actions: write needed only for the release-time cache-delete step
         # below, same rationale as android-unit-and-coverage.
@@ -362,24 +374,15 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
-    # Merges what were 3 separate jobs (test-js-integration,
-    # create-catalyst-app, catalyst-ai) into one. All 3 declared the same
-    # `mcr.microsoft.com/playwright:v1.62.1-noble` container; GitHub Actions
-    # cannot share a running container across jobs (each job is a fresh VM
-    # and pulls its own container image before the job starts), so running
-    # them as 3 parallel jobs meant paying that pull 3x on every PR that
-    # touched web code. Folding them into sequential steps in one job pays
-    # it once. Trade-off: loses the parallel wall-clock and per-job failure
-    # isolation the 3-job split had -- a failure in step 1 still lets steps
-    # 2/3 report clearly in the job log, just not as 3 separate check marks.
+    # The Playwright fixture test, in the Playwright container. The
+    # create-catalyst-app and catalyst-ai checks that used to run after it
+    # in this job need no browser, so they are in scaffold-and-ai-smoke on a
+    # plain runner: they no longer wait for this container to be pulled or
+    # for the fixture test to finish.
     web-integration-smoke:
-        # Third stage of the web chain
-        # (lint -> unit-and-contract-tests -> here). unit-and-contract-tests
-        # already gates on `lint` which gates on outputs.web == 'true', so
-        # needing it succeeding is enough -- web unchanged ⇒ it skips ⇒ this
-        # skips too.
-        needs: [unit-and-contract-tests]
-        if: needs.unit-and-contract-tests.result == 'success'
+        # Parallel with the other web jobs -- see the lint job.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
         container:
             image: mcr.microsoft.com/playwright:v1.62.1-noble
@@ -389,12 +392,6 @@ jobs:
 
             - name: Build and Test (catalyst-core Playwright fixture)
               run: node -v && chmod +x ./scripts/test-catalyst-core.sh && ./scripts/test-catalyst-core.sh
-
-            - name: Scaffold and Build Smoke Test (create-catalyst-app)
-              run: chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
-
-            - name: Install and Syntax Check (catalyst-ai)
-              run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
 
             # No inline fail-fast step: this job runs in the playwright
             # container, which ships neither gh nor curl. fail-fast-smoke
@@ -418,6 +415,37 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
+    # create-catalyst-app scaffold-and-build and the catalyst-ai bundle
+    # check. Split out of web-integration-smoke -- see that job.
+    scaffold-and-ai-smoke:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
+        runs-on: ubuntu-latest
+        # actions: write for the fail-fast cancel step only -- see lint.
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version-file: ".nvmrc"
+
+            - name: Scaffold and Build Smoke Test (create-catalyst-app)
+              run: node -v && chmod +x ./scripts/test-cca-smoke.sh && ./scripts/test-cca-smoke.sh
+
+            - name: Install and Syntax Check (catalyst-ai)
+              run: chmod +x ./scripts/test-catalyst-ai.sh && ./scripts/test-catalyst-ai.sh
+
+            # Fail-fast cancel -- see the lint job for the rationale.
+            - name: Fail-fast -- cancel the rest of the run
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
+
     error-catalog:
         # Contract gate for issue #440 / Story #343: proves each in-scope
         # error code (AI-000..003 + PREFLIGHT-001..022) actually surfaces the
@@ -428,12 +456,9 @@ jobs:
         # web-integration-smoke. AI-000 (needs a live api.openai.com call) is
         # auto-skipped when CI=true — see test/scenarios.test.ts.
         #
-        # Web chain, parallel with web-integration-smoke behind
-        # unit-and-contract-tests: that job gates on `lint` which gates on
-        # outputs.web, so needing it succeeding is enough — web unchanged ⇒
-        # it skips ⇒ this skips too.
-        needs: [unit-and-contract-tests]
-        if: needs.unit-and-contract-tests.result == 'success'
+        # Parallel with the other web jobs -- see the lint job.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.web == 'true'
         runs-on: ubuntu-latest
         # actions: write for the fail-fast cancel step only -- see lint.
         permissions:
@@ -474,12 +499,10 @@ jobs:
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
     android-unit-and-coverage:
-        # Chained behind android-lint (fail-fast on the cheap check first),
-        # same shape as the web chain: android-lint already `needs:
-        # detect-changes` and only runs when outputs.android == 'true', so
-        # gating on it succeeding is enough — lint skipped ⇒ this skips too.
-        needs: [android-lint]
-        if: needs.android-lint.result == 'success'
+        # Parallel with android-lint, like the web jobs: chaining it behind
+        # lint added lint's 2-3 minutes to the Android path.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.android == 'true'
         runs-on: ubuntu-latest
         # actions: write is needed only for the release-time cache-delete
         # step below (`gh cache delete`, which is an API write). Scoped to
@@ -505,6 +528,21 @@ jobs:
                   # independently -- same key, so it picks up whatever the
                   # last default-branch push wrote.
                   cache: gradle
+
+            # Gradle build cache -- see android-release-build.
+            - name: Enable the Gradle build cache
+              run: |
+                  mkdir -p ~/.gradle
+                  echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
+            - name: Restore the Gradle build cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-unit-and-coverage-${{ github.sha }}
+                  restore-keys: |
+                      gradle-build-cache-android-unit-and-coverage-
 
             # No android-actions/setup-android step: compileSdk 34 / AGP
             # 8.11.1 are already covered by ubuntu-latest's preinstalled
@@ -618,6 +656,15 @@ jobs:
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/jacoco/jacocoTestReport
                   retention-days: 14
 
+            # always(): a job that failed after Gradle ran still has outputs
+            # worth keeping for the next pull requests.
+            - name: Save the Gradle build cache (main only)
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-unit-and-coverage-${{ github.sha }}
+
             # Fail-fast cancel -- see the lint job for the rationale.
             - name: Fail-fast -- cancel the rest of the run
               if: failure()
@@ -625,15 +672,10 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
-    # Android Lint gate -- first job in the Android chain
-    # (android-lint -> android-unit-and-coverage), mirroring the web chain
-    # (lint -> unit-and-contract-tests): fail fast on the cheap check so a
-    # lint error never pays for the coverage build. Gate contract mirrors
-    # the web `lint` job: `abortOnError = true` (already set in
-    # app/build.gradle.kts) fails the build on `error`-severity issues;
-    # warnings are reported but non-blocking. Costs a Gradle cold start
-    # (~1-2 min) up front, but a lint failure now short-circuits the ~3 min
-    # coverage job entirely.
+    # Android Lint gate, parallel with android-unit-and-coverage. Gate
+    # contract mirrors the web `lint` job: `abortOnError = true` (already
+    # set in app/build.gradle.kts) fails the build on `error`-severity
+    # issues; warnings are reported but non-blocking.
     android-lint:
         needs: detect-changes
         if: needs.detect-changes.outputs.android == 'true'
@@ -662,6 +704,21 @@ jobs:
                   # restores the same key independently -- see its comment.)
                   cache: gradle
 
+            # Gradle build cache -- see android-release-build.
+            - name: Enable the Gradle build cache
+              run: |
+                  mkdir -p ~/.gradle
+                  echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
+            - name: Restore the Gradle build cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-lint-${{ github.sha }}
+                  restore-keys: |
+                      gradle-build-cache-android-lint-
+
             - name: Android Lint (debug)
               working-directory: packages/catalyst-core/src/native/androidProject
               run: |
@@ -677,6 +734,15 @@ jobs:
                   name: android-lint-report
                   path: packages/catalyst-core/src/native/androidProject/app/build/reports/lint-results-debug.html
                   retention-days: 14
+
+            # always(): a job that failed after Gradle ran still has outputs
+            # worth keeping for the next pull requests.
+            - name: Save the Gradle build cache (main only)
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-lint-${{ github.sha }}
 
             # Fail-fast cancel -- see the lint job for the rationale. Runs
             # after the always() upload above, so the lint report is still
@@ -728,6 +794,34 @@ jobs:
                   # of the same androidProject, so the dependencies match.
                   cache: gradle
 
+            # Gradle build cache. The check builds the release twice, and each
+            # build starts with `gradlew clean`, so without it the second
+            # build recompiles everything the first just built. With
+            # org.gradle.caching on, a task whose inputs are unchanged takes
+            # its output from ~/.gradle/caches/build-cache-1 instead. Set in
+            # the runner's own gradle.properties, so what the CLI runs for an
+            # app developer is unchanged.
+            #
+            # Kept across runs the same way as the coverage baselines: pull
+            # requests restore and never save, so one cannot put task outputs
+            # in front of later runs; a push to main builds without restoring
+            # and saves, so the cache holds one build's outputs and does not
+            # grow from run to run. Every Gradle job does this with its own
+            # key, since each runs different tasks.
+            - name: Enable the Gradle build cache
+              run: |
+                  mkdir -p ~/.gradle
+                  echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
+            - name: Restore the Gradle build cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-release-build-${{ github.sha }}
+                  restore-keys: |
+                      gradle-build-cache-android-release-build-
+
             # Same install as scripts/test-catalyst-core.sh: the fixture gets
             # the tarball npm would publish, not a workspace symlink.
             - name: Install the packed local catalyst-core into the fixture
@@ -742,6 +836,15 @@ jobs:
             # ANDROID_HOME points at them.
             - name: Release build checks
               run: node scripts/native-release-check.mjs android examples/catalyst-core-test
+
+            # always(): a job that failed after Gradle ran still has outputs
+            # worth keeping for the next pull requests.
+            - name: Save the Gradle build cache (main only)
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-android-release-build-${{ github.sha }}
 
             # Fail-fast cancel -- see the lint job for the rationale.
             - name: Fail-fast -- cancel the rest of the run
@@ -891,6 +994,21 @@ jobs:
                   java-version: "17"
                   cache: gradle
 
+            # Gradle build cache -- see android-release-build.
+            - name: Enable the Gradle build cache
+              run: |
+                  mkdir -p ~/.gradle
+                  echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
+            - name: Restore the Gradle build cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-catalyst-ai-android-compile-${{ github.sha }}
+                  restore-keys: |
+                      gradle-build-cache-catalyst-ai-android-compile-
+
             - name: Sync catalyst-ai into node_modules (mirrors sync-packages --packages ai)
               run: |
                   set -euo pipefail
@@ -935,6 +1053,15 @@ jobs:
                   ./gradlew :app:processDebugMainManifest :app:compileDebugKotlin \
                     -PconfigPath=/tmp/ai-config.json --console=plain
 
+            # always(): a job that failed after Gradle ran still has outputs
+            # worth keeping for the next pull requests.
+            - name: Save the Gradle build cache (main only)
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-catalyst-ai-android-compile-${{ github.sha }}
+
             # Fail-fast cancel -- see the lint job for the rationale.
             - name: Fail-fast -- cancel the rest of the run
               if: failure()
@@ -975,6 +1102,21 @@ jobs:
                   distribution: "temurin"
                   java-version: "17"
                   cache: gradle
+
+            # Gradle build cache -- see android-release-build.
+            - name: Enable the Gradle build cache
+              run: |
+                  mkdir -p ~/.gradle
+                  echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+
+            - name: Restore the Gradle build cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-catalyst-ai-android-integration-${{ github.sha }}
+                  restore-keys: |
+                      gradle-build-cache-catalyst-ai-android-integration-
 
             - name: Install root workspace deps
               working-directory: .
@@ -1031,6 +1173,15 @@ jobs:
                     || { echo "::error::useai's androidProject did not include :catalyst-ai after an ai.enabled prep -- the JS sync path is broken"; exit 1; }
                   ./gradlew :catalyst-ai:compileDebugKotlin --console=plain
 
+            # always(): a job that failed after Gradle ran still has outputs
+            # worth keeping for the next pull requests.
+            - name: Save the Gradle build cache (main only)
+              if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.gradle/caches/build-cache-1
+                  key: gradle-build-cache-catalyst-ai-android-integration-${{ github.sha }}
+
             # Fail-fast cancel -- see the lint job for the rationale.
             - name: Fail-fast -- cancel the rest of the run
               if: failure()
@@ -1049,13 +1200,13 @@ jobs:
     # gives CoreLogic its own pass/fail check and lets it feed the
     # coverage regression gate independently of the simulator-based run.
     ios-corelogic-and-coverage:
-        # Chained behind ios-swiftlint (fail-fast on the cheap Linux lint
-        # before spending a macOS runner), same shape as the web chain:
-        # ios-swiftlint already `needs: detect-changes` and only runs when
-        # outputs.ios == 'true', so gating on it succeeding is enough —
-        # lint skipped ⇒ this skips too.
-        needs: [ios-swiftlint]
-        if: needs.ios-swiftlint.result == 'success'
+        # Parallel with ios-swiftlint and ios-app-simulator-tests. The three
+        # used to be chained, which put lint and this job (about 2 minutes
+        # together, plus two runner pickups) in front of the simulator job,
+        # the longest job in the pipeline. A lint failure still cancels the
+        # macOS jobs through fail-fast-swiftlint.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-26
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as android-unit-and-coverage.
@@ -1186,16 +1337,18 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel "${{ github.run_id }}" --repo "${{ github.repository }}"
 
-    # Full simulator-based XCTest run -- the expensive part (~9-25 min:
-    # simulator boot + full CatalystCore/UIKit build). Gated on CoreLogic
-    # passing first so a CoreLogic failure never pays for this.
+    # Simulator-based XCTest run of the app target, the longest job in the
+    # pipeline. What keeps it short:
+    #   - the simulator is picked and booted in the background while the
+    #     app compiles, instead of before it;
+    #   - compiler outputs come from Xcode's compilation cache, saved by
+    #     the last push to main;
+    #   - the tests run on that booted simulator, not on a clone of it.
     ios-app-simulator-tests:
-        # Behind ios-corelogic-and-coverage, which is itself behind
-        # ios-swiftlint — so the full iOS chain is
-        # swiftlint -> corelogic -> app-simulator. corelogic skipped
-        # (lint failed / iOS unchanged) ⇒ this skips too.
-        needs: [ios-corelogic-and-coverage]
-        if: needs.ios-corelogic-and-coverage.result == 'success'
+        # Parallel with ios-swiftlint and ios-corelogic-and-coverage -- see
+        # ios-corelogic-and-coverage.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.ios == 'true'
         runs-on: macos-26
         # actions: write needed only for the release-time cache-delete
         # step below, same rationale as the other coverage-gated jobs.
@@ -1204,6 +1357,11 @@ jobs:
             actions: write
         outputs:
             line_pct: ${{ steps.coverage.outputs.line_pct }}
+        env:
+            # Xcode's compilation cache directory (see "Restore the
+            # compilation cache" below). Outside the checkout so xcodebuild
+            # and git never see it as project content.
+            XCODE_CAS_DIR: /Users/runner/xcode-compilation-cache
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1214,47 +1372,34 @@ jobs:
             - name: Select Xcode 26.5
               run: sudo xcode-select -s /Applications/Xcode_26.5.app && xcodebuild -version
 
-            # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
-            # keyed on Package.resolved -- avoids re-fetching them from
-            # GitHub over the network on every run. Not full DerivedData
-            # caching (fragile across CI runs -- bakes in absolute paths
-            # and relies on mtimes actions/cache doesn't preserve), just
-            # the downloaded package sources/checkouts.
-            - name: Cache SPM packages
-              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: packages/catalyst-core/src/native/iosnativeWebView/.spm-cache
-                  key: spm-${{ runner.os }}-${{ hashFiles('packages/catalyst-core/src/native/iosnativeWebView/Package.resolved') }}
-                  restore-keys: |
-                      spm-${{ runner.os }}-
-
-            # Pick an available iPhone simulator at run time instead of
-            # hardcoding a device name: GitHub only keeps a small,
-            # rotating set of preinstalled simulators (~3 runtimes, and
-            # the device lineup itself moves too -- "iPhone 16" was on
-            # that set when this job was first written, then wasn't by
-            # the time it actually ran, breaking the hardcoded version).
+            # Pick an iPhone simulator and boot it, all in the background,
+            # so the step returns at once and the build below starts while
+            # CoreSimulator is still waking up (the first simctl call took
+            # about a minute on this runner, the cold boot about 2.5). The
+            # build targets the generic simulator destination, so it does
+            # not need to know which device this picks. "Wait for the
+            # simulator" below collects the result.
             #
-            # Uses `xcrun simctl list devices available -j` instead of
-            # `xcodebuild -showdestinations`: the latter has to load the
-            # Xcode project and can trigger SPM package resolution before
-            # it prints anything, so on a cold SPM cache it can stall for
-            # 30s+ and (with output piped through `2>/dev/null`) fail
-            # with no visible reason. simctl talks only to CoreSimulator
-            # -- no project load, no package resolution -- and returns
-            # structured JSON instead of text scraped with grep/sed.
-            - name: Pick an available iOS simulator
-              id: sim
+            # The device is picked at run time instead of hardcoding a
+            # name: GitHub only keeps a small, rotating set of preinstalled
+            # simulators, and a hardcoded "iPhone 16" has already gone
+            # missing once. `simctl list -j` rather than
+            # `xcodebuild -showdestinations`, which loads the project and
+            # can stall on package resolution.
+            #
+            # "e"-suffixed models (iPhone 16e, 17e, ...) are excluded: one
+            # picked in an earlier CI run took over 2 minutes to connect
+            # and then failed loading the test bundle. Newest iOS runtime
+            # first, then the first matching device within it.
+            # Not `erase`-ing first: the runner is a fresh ephemeral VM.
+            - name: Pick and boot an iOS simulator (background)
               run: |
-                  set -o pipefail
-                  # Filter to available iPhone simulators, excluding
-                  # "e"-suffixed models (iPhone 16e, 17e, ...) -- the
-                  # budget/economy line. One picked in an earlier CI run
-                  # took >2 minutes just to connect over lockdown and
-                  # then still failed loading the UI test bundle;
-                  # standard models haven't shown that flakiness here.
-                  # Prefer the newest iOS runtime available, then the
-                  # first matching device within it.
+                  mkdir -p "$RUNNER_TEMP/sim"
+                  cat > "$RUNNER_TEMP/sim/boot.sh" <<'EOF'
+                  #!/bin/bash
+                  set -uo pipefail
+                  OUT="$1"
+                  fail() { echo "$1"; echo failed > "$OUT/status"; exit 1; }
                   RESULT=$(xcrun simctl list devices available -j | jq -r '
                     .devices
                     | to_entries
@@ -1264,32 +1409,67 @@ jobs:
                     | flatten
                     | .[0]
                     | if . == null then "" else (.udid + "\t" + .name) end
-                  ')
+                  ') || fail "simctl list failed"
                   if [ -z "$RESULT" ]; then
-                    echo "::error::No available iOS Simulator with an iPhone destination found on this runner"
                     xcrun simctl list devices available
-                    exit 1
+                    fail "No available iOS Simulator with an iPhone destination found on this runner"
                   fi
                   UDID=$(echo "$RESULT" | cut -f1)
-                  NAME=$(echo "$RESULT" | cut -f2)
-                  echo "id=$UDID" >> "$GITHUB_OUTPUT"
-                  echo "Selected simulator: $NAME ($UDID)"
+                  echo "Selected simulator: $(echo "$RESULT" | cut -f2) ($UDID)"
+                  # `boot` fails when the device is already booted; bootstatus
+                  # -b is the check that matters.
+                  xcrun simctl boot "$UDID" || true
+                  xcrun simctl bootstatus "$UDID" -b || fail "simulator $UDID did not boot"
+                  echo "$UDID" > "$OUT/udid"
+                  echo ok > "$OUT/status"
+                  EOF
+                  chmod +x "$RUNNER_TEMP/sim/boot.sh"
+                  nohup "$RUNNER_TEMP/sim/boot.sh" "$RUNNER_TEMP/sim" > "$RUNNER_TEMP/sim/boot.log" 2>&1 &
 
-            # Boot the simulator explicitly and wait for it to be fully
-            # ready before xcodebuild runs any tests against it. Without
-            # this, the cold boot happens implicitly inside the
-            # `xcodebuild test` step (locally this is the "Simulator.app
-            # opening" you see; headlessly on the CI runner it's the
-            # same cost, just invisible) -- folding it into the test step
-            # hides how much of the job's wall-clock time is boot vs.
-            # actual test execution. Not `erase`-ing first: the runner
-            # is a fresh ephemeral VM already, so erase only adds time
-            # without changing anything.
-            - name: Boot iOS simulator
-              run: |
-                  xcrun simctl boot "${{ steps.sim.outputs.id }}"
-                  xcrun simctl bootstatus "${{ steps.sim.outputs.id }}" -b
+            # Cache resolved SPM packages (AppAuth, GoogleSignIn, etc.)
+            # keyed on Package.resolved -- avoids re-fetching them from
+            # GitHub over the network on every run.
+            - name: Cache SPM packages
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: packages/catalyst-core/src/native/iosnativeWebView/.spm-cache
+                  key: spm-${{ runner.os }}-${{ hashFiles('packages/catalyst-core/src/native/iosnativeWebView/Package.resolved') }}
+                  restore-keys: |
+                      spm-${{ runner.os }}-
 
+            # Xcode 26's compilation cache stores each compiler output under
+            # a hash of its inputs, so a compile whose inputs are unchanged
+            # is copied out of the cache instead of run. That is what makes
+            # it safe to keep across runs where DerivedData is not: nothing
+            # depends on file times or on what an earlier build left behind.
+            # Most of this build is the Google Sign-In, AppAuth and GTM
+            # packages, which change only when Package.resolved does.
+            #
+            # Pull requests restore and never save; a push to main builds
+            # without restoring and saves, so the cache holds one build's
+            # outputs and does not grow from run to run.
+            - name: Restore the compilation cache
+              if: github.event_name == 'pull_request'
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ${{ env.XCODE_CAS_DIR }}
+                  key: xcode-cas-26.5-${{ github.sha }}
+                  restore-keys: |
+                      xcode-cas-26.5-
+
+            # localhost.p12 (the in-app HTTPS server's self-signed identity) is
+            # generated per build and not committed; the app target bundles
+            # it, so create one before Xcode builds.
+            - name: Generate localhost.p12
+              run: node packages/catalyst-core/src/native/buildIos/localhostCert.js
+
+            # Build and test are separate xcodebuild calls so the log shows
+            # how long each takes.
+            #
+            # generic/platform=iOS Simulator with ARCHS=arm64: build for the
+            # simulator without naming a device (it is still booting), and
+            # for the runner's own architecture only -- a generic
+            # destination would otherwise build x86_64 as well.
             # CODE_SIGNING_ALLOWED=NO skips signing entirely -- there's no
             # device to install a signed build on, only the simulator.
             # -only-testing:iosnativeWebViewTests scopes the run to the
@@ -1298,46 +1478,91 @@ jobs:
             # instrumented UI testing (Tier 2, explicitly out of scope
             # for #414) and failed to even load its bundle in CI.
             #
-            # -parallel-testing-enabled is deliberately OFF: it caused
-            # two pre-existing, timing-sensitive tests (a permission
-            # callback wait, a concurrent-logging expectation -- neither
-            # touched by this change) to flake under CPU contention from
-            # multiple simulator clones on a shared CI runner, without
-            # actually delivering the speed win it's meant to (16-25 min
-            # in CI either way, vs ~91s measured locally without it).
+            # -disableAutomaticPackageResolution -skipPackageUpdates: use
+            # the versions in the committed Package.resolved and the
+            # checkouts restored into .spm-cache, without asking GitHub
+            # whether newer ones exist. A Package.resolved that is out of
+            # step with the manifest fails the build here instead of being
+            # rewritten.
+            # COMPILER_INDEX_STORE_ENABLE=NO: no editor reads the index on
+            # a CI runner, so do not spend compile time writing it.
+            - name: Build iosnativeWebViewTests
+              working-directory: packages/catalyst-core/src/native/iosnativeWebView
+              run: |
+                  set -o pipefail
+                  xcodebuild build-for-testing \
+                    -project iosnativeWebView.xcodeproj \
+                    -scheme iosnativeWebView \
+                    -destination "generic/platform=iOS Simulator" \
+                    -only-testing:iosnativeWebViewTests \
+                    -clonedSourcePackagesDirPath .spm-cache \
+                    -disableAutomaticPackageResolution \
+                    -skipPackageUpdates \
+                    -enableCodeCoverage YES \
+                    ARCHS=arm64 \
+                    COMPILATION_CACHE_ENABLE_CACHING=YES \
+                    COMPILATION_CACHE_CAS_PATH="$XCODE_CAS_DIR" \
+                    COMPILER_INDEX_STORE_ENABLE=NO \
+                    CODE_SIGNING_ALLOWED=NO \
+                    | xcbeautify --renderer github-actions
+
+            # Collect the background step's result: up to 10 minutes for the
+            # boot to finish, then its log either way.
+            - name: Wait for the simulator
+              id: sim
+              run: |
+                  for _ in $(seq 1 300); do
+                    [ -f "$RUNNER_TEMP/sim/status" ] && break
+                    sleep 2
+                  done
+                  cat "$RUNNER_TEMP/sim/boot.log" || true
+                  if [ "$(cat "$RUNNER_TEMP/sim/status" 2>/dev/null)" != "ok" ]; then
+                    echo "::error::The iOS simulator was not ready (see the log above)"
+                    exit 1
+                  fi
+                  echo "id=$(cat "$RUNNER_TEMP/sim/udid")" >> "$GITHUB_OUTPUT"
+
+            # -parallel-testing-enabled NO: the test plan marks the target
+            # parallelizable, and with that xcodebuild does not use the
+            # simulator booted above -- it creates "Clone 1 of <device>",
+            # boots that as well and runs the tests there. One clone runs
+            # nothing in parallel, so this only removes the second boot.
+            # Running several clones was tried and made two
+            # timing-sensitive tests (a permission callback wait, a
+            # concurrent-logging expectation) flake on this runner.
             # -enableCodeCoverage YES + -resultBundlePath: xcodebuild
             # writes an .xcresult bundle carrying per-target line coverage,
             # parsed below via `xcrun xccov`. resultBundlePath must not
             # already exist, which is guaranteed here (fresh checkout).
-            # localhost.p12 (the in-app HTTPS server's self-signed identity) is
-            # generated per build and not committed; the app target bundles
-            # it, so create one before Xcode builds.
-            - name: Generate localhost.p12
-              run: node packages/catalyst-core/src/native/buildIos/localhostCert.js
-
             - name: Run iosnativeWebViewTests (Tier 1 XCTest unit tests)
               working-directory: packages/catalyst-core/src/native/iosnativeWebView
               run: |
                   set -o pipefail
-                  # --quieter was removed: on a real failure it printed only
-                  # a one-line "##[error] <test name> (N seconds)" with no
-                  # assertion detail, forcing a local repro to find the
-                  # actual cause every time (confirmed directly -- a failure
-                  # in this job's CI log gave no more than that one line).
-                  # Without --quieter, xcbeautify still collapses per-file
-                  # "Compiling" noise but prints the full XCTest failure
-                  # message (assertion, expected/actual, file:line) inline
-                  # in the CI log.
-                  xcodebuild test \
+                  # No --quieter: on a failure it printed only a one-line
+                  # "##[error] <test name> (N seconds)" with no assertion
+                  # detail. Without it xcbeautify prints the full XCTest
+                  # failure message (assertion, expected/actual, file:line).
+                  xcodebuild test-without-building \
                     -project iosnativeWebView.xcodeproj \
                     -scheme iosnativeWebView \
                     -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
                     -only-testing:iosnativeWebViewTests \
                     -clonedSourcePackagesDirPath .spm-cache \
+                    -disableAutomaticPackageResolution \
+                    -skipPackageUpdates \
+                    -parallel-testing-enabled NO \
                     -enableCodeCoverage YES \
                     -resultBundlePath TestResults.xcresult \
-                    CODE_SIGNING_ALLOWED=NO \
                     | xcbeautify --renderer github-actions
+
+            # Saved before the coverage gate below so a coverage failure on
+            # main does not also cost the next pull requests their cache.
+            - name: Save the compilation cache (main only)
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ${{ env.XCODE_CAS_DIR }}
+                  key: xcode-cas-26.5-${{ github.sha }}
 
             # xccov's report JSON has one entry per built target (app,
             # unit test bundle, UI test bundle) -- filter to the app
@@ -1437,7 +1662,24 @@ jobs:
     # because a skipped platform (e.g. an android-only PR, where the iOS
     # and web jobs never run) must still count as fine here, not failure.
     coverage-summary:
-        needs: [detect-changes, lint, unit-and-contract-tests, web-integration-smoke, error-catalog, android-lint, android-unit-and-coverage, catalyst-ai-android-compile, catalyst-ai-android-integration, ios-swiftlint, ios-corelogic-and-coverage, ios-app-simulator-tests, android-release-build, ios-release-archive]
+        needs:
+            [
+                detect-changes,
+                lint,
+                unit-and-contract-tests,
+                web-integration-smoke,
+                scaffold-and-ai-smoke,
+                error-catalog,
+                android-lint,
+                android-unit-and-coverage,
+                catalyst-ai-android-compile,
+                catalyst-ai-android-integration,
+                ios-swiftlint,
+                ios-corelogic-and-coverage,
+                ios-app-simulator-tests,
+                android-release-build,
+                ios-release-archive,
+            ]
         if: always()
         runs-on: ubuntu-latest
         # Reads only the needs.* results and outputs: no checkout, no API calls.
@@ -1450,6 +1692,7 @@ jobs:
                   lint_status="${{ needs.lint.result }}"
                   web_status="${{ needs.unit-and-contract-tests.result }}"
                   web_smoke_status="${{ needs.web-integration-smoke.result }}"
+                  scaffold_smoke_status="${{ needs.scaffold-and-ai-smoke.result }}"
                   error_catalog_status="${{ needs.error-catalog.result }}"
                   android_lint_status="${{ needs.android-lint.result }}"
                   android_status="${{ needs.android-unit-and-coverage.result }}"
@@ -1479,6 +1722,7 @@ jobs:
                   echo "Coverage summary:"
                   report_platform "web (js unit tests, 3 workspaces aggregated)" "$web_status" "$web_pct"
                   report_platform "web-integration-smoke (not a coverage platform, pass/fail only)" "$web_smoke_status" ""
+                  report_platform "scaffold-and-ai-smoke (create-catalyst-app + catalyst-ai checks, pass/fail only)" "$scaffold_smoke_status" ""
                   report_platform "error-catalog (error-contract gate, pass/fail only)" "$error_catalog_status" ""
                   report_platform "android-lint (Android Lint gate, pass/fail only)" "$android_lint_status" ""
                   report_platform "android (jacoco)" "$android_status" "$android_pct"
@@ -1502,7 +1746,7 @@ jobs:
                   fi
 
                   fail=0
-                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status" "android-release-build:$android_release_status" "ios-release-archive:$ios_release_status"; do
+                  for pair in "lint:$lint_status" "web:$web_status" "web-integration-smoke:$web_smoke_status" "scaffold-and-ai-smoke:$scaffold_smoke_status" "error-catalog:$error_catalog_status" "android-lint:$android_lint_status" "android:$android_status" "catalyst-ai-android-compile:$ai_android_compile_status" "catalyst-ai-android-integration:$ai_android_integration_status" "ios-swiftlint:$ios_swiftlint_status" "ios-corelogic:$ios_corelogic_status" "ios-app:$ios_app_status" "android-release-build:$android_release_status" "ios-release-archive:$ios_release_status"; do
                     platform="${pair%%:*}"
                     status="${pair#*:}"
                     if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -1517,19 +1761,13 @@ jobs:
                   echo "Coverage OK on every platform that reported it (or not applicable to this PR)."
 
     docs:
-        # docs/** is independent of every test/coverage job's own logic,
-        # but depends only on coverage-summary now (not the individual
-        # jobs it aggregates) -- one join point instead of five, and it
-        # means docs always builds against a pipeline that has already
-        # been confirmed not to have regressed/failed anywhere, rather
-        # than racing ahead of jobs it doesn't otherwise relate to.
-        # `if: always()` is still required: coverage-summary itself runs
-        # unconditionally (`if: always()`), but on a docs-only PR every
-        # job it depends on is skipped -- without `always()` here, GitHub
-        # would treat a skipped (not failed) upstream as unmet and skip
-        # docs too, even though the docs-changed filter says it should run.
-        needs: [detect-changes, coverage-summary]
-        if: always() && needs.detect-changes.outputs.docs == 'true'
+        # Runs in parallel with everything else, behind detect-changes
+        # only. It used to wait for coverage-summary, which put its ~3
+        # minutes after the slowest job of the run although nothing in it
+        # depends on the test or coverage jobs. It stays its own check and
+        # is not part of coverage-summary, as before.
+        needs: detect-changes
+        if: needs.detect-changes.outputs.docs == 'true'
         runs-on: ubuntu-latest
 
         steps:
@@ -1583,16 +1821,31 @@ jobs:
                   fi
                   exit $status
 
-            # The Devtron deploy gate scans the built IMAGE, which lockfile
-            # scans, npm audit and semgrep never see: npm's vendored
-            # dependencies, the Go binary esbuild ships, and the Alpine
-            # packages. Build the same image and apply the gate's rule (no
-            # fixable High/Critical). Medium/Low are listed for visibility but
-            # do not fail here, because new advisories would turn a docs PR
-            # red on a day it touched nothing.
+    # The Devtron deploy gate scans the built IMAGE, which lockfile scans,
+    # npm audit and semgrep never see: npm's vendored dependencies, the Go
+    # binary esbuild ships, and the Alpine packages. Build the same image
+    # and apply the gate's rule (no fixable High/Critical). Medium/Low are
+    # listed for visibility but do not fail here, because new advisories
+    # would turn a docs PR red on a day it touched nothing.
+    #
+    # Its own job, parallel with `docs`: the image build and scan share
+    # nothing with the build-and-serve check there, and were about two of
+    # that job's three minutes.
+    docs-image-scan:
+        needs: detect-changes
+        if: needs.detect-changes.outputs.docs == 'true'
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            # The cache mount keeps Trivy's vulnerability databases between
+            # the two scans; each `docker run --rm` otherwise starts empty
+            # and downloads them again.
             - name: Scan the docs image (deploy-gate parity)
               run: |
                   docker build --pull -f docs/Dockerfile -t catalyst-docs:ci .
-                  TRIVY="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/aquasecurity/trivy:0.70.0 image --scanners vuln --ignore-unfixed --skip-version-check"
+                  mkdir -p "$RUNNER_TEMP/trivy-cache"
+                  TRIVY="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $RUNNER_TEMP/trivy-cache:/root/.cache/trivy ghcr.io/aquasecurity/trivy:0.70.0 image --scanners vuln --ignore-unfixed --skip-version-check"
                   $TRIVY --severity LOW,MEDIUM catalyst-docs:ci || true
                   $TRIVY --severity HIGH,CRITICAL --exit-code 1 catalyst-docs:ci
