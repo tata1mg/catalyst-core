@@ -128,6 +128,7 @@ test("a late redirect is replayed only for relative and http(s) URLs", () => {
         "\u0001javascript:alert(1)",
         "data:text/html,<script>alert(1)</script>",
         "vbscript:x",
+        "http://[not-a-host",
         "",
         undefined,
     ]) {

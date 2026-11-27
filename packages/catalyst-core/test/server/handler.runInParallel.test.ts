@@ -59,6 +59,10 @@ const hooks = {
     }),
     onRenderError: undefined,
     onRequestError: undefined,
+    // vitest throws on reading an export the factory leaves out, and the handler reads every hook.
+    getPPRShellKey: undefined,
+    getPPRPreloadKey: undefined,
+    beforePPRFlush: undefined,
 }
 
 // Same contract as withObservability in src/otel.js: a throw marks the span

@@ -664,6 +664,64 @@ describe("SSR handler — PPR and static routes with CSP_NONCE_ENABLE and runInP
         expect(page.html).toContain("window.__STATUS_CODE__=502")
     })
 
+    it("rebuilds the shell once the route learns deferred CSS the shell does not have", async () => {
+        const routes: any = await import("./fixtures/template/src/js/routes/index.jsx")
+        // USER_A's split() widget has its own CSS: the first render learns it for the route.
+        vi.doMock("../../src/server/manifestCache.js", () => ({
+            getManifest: () => ({
+                [routes.userWidgetKey(USER_A.user)]: { file: "widget-a.js", css: ["widget-a.css"] },
+            }),
+            getAssetManifest: () => ({}),
+            getIntegrityManifest: () => ({}),
+        }))
+        const get = await load()
+        const first = await get("/ppr-split", { cookies: USER_A })
+        const second = await get("/ppr-split", { cookies: USER_A })
+        const third = await get("/ppr-split", { cookies: USER_A })
+        expect([first.mode, second.mode, third.mode]).toEqual(["ppr-miss", "ppr-miss", "ppr-hit"])
+        vi.doUnmock("../../src/server/manifestCache.js")
+    })
+
+    it("ends the response and reports onRenderError when writing the shell fails", async () => {
+        const onRenderError = vi.fn()
+        mockHooks({ onRenderError })
+        let release!: () => void
+        await parallelWork(() => new Promise<void>((resolve) => (release = resolve)))
+        const get = await load()
+        const { req, res } = makeReqRes("/ppr", { cookies: USER_A })
+        const write = res.write.bind(res)
+        let writes = 0
+        res.write = (...args: any[]) => {
+            const result = write(...args)
+            if (++writes === 1) throw new Error("socket gone")
+            return result
+        }
+        let returned = false
+        const handled = get.handlerModule.default(req, res).then(() => (returned = true))
+        await res.waitForEnd()
+        // The response is closed, but the request waits for its registered work.
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        expect(returned).toBe(false)
+        release()
+        await handled
+        expect(res.writableEnded).toBe(true)
+        expect(onRenderError).toHaveBeenCalledWith(
+            expect.objectContaining({ error: expect.objectContaining({ message: "socket gone" }) })
+        )
+    })
+
+    it("writes nothing more on a static cache hit when runInParallel work sent the response", async () => {
+        const spy = await parallelWork(() => Promise.resolve())
+        const get = await load()
+        expect((await get("/static")).mode).toBe("static-cache-miss")
+        spy.mockImplementation(async ({ res, runInParallel }: any) =>
+            runInParallel(Promise.resolve().then(() => res.end("redirected")))
+        )
+        const page = await get("/static")
+        expect(page.mode).toBeUndefined()
+        expect(page.html).toBe("redirected")
+    })
+
     it("does not replay a cached static page when runInParallel work fails", async () => {
         const onAppServerSideError = vi.fn()
         mockHooks({ onAppServerSideError })
