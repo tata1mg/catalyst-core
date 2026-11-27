@@ -6,6 +6,37 @@ id: 0.0.1-beta.4
 
 # Catalyst Version Upgrades
 
+## Upgrading From 1.3.0 To 1.3.1
+
+`1.3.1` adds script integrity behind a flag. Nothing changes until you turn it on.
+
+```bash
+npm install catalyst-core@1.3.1
+```
+
+`SCRIPT_INTEGRITY_ENABLE: true` adds `integrity` to the script tags Catalyst renders. It is read at build time, so rebuild after turning it on. Read the limits in [Security](/content/Best%20Practices/security#subresource-integrity) first: scripts loaded through imports are not checked.
+
+## Upgrading From 1.2.x To 1.3.0
+
+`1.3.0` adds a CSP nonce, `runInParallel` in `App.serverSideFunction`, OpenTelemetry error sampling, `OFFLINE_SNAPSHOTS_ENABLE` and a location permission for universal apps. The public API has no breaking changes, and every new feature is off until you turn it on.
+
+```bash
+npm install catalyst-core@1.3.0
+```
+
+Three behaviours changed. Check each one against your app:
+
+- A `server/index.js` that exists but fails to import now stops startup with the import error. Before 1.3.0 the file was skipped and the server started without your hooks. If `catalyst start` or `catalyst serve` now exits at startup, fix the import the error names.
+- `<script type="application/ld+json">` passed to `setMetaData` renders in the page body, where `MetaTag` sits, instead of in `<head>`. Search engines read JSON-LD from either place. Code or tests that look for it with a `head` selector need updating.
+- Route-data cache keys are HTML-escaped, so `&` becomes `&amp;`. Server and client compute them the same way. This matters only to code that builds a key by hand.
+
+Two fixes can also change what you see:
+
+- `preServerInit` runs again for apps whose `server/index.js` imports an alias from `_moduleAliases`. Since 1.1.0 the hook was skipped for those apps without a message, so work in it, such as `Otel.init`, starts running after the upgrade.
+- `MetaTag` is the only owner of the tags from `setMetaData`, apart from the title. The server no longer renders them twice.
+
+If you turn on `CSP_NONCE_ENABLE` and set the `Content-Security-Policy` header from a middleware, generate the nonce in that middleware and assign it to `res.locals.cspNonce`. Catalyst sets its own value after the app's middlewares have run, so a middleware that only reads it gets `undefined`.
+
 ## Upgrading From 1.2.0 To 1.2.1
 
 `1.2.1` adds `openInBrowser(url)` to `useIntent()` and an `X-App-Info` request header to the native apps. Web-only apps have nothing to change.

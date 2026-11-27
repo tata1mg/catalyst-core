@@ -3,9 +3,23 @@ import path from "path"
 
 let manifest = null
 let assetManifest = null
+let integrityManifest: Record<string, string> = {}
 let loaded = false
 
 const isProduction = process.env.NODE_ENV === "production"
+const isScriptIntegrityEnabled = [true, "true"].includes(process.env.SCRIPT_INTEGRITY_ENABLE as any)
+
+// integrity.json is keyed by build file path. Scripts are rendered by URL, so
+// re-key it with the same public path ChunkExtractor uses to build those URLs.
+function toUrlKeys(files: Record<string, string>) {
+    const baseUrl = `${process.env.PUBLIC_STATIC_ASSET_URL || ""}${process.env.PUBLIC_STATIC_ASSET_PATH || ""}`
+    const publicPath = `${baseUrl.replace(/\/+$/, "")}/`
+    const byUrl: Record<string, string> = {}
+    for (const [file, integrity] of Object.entries(files || {})) {
+        byUrl[`${publicPath}${file.replace(/^\/+/, "")}`] = integrity
+    }
+    return byUrl
+}
 
 function loadManifests() {
     if (loaded) return
@@ -28,9 +42,32 @@ function loadManifests() {
         loaded = false
         console.warn("Could not load build manifests:", error.message)
     }
+
+    // Kept apart from the manifests above: a build made before the flag was
+    // turned on has no integrity.json, and that must not pass without a message.
+    if (isScriptIntegrityEnabled) {
+        const integrityPath = path.join(buildPath, ".vite", "integrity.json")
+        try {
+            integrityManifest = toUrlKeys(JSON.parse(fs.readFileSync(integrityPath, "utf-8")))
+        } catch (error) {
+            // Constant message; the path and the error are passed as arguments.
+            console.warn(
+                "SCRIPT_INTEGRITY_ENABLE is on but the integrity file could not be loaded, so scripts are served without integrity. Rebuild with the flag on.",
+                integrityPath,
+                error.message
+            )
+        }
+    }
 }
 
 loadManifests()
 
 export const getManifest = () => manifest
 export const getAssetManifest = () => assetManifest
+
+/**
+ * Subresource Integrity hashes keyed by script URL, from the build's
+ * `.vite/integrity.json`. Empty unless SCRIPT_INTEGRITY_ENABLE is true and the
+ * build wrote the file.
+ */
+export const getIntegrityManifest = () => integrityManifest
