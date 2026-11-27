@@ -31,6 +31,7 @@ These keys are optional:
 |-----|------|---------|---------|
 | `CSP_NONCE_ENABLE` | `boolean` | `false` | Adds a per-request CSP nonce to every script tag Catalyst renders (not CSS). See [Security](/content/Best%20Practices/security) |
 | `SCRIPT_INTEGRITY_ENABLE` | `boolean` | `false` | Adds Subresource Integrity hashes to the script and modulepreload tags Catalyst renders in the document. Scripts loaded through imports are not covered. Rebuild after changing it. See [Security](/content/Best%20Practices/security) |
+| `STABLE_CHUNK_NAMES_ENABLE` | `boolean` | `false` | Keeps a JS chunk's file name the same across builds when its own code is unchanged, so returning visitors keep it in cache after a release. Lazy imports inside shared chunks look up the current file name in a table in the entry chunk. Rebuild after changing it |
 | `OFFLINE_SNAPSHOTS_ENABLE` | `boolean` | `true` | Set to `false` to skip Catalyst's service worker and offline manifest, e.g. when the app ships its own service worker. See [Route Offline Snapshots](/content/Core%20Concepts/route-offline-snapshots) |
 
 ## Client-Exposed Environment Variables

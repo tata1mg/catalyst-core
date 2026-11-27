@@ -6,6 +6,7 @@ import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 import { scriptIntegrityPlugin } from "./script-integrity-plugin.js"
+import { isStableChunkNamesEnabled, stableChunkNamesPlugin } from "./stable-chunk-names-plugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 
 const createClientConfig = async () => {
@@ -23,6 +24,10 @@ const createClientConfig = async () => {
                 publicPath: `${process.env.PUBLIC_STATIC_ASSET_URL}${process.env.PUBLIC_STATIC_ASSET_PATH}/client/assets/`,
             }),
             injectCacheKeyPlugin(),
+            // Keeps a chunk's file name unchanged across builds when its own code is unchanged.
+            ...(isStableChunkNamesEnabled(process.env.STABLE_CHUNK_NAMES_ENABLE)
+                ? [stableChunkNamesPlugin()]
+                : []),
             ...(customViteConfig?.clientPlugins || []),
             // Hashes the built JS. It waits for the other plugins' closeBundle hooks.
             scriptIntegrityPlugin(),

@@ -78,6 +78,7 @@
         "cookie-parser": "^1.4.6",
         "express": "^4.22.3",
         "express-static-gzip": "^2.1.7",
+        "magic-string": "^0.30.21",
         "react": "19.0.0",
         "react-dom": "19.0.0",
         "react-redux": "^9.2.0",
