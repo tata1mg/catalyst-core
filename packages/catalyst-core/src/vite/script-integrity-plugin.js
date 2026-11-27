@@ -31,7 +31,8 @@ export const collectScriptIntegrity = (buildDir, viteManifest = {}) => {
         if (typeof file !== "string" || !/\.m?js$/.test(file) || integrity[file]) continue
         // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - file comes from the Vite build manifest written by this build, never from a request.
         const filePath = path.join(buildDir, file)
-        if (!fs.existsSync(filePath)) continue
+        // A file the manifest lists but the build did not write throws here and
+        // fails the build, so no script ships without the hash the flag promises.
         integrity[file] = hashFile(filePath)
     }
     return integrity
@@ -40,28 +41,36 @@ export const collectScriptIntegrity = (buildDir, viteManifest = {}) => {
 export function scriptIntegrityPlugin() {
     return {
         name: "script-integrity",
+        // Rollup runs closeBundle hooks in parallel. Sorting this one last and
+        // making it sequential waits for every other plugin's closeBundle, so a
+        // plugin that rewrites JS there has finished before the files are hashed.
+        enforce: "post",
 
-        // Runs after the bundle and manifest.json are on disk.
-        closeBundle() {
-            const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
-            const outputPath = path.join(buildDir, ".vite", INTEGRITY_FILE)
+        closeBundle: {
+            order: "post",
+            sequential: true,
+            // Runs after the bundle and manifest.json are on disk.
+            handler() {
+                const buildDir = path.join(process.env.src_path, process.env.BUILD_OUTPUT_PATH || "build")
+                const outputPath = path.join(buildDir, ".vite", INTEGRITY_FILE)
 
-            // The build directory is not emptied between builds, so a file from
-            // an earlier build with the flag on must not outlive the flag.
-            if (!isScriptIntegrityEnabled(process.env.SCRIPT_INTEGRITY_ENABLE)) {
-                fs.rmSync(outputPath, { force: true })
-                return
-            }
+                // The build directory is not emptied between builds, so a file from
+                // an earlier build with the flag on must not outlive the flag.
+                if (!isScriptIntegrityEnabled(process.env.SCRIPT_INTEGRITY_ENABLE)) {
+                    fs.rmSync(outputPath, { force: true })
+                    return
+                }
 
-            const manifestPath = path.join(buildDir, ".vite", "manifest.json")
-            // A missing manifest means the bundle itself failed; that error is reported elsewhere.
-            if (!fs.existsSync(manifestPath)) return
+                const manifestPath = path.join(buildDir, ".vite", "manifest.json")
+                // A missing manifest means the bundle itself failed; that error is reported elsewhere.
+                if (!fs.existsSync(manifestPath)) return
 
-            const viteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
-            fs.writeFileSync(
-                outputPath,
-                JSON.stringify(collectScriptIntegrity(buildDir, viteManifest), null, 2)
-            )
+                const viteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+                fs.writeFileSync(
+                    outputPath,
+                    JSON.stringify(collectScriptIntegrity(buildDir, viteManifest), null, 2)
+                )
+            },
         },
     }
 }

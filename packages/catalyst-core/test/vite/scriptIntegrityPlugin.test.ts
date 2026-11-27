@@ -18,10 +18,13 @@ describe("script-integrity plugin", () => {
     let savedEnv: NodeJS.ProcessEnv
 
     const viteManifest = {
-        "client/index.js": { file: "client/assets/main-abc.js", isEntry: true, css: ["client/assets/css/main.css"] },
+        "client/index.js": {
+            file: "client/assets/main-abc.js",
+            isEntry: true,
+            css: ["client/assets/css/main.css"],
+        },
         "_vendor.js": { file: "client/assets/vendor-def.js" },
         "src/logo.svg": { file: "client/assets/logo.svg" },
-        "_gone.js": { file: "client/assets/gone.js" },
     }
 
     beforeEach(() => {
@@ -42,10 +45,15 @@ describe("script-integrity plugin", () => {
     })
 
     const setEnv = (flag: unknown) => {
-        process.env = { ...process.env, src_path: tmp, BUILD_OUTPUT_PATH: "build", SCRIPT_INTEGRITY_ENABLE: flag } as any
+        process.env = {
+            ...process.env,
+            src_path: tmp,
+            BUILD_OUTPUT_PATH: "build",
+            SCRIPT_INTEGRITY_ENABLE: flag,
+        } as any
     }
 
-    it("treats only true and \"true\" as enabled", () => {
+    it('treats only true and "true" as enabled', () => {
         expect(isScriptIntegrityEnabled(true)).toBe(true)
         expect(isScriptIntegrityEnabled("true")).toBe(true)
         expect(isScriptIntegrityEnabled(undefined)).toBe(false)
@@ -53,16 +61,28 @@ describe("script-integrity plugin", () => {
         expect(isScriptIntegrityEnabled("false")).toBe(false)
     })
 
-    it("hashes the JS files in the manifest and skips non-JS and missing files", () => {
+    it("hashes the JS files in the manifest and skips non-JS files", () => {
         expect(collectScriptIntegrity(buildDir, viteManifest)).toEqual({
             "client/assets/main-abc.js": sha384("console.log('main')"),
             "client/assets/vendor-def.js": sha384("console.log('vendor')"),
         })
     })
 
+    it("throws when the manifest lists a JS file that is not on disk", () => {
+        const manifest = { ...viteManifest, "_gone.js": { file: "client/assets/gone.js" } }
+        expect(() => collectScriptIntegrity(buildDir, manifest)).toThrow(/gone\.js/)
+    })
+
+    it("runs last and waits for the other plugins' closeBundle hooks", () => {
+        const plugin = scriptIntegrityPlugin()
+        expect(plugin.enforce).toBe("post")
+        expect(plugin.closeBundle.order).toBe("post")
+        expect(plugin.closeBundle.sequential).toBe(true)
+    })
+
     it("writes .vite/integrity.json on closeBundle when the flag is on", () => {
         setEnv(true)
-        scriptIntegrityPlugin().closeBundle()
+        scriptIntegrityPlugin().closeBundle.handler()
         expect(JSON.parse(fs.readFileSync(integrityPath, "utf8"))).toEqual({
             "client/assets/main-abc.js": sha384("console.log('main')"),
             "client/assets/vendor-def.js": sha384("console.log('vendor')"),
@@ -72,14 +92,14 @@ describe("script-integrity plugin", () => {
     it("writes nothing when the flag is off, and removes a file left by an earlier build", () => {
         fs.writeFileSync(integrityPath, JSON.stringify({ "client/assets/old.js": "sha384-old" }))
         setEnv(false)
-        scriptIntegrityPlugin().closeBundle()
+        scriptIntegrityPlugin().closeBundle.handler()
         expect(fs.existsSync(integrityPath)).toBe(false)
     })
 
     it("does nothing when the build produced no manifest", () => {
         fs.rmSync(path.join(buildDir, ".vite", "manifest.json"))
         setEnv(true)
-        expect(() => scriptIntegrityPlugin().closeBundle()).not.toThrow()
+        expect(() => scriptIntegrityPlugin().closeBundle.handler()).not.toThrow()
         expect(fs.existsSync(integrityPath)).toBe(false)
     })
 })

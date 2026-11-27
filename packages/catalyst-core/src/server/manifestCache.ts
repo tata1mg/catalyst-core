@@ -30,7 +30,6 @@ function loadManifests() {
     try {
         const manifestPath = path.join(buildPath, ".vite", "manifest.json")
         const assetManifestPath = path.join(buildPath, ".vite", "asset-categories.json")
-        const integrityPath = path.join(buildPath, ".vite", "integrity.json")
 
         if (fs.existsSync(manifestPath)) {
             manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"))
@@ -38,13 +37,24 @@ function loadManifests() {
         if (fs.existsSync(assetManifestPath)) {
             assetManifest = JSON.parse(fs.readFileSync(assetManifestPath, "utf-8"))
         }
-        if (isScriptIntegrityEnabled && fs.existsSync(integrityPath)) {
-            integrityManifest = toUrlKeys(JSON.parse(fs.readFileSync(integrityPath, "utf-8")))
-        }
         loaded = true
     } catch (error) {
         loaded = false
         console.warn("Could not load build manifests:", error.message)
+    }
+
+    // Kept apart from the manifests above: a build made before the flag was
+    // turned on has no integrity.json, and that must not pass without a message.
+    if (isScriptIntegrityEnabled) {
+        const integrityPath = path.join(buildPath, ".vite", "integrity.json")
+        try {
+            integrityManifest = toUrlKeys(JSON.parse(fs.readFileSync(integrityPath, "utf-8")))
+        } catch (error) {
+            console.warn(
+                `SCRIPT_INTEGRITY_ENABLE is on but ${integrityPath} could not be loaded, so scripts are served without integrity. Rebuild with the flag on.`,
+                error.message
+            )
+        }
     }
 }
 

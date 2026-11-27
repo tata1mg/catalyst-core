@@ -24,7 +24,7 @@ const createClientConfig = async () => {
             }),
             injectCacheKeyPlugin(),
             ...(customViteConfig?.clientPlugins || []),
-            // Last, so the hashes are taken after any app plugin has run.
+            // Hashes the built JS. It waits for the other plugins' closeBundle hooks.
             scriptIntegrityPlugin(),
         ],
 
