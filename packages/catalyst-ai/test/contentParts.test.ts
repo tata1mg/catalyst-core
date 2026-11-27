@@ -1,0 +1,248 @@
+// Spec for multimodal input (tracking issue #523, discussion #522). Written before the implementation:
+// src/contentParts.js is the pure layer between useAI's `messages` and what each engine receives.
+//
+// Intent being pinned down:
+//  1. Text-only calls behave exactly as today (nothing existing breaks).
+//  2. A message's `content` may be a string OR an array of typed parts (text | image | audio).
+//  3. An engine that cannot take a modality is a loud, typed error. Media is never silently dropped.
+//  4. Media is size-capped before it crosses the bridge.
+//  5. The native request body stays {prompt, genConfig} for text-only; media rides in genConfig.inputParts (core servers forward genConfig verbatim, so no core change and no silent drop on version skew).
+const mod = import("../src/contentParts.js")
+
+const PNG = "data:image/png;base64,iVBORw0KGgo="
+const WAV = "data:audio/wav;base64,UklGRiQAAABXQVZF"
+
+describe("normalizeMessages", () => {
+    it("wraps string content in a single text part", async () => {
+        const { normalizeMessages } = await mod
+        expect(normalizeMessages([{ role: "user", content: "hi" }])).toEqual([
+            { role: "user", parts: [{ type: "text", text: "hi" }] },
+        ])
+    })
+
+    it("keeps typed parts in order", async () => {
+        const { normalizeMessages } = await mod
+        const out = normalizeMessages([
+            { role: "user", content: [{ type: "image", data: PNG }, { type: "text", text: "what is this?" }] },
+        ])
+        expect(out[0].parts.map((p: any) => p.type)).toEqual(["image", "text"])
+    })
+
+    it("rejects an unknown part type", async () => {
+        const { normalizeMessages } = await mod
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "video", data: "x" }] }])).toThrow(/video/)
+    })
+
+    it("rejects media without data, and non-data-URL media", async () => {
+        const { normalizeMessages } = await mod
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "image" }] }])).toThrow()
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: "http://x/y.png" }] }])).toThrow()
+    })
+
+    it("rejects empty content", async () => {
+        const { normalizeMessages } = await mod
+        expect(() => normalizeMessages([{ role: "user", content: [] }])).toThrow()
+    })
+})
+
+describe("getModalities", () => {
+    it("is text only for plain string messages", async () => {
+        const { getModalities } = await mod
+        expect([...getModalities([{ role: "user", content: "hi" }])]).toEqual(["text"])
+    })
+
+    it("collects image and audio across all messages", async () => {
+        const { getModalities } = await mod
+        const set = getModalities([
+            { role: "user", content: [{ type: "image", data: PNG }] },
+            { role: "user", content: [{ type: "audio", data: WAV }] },
+        ])
+        expect([...set].sort()).toEqual(["audio", "image"])
+    })
+})
+
+describe("assertEngineSupports", () => {
+    it("passes when every requested modality is supported", async () => {
+        const { assertEngineSupports } = await mod
+        expect(() => assertEngineSupports(new Set(["text", "image"]), { text: true, image: true })).not.toThrow()
+    })
+
+    it("throws a typed error naming the missing modality and the engine", async () => {
+        const { assertEngineSupports } = await mod
+        let err: any
+        try {
+            assertEngineSupports(new Set(["text", "audio"]), { text: true }, "web")
+        } catch (e) {
+            err = e
+        }
+        expect(err).toBeDefined()
+        expect(err.reason).toBe("unsupported-modality")
+        expect(err.modality).toBe("audio")
+        expect(err.engine).toBe("web")
+    })
+})
+
+describe("toLegacyPrompt", () => {
+    it("matches today's `role: content` join exactly for text-only input", async () => {
+        const { toLegacyPrompt } = await mod
+        const prompt = toLegacyPrompt([
+            { role: "system", content: "be brief" },
+            { role: "user", content: "hi" },
+        ])
+        expect(prompt).toBe("system: be brief\nuser: hi")
+    })
+
+    it("joins text parts of an array-content message", async () => {
+        const { toLegacyPrompt } = await mod
+        expect(toLegacyPrompt([{ role: "user", content: [{ type: "text", text: "a" }, { type: "text", text: "b" }] }])).toBe("user: a b")
+    })
+
+    it("refuses to flatten media into a prompt string", async () => {
+        const { toLegacyPrompt } = await mod
+        expect(() => toLegacyPrompt([{ role: "user", content: [{ type: "image", data: PNG }] }])).toThrow()
+    })
+})
+
+describe("buildNativeBody", () => {
+    it("text-only: body is unchanged ({prompt, genConfig}) so existing native builds keep working", async () => {
+        const { buildNativeBody } = await mod
+        const body = buildNativeBody([{ role: "user", content: "hi" }], { stream: true })
+        expect(body).toEqual({ prompt: "user: hi", genConfig: { stream: true } })
+        expect(body.genConfig).not.toHaveProperty("inputParts")
+    })
+
+    it("with media: genConfig.inputParts carries ordered media (mimeType + base64); text stays in prompt", async () => {
+        const { buildNativeBody } = await mod
+        const body = buildNativeBody(
+            [{ role: "user", content: [{ type: "image", data: PNG }, { type: "text", text: "describe" }] }],
+            {}
+        )
+        expect(body.genConfig.inputParts).toEqual([{ type: "image", mimeType: "image/png", base64: "iVBORw0KGgo=" }])
+        expect(body.prompt).toBe("user: describe")
+        expect(body).not.toHaveProperty("parts")
+    })
+
+    it("carries conversationId when given (stateful sessions)", async () => {
+        const { buildNativeBody } = await mod
+        expect(buildNativeBody([{ role: "user", content: "hi" }], {}, { conversationId: "c1" }).conversationId).toBe("c1")
+    })
+})
+
+describe("size limits", () => {
+    it("rejects an image over the cap before it is sent", async () => {
+        const { normalizeMessages, DEFAULT_LIMITS } = await mod
+        const big = "data:image/png;base64," + "A".repeat(Math.ceil((DEFAULT_LIMITS.imageBytes * 4) / 3) + 8)
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "image", data: big }] }])).toThrow(/too large|limit/i)
+    })
+
+    it("caps the number of images per request", async () => {
+        const { normalizeMessages, DEFAULT_LIMITS } = await mod
+        const parts = Array.from({ length: DEFAULT_LIMITS.maxImages + 1 }, () => ({ type: "image", data: PNG }))
+        expect(() => normalizeMessages([{ role: "user", content: parts }])).toThrow()
+    })
+})
+
+describe("web engine media (Gemma 4 in Transformers.js)", () => {
+    it("supportsWebMedia is true only for Gemma 4 model ids", async () => {
+        const { supportsWebMedia } = await mod
+        expect(supportsWebMedia("onnx-community/gemma-4-E2B-it-ONNX")).toBe(true)
+        expect(supportsWebMedia("onnx-community/Qwen2.5-0.5B-Instruct")).toBe(false)
+        expect(supportsWebMedia(undefined)).toBe(false)
+    })
+
+    it("webModelKind tells Gemma 4, speech-to-text and text models apart", async () => {
+        const { webModelKind } = await mod
+        expect(webModelKind("onnx-community/gemma-4-E4B-it-ONNX")).toBe("gemma4")
+        for (const id of ["onnx-community/whisper-base", "onnx-community/whisper-large-v3-turbo", "onnx-community/moonshine-tiny-ONNX"]) {
+            expect(webModelKind(id)).toBe("asr")
+        }
+        expect(webModelKind("onnx-community/Qwen2.5-1.5B-Instruct")).toBe("text")
+        expect(webModelKind(undefined)).toBe("text")
+    })
+
+    it("toWebTemplate maps parts to chat-template placeholders and collects the media separately", async () => {
+        const { toWebTemplate } = await mod
+        const out = toWebTemplate([
+            { role: "user", content: [{ type: "image", data: PNG }, { type: "audio", data: WAV }, { type: "text", text: "go" }] },
+        ])
+        expect(out.messages).toEqual([
+            { role: "user", content: [{ type: "image" }, { type: "audio" }, { type: "text", text: "go" }] },
+        ])
+        expect(out.images).toEqual([PNG])
+        expect(out.audios).toEqual([WAV])
+    })
+
+    it("text-only input yields no media", async () => {
+        const { toWebTemplate } = await mod
+        const out = toWebTemplate([{ role: "user", content: "hi" }])
+        expect(out.messages).toEqual([{ role: "user", content: [{ type: "text", text: "hi" }] }])
+        expect(out.images).toEqual([])
+        expect(out.audios).toEqual([])
+    })
+
+    it("refuses more than one image or one audio clip rather than dropping the extras", async () => {
+        const { toWebTemplate } = await mod
+        const two = [{ type: "image", data: PNG }, { type: "image", data: PNG }]
+        expect(() => toWebTemplate([{ role: "user", content: two }])).toThrow(/one image/i)
+        const twoAudio = [{ type: "audio", data: WAV }, { type: "audio", data: WAV }]
+        expect(() => toWebTemplate([{ role: "user", content: twoAudio }])).toThrow(/one audio/i)
+    })
+})
+
+describe("assertCloudMediaAllowed (no silent cloud fallback)", () => {
+    it("text-only is always allowed", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["text"]), undefined)).not.toThrow()
+    })
+
+    it("media is allowed only when the caller explicitly opted in", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["text", "image"]), true)).not.toThrow()
+    })
+
+    it("media is blocked when the flag is missing or false (fail closed, also on older catalyst-core)", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        for (const flag of [undefined, false, "yes", 1]) {
+            let err: any
+            try {
+                assertCloudMediaAllowed(new Set(["text", "audio"]), flag as any)
+            } catch (e) {
+                err = e
+            }
+            expect(err?.reason).toBe("cloud-media-not-allowed")
+            expect(err?.modality).toBe("audio")
+        }
+    })
+
+    it("the message tells the developer how to opt in", async () => {
+        const { assertCloudMediaAllowed } = await mod
+        expect(() => assertCloudMediaAllowed(new Set(["image"]), false)).toThrow(/provider.*cloud/i)
+    })
+})
+
+// ---- Layers still to specify as implementation reaches them (each becomes real tests, not prose) ----
+describe("scope not yet implemented", () => {
+    // Native: decode `parts` -> temp files -> Content.ImageFile/AudioFile; set vision/audio backends only when asked.
+    it.todo("android: NativeBridgeAI maps parts to Content.ImageFile/AudioFile and enables vision/audio backends (device spike 0.2)")
+    it.todo("ios: AIRequest parses `parts`; EngineConfig sets visionBackend/audioBackend; missing backend is a clear error, not `null` (spike 0.1)")
+    it.todo("native: temp media files are deleted after the turn, including on cancel/error")
+    // useAI flow (verified in examples/useai AITest on a real device).
+    it.todo("useNativeAI.generate sends buildNativeBody and surfaces unsupported-modality as a typed AI error")
+    it.todo("useAI auto routing never sends image/audio to cloud when privacy is 'sensitive' (ask/deny, no silent fallback)")
+    it.todo("useWebAI keeps the media-capable worker alive across calls and refuses media for other models")
+})
+
+describe("data URL attributes", () => {
+    it("accepts a recorder's codec attribute and keeps the bare type", async () => {
+        const { normalizeMessages, getModalities } = await mod
+        const messages = [{ role: "user", content: [{ type: "audio", data: "data:audio/webm;codecs=opus;base64,GkXfoAAA" }] }]
+        expect(normalizeMessages(messages)[0].parts[0]).toEqual({ type: "audio", mimeType: "audio/webm", base64: "GkXfoAAA" })
+        expect([...getModalities(messages)]).toEqual(["audio"])
+    })
+
+    it("still refuses a data URL that is not base64 or has a wrong type", async () => {
+        const { normalizeMessages } = await mod
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "audio", data: "data:audio/webm;codecs=opus,AAAA" }] }])).toThrow(/base64 data URL/)
+        expect(() => normalizeMessages([{ role: "user", content: [{ type: "audio", data: "data:image/png;codecs=x;base64,AAAA" }] }])).toThrow(/cannot carry/)
+    })
+})

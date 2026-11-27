@@ -8,6 +8,8 @@ const {
     checkSingleAppIcon,
     hasAndroidSizedIcons,
     hasIosSizedIcons,
+    inspectWebBridgeInit,
+    WEBBRIDGE_INIT_SNIPPET,
 } = require("../lib/helpers")
 
 // The release that added appId/url, NATIVE-010 and public/icon.png.
@@ -175,7 +177,7 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
             severity: "error",
             message: "WEBVIEW_CONFIG object is required. Missing this will prevent native builds.",
         })
-        return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+    return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
     } else {
         passed.push({ field: "WEBVIEW_CONFIG", note: "block present" })
     }
@@ -661,6 +663,48 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
                 message: `Unknown engine "${engine}". Use "auto", "litert" (Gemma 4 E2B) or "foundation-models" (Apple, iOS 26+).`,
             })
         }
+        // AI_CONFIG.browser.download tunes the model download on a weak or lost connection. The runtime clamps bad
+        // values silently, so a typo would just run on the defaults; catch it here.
+        if (browser.download !== undefined) {
+            const dl = browser.download
+            if (!dl || typeof dl !== "object" || Array.isArray(dl)) {
+                issues.push({
+                    field: "AI_CONFIG.browser.download",
+                    severity: "error",
+                    message: "AI_CONFIG.browser.download must be an object: { minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries, heldRetrySec }.",
+                })
+            } else {
+                const limits = {
+                    minBytesPerSec: [0, 50_000_000],
+                    windowSec: [5, 300],
+                    resumeDelaySec: [1, 600],
+                    maxIdleRetries: [1, 50],
+                    heldRetrySec: [5, 600],
+                }
+                for (const key of Object.keys(dl)) {
+                    if (!(key in limits)) {
+                        warnings.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            message: `Unknown key "${key}", ignored. Use ${Object.keys(limits).join(", ")}.`,
+                        })
+                        continue
+                    }
+                    const [lo, hi] = limits[key]
+                    if (typeof dl[key] !== "number" || !Number.isFinite(dl[key])) {
+                        issues.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            severity: "error",
+                            message: `${key} must be a number, got ${typeof dl[key]}. The default is used instead.`,
+                        })
+                    } else if (dl[key] < lo || dl[key] > hi) {
+                        warnings.push({
+                            field: `AI_CONFIG.browser.download.${key}`,
+                            message: `${key}=${dl[key]} is outside ${lo}-${hi} and will be clamped.`,
+                        })
+                    }
+                }
+            }
+        }
         if (browser.provider === "foundation-models" && platform === "android") {
             warnings.push({
                 field: "AI_CONFIG.browser.provider",
@@ -679,7 +723,220 @@ function handle_check_config({ project_path, platform = "both" } = {}) {
         })
     }
 
+    _checkRouting(config, wc, platform, issues, warnings, passed)
+    _checkPricing(config, root, issues, warnings, passed)
+    _checkImageModels(config, issues, warnings, passed)
+    _checkWebBridgeInit(root, warnings, passed)
+
     return _buildResult({ root, configPath, platform, config, issues, warnings, passed })
+}
+
+// Native hooks silently run with isNative=false in the WebView when WebBridge.init() is missing from the client entry.
+function _checkWebBridgeInit(root, warnings, passed) {
+    const r = inspectWebBridgeInit(root)
+    const field = "client/index.js: WebBridge.init()"
+    const used = `${r.hookFiles.length} file(s) import native hooks from catalyst-core/hooks (e.g. ${r.hookFiles[0]})`
+    if (r.state === "ok") passed.push({ field, note: `present in ${r.entry}, inside hydrationReady` })
+    else if (r.state === "no-entry") warnings.push({ field, message: `${used} but no client entry (client/index.js) was found, so WebBridge.init() cannot run. Native hooks will report isNative=false.` })
+    else if (r.state === "missing-init") warnings.push({ field, message: `${used}, but ${r.entry} never calls WebBridge.init(). Native hooks silently run with isNative=false in the Android/iOS WebView. Add it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })
+    else if (r.state === "missing-import") warnings.push({ field, message: `${r.entry} calls WebBridge.init() but does not import WebBridge. Add: import WebBridge from "catalyst-core/WebBridge"` })
+    else if (r.state === "misplaced") warnings.push({ field, message: `${r.entry} calls WebBridge.init() before hydrationReady(). At module scope it can throw "Cannot read properties of null (reading 'useContext')" during hydration. Move it inside hydrationReady().then(...) just before hydrateRoot:\n${WEBBRIDGE_INIT_SNIPPET}` })
+}
+
+const ROUTING_OBJECTIVES = ["balanced", "cost", "latency", "speed", "order"]
+const ROUTING_POLICIES = ["allow", "ask", "deny"]
+const ROUTING_TASKS = ["text.generate", "vision.read", "speech.transcribe", "speech.synthesize", "image.generate", "embed"]
+const ROUTING_PLATFORMS = ["ios", "android", "web-desktop", "web-mobile", "web"]
+const ROUTING_MODALITIES = ["text", "image", "audio"]
+
+// AI_CONFIG.pricing holds the developer's own per-model prices (USD per 1M tokens); `npx catalyst-ai pricing` writes it.
+// A cloud model with no price anywhere is costed as free, which skews cost-weighted routing and the cost metrics.
+function _checkPricing(config, root, issues, warnings, passed) {
+    const ai = config.AI_CONFIG
+    if (!ai || typeof ai !== "object") return
+    const err = (field, message) => issues.push({ field, severity: "error", message })
+    const configured = ai.pricing
+    if (configured !== undefined && (!configured || typeof configured !== "object" || Array.isArray(configured))) {
+        return err("AI_CONFIG.pricing", "AI_CONFIG.pricing must be an object keyed by model id: { \"<model>\": { \"input\": 2, \"output\": 10 } } (USD per 1M tokens).")
+    }
+    const isNum = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0
+    const before = issues.length
+    for (const [model, p] of Object.entries(configured || {})) {
+        const at = `AI_CONFIG.pricing.${model}`
+        if (!p || typeof p !== "object" || Array.isArray(p)) { err(at, "needs { input, output } in USD per 1M tokens, or { perImage } in USD per image."); continue }
+        if (p.perImage !== undefined && !isNum(p.perImage)) err(`${at}.perImage`, "perImage must be a non-negative number (USD per generated image).")
+        // A model priced per image alone may leave the token rates out.
+        const perImageOnly = p.perImage !== undefined && p.input === undefined && p.output === undefined
+        if (!perImageOnly) for (const key of ["input", "output"]) if (!isNum(p[key])) err(`${at}.${key}`, `${key} must be a non-negative number (USD per 1M tokens).`)
+        if (p.cachedInput !== undefined && !isNum(p.cachedInput)) err(`${at}.cachedInput`, "cachedInput must be a non-negative number.")
+        if (p.audioInput !== undefined && p.audioInput !== null && !isNum(p.audioInput)) err(`${at}.audioInput`, "audioInput must be a number or null.")
+    }
+
+    // Built-in prices come from the installed catalyst-ai; without it there is no way to say which models are covered.
+    let builtIn = null
+    try {
+        // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - root is the local project directory; the rest is a fixed literal.
+        builtIn = Object.keys(require(path.join(root, "node_modules", "catalyst-ai", "src", "pricing.js")).PRICING || {})
+    } catch (_) {
+        builtIn = null
+    }
+    if (builtIn) {
+        const models = new Set()
+        for (const cfg of Object.values(ai.providers || {})) if (cfg && typeof cfg.defaultModel === "string") models.add(cfg.defaultModel)
+        for (const c of (ai.routing && Array.isArray(ai.routing.cloud) ? ai.routing.cloud : [])) if (c && typeof c.model === "string") models.add(c.model)
+        for (const model of [...models].sort()) {
+            if (configured && Object.prototype.hasOwnProperty.call(configured, model)) continue
+            if (builtIn.includes(model)) continue
+            warnings.push({
+                field: `AI_CONFIG.pricing.${model}`,
+                message: `No price known for "${model}": cost metrics show $0 and cost-based routing treats it as free. Run \`npx catalyst-ai pricing\` to set it.`,
+            })
+        }
+    }
+    if (issues.length === before && configured && Object.keys(configured).length) {
+        passed.push({ field: "AI_CONFIG.pricing", note: `${Object.keys(configured).length} model price(s) set` })
+    }
+}
+
+// Providers whose /ai/:provider/image route can draw (see catalyst-ai imageGen.js). Anthropic has no image generation.
+const IMAGE_PROVIDERS = ["openai", "gemini"]
+
+// providers.<name>.imageModel is the model POST /ai/:provider/image uses when the request names none.
+function _checkImageModels(config, issues, warnings, passed) {
+    const providers = config.AI_CONFIG && config.AI_CONFIG.providers
+    if (!providers || typeof providers !== "object" || Array.isArray(providers)) return
+    const configured = config.AI_CONFIG.pricing && typeof config.AI_CONFIG.pricing === "object" ? config.AI_CONFIG.pricing : {}
+    const before = issues.length + warnings.length
+    let count = 0
+    for (const [name, cfg] of Object.entries(providers)) {
+        if (!cfg || typeof cfg !== "object" || cfg.imageModel === undefined) continue
+        const at = `AI_CONFIG.providers.${name}.imageModel`
+        if (typeof cfg.imageModel !== "string" || !/^[a-zA-Z0-9._:-]+$/.test(cfg.imageModel)) {
+            issues.push({ field: at, severity: "error", message: "imageModel must be a model id string of letters, digits and . _ : - (for example \"gpt-image-1\")." })
+            continue
+        }
+        count++
+        if (!IMAGE_PROVIDERS.includes(name)) {
+            warnings.push({ field: at, message: `Provider "${name}" cannot generate images (supported: ${IMAGE_PROVIDERS.join(", ")}), so this imageModel is never used and POST /ai/${name}/image fails.` })
+            continue
+        }
+        // There are no built-in image prices: without a developer-set one the image cost is reported as unknown.
+        if (!Object.prototype.hasOwnProperty.call(configured, cfg.imageModel)) {
+            warnings.push({ field: `AI_CONFIG.pricing.${cfg.imageModel}`, message: `No price set for image model "${cfg.imageModel}": image cost is reported as unknown. Add AI_CONFIG.pricing["${cfg.imageModel}"] = { "perImage": <USD per image> } (and/or input/output per 1M tokens).` })
+        }
+    }
+    if (count && issues.length + warnings.length === before) passed.push({ field: "AI_CONFIG.providers.*.imageModel", note: `${count} image model(s), valid` })
+}
+
+// AI_CONFIG.routing drives useAI({ provider: "auto" }). Mistakes here do not crash: the browser drops bad entries
+// with a console warning, so the app silently routes differently than the config says. Catch them up front.
+function _checkRouting(config, wc, platform, issues, warnings, passed) {
+    const routing = config.AI_CONFIG && config.AI_CONFIG.routing
+    if (routing === undefined) return
+    const err = (field, message) => issues.push({ field, severity: "error", message })
+    const warn = (field, message) => warnings.push({ field, message })
+    if (!routing || typeof routing !== "object" || Array.isArray(routing)) {
+        return err("AI_CONFIG.routing", "AI_CONFIG.routing must be an object with policy, onDevice and cloud.")
+    }
+    const before = issues.length
+    const policy = routing.policy || {}
+    if (policy.objective !== undefined && !ROUTING_OBJECTIVES.includes(policy.objective)) {
+        err("AI_CONFIG.routing.policy.objective", `Unknown objective "${policy.objective}". Use ${ROUTING_OBJECTIVES.join(", ")}.`)
+    }
+    for (const key of ["cloud", "cloudMedia"]) {
+        if (policy[key] !== undefined && !ROUTING_POLICIES.includes(policy[key])) {
+            err(`AI_CONFIG.routing.policy.${key}`, `"${policy[key]}" is not valid. Use allow, ask or deny.`)
+        }
+    }
+    if (policy.cloudMedia === "allow" || (policy.cloud === "allow" && policy.cloudMedia === undefined)) {
+        warn("AI_CONFIG.routing.policy", "Cloud is allowed for image/audio: photos and voice can leave the device without asking. Keep cloudMedia at ask or deny for sensitive apps.")
+    }
+    for (const key of ["maxLatencyMs", "minTps", "maxCostUsd"]) {
+        const v = policy.constraints && policy.constraints[key]
+        if (v !== undefined && !(typeof v === "number" && v >= 0)) err(`AI_CONFIG.routing.policy.constraints.${key}`, `${key} must be a non-negative number.`)
+    }
+
+    const candidates = []
+    const collect = (list, group, where, platformKey) => {
+        if (list === undefined) return
+        if (!Array.isArray(list)) return err(where, `${where} must be an array of models.`)
+        list.forEach((m, i) => {
+            const at = `${where}[${i}]`
+            if (!m || typeof m !== "object" || typeof m.id !== "string" || !m.id) return err(at, `Each model needs a string "id".`)
+            if (m.modalities !== undefined && (!Array.isArray(m.modalities) || m.modalities.some((x) => !ROUTING_MODALITIES.includes(x)))) {
+                err(`${at}.modalities`, `modalities must be a subset of ${ROUTING_MODALITIES.join(", ")}.`)
+            }
+            if (m.tasks !== undefined) {
+                if (!Array.isArray(m.tasks) || !m.tasks.length || m.tasks.some((x) => !ROUTING_TASKS.includes(x))) {
+                    err(`${at}.tasks`, `tasks must be a non-empty subset of ${ROUTING_TASKS.join(", ")}. Leave it out to follow the modalities.`)
+                }
+            }
+            for (const key of ["ttftMs", "tps", "loadMs"]) {
+                if (m[key] !== undefined && !(typeof m[key] === "number" && m[key] >= 0)) err(`${at}.${key}`, `${key} must be a non-negative number.`)
+            }
+            if (group === "cloud") {
+                const providers = (config.AI_CONFIG && config.AI_CONFIG.providers) || {}
+                if (typeof m.provider !== "string") err(`${at}.provider`, `Cloud models need a "provider".`)
+                else if (!providers[m.provider]) err(`${at}.provider`, `Provider "${m.provider}" is not in AI_CONFIG.providers, so this model can never be used.`)
+            } else if (platformKey && platformKey.startsWith("web")) {
+                // In a browser: Transformers.js (default) or Chrome's built-in model.
+                if (m.engine !== undefined && !["transformers", "prompt-api"].includes(m.engine)) {
+                    err(`${at}.engine`, `Unknown web engine "${m.engine}". Use prompt-api (Chrome's built-in model) or transformers.`)
+                } else if (m.engine === "prompt-api" && platformKey === "web-mobile") {
+                    warn(`${at}.engine`, "prompt-api is desktop-only; this web-mobile entry is dropped and will never run.")
+                } else if (m.engine === "prompt-api" && Array.isArray(m.modalities) && m.modalities.some((x) => x !== "text")) {
+                    warn(`${at}.modalities`, "Chrome's built-in model takes text only here; image/audio calls will not be routed to it correctly.")
+                }
+            } else if (m.engine !== undefined && !["auto", "litert", "foundation-models"].includes(m.engine)) {
+                err(`${at}.engine`, `Unknown engine "${m.engine}". Use litert or foundation-models.`)
+            } else if (m.engine === "foundation-models" && platformKey === "android") {
+                warn(`${at}.engine`, "foundation-models is iOS-only; this Android entry will never run.")
+            }
+            candidates.push({ id: m.id, group, where: at })
+        })
+    }
+    const onDevice = routing.onDevice || {}
+    for (const key of Object.keys(onDevice)) {
+        if (!ROUTING_PLATFORMS.includes(key)) warn(`AI_CONFIG.routing.onDevice.${key}`, `Unknown platform "${key}". Use ${ROUTING_PLATFORMS.join(", ")}.`)
+        else collect(onDevice[key], "onDevice", `AI_CONFIG.routing.onDevice.${key}`, key)
+    }
+    collect(routing.cloud, "cloud", "AI_CONFIG.routing.cloud", "cloud")
+
+    const seen = new Map()
+    for (const c of candidates) {
+        // The same id on two platforms is fine (one model, per-platform numbers); twice on one list is not.
+        const key = c.where.replace(/\[\d+\]$/, "") + "|" + c.id
+        if (seen.has(key)) err(c.where, `Duplicate id "${c.id}" in the same list. Only the first is used.`)
+        seen.set(key, true)
+    }
+    if (!candidates.length) warn("AI_CONFIG.routing", 'routing has no models, so provider "auto" has nothing to route to.')
+
+    for (const c of candidates) {
+        if (["cost", "latency", "tps"].includes(c.id)) warn(c.where, `Model id "${c.id}" collides with the order metric "${c.id}"; in policy.order it is read as the metric. Rename the model.`)
+    }
+    if (policy.order !== undefined) {
+        if (!Array.isArray(policy.order) || policy.order.some((x) => typeof x !== "string")) {
+            err("AI_CONFIG.routing.policy.order", 'order must be an array of model ids, the groups "onDevice"/"cloud", and/or the metrics "cost", "latency", "tps".')
+        } else {
+            const known = new Set(["onDevice", "cloud", "cost", "latency", "tps", ...candidates.map((c) => c.id)])
+            for (const entry of policy.order) {
+                if (!known.has(entry)) warn("AI_CONFIG.routing.policy.order", `"${entry}" matches no model id, group or metric (cost, latency, tps), so it is ignored.`)
+            }
+        }
+    }
+    if (candidates.some((c) => c.group === "onDevice") && !(wc.ai && wc.ai.enabled)) {
+        warn("WEBVIEW_CONFIG.ai.enabled", "routing lists on-device models but WEBVIEW_CONFIG.ai.enabled is not true: the native AI module is not built into the app, so the app has no on-device model at all (in-browser models are only used in a plain browser, never inside the app) and only cloud models can run there.")
+    }
+    // A native app (WebView build) only ever uses onDevice.ios / onDevice.android; onDevice.web is for plain browsers.
+    const hasNativeModels = candidates.some((c) => c.group === "onDevice" && /\.(ios|android)\[/.test(c.where))
+    const hasWebModels = candidates.some((c) => c.group === "onDevice" && /\.web(-desktop|-mobile)?\[/.test(c.where))
+    if (wc.ai && wc.ai.enabled && hasWebModels && !hasNativeModels) {
+        warn(
+            "AI_CONFIG.routing.onDevice",
+            "routing lists only in-browser (web) models, but this is a native app build: inside the app the native module owns the on-device model and web models are never used. Add onDevice.ios and/or onDevice.android entries, or the app can only route to the cloud."
+        )
+    }
+    if (issues.length === before) passed.push({ field: "AI_CONFIG.routing", note: `${candidates.length} model(s), valid` })
 }
 
 function _buildResult({ root, configPath, platform, issues, warnings, passed }) {

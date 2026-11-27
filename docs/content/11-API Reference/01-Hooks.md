@@ -33,6 +33,7 @@ Catalyst exposes two groups of hooks:
 | `useDataProtection` | Use native data protection and encryption helpers | No | Yes | Yes |
 | `useSafeArea` | Read native safe-area insets | Yes | Yes | Yes |
 | `useAI` | Generate text via cloud, native on-device, or in-browser models | Partial | Yes | Yes |
+| `useVision` | Read an image into typed data, on the device when it can | Partial | Yes | Yes |
 
 `Partial` means behavior depends on browser support or fallback behavior in the web environment.
 
@@ -699,7 +700,7 @@ Several hooks carry alias keys kept from earlier releases. Both names work and r
 
 `useNativeTransition` and `useSafeArea` are error-exempt: neither returns an `error` key at all. Transition failures self-heal into a plain navigation, and safe-area insets always resolve to numeric defaults.
 
-`useAI`'s shape — including its error handling — is owned by the `catalyst-ai` package and is outside this contract.
+`useAI`'s and `useVision`'s shapes — including their error handling — are owned by the `catalyst-ai` package and are outside this contract.
 
 ### Hooks and bridge methods with the same name
 
@@ -733,9 +734,30 @@ Generate text through one of three providers, chosen with the `provider` option 
 
 | `provider` | Implementation | Where it runs |
 |------------|-----------------|----------------|
-| `"openai"` \| `"gemini"` (default) | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
+| `"openai"` \| `"gemini"` (default) \| `"anthropic"` | `useCloudAI` | Node server route (`POST /ai/:provider/stream` or `/generate`) |
 | `"native"` | `useNativeAI`, falls back to `useCloudAI` if `window.NativeBridge` is unavailable | On-device LiteRT-LM engine, via an embedded Ktor server (`POST /framework-{sessionId}/ai/stream` or `/generate`) |
 | `"transformers"` | `useWebAI` — **experimental**: in-browser inference quality and WebGPU/WASM backend selection aren't reliable yet on larger models | In-browser, via a Web Worker running Transformers.js |
+
+#### Auto routing (`provider: "auto"`)
+
+With `provider: "auto"`, every `generate` call picks a model from the candidates in `AI_CONFIG.routing` (config.json): on-device models per platform (`ios`, `android`, `web`, several allowed each) and cloud provider models. A call is decided in order: **availability** (bridge, WebGPU, network, modalities the model accepts), **privacy** (may this call leave the device?), then **preference**, a score over estimated cost, latency and tokens/sec.
+
+| `routing` key | Meaning |
+|---|---|
+| `policy.objective` | `balanced` (default), `cost`, `latency`, `speed` or `order`; `policy.weights` overrides the weights |
+| `policy.order` | Default priority, applied left to right as sort keys. Entries: a model `id`, a group (`onDevice`, `cloud`) to put those first, or a metric: `cost` (cheapest first), `latency` (quickest first), `tps` (most tokens/sec first). Example: `["onDevice", "cost", "latency"]` = on-device first, then cheapest, then quickest. A later key only matters where earlier ones tie. Default `["onDevice", "cloud"]`. It breaks score ties; with `objective: "order"` the first available candidate wins and the scoring is skipped |
+| `policy.constraints` | Hard limits: `maxLatencyMs`, `minTps`, `maxCostUsd` (per estimated call) |
+| `policy.cloud` / `policy.cloudMedia` | `allow`, `ask` or `deny`. Defaults: `ask` for text, `deny` for image/audio |
+| `policy.autoDownload` | Let the in-browser model start its large download without asking (default `false`) |
+| `onDevice.<platform>[]` | `id`, `engine`/`model`/`modelPath`, `modalities`, `tasks`, and priors `ttftMs`, `tps`, `loadMs`. Platforms are `ios`, `android` (the native apps), `web-desktop` and `web-mobile` (plain browsers), and `web` (both kinds of browser). **One list is used per page:** inside a native app only `ios` / `android` is read, because the native module owns the on-device model there and no in-browser model is ever loaded; in a browser, `web-desktop` or `web-mobile` is read (a phone's browser is mobile) and `web` is the fallback when that list is absent |
+| `engine` (browser lists) | `transformers` (default: Transformers.js, needs WebGPU) or `prompt-api`: **Chrome's built-in model** (the Prompt API), desktop Chrome only, text only. Chrome owns the model and its download, so there is no WebGPU requirement; while Chrome still has to fetch it the router asks for download consent, and the first download must start from a click. A `prompt-api` entry under `web-mobile` is dropped. Also usable directly as `useAI({ provider: "prompt-api" })` |
+| `tasks` (on any model) | What the model can do: `text.generate`, `vision.read`, `speech.transcribe`, `speech.synthesize`, `image.generate`, `embed`. The call asks for one (`generate({ task })` or `useAI({ task })`, default `text.generate`) and models that do not list it are skipped. Leave it out and it follows from `modalities` (text → `text.generate`, image adds `vision.read`, audio adds `speech.transcribe`), so existing configs keep working |
+| `AI_CONFIG.pricing` | `{ "<model>": { input, output, cachedInput? } }`, USD per 1M tokens: your own prices, used for cost metrics and cost-based routing instead of the built-in table. Set them with `npx catalyst-ai pricing` (it lists the cloud models in your config and asks for the ones with no price; `--check` fails CI on a missing one). A model with no price anywhere counts as free |
+| `cloud[]` | `id`, `provider`, `model`, `modalities`, priors `ttftMs`, `tps`, optional `price: { input, output }` (USD per 1M tokens; defaults to the built-in table) |
+
+The numbers in config are starting estimates. The metrics `useAI` reports for each finished call (time to first token, tokens/sec) are averaged per model on the device and take over from the config values after a few calls. A model that is not currently loaded pays its `loadMs`, so the router does not flip between on-device models for small gains.
+
+The result has `route`: `{ action, candidate, reason, estimate, scores, skipped }`. When `action` is `"ask"`, nothing ran: confirm with the user, then call `generateWithConsent(args, { cloud: true })` or `{ download: true }`. Pass `routing` to `useAI` to override `policy` for one hook.
 
 Requires `catalyst-ai` to be installed in the app.
 
@@ -749,7 +771,7 @@ import { useAI } from "catalyst-core/hooks";
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `provider` | `string` | `"openai"`, `"gemini"`, `"native"`, or `"transformers"`. Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
+| `provider` | `string` | `"openai"`, `"gemini"`, `"anthropic"` (Claude), `"native"`, `"transformers"`, or `"auto"` (routes each call, see below). Defaults to the cloud provider configured in `AI_CONFIG.browser`. |
 | `model` | `string` | Model id. Required for `transformers`; optional override for cloud/native. |
 | `genConfig` | `object` | Default generation config, merged with any per-call `genConfig` passed to `generate()`. See below. |
 | `systemPrompt` | `string` | System prompt prepended to every generation. |
@@ -772,7 +794,7 @@ import { useAI } from "catalyst-core/hooks";
 | `isLocal` / `isNative` / `isWeb` | `boolean` | Indicates which provider actually served the request. |
 | `modelReady` | `boolean` | For `native`/`transformers`: `false` while the model is downloading or the engine is initializing. |
 | `downloadProgress` | `object \| null` | For `transformers`: `{ file, percent, status }`. |
-| `nativeDownloadProgress` | `object \| null` | For `native`: `{ phase, percent, detail }` (`phase` is `"engine_init"` or `"model_fetch"`). |
+| `nativeDownloadProgress` | `object \| null` | For `native`: `{ phase, percent, detail }` (`phase` is `"lookup"`, `"cache"`, `"download"`, `"paused"` while a download waits for the network, or `"engine_init"`). |
 | `nativeLogs` | `string[]` | For `native`: recent native-side log lines. |
 | `metrics` | `object \| null` | Per-generation metrics from the most recent call — shape differs per provider, see below. |
 | `getSessionMetrics` | `function` | Returns an aggregate across every generation this session, or `null` if none yet. |
@@ -855,3 +877,162 @@ The model is instructed (via an injected system prompt) to wrap relevant output 
 Requires `catalyst-ai` to be installed (`npm install catalyst-ai`). Without it, `useAI` logs an error and returns an inert hook (all booleans `false`, `generate`/`cancel`/`reset` are no-ops).
 
 `useAI`'s return shape is owned by the `catalyst-ai` package and sits outside the native hook contract described on this page. It does not follow the single-action or multi-action categories, and the alias and error-shape rules above do not apply to it.
+
+#### `generate()` resolves with the result
+
+`generate(args)` returns a promise that settles when the call has finished, with `{ output, error }`: the final text, or the error that ended it (both empty when the call was cancelled). The hook state (`output`, `loading`, `error`) updates as before, so code that ignores the return value keeps working. With `provider: "auto"` the result also carries `route`, the routing decision for that call.
+
+```js
+const { generate } = useAI({ provider: "auto" });
+const { output, error, route } = await generate({ messages });
+```
+
+#### In-browser model downloads (`provider: "transformers"` or `"auto"` in a browser)
+
+The first use of an in-browser model downloads hundreds of megabytes to several gigabytes. That download now survives a bad connection:
+
+- **It does not fail when the connection drops.** The worker's download pauses, waits, and asks only for the rest of the file (`Range: bytes=N-`), then carries on. Transformers.js never sees the interruption.
+- **`useAI` follows `useNetworkStatus`.** Offline pauses the download; back online resumes it at once. A connection that resets, times out, or stays below `minBytesPerSec` for `windowSec` is retried with growing backoff, and the download gives up only after several attempts in a row that moved no bytes.
+- **A page reload resumes too.** Partial files are kept in the browser's origin-private storage (OPFS), so closing the tab or reloading picks up from the same byte instead of starting again. Storage is freed when a file completes.
+- **A file that changes upstream is never spliced.** The response's `ETag` is checked on every resume (Hugging Face's CDN ignores `If-Range`); a different or missing one restarts that file, and if it changes during a single uninterrupted download the load fails with a clear error.
+- **Only large files are persisted** (8 MB and up, with a strong ETag and byte-range support). Small files and servers without ranges use the normal fetch. Where OPFS is unavailable the download is simply not resumable.
+
+`downloadPaused` and `downloadPauseReason` (`"offline"`, `"weak"`, `"error"`) on the hook result tell you when a file is waiting. The same `AI_CONFIG.browser.download` settings as the native download apply (`minBytesPerSec`, `windowSec`, `resumeDelaySec`, `maxIdleRetries`).
+
+Inside a native WebView build, the on-device model is the native one: the native module downloads and runs it, and the web engine is not used there.
+
+#### Model downloads on a weak or lost connection
+
+The first on-device use downloads a model of about 2.6 GB. That download no longer starts over when the connection drops or the device goes offline:
+
+- **The partial file is kept** (with the server's ETag) and the next attempt asks only for the rest (`Range` + `If-Range`). If the file changed upstream, the partial is replaced, never spliced: the response's `ETag` is checked against the stored one on every resumed response, because some hosts (Hugging Face's CDN among them) ignore `If-Range` and answer `206` regardless.
+- **`useAI` follows `useNetworkStatus`.** When the device goes offline the download pauses; when it is back, it resumes. This works alongside your own `useNetworkStatus()` calls: they share one native subscription.
+- **A weak link pauses too.** If the speed stays under a minimum for a sustained window, the download stops, waits and tries again (the wait doubles up to a cap). A connection that resets or times out is retried the same way. It gives up only after several attempts in a row that moved no bytes; the partial stays on disk for the next launch.
+- **A safety net** retries on a timer even if the page never hears that the network returned (for example while the WebView was suspended).
+
+The hook result tells you what is happening: `downloadPaused` is `true` while it waits and `downloadPauseReason` is `"offline"`, `"weak"` or `"error"`. `nativeDownloadProgress.phase` is `"paused"` during the wait and `"download"` again once it resumes.
+
+Tune it in `config/config.json`; every key is optional and out-of-range values are clamped:
+
+```json
+"AI_CONFIG": {
+  "browser": {
+    "download": { "minBytesPerSec": 50000, "windowSec": 20, "resumeDelaySec": 10, "maxIdleRetries": 8, "heldRetrySec": 30 }
+  }
+}
+```
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `minBytesPerSec` | `50000` | Below this speed, sustained for `windowSec`, the link counts as weak |
+| `windowSec` | `20` | How long the speed is averaged (5-300). Also the idle timeout: no bytes for this long fails the attempt |
+| `resumeDelaySec` | `10` | First wait before retrying; doubles each time without progress, up to 120 s |
+| `maxIdleRetries` | `8` | Attempts in a row that moved no bytes before the download gives up |
+| `heldRetrySec` | `30` | While the page reports offline, retry on this interval anyway (5-600), in case the page never hears the network return |
+
+Older apps that were built before this feature ignore the pause and resume messages; the download still resumes from its partial file on the next attempt.
+
+### `useVision`
+
+Read an image into typed data. Give it a schema, hand it a photo, and get back an object that has been checked against that schema.
+
+```js
+import { useVision } from "catalyst-core/hooks";
+
+const schema = {
+  type: "object",
+  required: ["title", "results"],
+  properties: {
+    title: { type: "string" },
+    results: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["name", "value", "unit"],
+        properties: { name: { type: "string" }, value: { type: "number" }, unit: { type: "string" } },
+      },
+    },
+  },
+};
+
+const { scan, data, status, route, error } = useVision({
+  schema,
+  instructions: "Read this lab report.",
+});
+
+await scan(photo); // a captured photo, a File or Blob, or a data:, blob: or https URL
+```
+
+`useVision` does not open the camera itself. Capture with `useCamera` (or a file input) and pass the result to `scan`, so it works the same on web and native and never competes with another hook for the native camera callback.
+
+| Option | Description |
+|--------|-------------|
+| `schema` | The shape of the answer: a JSON-Schema subset (`type`, `properties`, `required`, `items`, `enum`, `nullable`) |
+| `instructions` | What to read from the image |
+| `maxAttempts` | Tries per scan (default `2`). After an unusable reply the model is told what was wrong and asked once more |
+| `provider` and other `useAI` options | `provider` defaults to `"auto"` (see Auto routing above). `routing` overrides the policy for this hook |
+
+| Result | Description |
+|--------|-------------|
+| `scan(source)` | Resolves with the validated data, or `null` when the scan did not complete (read `status`) |
+| `approve(consent)` | After `status: "needs-consent"`, allow what the router asked for (`{ cloud: true }` or `{ download: true }`) and run the same scan again |
+| `data`, `raw` | The validated result, and the model's last raw reply |
+| `status` | `"idle"`, `"running"`, `"done"`, `"error"`, `"needs-consent"` or `"denied"` |
+| `route` | Which model was picked and why, or why nothing ran |
+| `error`, `attempts`, `partial`, `clear()` | Last error (`VisionError` with `code` and `problems` for an unusable answer), tries used, text arriving while running, reset |
+
+Under auto routing, **a photo never reaches a cloud model unless `policy.cloudMedia` allows it** (the default is `deny`). If only a cloud model could serve the call, the outcome depends on that setting: with the default `deny` the status is `denied` (`route.skipped` says `cloud denied for media`) and nothing can be sent; with `cloudMedia: "ask"` the scan stops at `needs-consent` and nothing is sent until your code calls `approve({ cloud: true })`. With no model able to run at all, the status is `denied` and `route.skipped` lists why each candidate was ruled out.
+
+Small on-device models sometimes answer with prose or a wrong field. The reply is parsed leniently (bare JSON, a fenced block, or the first JSON value inside prose) and validated; an unusable reply is retried once with the specific problems, and a second failure is reported as a `VisionError` with code `VISION_INVALID_OUTPUT`, `problems`, and the raw reply in `raw`.
+
+### `useAgent`
+
+A runtime agent: the model picks a tool from the list you give it, your code runs the tool, the result goes back to the model, and this repeats until the model answers or a limit stops it. Steps stream into `steps` while it runs. Built on `useAI` with `provider: "auto"`, so nothing leaves the device unless your routing policy allows it.
+
+```jsx
+import { useAgent } from "catalyst-core/hooks"
+
+const agent = useAgent({
+    instructions: "You help the user file a lab report.",
+    limits: { maxSteps: 6, maxSpendUsd: 0.05 },
+    tools: [
+        { name: "scan_report", description: "Read the lab report on screen", run: () => scan() },
+        { name: "fill_form", description: "Fill the form fields", parameters: { type: "object", required: ["values"], properties: { values: { type: "object" } } }, run: ({ values }) => setForm(values) },
+        { name: "submit_form", description: "Submit the form", sideEffect: true, run: () => submit() },
+    ],
+})
+
+// Do not await run() before showing the confirmation: the run pauses at submit_form until you answer, so awaiting it first would wait forever.
+const start = () => agent.run("Scan this report and fill in the form")
+
+// While the run is active, agent.pendingConfirmation → { tool: "submit_form", ... }: render the answer from that state.
+{agent.pendingConfirmation && (
+    <div>
+        <p>Submit the form?</p>
+        <button onClick={agent.approve}>Yes</button>
+        <button onClick={agent.deny}>No</button>
+    </div>
+)}
+```
+
+| Option | Description |
+|--------|-------------|
+| `tools` | `{ name, description, parameters?, sideEffect?, run(args, { signal }) }`. `parameters` is a JSON Schema subset (the same one `useVision` uses) and every call is checked against it before `run` |
+| `instructions` | Who the agent is and what it may do; the tool protocol is added after it |
+| `limits` | `maxSteps` (model turns, default 8), `maxSpendUsd` (estimated, off by default), `maxInvalid` (unusable replies in a row, default 2), `maxResultChars` (tool results are cut to this, default 4000) |
+| everything else | passed to `useAI` (`model`, `routing`, ...) |
+
+| Result | Description |
+|--------|-------------|
+| `run(goal, consent?)` | Resolves with `{ status, output, steps, spentUsd }` when the agent stops. `consent` is `{ cloud, download }`, as for `useAI` |
+| `status` | `idle`, `running`, `awaiting-confirmation`, then how it ended: `done`, `max-steps`, `max-spend`, `needs-consent`, `denied`, `cancelled` or `error` |
+| `steps` | `{ type: "tool", tool, args, outcome: "ok" \| "error" \| "declined", result }`, `{ type: "invalid", problems }` or `{ type: "final", output }` |
+| `pendingConfirmation`, `approve()`, `deny()` | A tool marked `sideEffect` waits here for a yes |
+| `cancel()`, `output`, `error`, `spentUsd`, `route` | |
+
+What is enforced in code, not left to the prompt:
+
+- **Caps.** Turns and estimated spend stop the run; the spend figure sums the router's per-call cost estimates, so it is only as good as your prices (see `npx catalyst-ai pricing`).
+- **Side effects need a yes.** A `sideEffect` tool never runs without `approve()`. With no answer (cancel, unmount, error in your UI) it does not run.
+- **Tool results are data.** They are size-capped, shown to the model as quoted untrusted data and never promoted to instructions. Only the model's own reply can pick the next tool, and an unknown tool or arguments that fail the schema never reach `run`.
+- **Small models.** Tool use is a JSON protocol with one corrective retry rather than a provider feature, because on-device models do not call native tools reliably. Expect more `invalid` steps with small models.

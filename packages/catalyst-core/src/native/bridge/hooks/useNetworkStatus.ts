@@ -26,6 +26,25 @@ export interface UseNetworkStatusResult extends HookEnvironment, WebFallbackStat
     error: string | null
 }
 
+// WebBridge keeps ONE handler per callback name, and unregister() removes it for everyone. Registering per hook
+// instance meant a second instance (the app's own plus the one inside useAI) silently replaced the first, and
+// unmounting either one stopped the other from hearing about the network. So the native registration is shared:
+// made when the first instance mounts, dropped when the last unmounts, and every instance gets every update.
+const nativeListeners = new Set<(payload: any) => void>()
+
+function subscribeToNativeNetwork(listener: (payload: any) => void): () => void {
+    if (nativeListeners.size === 0) {
+        window.WebBridge.register(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED, (payload: any) => {
+            nativeListeners.forEach((l) => l(payload))
+        })
+    }
+    nativeListeners.add(listener)
+    return () => {
+        nativeListeners.delete(listener)
+        if (nativeListeners.size === 0) window.WebBridge.unregister(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED)
+    }
+}
+
 export const useNetworkStatus = ({ webFallback }: WebFallbackOptions = {}): UseNetworkStatusResult => {
     // navigator.onLine is unreliable in some dev/Electron environments — default true if undefined
     const initialOnline =
@@ -72,7 +91,7 @@ export const useNetworkStatus = ({ webFallback }: WebFallbackOptions = {}): UseN
             }
         }
 
-        window.WebBridge.register(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED, handleStatus)
+        const unsubscribe = subscribeToNativeNetwork(handleStatus)
 
         try {
             nativeBridge.network.getStatus()
@@ -80,9 +99,7 @@ export const useNetworkStatus = ({ webFallback }: WebFallbackOptions = {}): UseN
             setError(e.message || "Network status unavailable")
         }
 
-        return () => {
-            window.WebBridge.unregister(NATIVE_CALLBACKS.NETWORK_STATUS_CHANGED)
-        }
+        return unsubscribe
     }, [isNative, webFallbackDisabled])
 
     return {

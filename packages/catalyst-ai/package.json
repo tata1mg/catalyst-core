@@ -7,6 +7,9 @@
         ".": "./src/index.js",
         "./route": "./src/route.js"
     },
+    "bin": {
+        "catalyst-ai": "scripts/cli.js"
+    },
     "files": [
         "src",
         "scripts",
@@ -26,11 +29,19 @@
         "test:types": "tsc --noEmit"
     },
     "peerDependencies": {
-        "catalyst-core": ">=0.3.0-0"
+        "catalyst-core": ">=0.3.0-0",
+        "web-txt2img": "^0.3.1",
+        "onnxruntime-web": "^1.18.0"
     },
     "peerDependenciesMeta": {
         "catalyst-core": {
             "optional": false
+        },
+        "web-txt2img": {
+            "optional": true
+        },
+        "onnxruntime-web": {
+            "optional": true
         }
     },
     "license": "MIT",

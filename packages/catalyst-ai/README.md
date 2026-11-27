@@ -19,6 +19,69 @@ trusted internal network, add authentication and per-caller rate limiting in you
 provider using your app's API key, so an unauthenticated deployment is an open proxy to
 your provider account.
 
+## Model prices
+
+Cost metrics and cost-based routing need a price per model. catalyst-ai ships a best-effort table that goes stale, so
+the prices that count are yours, in `AI_CONFIG.pricing` (USD per 1M tokens, they win over the built-in table):
+
+```json
+"pricing": { "gemini-3.8-flash": { "input": 0.75, "output": 3.75, "cachedInput": 0.075 } }
+```
+
+Do not edit it by hand: run the command from your app root and it asks.
+
+```bash
+npx catalyst-ai pricing            # lists the cloud models in AI_CONFIG, asks for the ones with no price
+npx catalyst-ai pricing --all      # walk every model; Enter keeps the current price
+npx catalyst-ai pricing --check    # print the table, exit 1 if a model has no price (CI)
+npx catalyst-ai pricing --set gpt-x=2,10,0.2   # input,output[,cachedInput] without asking
+```
+
+A cloud model with no price anywhere is costed as free, which makes cost-weighted routing prefer it, so `check_config`
+warns about it. Look prices up on your provider's pricing page; they change, and some models have introductory rates.
+`cachedInput` defaults to the input price. The file also holds API keys; the command never prints them.
+
+## Claude (`anthropic`)
+
+Add `"anthropic": { "apiKey": "...", "defaultModel": "claude-opus-5-5" }` under `AI_CONFIG.providers` and use
+`provider: "anthropic"`, or list it as a cloud candidate (`"provider": "anthropic"`) for `provider: "auto"` routing.
+The route calls the Messages API directly, like the other providers (no SDK dependency).
+
+- **Does:** text, images (png, jpeg, webp, gif), PDFs and structured outputs.
+- **Does not:** audio input, image generation or embeddings (Claude offers none); those stay with other providers.
+- **PDF.** A server-side part `{ type: "document", data: "data:application/pdf;base64,..." }` (10 MB, 2 per request).
+  Other providers refuse it with `unsupported-modality`. The client hooks do not build document parts yet.
+- **Structured outputs.** `genConfig.responseSchema` (a JSON Schema object) sets `output_config.format`, so the reply
+  matches the schema.
+- **Stateless.** The full history is sent every turn and `conversationId` is ignored.
+- **Sampling.** `temperature` and `topP` are sent only to models that still accept them (Claude Opus 4.6, Sonnet 4.6,
+  Haiku 4.5 and older); newer models reject them, so they are dropped for those.
+- **Thinking** is left at the model default and never streamed; thinking tokens are billed as output tokens.
+- A safety decline (`stop_reason: "refusal"`) is reported as an error instead of an empty reply.
+
+## Image and audio input
+
+`messages[].content` may be a string or an array of parts: `{ type: "text", text }`,
+`{ type: "image", data: "data:image/...;base64,..." }`, `{ type: "audio", data: "data:audio/...;base64,..." }`.
+Text-only calls behave exactly as before.
+
+- **Cloud needs an explicit choice.** `useAI({ provider: "cloud" | "openai" | "gemini" | "anthropic" })` may send media to the
+  provider. If a native or web engine was requested but is unavailable, `useAI` falls back to cloud for text only and
+  refuses media with `cloud-media-not-allowed`, so a photo or voice clip is never sent to a provider by accident.
+- **What each endpoint accepts** (anything else is refused with `unsupported-modality` before any provider call):
+  OpenAI Chat Completions: images, plus wav/mp3 audio on `*audio*` models. OpenAI Responses (stateful): images only.
+  Gemini `generateContent`: images and audio. Gemini Interactions (stateful): images only. The refused combinations
+  are ones whose request format is not confirmed in the provider docs.
+- **Request size.** `catalyst-core` raises the JSON body limit to 20 MB on the AI path only (other routes keep the
+  100 kb default). Set `AI_CONFIG.maxRequestMB` (1 to 100) to change it. The route also re-validates every part:
+  type, base64 data URL, size (image 8 MB, audio 10 MB), and count (4 images, 2 audio clips). Larger bodies make an
+  unauthenticated deployment more expensive to abuse, so the authentication note above matters more with media.
+- **Preparation on the device.** Images are resized (long edge 1536 px, JPEG; GIF becomes its first frame) and audio is
+  converted to 16 kHz mono WAV (30 s cap) before sending.
+- **Cost.** Cloud metrics bill audio tokens at the model's audio rate. A model without a confirmed rate reports
+  `audioCostUnknown: true` and a partial cost instead of pricing audio as text. On-device runs may report
+  `cloudEquivalent`, an estimate from the on-device token counts at a reference model's text rates.
+
 ## `useWebAI` — remote script execution
 
 `useWebAI` (the in-browser/Transformers.js provider) loads `@huggingface/transformers` from
@@ -59,6 +122,12 @@ available. To use the downloadable model on such a device, pass `engine: "litert
 const ai = useAI({ provider: "litert", model: "gemma-4-E2B" })      // pin LiteRT-LM
 const ai = useAI({ provider: "foundation-models" })                  // pin Apple Foundation Models
 ```
+
+With `auto`, LiteRT-LM is the preferred engine and Apple Foundation Models is its fallback: if LiteRT-LM cannot load its
+model, or fails before it has produced any text, the same request is answered by Foundation Models (no download needed)
+and the app stays on it until the next `initAI`. This applies to `auto` only; pinning `litert` fails as asked. A failure
+after text has started streaming is reported, not retried. The conversation continues under the same id, but only the
+current message is replayed to the fallback, so its first answer lacks earlier turns.
 
 The provider names `native` (auto), `litert` and `foundation-models` can also be set app-wide in the AI
 config, so components don't have to choose:

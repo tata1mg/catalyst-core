@@ -14,6 +14,9 @@ protocol AIBridge: AnyObject {
     func attach(callbacks: AIBridgeCallbacks)
     func initAI(optionsRaw: String?)
     func clearConversation()
+    /// The page reports the connection state: pause the model download (it keeps its partial file) or let it go on.
+    func pauseDownload(reason: String?)
+    func resumeDownload()
 }
 
 protocol AIBridgeCallbacks: AnyObject {

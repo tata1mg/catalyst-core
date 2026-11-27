@@ -1,6 +1,11 @@
 /* global __CATALYST_PACKAGES__ */
 
-import { resolveMode, resolveNativeEngine } from "./aiProviders.js"
+import { useEffect, useRef, useState } from "react"
+import { allowCloudMedia, isMobileWeb, resolveMode, resolveNativeEngine, resolveRoutingPlatform } from "./aiProviders.js"
+import nativeBridge from "../utils/NativeBridge.js"
+import { useNetworkStatus } from "./useNetworkStatus.js"
+import { chooseCandidate, DEFAULT_TASK, isTask, normalizeRouting, recordObserved } from "./aiRouter.js"
+import type { Candidate, Consent, Modality, Observed, Platform, RouteDecision, Signals } from "./aiRouter.js"
 
 function getBrowserConfig() {
     try {
@@ -10,6 +15,64 @@ function getBrowserConfig() {
         return parsed?.browser || null
     } catch (_) {
         return null
+    }
+}
+
+function getRoutingConfig() {
+    try {
+        const raw = process.env.AI_PUBLIC_CONFIG
+        return raw ? JSON.parse(raw)?.routing || null : null
+    } catch (_) {
+        return null
+    }
+}
+
+function getPricingConfig() {
+    try {
+        const raw = process.env.AI_PUBLIC_CONFIG
+        return raw ? JSON.parse(raw)?.pricing || null : null
+    } catch (_) {
+        return null
+    }
+}
+
+function modalitiesOf(messages: any): Modality[] {
+    const set = new Set<Modality>(["text"])
+    for (const m of Array.isArray(messages) ? messages : []) {
+        if (!Array.isArray(m?.content)) continue
+        for (const part of m.content) if (part?.type === "image" || part?.type === "audio") set.add(part.type)
+    }
+    return [...set]
+}
+
+// What the call asks for: generate({ task }) wins over useAI({ task }); anything unrecognised is plain text generation.
+function taskOf(args: any, options: any) {
+    return isTask(args?.task) ? args.task : isTask(options?.task) ? options.task : DEFAULT_TASK
+}
+
+// Live checks, not the user agent: an iPhone Safari tab is a web target (it has no native module), a WebView build is not.
+// A plain browser is further split into desktop and mobile, which is the only place the user agent is consulted.
+function detectPlatform(): Platform {
+    if (typeof window === "undefined") return "web-desktop"
+    const nav: any = typeof navigator !== "undefined" ? navigator : {}
+    const mobileWeb = isMobileWeb({ uaMobile: nav.userAgentData?.mobile, userAgent: nav.userAgent, platform: nav.platform, maxTouchPoints: nav.maxTouchPoints })
+    return resolveRoutingPlatform({ android: nativeBridge._detectAndroid(), ios: nativeBridge._detectIOS() }, mobileWeb)
+}
+
+// Observed ttft/tps per candidate, kept per device so routing improves with use. Best-effort: no storage, no memory.
+const OBSERVED_KEY = "catalyst.ai.routing.observed"
+function loadObserved(): Record<string, Observed> {
+    try {
+        return JSON.parse(localStorage.getItem(OBSERVED_KEY) || "{}") || {}
+    } catch (_) {
+        return {}
+    }
+}
+function saveObserved(all: Record<string, Observed>) {
+    try {
+        localStorage.setItem(OBSERVED_KEY, JSON.stringify(all))
+    } catch (_) {
+        // ignore
     }
 }
 
@@ -51,17 +114,79 @@ export function useAI(options: any = {}) {
     const { provider } = options
     const config = getBrowserConfig()
     const resolvedProvider = provider || config?.provider
-    const mode = resolveMode(resolvedProvider)
+    const auto = resolvedProvider === "auto"
+    const mode = auto ? "cloud" : resolveMode(resolvedProvider)
+    // The page's own view of the connection. It pauses a model download when the device goes offline and resumes it
+    // when it returns; `download` (AI_CONFIG.browser.download) tunes what counts as a weak link.
+    const network = useNetworkStatus()
+    // Prices the developer set in AI_CONFIG.pricing win over catalyst-ai's built-in table (idempotent; older catalyst-ai ignores it).
+    _pkg?.setPricingOverrides?.(getPricingConfig())
 
-    const cloudResult = _pkg ? _pkg.useCloudAI(options) : emptyHook()
-    const webResult = _pkg ? _pkg.useWebAI(options) : emptyHook()
+    // Auto routing: the picked candidate drives which hook is configured. Nothing on-device is initialised (and so
+    // nothing downloads) until a call is routed to it.
+    const [selected, setSelected] = useState<Candidate | null>(null)
+    const [route, setRoute] = useState<RouteDecision | null>(null)
+    const pending = useRef<{ args: any; id: string; settle: (result: any) => void } | null>(null)
+    const loadedId = useRef<string | null>(null)
+    const observed = useRef<Record<string, Observed> | null>(null)
+    const lastMetrics = useRef<any>(null)
+
+    const nativeSel = auto && selected?.mode === "native" ? selected : null
+    const webSel = auto && selected?.mode === "local" ? selected : null
+    const cloudSel = auto && selected?.mode === "cloud" ? selected : null
+
+    // allowMedia: image/audio go to a cloud provider only when the caller picked cloud explicitly (or auto routing
+    // chose a cloud model under a policy that allowed it). A cloud hook that is only a fallback must refuse media.
+    const cloudResult = _pkg
+        ? _pkg.useCloudAI({
+              ...options,
+              ...(cloudSel && { provider: cloudSel.provider, model: cloudSel.model ?? options.model }),
+              allowMedia: auto ? !!cloudSel : allowCloudMedia(mode),
+          })
+        : emptyHook()
+    const webResult = _pkg
+        ? _pkg.useWebAI({
+              ...options,
+              ...(webSel?.model && { model: webSel.model }),
+              // "prompt-api" (Chrome's built-in model) from routing or provider: "prompt-api"; otherwise Transformers.js.
+              engine: webSel?.engine === "prompt-api" || resolvedProvider === "prompt-api" ? "prompt-api" : "transformers",
+              network: { online: network.online, type: network.type },
+              ...(config?.download && { download: config.download }),
+          })
+        : emptyHook()
     const nativeResult = _pkg
         ? _pkg.useNativeAI({
               ...options,
-              enabled: mode === "native",
-              engine: resolveNativeEngine(resolvedProvider, options.engine, config),
+              enabled: auto ? !!nativeSel : mode === "native",
+              engine: auto ? nativeSel?.engine : resolveNativeEngine(resolvedProvider, options.engine, config),
+              ...(nativeSel?.model !== undefined && { model: nativeSel.model }),
+              ...(nativeSel?.modelPath !== undefined && { modelPath: nativeSel.modelPath }),
+              network: { online: network.online, type: network.type },
+              ...(config?.download && { download: config.download }),
           })
         : emptyHook()
+
+    const active: any = webSel ? webResult : nativeSel ? nativeResult : cloudResult
+
+    // Run a call that was waiting for its model to be configured/initialised.
+    const ready = nativeSel ? !!nativeResult.modelReady : true
+    useEffect(() => {
+        const p = pending.current
+        if (!p || selected?.id !== p.id || !ready) return
+        pending.current = null
+        loadedId.current = selected.target === "onDevice" ? selected.id : loadedId.current
+        Promise.resolve(active.generate(p.args)).then(p.settle, (error) => p.settle({ output: "", error }))
+    })
+
+    // Feed each finished call's metrics (the same ones useAI reports) back into the router.
+    const metrics = active?.metrics
+    useEffect(() => {
+        if (!auto || !selected || !metrics || metrics === lastMetrics.current) return
+        lastMetrics.current = metrics
+        observed.current = observed.current || loadObserved()
+        observed.current[selected.id] = recordObserved(observed.current[selected.id], metrics) as Observed
+        saveObserved(observed.current)
+    }, [metrics])
 
     if (typeof window === "undefined") return emptyHook()
 
@@ -70,9 +195,52 @@ export function useAI(options: any = {}) {
         return emptyHook()
     }
 
+    if (auto) {
+        // Routing runs per call, so the same hook can take text on-device and refuse to send a photo to the cloud.
+        const generate = async (args: any, consent: Consent = {}) => {
+            const platform = detectPlatform()
+            const { policy, candidates } = normalizeRouting(getRoutingConfig(), platform, options.routing)
+            const priceOf = (model: string) => _pkg.lookupPricing?.(model) ?? _pkg.PRICING?.[model]
+            const priced = candidates.map((c) => (c.target === "cloud" && !c.price && c.model && priceOf(c.model) ? { ...c, price: priceOf(c.model) } : c))
+            const signals: Signals = {
+                platform,
+                nativeAvailable: !!isNativeAIAvailable(),
+                webgpu: typeof navigator !== "undefined" && !!(navigator as any).gpu,
+                online: typeof navigator === "undefined" || navigator.onLine !== false,
+                webModelLoaded: !!webResult.modelReady,
+                promptApi: priced.some((c) => c.engine === "prompt-api") ? await _pkg.getPromptApiAvailability?.() : undefined,
+                loadedId: loadedId.current,
+            }
+            observed.current = observed.current || loadObserved()
+            const pool = consent.pin ? priced.filter((c) => c.id === consent.pin) : priced
+            const decision = chooseCandidate(modalitiesOf(args?.messages), pool.length ? pool : priced, signals, policy, observed.current, consent, taskOf(args, options))
+            setRoute(decision)
+            // Resolves with the underlying hook's { output, error } plus the routing decision. When nothing could run
+            // ("ask" for consent, or "deny") it resolves at once with empty output and no error: read `route.action`.
+            const withRoute = (result: any) => ({ ...(result || { output: "", error: null }), route: decision })
+            if (decision.action !== "run" || !decision.candidate) return withRoute(null)
+            const chosen = decision.candidate
+            const same = selected?.id === chosen.id
+            if (same && (chosen.mode !== "native" || nativeResult.modelReady)) {
+                loadedId.current = chosen.target === "onDevice" ? chosen.id : loadedId.current
+                return withRoute(await active.generate(args))
+            }
+            // The hooks are configured from `selected`; switch it and run once the new model is ready.
+            // A call still waiting for an earlier switch is superseded, not left hanging.
+            pending.current?.settle({ output: "", error: null })
+            return new Promise((resolve) => {
+                pending.current = { args, id: chosen.id, settle: (result) => resolve(withRoute(result)) }
+                setSelected(chosen)
+            })
+        }
+        return { ...active, unload: active.unload ?? (() => {}), generate, route, generateWithConsent: generate }
+    }
+
+    // unload() frees an in-browser model from GPU/RAM; the other engines hold nothing in the page, so it is a no-op there.
+    const withUnload = (r: any) => ({ ...r, unload: r.unload ?? (() => {}) })
     if (mode === "local") return webResult
-    if (mode === "native" && isNativeAIAvailable()) return nativeResult
-    return cloudResult
+    if (mode === "native" && isNativeAIAvailable()) return withUnload(nativeResult)
+    return withUnload(cloudResult)
 }
 
 // Returned when catalyst-ai is missing — keeps hook shape stable so callers don't crash
@@ -93,6 +261,7 @@ function emptyHook() {
         generate: () => {},
         cancel: () => {},
         reset: () => {},
+        unload: () => {},
         clearError: () => {},
         conversationId: null,
         getSessionMetrics: () => null,

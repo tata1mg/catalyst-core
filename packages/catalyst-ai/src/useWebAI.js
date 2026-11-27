@@ -1,6 +1,14 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react"
-import { aggregateWebSessionMetrics } from "./metrics.js"
+import { assertEngineSupports, getModalities, toWebTemplate, webModelKind } from "./contentParts.js"
+import { prepareAudioParts } from "./audioPrep.js"
+import { prepareImageParts } from "./imagePrep.js"
+import { WORKER_SCRIPT } from "./webWorkerScript.js"
+import { aggregateWebSessionMetrics, estimateCloudEquivalent } from "./metrics.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+import { createPromptApiEngine, PROMPT_API_MODEL } from "./promptApiEngine.js"
+import { buildAttachmentSystemPrompt } from "./buildAttachmentSystemPrompt.js"
+import { convertAttachmentTags } from "./attachmentTags.js"
+import { blocksToSentinels, buildAttachmentSchema, buildSchemaSystemPrompt } from "./attachmentSchema.js"
 
 const schedule = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
 const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnimationFrame : clearTimeout
@@ -9,162 +17,6 @@ const cancelSchedule = typeof cancelAnimationFrame !== "undefined" ? cancelAnima
 // generation quality/instruction-following degrades noticeably on larger models (e.g. Llama 3)
 // versus useCloudAI/useNativeAI, and WebGPU/WASM backend selection is unpredictable across
 // devices. Treat this provider as a demo/fallback path, not production-ready, until revisited.
-
-const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
-
-const WORKER_SCRIPT = `
-const TRANSFORMERS_CDN = "${TRANSFORMERS_CDN}";
-let pipe = null;
-let TextStreamer = null;
-let loadedModel = null;
-let loadedDevice = null;
-
-async function loadPipeline(model) {
-    if (loadedModel === model && pipe) {
-        self.postMessage({ type: "log", msg: "[worker] pipeline cache hit — " + model + " on " + loadedDevice });
-        return;
-    }
-
-    self.postMessage({ type: "log", msg: "[worker] importing transformers from CDN..." });
-    const mod = await import(TRANSFORMERS_CDN);
-    mod.env.allowLocalModels = false;
-    TextStreamer = mod.TextStreamer;
-
-    const backends = [
-        { device: "webgpu", dtype: "q4f16" },
-        { device: "wasm",   dtype: "q4"    },
-    ];
-
-    let lastErr = null;
-    for (const { device, dtype } of backends) {
-        try {
-            self.postMessage({ type: "log", msg: "[worker] trying device=" + device + " dtype=" + dtype });
-            const fileTotals = {};
-            const dlStart = performance.now();
-
-            pipe = await mod.pipeline("text-generation", model, {
-                device,
-                dtype,
-                progress_callback: (info) => {
-                    const { status, file, name, loaded, total } = info;
-                    const pct = total > 0 ? Math.round((loaded / total) * 100) : null;
-                    if (total) fileTotals[file || name] = total;
-                    if (status === "initiate") {
-                        self.postMessage({ type: "progress", file: file || name, percent: 0, status: "initiate" });
-                        self.postMessage({ type: "log", msg: "[worker] download initiate: " + (file || name) });
-                    } else if (status === "download" || status === "progress") {
-                        self.postMessage({ type: "progress", file: file || name, percent: pct, loaded, total, status: "downloading" });
-                    } else if (status === "done") {
-                        self.postMessage({ type: "progress", file: file || name, percent: 100, status: "done" });
-                        self.postMessage({ type: "log", msg: "[worker] download done: " + (file || name) });
-                    }
-                },
-            });
-
-            loadedModel = model;
-            loadedDevice = device;
-            const loadMs = Math.round(performance.now() - dlStart);
-            const totalBytes = Object.values(fileTotals).reduce((sum, n) => sum + n, 0);
-            self.postMessage({ type: "model_ready", device, dtype, loadMs, totalBytes });
-            self.postMessage({ type: "log", msg: "[worker] pipeline ready — device=" + device + " loadMs=" + loadMs });
-            return;
-        } catch (err) {
-            self.postMessage({ type: "log", msg: "[worker] " + device + " failed (" + err.message + "), trying next..." });
-            lastErr = err;
-            pipe = null;
-        }
-    }
-    throw lastErr || new Error("All backends failed");
-}
-
-self.onmessage = async (e) => {
-    const { type, model, messages, genConfig, formatPrompt } = e.data;
-    if (type !== "generate") return;
-
-    try {
-        await loadPipeline(model);
-
-        let pipeInput;
-        if (formatPrompt) {
-            try {
-                const overrideFn = new Function("return (" + formatPrompt + ")")();
-                const text = overrideFn(messages);
-                pipeInput = text;
-                self.postMessage({ type: "log", msg: "[worker] using custom formatPrompt (" + text.length + " chars)" });
-            } catch (err) {
-                self.postMessage({ type: "log", msg: "[worker] formatPrompt failed (" + err.message + "), falling back to tokenizer template" });
-            }
-        }
-        if (!pipeInput) {
-            try {
-                const text = pipe.tokenizer.apply_chat_template(messages, { tokenize: false, add_generation_prompt: true });
-                pipeInput = text;
-                self.postMessage({ type: "log", msg: "[worker] chat template applied (" + text.length + " chars)" });
-            } catch (err) {
-                pipeInput = messages;
-                self.postMessage({ type: "log", msg: "[worker] no chat template (" + err.message + "), passing messages array" });
-            }
-        }
-
-        const pipeInputType = typeof pipeInput === "string" ? "string" : Array.isArray(pipeInput) ? "messages[]" : typeof pipeInput;
-        const pipeInputLength = typeof pipeInput === "string" ? pipeInput.length : Array.isArray(pipeInput) ? pipeInput.length : 0;
-        self.postMessage({ type: "log", msg: "[worker] pipe input: type=" + pipeInputType + " length=" + pipeInputLength });
-        self.postMessage({ type: "streaming_start" });
-
-        let tokenCount = 0;
-        let ttftFired = false;
-        const tGen = performance.now();
-
-        let batch = "";
-        let batchTimer = null;
-        const flushBatch = () => {
-            batchTimer = null;
-            if (!batch) return;
-            self.postMessage({ type: "token", text: batch });
-            batch = "";
-        };
-
-        const streamer = new TextStreamer(pipe.tokenizer, {
-            skip_prompt: true,
-            skip_special_tokens: true,
-            token_callback_function: () => {
-                if (!ttftFired) {
-                    ttftFired = true;
-                    self.postMessage({ type: "ttft", ms: Math.round(performance.now() - tGen) });
-                }
-                tokenCount++;
-            },
-            callback_function: (text) => {
-                batch += text;
-                if (tokenCount % 8 === 0) { clearTimeout(batchTimer); flushBatch(); }
-                else if (!batchTimer) { batchTimer = setTimeout(flushBatch, 80); }
-            },
-        });
-
-        const { maxTokens, temperature, topP, repetitionPenalty, noRepeatNgramSize, earlyStop, ...rest } = genConfig;
-        await pipe(pipeInput, {
-            max_new_tokens: maxTokens,
-            do_sample: temperature > 0,
-            temperature,
-            top_p: topP,
-            repetition_penalty: repetitionPenalty,
-            no_repeat_ngram_size: noRepeatNgramSize ?? 3,
-            early_stopping: earlyStop ?? true,
-            ...rest,
-            streamer,
-        });
-
-        clearTimeout(batchTimer);
-        flushBatch();
-
-        const genMs = Math.round(performance.now() - tGen);
-        const tps = tokenCount > 0 ? parseFloat((tokenCount / (genMs / 1000)).toFixed(1)) : 0;
-        self.postMessage({ type: "done", totalTokens: tokenCount, genMs, tps });
-    } catch (err) {
-        self.postMessage({ type: "error", message: err.message || String(err) });
-    }
-};
-`
 
 let workerBlobUrl = null
 function getWorkerBlobUrl() {
@@ -175,13 +27,23 @@ function getWorkerBlobUrl() {
     return workerBlobUrl
 }
 
+/** @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults. */
 export function useWebAI({
     model: modelProp,
     formatPrompt,
     genConfig: genConfigProp = {},
     defaultGenConfig = {},
     sessionMode = "stateless",
+    // useNetworkStatus() of the page: offline pauses a model download in the worker, back online resumes it.
+    network,
+    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries.
+    download,
+    // "transformers" (default: Transformers.js in a Worker) or "prompt-api" (Chrome's built-in model, desktop Chrome).
+    engine = "transformers",
+    systemPrompt,
+    attachmentComponents = {},
 } = {}) {
+    const promptApi = engine === "prompt-api"
     // stable merged genConfig — only changes when values actually change
     const hookGenConfig = useMemo(
         () => ({ ...defaultGenConfig, ...genConfigProp }),
@@ -189,15 +51,40 @@ export function useWebAI({
         [JSON.stringify(defaultGenConfig), JSON.stringify(genConfigProp)]
     )
 
-    const [output, setOutput] = useState("")
+    const [output, setOutputState] = useState("")
     const [streaming, setStreaming] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setErrorState] = useState(null)
+    // What the latest generate() call produced, so callers can await a result instead of watching state.
+    const outcomeRef = useRef({ output: "", error: null })
+    const setOutput = useCallback((value) => {
+        outcomeRef.current.output = value
+        setOutputState(value)
+    }, [])
+    const setError = useCallback((value) => {
+        outcomeRef.current.error = value
+        setErrorState(value)
+    }, [])
     const [modelReady, setModelReady] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(null)
+    // Latest status per file from the worker's resumable fetch ("paused" while it waits for the connection).
+    const [fileStatus, setFileStatus] = useState({})
+    const pausedFiles = Object.values(fileStatus).filter((s) => s.state === "paused")
+    const downloadPaused = pausedFiles.length > 0
+    const downloadPauseReason = downloadPaused ? pausedFiles[0].reason || "error" : null
+    const online = network ? network.online !== false : undefined
+    const onlineRef = useRef(online)
+    onlineRef.current = online
+    const downloadPolicyRef = useRef(download)
+    downloadPolicyRef.current = download
     const [metrics, setMetrics] = useState(null)
+    // What the worker reports it fed the model ("gemma inputs: promptTokens=… audio=true"), so a page can show it.
+    const [inputInfo, setInputInfo] = useState(null)
 
     const workerRef = useRef(null)
+    const workerModelRef = useRef(null)
+    const busyRef = useRef(false)
+    const settleRef = useRef(null)
     const outputAccRef = useRef("")
     const rafRef = useRef(null)
     const cancelledRef = useRef(false)
@@ -212,50 +99,135 @@ export function useWebAI({
 
     const formatPromptRef = useRef(formatPrompt)
     formatPromptRef.current = formatPrompt
+    // Read at call time so an inline attachmentComponents object does not rebuild generate() on every render.
+    const systemPromptRef = useRef(systemPrompt)
+    systemPromptRef.current = systemPrompt
+    const attachmentComponentsRef = useRef(attachmentComponents)
+    attachmentComponentsRef.current = attachmentComponents
 
-    const generate = useCallback(
-        ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
-            if (workerRef.current) {
-                workerRef.current.terminate()
-                workerRef.current = null
+    // Ends the pending generate() promise (done, error, crash, cancel or reset).
+    const settle = useCallback(() => {
+        const resolve = settleRef.current
+        settleRef.current = null
+        if (resolve) resolve()
+    }, [])
+
+    const run = useCallback(
+        async ({ messages, genConfig: callGenConfig = {}, model: callModel }) => {
+            const resolvedModel = promptApi ? PROMPT_API_MODEL : callModel || modelProp
+            const kind = webModelKind(resolvedModel)
+            // Same instruction the cloud and native hooks give: systemPrompt plus the attachment-component protocol. It is
+            // added to what the model sees only, never to the stored conversation, so a stateful session does not repeat it.
+            // A speech-to-text model has no use for it: it only transcribes.
+            const wantsComponents = Object.keys(attachmentComponentsRef.current || {}).length > 0
+            // Chrome's built-in model cannot follow the tag syntax reliably, but it can be held to a JSON schema: the
+            // component is one of the registered names and the blocks are rendered by code (see attachmentSchema.js).
+            const useSchema = promptApi && wantsComponents
+            const systemText = kind === "asr"
+                ? null
+                : useSchema
+                    ? buildSchemaSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+                    : buildAttachmentSystemPrompt(systemPromptRef.current, attachmentComponentsRef.current)
+            const shown = (raw) => {
+                if (!wantsComponents) return raw
+                if (useSchema) return blocksToSentinels(raw, attachmentComponentsRef.current) ?? (raw.trimStart().startsWith("{") ? "" : convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current)))
+                return convertAttachmentTags(raw, Object.keys(attachmentComponentsRef.current))
             }
-
-            const resolvedModel = callModel || modelProp
+            const withSystem = (list) => (systemText && list[0]?.role !== "system" ? [{ role: "system", content: systemText }, ...list] : list)
             if (!resolvedModel) {
                 setError(new Error("[catalyst-ai/useWebAI] no model specified — pass model prop or per-call model"))
                 return
             }
 
-            const genConfig = { ...hookGenConfig, ...callGenConfig }
-            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...messages] : messages
+            // Gemma 4 takes image and audio, Whisper / Moonshine take audio only, other models are text-only and refuse
+            // media loudly. Gemma 4 always goes through the media path (it needs AutoProcessor +
+            // Gemma4ForConditionalGeneration); speech models use it to receive the clip.
+            const mediaModel = kind !== "text"
+            // Chrome's built-in model takes image and audio too (declared per request in the engine).
+            const caps = promptApi || kind === "gemma4" ? { text: true, image: true, audio: true } : kind === "asr" ? { text: true, audio: true } : { text: true }
+            let template = null
+            let outgoing = messages
+            try {
+                assertEngineSupports(getModalities(messages), caps, "web")
+                if (kind === "asr" && !getModalities(messages).has("audio")) {
+                    throw new Error(`${resolvedModel} is a speech-to-text model: attach an audio clip`)
+                }
+                if (mediaModel) {
+                    const prepared = await prepareImageParts(
+                        await prepareAudioParts(withSystem(messages), {
+                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                        }),
+                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                    )
+                    template = toWebTemplate(prepared)
+                } else if (promptApi && [...getModalities(messages)].some((m) => m !== "text")) {
+                    // Same resize / 16 kHz conversion as the other engines; the engine itself turns the data URLs into Blobs.
+                    outgoing = await prepareImageParts(
+                        await prepareAudioParts(messages, {
+                            onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                        }),
+                        { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                    )
+                }
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
+
+            // A media-capable worker holds up to ~3.4 GB of weights (speech models far less), so it is kept alive between calls (same model, idle).
+            const reuseWorker = mediaModel && workerRef.current && workerModelRef.current === resolvedModel && !busyRef.current
+            if (!reuseWorker && workerRef.current) {
+                workerRef.current.terminate()
+                workerRef.current = null
+            }
+
+            const genConfig = {
+                ...hookGenConfig,
+                ...(useSchema && { responseConstraint: buildAttachmentSchema(attachmentComponentsRef.current) }),
+                ...callGenConfig,
+            }
+            const resolvedMessages = sessionMode === "stateful" ? [...messagesRef.current, ...outgoing] : outgoing
 
             setLoading(true)
             setOutput("")
             setError(null)
             setDownloadProgress(null)
+            setFileStatus({})
             setMetrics(null)
-            setModelReady(false)
+            setInputInfo(null)
+            setModelReady(!!reuseWorker)
             cancelledRef.current = false
             outputAccRef.current = ""
             if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
 
-            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null }
+            const metricsAcc = { device: null, dtype: null, loadMs: null, downloadBytes: 0, ttftMs: null, tps: null, totalTokens: null, genMs: null, cloudEquivalent: null }
 
-            let worker
-            try {
-                worker = new Worker(getWorkerBlobUrl(), { type: "module" })
-            } catch (err) {
-                setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
-                setLoading(false)
-                return
+            let worker = reuseWorker ? workerRef.current : null
+            if (!worker) {
+                try {
+                    // The Prompt API cannot run in a Worker, so its engine speaks the worker protocol on the main thread.
+                    worker = promptApi ? createPromptApiEngine() : new Worker(getWorkerBlobUrl(), { type: "module" })
+                } catch (err) {
+                    setError(createError(ERROR_CODES.AI_WEB_WORKER_UNAVAILABLE, { cause: err }))
+                    setLoading(false)
+                    return
+                }
             }
             workerRef.current = worker
+            workerModelRef.current = resolvedModel
+            busyRef.current = true
+            // Tell the worker how to treat a bad connection and what the page believes right now, before it starts loading.
+            worker.postMessage({ type: "configure", policy: downloadPolicyRef.current || {}, online: onlineRef.current })
 
             worker.onmessage = (e) => {
                 const msg = e.data
                 switch (msg.type) {
                     case "log":
                         console.log(msg.msg)
+                        if (/^\[worker\] (gemma|asr) inputs:/.test(msg.msg)) setInputInfo(msg.msg.replace("[worker] ", ""))
+                        break
+                    case "download_status":
+                        setFileStatus((prev) => ({ ...prev, [msg.file]: { state: msg.state, reason: msg.reason, retryInSec: msg.retryInSec } }))
                         break
                     case "progress":
                         setDownloadProgress({ file: msg.file, percent: msg.percent, status: msg.status })
@@ -281,17 +253,22 @@ export function useWebAI({
                         if (!rafRef.current) {
                             rafRef.current = schedule(() => {
                                 rafRef.current = null
-                                setOutput(outputAccRef.current)
+                                setOutput(shown(outputAccRef.current))
                             })
                         }
                         break
                     case "done":
                         if (rafRef.current) { cancelSchedule(rafRef.current) }
                         rafRef.current = null
-                        setOutput(outputAccRef.current)
+                        setOutput(shown(outputAccRef.current))
                         metricsAcc.tps = msg.tps
                         metricsAcc.totalTokens = msg.totalTokens
                         metricsAcc.genMs = msg.genMs
+                        // Only the media path reports its input token count; the text pipeline leaves this null.
+                        metricsAcc.cloudEquivalent = estimateCloudEquivalent({
+                            inputTokens: typeof msg.promptTokens === "number" ? msg.promptTokens : null,
+                            outputTokens: msg.totalTokens,
+                        })
                         setMetrics({ ...metricsAcc })
                         historyRef.current.push({ ...metricsAcc })
                         if (sessionMode === "stateful") {
@@ -305,16 +282,22 @@ export function useWebAI({
                         }
                         setStreaming(false)
                         setLoading(false)
-                        worker.terminate()
-                        workerRef.current = null
+                        busyRef.current = false
+                        if (!mediaModel) {
+                            worker.terminate()
+                            workerRef.current = null
+                        }
+                        settle()
                         break
                     case "error":
                         console.error("[catalyst-ai/useWebAI] worker error:", msg.message)
                         setError(createError(ERROR_CODES.AI_WEB_WORKER_CRASHED, { message: msg.message }))
                         setStreaming(false)
                         setLoading(false)
+                        busyRef.current = false
                         worker.terminate()
                         workerRef.current = null
+                        settle()
                         break
                 }
             }
@@ -327,27 +310,57 @@ export function useWebAI({
                 }))
                 setStreaming(false)
                 setLoading(false)
+                busyRef.current = false
                 worker.terminate()
                 workerRef.current = null
+                settle()
             }
 
             worker.postMessage({
                 type: "generate",
                 model: resolvedModel,
-                messages: resolvedMessages,
+                messages: template ? template.messages : withSystem(resolvedMessages),
+                media: template ? { images: template.images, audios: template.audios } : null,
                 genConfig,
                 formatPrompt: typeof formatPromptRef.current === "function" ? formatPromptRef.current.toString() : null,
             })
+            return true
         },
-        [modelProp, hookGenConfig, sessionMode]
+        [modelProp, hookGenConfig, sessionMode, promptApi]
+    )
+
+    /**
+     * Starts a generation and resolves when it has finished with `{ output, error }`: the final text, or the error
+     * that ended it (both empty when it was cancelled). The hook state updates as before.
+     */
+    const generate = useCallback(
+        async (args) => {
+            const outcome = { output: "", error: null }
+            outcomeRef.current = outcome
+            settle() // a superseded call must not hang
+            const settled = new Promise((resolve) => { settleRef.current = resolve })
+            const started = await run(args)
+            if (!started) {
+                settleRef.current = null // refused before any worker started: the error is already recorded
+                return outcome
+            }
+            await settled
+            return outcome
+        },
+        [run, settle]
     )
 
     const cancel = useCallback(() => {
         cancelledRef.current = true
         if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        // Only a running generation has to be killed to stop it. An idle worker holds the loaded model (~3.4 GB for
+        // Gemma 4) and is kept for the next call: useVision cancels any older scan before every new one, and
+        // terminating here made each new image reload the whole model.
+        if (busyRef.current && workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        busyRef.current = false
         setStreaming(false)
-    }, [])
+        settle()
+    }, [settle])
 
     const reset = useCallback(() => {
         cancelledRef.current = true
@@ -363,7 +376,31 @@ export function useWebAI({
         setDownloadProgress(null)
         setStreaming(false)
         setLoading(false)
-    }, [])
+        settle()
+    }, [settle])
+
+    /**
+     * Frees the model from GPU/RAM: stops a running generation and terminates the worker. The downloaded files stay in the
+     * cache, so the next generate() only re-initialises the model, it does not download it again. Call it when a stage is
+     * done and something else (e.g. an image model) needs the memory.
+     */
+    const unload = useCallback(() => {
+        cancelledRef.current = true
+        if (rafRef.current) { cancelSchedule(rafRef.current); rafRef.current = null }
+        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null }
+        workerModelRef.current = null
+        busyRef.current = false
+        setModelReady(false)
+        setDownloadProgress(null)
+        setStreaming(false)
+        setLoading(false)
+        settle()
+    }, [settle])
+
+    // The page's connection state follows the worker: offline interrupts its transfers, back online resumes them.
+    useEffect(() => {
+        if (online !== undefined && workerRef.current) workerRef.current.postMessage({ type: "network", online })
+    }, [online])
 
     return {
         output,
@@ -372,15 +409,20 @@ export function useWebAI({
         error,
         modelReady,
         downloadProgress,
+        // True while a model file waits for the connection; the reason is "offline", "weak" or "error".
+        downloadPaused,
+        downloadPauseReason,
         nativeDownloadProgress: null,
         nativeLogs: [],
         metrics,
+        inputInfo,
         isLocal: true,
         isNative: false,
         isWeb: true,
         generate,
         cancel,
         reset,
+        unload,
         clearError: useCallback(() => setError(null), []),
         get conversationId() { return conversationIdRef.current },
         getSessionMetrics: useCallback(() => aggregateWebSessionMetrics(historyRef.current), []),

@@ -4,16 +4,19 @@ import android.content.Context
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import android.util.Base64
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -34,6 +37,10 @@ class NativeBridgeAI(
     private val TAG = "NativeBridgeAI"
 
     private var engine: Engine? = null
+
+    // What the loaded engine was actually initialised with. Image/audio parts are refused (not dropped) when false.
+    private var visionEnabled = false
+    private var audioEnabled = false
     private val isInitializing = AtomicBoolean(false)
 
     private var nativeConversation: Conversation? = null
@@ -49,9 +56,9 @@ class NativeBridgeAI(
             sizeHint = 2_588_147_712L
         ),
         "qwen3-0.6B" to ModelEntry(
-            url = "https://huggingface.co/litert-community/Qwen3-0.6B-it-litert-lm/resolve/main/Qwen3-0.6B-it-int4.litertlm",
-            filename = "Qwen3-0.6B-it-int4.litertlm",
-            sizeHint = 474_000_000L
+            url = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/qwen3_0_6b_mixed_int4.litertlm",
+            filename = "qwen3_0_6b_mixed_int4.litertlm",
+            sizeHint = 497_516_544L
         ),
     )
 
@@ -110,12 +117,50 @@ class NativeBridgeAI(
         }
 
         val activeConvId = nativeConversationId!!
-        val tokenFlow = conversation.sendMessageAsync(prompt).map { message ->
+        val mediaFiles = mutableListOf<File>()
+        val contents = try {
+            buildContents(prompt, genConfig, mediaFiles)
+        } catch (e: Exception) {
+            mediaFiles.forEach { it.delete() }
+            throw e
+        }
+        val tokenFlow = conversation.sendMessageAsync(contents).map { message ->
             message.contents.contents
                 .filterIsInstance<Content.Text>()
                 .joinToString("") { it.text }
-        }
+        }.onCompletion { mediaFiles.forEach { it.delete() } }
         return Pair(activeConvId, tokenFlow)
+    }
+
+    /**
+     * Text-only requests stay a plain prompt. With genConfig.inputParts ([{type, mimeType, base64}], produced by
+     * catalyst-ai's buildNativeBody) the media is written to temp files and sent as Content.ImageFile/AudioFile
+     * ahead of the text. Temp files are removed when the response flow completes or is cancelled.
+     */
+    private fun buildContents(prompt: String, genConfig: JSONObject, mediaFiles: MutableList<File>): Contents {
+        val parts = genConfig.optJSONArray("inputParts")
+        if (parts == null || parts.length() == 0) return Contents.of(prompt)
+
+        val dir = File(context.cacheDir, "ai_input").also { it.mkdirs() }
+        val items = mutableListOf<Content>()
+        for (i in 0 until parts.length()) {
+            val part = parts.getJSONObject(i)
+            val type = part.optString("type")
+            val enabled = when (type) {
+                "image" -> visionEnabled
+                "audio" -> audioEnabled
+                else -> throw IllegalArgumentException("Unsupported input part type: $type")
+            }
+            if (!enabled) throw IllegalStateException("The loaded model does not support $type input")
+            val ext = part.optString("mimeType").substringAfter('/', "bin").substringBefore('+').ifBlank { "bin" }
+            val file = File(dir, "${UUID.randomUUID()}.$ext")
+            file.writeBytes(Base64.decode(part.getString("base64"), Base64.DEFAULT))
+            mediaFiles.add(file)
+            items.add(if (type == "image") Content.ImageFile(file.absolutePath) else Content.AudioFile(file.absolutePath))
+        }
+        items.add(Content.Text(prompt))
+        log("Multimodal turn: ${parts.length()} media part(s) + text")
+        return Contents.of(items)
     }
 
     // -------------------------------------------------------------------------
@@ -137,7 +182,7 @@ class NativeBridgeAI(
             ?: throw Exception("Unknown model '$modelKey'. Available: ${MODEL_REGISTRY.keys.joinToString()}")
         log("Model registry lookup: $modelKey")
         progress("lookup", 0, 0, 0, modelKey)
-        return downloadModel(entry)
+        return downloadModel(entry, DownloadPolicy.from(options.optJSONObject("download")))
     }
 
     private fun ensureEngine(modelPath: String) {
@@ -151,35 +196,47 @@ class NativeBridgeAI(
         progress("engine_init", 100, 0, 0, "ready")
     }
 
+    /**
+     * Tries multimodal first (vision on GPU, audio on CPU, as LiteRT-LM recommends), then falls back to text-only
+     * so text-only models (e.g. Qwen3) and devices without a vision/audio executor still load. Same GPU -> CPU
+     * order as before within each tier. The flags record what the surviving engine really supports.
+     */
     private fun tryCreateEngine(modelPath: String): Engine {
         log("[tryCreateEngine] modelPath=$modelPath")
-        log("[tryCreateEngine] Attempting Backend.GPU()...")
-        return try {
-            val config = EngineConfig(modelPath = modelPath, backend = Backend.GPU())
-            log("[tryCreateEngine] EngineConfig created, constructing Engine...")
-            val eng = Engine(config)
-            log("[tryCreateEngine] Engine() constructed OK, calling initialize()...")
-            eng.initialize()
-            log("[tryCreateEngine] GPU engine initialized successfully")
-            eng
-        } catch (e: Exception) {
-            log("[tryCreateEngine] GPU failed at: ${e.javaClass.simpleName}: ${e.message}")
-            log("[tryCreateEngine] Falling back to Backend.CPU()...")
+        val cacheDir = File(context.cacheDir, "litertlm").also { it.mkdirs() }.absolutePath
+        data class Attempt(val label: String, val main: Backend, val vision: Backend?, val audio: Backend?)
+        val attempts = listOf(
+            Attempt("GPU+vision+audio", Backend.GPU(), Backend.GPU(), Backend.CPU()),
+            Attempt("CPU+vision+audio", Backend.CPU(), Backend.CPU(), Backend.CPU()),
+            Attempt("GPU text-only", Backend.GPU(), null, null),
+            Attempt("CPU text-only", Backend.CPU(), null, null),
+        )
+        var last: Exception? = null
+        for (a in attempts) {
+            log("[tryCreateEngine] Attempting ${a.label}...")
             try {
-                val config = EngineConfig(modelPath = modelPath, backend = Backend.CPU())
+                val config = EngineConfig(
+                    modelPath = modelPath,
+                    backend = a.main,
+                    visionBackend = a.vision,
+                    audioBackend = a.audio,
+                    cacheDir = cacheDir,
+                )
                 val eng = Engine(config)
-                log("[tryCreateEngine] CPU Engine() constructed, calling initialize()...")
                 eng.initialize()
-                log("[tryCreateEngine] CPU engine initialized successfully")
-                eng
-            } catch (e2: Exception) {
-                log("[tryCreateEngine] CPU also failed: ${e2.javaClass.simpleName}: ${e2.message}")
-                throw e2
+                visionEnabled = a.vision != null
+                audioEnabled = a.audio != null
+                log("[tryCreateEngine] ${a.label} initialized (vision=$visionEnabled audio=$audioEnabled)")
+                return eng
+            } catch (e: Exception) {
+                log("[tryCreateEngine] ${a.label} failed: ${e.javaClass.simpleName}: ${e.message}")
+                last = e
             }
         }
+        throw last ?: IllegalStateException("No engine configuration succeeded")
     }
 
-    private fun downloadModel(entry: ModelEntry): String {
+    private fun downloadModel(entry: ModelEntry, policy: DownloadPolicy): String {
         val modelsDir = File(context.filesDir, "ai_models").also { it.mkdirs() }
         val modelFile = File(modelsDir, entry.filename)
 
@@ -192,58 +249,54 @@ class NativeBridgeAI(
         log("Downloading model: ${entry.filename} from HuggingFace (~${entry.sizeHint / 1_000_000}MB)")
         progress("download", 0, 0, entry.sizeHint, "starting")
 
+        // The partial and its ETag stay on disk across failures and launches so the next attempt resumes.
         val tempFile = File(modelsDir, "${entry.filename}.tmp")
-        try {
-            val conn = (URL(entry.url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 30_000
-                readTimeout = 60_000
-                setRequestProperty("User-Agent", "CatalystCore/1.0 LiteRT-LM")
-                instanceFollowRedirects = true
-                connect()
-            }
-
-            val responseCode = conn.responseCode
-            if (responseCode !in 200..299) throw Exception("HTTP $responseCode from model server")
-
-            val contentLength = conn.contentLengthLong.takeIf { it > 0 } ?: entry.sizeHint
-            log("Content-Length: ${contentLength / 1_000_000}MB — downloading...")
-
-            conn.inputStream.use { input ->
-                tempFile.outputStream().use { output ->
-                    val buf = ByteArray(128 * 1024)
-                    var loaded = 0L
-                    var lastPct = -1
-                    var lastEmitMs = System.currentTimeMillis()
-
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n == -1) break
-                        output.write(buf, 0, n)
-                        loaded += n
-
-                        val pct = if (contentLength > 0) ((loaded * 100) / contentLength).toInt() else -1
-                        val now = System.currentTimeMillis()
-                        if (pct != lastPct || now - lastEmitMs >= 200) {
-                            lastPct = pct
-                            lastEmitMs = now
-                            val mb = loaded / 1_000_000
-                            val totalMb = contentLength / 1_000_000
-                            progress("download", maxOf(pct, 0), loaded, contentLength, "${mb}MB / ${totalMb}MB")
-                            log("Download: $pct% (${mb}MB / ${totalMb}MB)")
-                        }
-                    }
+        val etagFile = File(modelsDir, "${entry.filename}.tmp.etag")
+        var lastPct = -1
+        var lastEmitMs = System.currentTimeMillis()
+        var knownTotal = entry.sizeHint
+        val downloader = ResumableDownloader(
+            userAgent = "CatalystCore/1.0 LiteRT-LM",
+            policy = policy,
+            gate = DownloadGate.shared,
+            log = { log(it) },
+            onBytes = { loaded, announced ->
+                val total = if (announced > 0) announced else entry.sizeHint
+                knownTotal = total
+                val pct = if (total > 0) minOf(100, ((loaded * 100) / total).toInt()) else -1
+                val now = System.currentTimeMillis()
+                if (pct != lastPct || now - lastEmitMs >= 200) {
+                    lastPct = pct
+                    lastEmitMs = now
+                    val mb = loaded / 1_000_000
+                    val totalMb = total / 1_000_000
+                    progress("download", maxOf(pct, 0), loaded, total, "${mb}MB / ${totalMb}MB")
+                    log("Download: $pct% (${mb}MB / ${totalMb}MB)")
                 }
+            },
+        )
+        // Weak link, dropped connection or a pause from the page: wait, then resume from the partial.
+        fun partialSize() = if (tempFile.exists()) tempFile.length() else 0L
+        val resilient = ResilientDownload(policy, DownloadGate.shared, ::partialSize, log = { log(it) }) { status ->
+            val loaded = partialSize()
+            val pct = minOf(100, ((loaded * 100) / maxOf(knownTotal, 1)).toInt())
+            when (status) {
+                is DownloadStatus.Paused -> progress(
+                    "paused", pct, loaded, knownTotal,
+                    status.retryInSec?.let { "${status.reason.wire}, retrying in ${it}s" } ?: status.reason.wire,
+                )
+                DownloadStatus.Resuming -> progress("download", pct, loaded, knownTotal, "resuming")
             }
-
-            conn.disconnect()
-            if (tempFile.length() == 0L) throw Exception("Downloaded file is empty")
-            tempFile.renameTo(modelFile)
-            log("Download complete: ${modelFile.length() / 1_000_000}MB saved to ${modelFile.absolutePath}")
-            progress("download", 100, modelFile.length(), modelFile.length(), "complete")
-
+        }
+        try {
+            val size = resilient.run { downloader.download(entry.url, tempFile, etagFile) }
+            modelFile.delete()
+            if (!tempFile.renameTo(modelFile)) throw Exception("could not move the model into place")
+            etagFile.delete()
+            log("Download complete: ${size / 1_000_000}MB saved to ${modelFile.absolutePath}")
+            progress("download", 100, size, size, "complete")
         } catch (e: Exception) {
-            tempFile.delete()
+            if ((e as? DownloadException)?.discardPartial == true) downloader.discard(tempFile, etagFile)
             throw Exception("Model download failed: ${e.message}", e)
         }
 

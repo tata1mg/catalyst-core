@@ -1,7 +1,18 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { aggregateNativeSessionMetrics } from "./metrics.js"
+import { prepareAudioParts } from "./audioPrep.js"
+import { prepareImageParts } from "./imagePrep.js"
+import { assertEngineSupports, buildNativeBody, getModalities } from "./contentParts.js"
 import { getNativeAIPlatform, describeNativeAIUnavailable, initNativeAI, clearNativeConversation, pickNativeErrorCode } from "./nativeTransport.js"
+import { useNativeDownloadControl } from "./nativeDownloadControl.js"
 import { ERROR_CODES, createError } from "catalyst-core/errors"
+
+// Input modalities per native engine. Apple Foundation Models stays text-only until its image path is verified
+// (spike 0.4); LiteRT-LM (Android, and iOS "litert"/auto) takes image and audio with Gemma-4-class models.
+const NATIVE_INPUT_SUPPORT = {
+    "foundation-models": { text: true },
+    default: { text: true, image: true, audio: true },
+}
 
 const isKnownCode = (code) => Object.values(ERROR_CODES).includes(code)
 
@@ -36,6 +47,7 @@ const NATIVE_CALLBACKS = {
     ON_AI_ERROR: "ON_AI_ERROR",
 }
 
+/** @param {any} [options] Typed loosely: see the TypeScript 7 note on destructured defaults. */
 export function useNativeAI({
     genConfig: genConfigProp = {},
     attachmentComponents = {},
@@ -46,13 +58,27 @@ export function useNativeAI({
     engine,
     model,
     modelPath,
+    // useNetworkStatus() of the page: offline pauses the model download, back online resumes it.
+    network,
+    // Download policy for a weak or lost connection (AI_CONFIG.browser.download): minBytesPerSec, windowSec, resumeDelaySec, maxIdleRetries, heldRetrySec.
+    download,
 } = {}) {
     const hookGenConfig = { ...defaultGenConfig, ...genConfigProp }
 
-    const [output, setOutput] = useState("")
+    const [output, setOutputState] = useState("")
     const [streaming, setStreaming] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
+    const [error, setErrorState] = useState(null)
+    // What the latest generate() call produced, so callers can await a result instead of watching state.
+    const outcomeRef = useRef({ output: "", error: null })
+    const setOutput = useCallback((value) => {
+        outcomeRef.current.output = value
+        setOutputState(value)
+    }, [])
+    const setError = useCallback((value) => {
+        outcomeRef.current.error = value
+        setErrorState(value)
+    }, [])
     const [modelReady, setModelReady] = useState(false)
     const [nativeDownloadProgress, setNativeDownloadProgress] = useState(null)
     const [nativeLogs, setNativeLogs] = useState([])
@@ -150,6 +176,7 @@ export function useNativeAI({
             ...(engine !== undefined && { engine }),
             ...(model !== undefined && { model }),
             ...(modelPath !== undefined && { modelPath }),
+            ...(download !== undefined && { download }),
         })
 
         return () => {
@@ -167,7 +194,7 @@ export function useNativeAI({
         // recreate every render, so they stay out of the dependencies and apply on the next (re)init.
     }, [enabled, engine, model, modelPath])
 
-    const generate = useCallback(
+    const run = useCallback(
         async ({ messages, genConfig: callGenConfig = {} }) => {
             const url = nativeStreamUrlRef.current
             if (!url) {
@@ -175,12 +202,25 @@ export function useNativeAI({
                 return
             }
 
+            const genConfig = { ...hookGenConfig, ...callGenConfig }
+            let nativeBody
+            try {
+                assertEngineSupports(getModalities(messages), NATIVE_INPUT_SUPPORT[engine] ?? NATIVE_INPUT_SUPPORT.default, "native")
+                const prepared = await prepareImageParts(
+                    await prepareAudioParts(messages, {
+                        onError: (e) => console.warn("[catalyst-ai] audio could not be normalised, sending the original:", e.message),
+                    }),
+                    { onError: (e) => console.warn("[catalyst-ai] image could not be resized, sending the original:", e.message) }
+                )
+                nativeBody = buildNativeBody(prepared, genConfig)
+            } catch (inputErr) {
+                setError(inputErr)
+                return
+            }
+
             if (abortControllerRef.current) abortControllerRef.current.abort()
             const controller = new AbortController()
             abortControllerRef.current = controller
-
-            const genConfig = { ...hookGenConfig, ...callGenConfig }
-            const prompt = messages.map((m) => `${m.role}: ${m.content}`).join("\n")
             const isStreamMode = genConfig.stream !== false
 
             setLoading(true)
@@ -194,7 +234,6 @@ export function useNativeAI({
             let ttftMs = null
 
             try {
-                const nativeBody = { prompt, genConfig }
                 if (sessionMode === "stateful" && conversationIdRef.current) {
                     nativeBody.conversationId = conversationIdRef.current
                 }
@@ -317,7 +356,21 @@ export function useNativeAI({
                 if (abortControllerRef.current === controller) abortControllerRef.current = null
             }
         },
-        [hookGenConfig, sessionMode]
+        [hookGenConfig, sessionMode, engine]
+    )
+
+    /**
+     * Starts a generation and resolves when it has finished with `{ output, error }`: the final text, or the error
+     * that ended it (both empty when it was cancelled or superseded). The hook state updates as before.
+     */
+    const generate = useCallback(
+        async (args) => {
+            const outcome = { output: "", error: null }
+            outcomeRef.current = outcome
+            await run(args)
+            return outcome
+        },
+        [run]
     )
 
     const cancelRaf = () => {
@@ -345,6 +398,9 @@ export function useNativeAI({
         setLoading(false)
     }, [])
 
+    useNativeDownloadControl({ active: enabled && !modelReady, network })
+    const downloadPaused = nativeDownloadProgress?.phase === "paused"
+
     return {
         output,
         streaming,
@@ -353,6 +409,9 @@ export function useNativeAI({
         modelReady,
         downloadProgress: null,
         nativeDownloadProgress,
+        // True while the model download waits for the connection; the reason is "offline", "weak" or "error".
+        downloadPaused,
+        downloadPauseReason: downloadPaused ? String(nativeDownloadProgress.detail || "").split(",")[0] || null : null,
         nativeLogs,
         metrics,
         isLocal: false,

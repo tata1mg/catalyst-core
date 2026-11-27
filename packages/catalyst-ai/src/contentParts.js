@@ -1,0 +1,186 @@
+// Multimodal input for useAI. Pure functions between `messages` and what an engine receives.
+//
+// A message's `content` is a string (as always) or an array of parts:
+//   { type: "text", text }  |  { type: "image", data: "data:image/...;base64,..." }  |  { type: "audio", data: "data:audio/...;base64,..." }
+// Media is never silently dropped: an engine that cannot take a modality gets a typed error instead.
+
+export const DEFAULT_LIMITS = {
+    imageBytes: 8 * 1024 * 1024,
+    audioBytes: 20 * 1024 * 1024,
+    maxImages: 4,
+}
+
+const MEDIA_TYPES = ["image", "audio"]
+// Recorders label clips "audio/webm;codecs=opus": RFC 2397 allows ;name=value attributes before ;base64, so accept them and keep the bare type.
+const DATA_URL = /^data:([^;,]+)(?:;[^;,=]+=[^;,]*)*;base64,(.*)$/s
+
+// What a rejected `data` looked like, without the payload: "string, 125591 chars, starts \"data:audio/wav;base64,UklG\"".
+export function describeData(value) {
+    if (typeof value !== "string") return `${value === null ? "null" : typeof value}`
+    return `string, ${value.length} chars, starts ${JSON.stringify(value.slice(0, 40))}`
+}
+
+function inputError(reason, message, extra = {}) {
+    return Object.assign(new Error(message), { reason, ...extra })
+}
+
+function decodedBytes(base64) {
+    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0
+    return Math.floor((base64.length * 3) / 4) - padding
+}
+
+function normalizePart(part, limits) {
+    if (!part || typeof part !== "object") throw inputError("invalid-part", "Each content part must be an object")
+    if (part.type === "text") {
+        if (typeof part.text !== "string") throw inputError("invalid-part", "A text part needs a string `text`")
+        return { type: "text", text: part.text }
+    }
+    if (!MEDIA_TYPES.includes(part.type)) {
+        throw inputError("invalid-part", `Unknown content part type "${part.type}" (expected text, image or audio)`)
+    }
+    const match = typeof part.data === "string" ? DATA_URL.exec(part.data) : null
+    if (!match) throw inputError("invalid-part", `A ${part.type} part needs \`data\` as a base64 data URL (got ${describeData(part.data)})`)
+    const [, mimeType, base64] = match
+    if (!mimeType.startsWith(`${part.type}/`)) {
+        throw inputError("invalid-part", `A ${part.type} part cannot carry ${mimeType}`)
+    }
+    const cap = part.type === "image" ? limits.imageBytes : limits.audioBytes
+    if (decodedBytes(base64) > cap) {
+        throw inputError("too-large", `${part.type} is too large (limit ${cap} bytes)`, { modality: part.type, limit: cap })
+    }
+    return { type: part.type, mimeType, base64 }
+}
+
+/** -> [{ role, parts: [{type:"text",text} | {type, mimeType, base64}] }]; validates types, data URLs and size limits. */
+export function normalizeMessages(messages, limits = DEFAULT_LIMITS) {
+    let images = 0
+    return messages.map((message) => {
+        const raw = typeof message.content === "string" ? [{ type: "text", text: message.content }] : message.content
+        if (!Array.isArray(raw) || raw.length === 0) {
+            throw inputError("invalid-part", "Message content must be a string or a non-empty array of parts")
+        }
+        const parts = raw.map((part) => normalizePart(part, limits))
+        images += parts.filter((p) => p.type === "image").length
+        if (images > limits.maxImages) {
+            throw inputError("too-many", `At most ${limits.maxImages} images per request`, { modality: "image", limit: limits.maxImages })
+        }
+        return { role: message.role, parts }
+    })
+}
+
+/** Set of modalities used across the messages; always includes "text" only when text is present. */
+export function getModalities(messages) {
+    const set = new Set()
+    for (const message of normalizeMessages(messages)) for (const part of message.parts) set.add(part.type)
+    return set
+}
+
+/** Throws unless every requested modality is supported. `caps` is e.g. { text: true, image: true }. */
+export function assertEngineSupports(modalities, caps, engine = "this engine") {
+    for (const modality of modalities) {
+        if (!caps?.[modality]) {
+            throw inputError("unsupported-modality", `${engine} does not support ${modality} input`, { modality, engine })
+        }
+    }
+}
+
+function textOf(parts) {
+    return parts
+        .filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join(" ")
+}
+
+function toPrompt(normalized) {
+    return normalized.map((m) => `${m.role}: ${textOf(m.parts)}`).join("\n")
+}
+
+/** The `role: content` prompt string text-only engines get. Refuses to flatten media. */
+export function toLegacyPrompt(messages) {
+    const normalized = normalizeMessages(messages)
+    if (normalized.some((m) => m.parts.some((p) => p.type !== "text"))) {
+        throw inputError("unsupported-modality", "Media cannot be flattened into a text prompt")
+    }
+    return toPrompt(normalized)
+}
+
+/**
+ * Request body for the native local server. Text-only stays {prompt, genConfig}.
+ * @param {any[]} messages
+ * @param {Record<string, any>} genConfig
+ * @param {{ conversationId?: string }} [options]
+ * @returns {{ prompt: string, genConfig: Record<string, any>, conversationId?: string }}
+ * Media rides inside genConfig.inputParts (ordered [{type, mimeType, base64}]) because catalyst-core's servers
+ * forward genConfig to the plugin verbatim: no core change, and a core/plugin version mismatch cannot silently
+ * drop an image. The text of every message stays in `prompt` (system prompt is prefixed server-side).
+ */
+export function buildNativeBody(messages, genConfig, { conversationId } = {}) {
+    const normalized = normalizeMessages(messages)
+    const media = normalized.flatMap((m) => m.parts.filter((p) => p.type !== "text"))
+    const body = { prompt: toPrompt(normalized), genConfig: media.length ? { ...genConfig, inputParts: media } : genConfig }
+    if (conversationId) body.conversationId = conversationId
+    return body
+}
+
+// ---- Web engine (Transformers.js) ------------------------------------------------------------------------------
+// Only Gemma 4 takes image/audio in the browser today (spike 0.3). One image and one audio clip per request is what
+// was verified; more is refused instead of silently dropped.
+
+export function supportsWebMedia(model) {
+    return typeof model === "string" && /gemma-?4/i.test(model)
+}
+
+/**
+ * What a web model name runs as:
+ *   "gemma4" - image + audio + text through AutoProcessor / Gemma4ForConditionalGeneration;
+ *   "asr"    - a speech-to-text model (Whisper, Moonshine): takes audio, returns the transcript, ignores the prompt;
+ *   "text"   - everything else, the text-generation pipeline.
+ * The worker repeats the "asr" pattern (it is a separate script), keep the two in step.
+ */
+export function webModelKind(model) {
+    if (typeof model !== "string") return "text"
+    if (/gemma-?4/i.test(model)) return "gemma4"
+    if (/whisper|moonshine/i.test(model)) return "asr"
+    return "text"
+}
+
+/**
+ * -> { messages, images, audios }. `messages` use the chat-template shape ({type:"image"|"audio"} placeholders);
+ * the media itself travels beside them as data URLs, in order, for the worker to decode.
+ */
+export function toWebTemplate(messages) {
+    const images = []
+    const audios = []
+    const mapped = normalizeMessages(messages).map((message) => ({
+        role: message.role,
+        // The chat template runs `| trim` on a system message, which the template engine only accepts on a string.
+        content: message.role === "system" ? textOf(message.parts) : message.parts.map((part) => {
+            if (part.type === "text") return { type: "text", text: part.text }
+            const url = `data:${part.mimeType};base64,${part.base64}`
+            ;(part.type === "image" ? images : audios).push(url)
+            return { type: part.type }
+        }),
+    }))
+    if (images.length > 1) throw inputError("too-many", "The web engine accepts one image per request", { modality: "image", limit: 1 })
+    if (audios.length > 1) throw inputError("too-many", "The web engine accepts one audio clip per request", { modality: "audio", limit: 1 })
+    return { messages: mapped, images, audios }
+}
+
+// ---- Cloud (explicit consent) -------------------------------------------------------------------------------------
+/**
+ * Image and audio leave the device only when the developer chose cloud explicitly. useAI falls back to the cloud hook
+ * when a native or web engine is unavailable; that fallback must never ship a user's photo or voice to a provider.
+ * `allowMedia` has to be exactly `true`, so an older catalyst-core that does not pass it fails closed.
+ */
+export function assertCloudMediaAllowed(modalities, allowMedia) {
+    if (allowMedia === true) return
+    for (const modality of ["image", "audio"]) {
+        if (modalities.has(modality)) {
+            throw inputError(
+                "cloud-media-not-allowed",
+                `Sending ${modality} to a cloud provider needs an explicit choice: use useAI({ provider: "cloud" }) (or pass allowMedia: true to useCloudAI). This call fell back to cloud because the on-device engine was unavailable, so the ${modality} was not sent.`,
+                { modality, engine: "cloud" }
+            )
+        }
+    }
+}

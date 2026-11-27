@@ -1,10 +1,25 @@
 const express = require("express")
+const media = require("./cloudMedia")
+const imageGen = require("./imageGen")
+const liveGen = require("./liveGen")
+const speechGen = require("./speechGen")
 
 const router = express.Router()
 
 // catalyst-core/errors is ESM-only; route.js stays CJS (loaded via require.resolve
 // in expressServer.js), so we load it lazily via dynamic import and cache the module.
 let errorsModulePromise = null
+// Strip CR/LF and other control characters so a user-influenced value cannot forge extra log lines.
+// The provider name for a log line: the canonical key from the known set, never the request-supplied string itself.
+function knownProviderName(provider) {
+    return Object.keys(PROVIDERS).find((name) => name === provider) ?? "unknown"
+}
+function logSafe(value) {
+    return String(value ?? "")
+        .replace(/[\r\n]/g, " ")
+        .replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ")
+}
+
 function loadErrors() {
     if (!errorsModulePromise) errorsModulePromise = import("catalyst-core/errors")
     return errorsModulePromise
@@ -43,12 +58,24 @@ function getProviderConfig(provider) {
 const MODEL_NAME_RE = /^[a-zA-Z0-9._:-]+$/
 
 // Returns an error string if the request body is invalid, otherwise null.
-function validateRequestBody(req, cfg) {
+function validateRequestBody(req, cfg, provider) {
     const { messages, model } = req.body ?? {}
     if (!Array.isArray(messages) || messages.length === 0) return "messages must be a non-empty array"
     const resolvedModel = model || cfg.defaultModel
     if (!resolvedModel) return "no model specified and provider has no defaultModel configured"
     if (typeof resolvedModel !== "string" || !MODEL_NAME_RE.test(resolvedModel)) return "model contains invalid characters"
+    // Image/audio parts: re-validated server-side (client caps can be bypassed) and checked against what this
+    // provider endpoint really accepts, before any paid call. Requests without array content skip this entirely.
+    if (provider && media.usesParts(messages)) {
+        try {
+            const normalized = media.validateMessages(messages)
+            const caps = media.capabilitiesFor({ provider, stateful: "conversationId" in req.body, model: resolvedModel })
+            media.assertSupported(normalized, caps, `${provider}/${resolvedModel}`)
+        } catch (err) {
+            if (err.reason) return `${err.reason}: ${err.message}`
+            throw err
+        }
+    }
     return null
 }
 
@@ -78,6 +105,12 @@ async function throwProviderError(provider, response) {
 // Subtracting reasoning out here keeps totalTokens = prompt + completion +
 // reasoning valid for every provider downstream.
 
+// audioTokens is a subset of promptTokens that is billed at a different rate. The key is only present when audio was
+// actually used, so text-only usage payloads stay exactly as they were.
+function audioTokensField(count) {
+    return typeof count === "number" && count > 0 ? { audioTokens: count } : {}
+}
+
 function normalizeOpenAIChatUsage(usage, model) {
     if (!usage) return null
     const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0
@@ -87,6 +120,7 @@ function normalizeOpenAIChatUsage(usage, model) {
         cachedTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
         completionTokens: (usage.completion_tokens ?? 0) - reasoningTokens,
         reasoningTokens,
+        ...audioTokensField(usage.prompt_tokens_details?.audio_tokens),
     }
 }
 
@@ -99,6 +133,7 @@ function normalizeOpenAIResponsesUsage(usage, model) {
         cachedTokens: usage.input_tokens_details?.cached_tokens ?? 0,
         completionTokens: (usage.output_tokens ?? 0) - reasoningTokens,
         reasoningTokens,
+        ...audioTokensField(usage.input_tokens_details?.audio_tokens),
     }
 }
 
@@ -111,6 +146,9 @@ function normalizeGeminiUsage(usageMetadata, model) {
         cachedTokens: usageMetadata.cachedContentTokenCount ?? 0,
         completionTokens: usageMetadata.candidatesTokenCount ?? 0,
         reasoningTokens: usageMetadata.thoughtsTokenCount ?? 0,
+        ...audioTokensField(
+            usageMetadata.promptTokensDetails?.filter((d) => d.modality === "AUDIO").reduce((sum, d) => sum + (d.tokenCount ?? 0), 0)
+        ),
     }
 }
 
@@ -134,7 +172,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
             model,
-            input: messages,
+            input: media.mapOpenAIResponses(messages),
             stream: true,
             ...(conversationId && { previous_response_id: conversationId }),
             ...(genConfig?.maxTokens && { max_output_tokens: genConfig.maxTokens }),
@@ -188,7 +226,7 @@ async function openaiStream({ apiKey, model, messages, genConfig, conversationId
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
             model,
-            messages,
+            messages: media.mapOpenAIChat(messages),
             stream: true,
             stream_options: { include_usage: true },
             ...(genConfig?.maxTokens && { max_tokens: genConfig.maxTokens }),
@@ -241,7 +279,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         const endpoint = "https://api.openai.com/v1/responses"
         const body = {
             model,
-            input: messages,
+            input: media.mapOpenAIResponses(messages),
             stream: false,
             ...(conversationId && { previous_response_id: conversationId }),
             ...(genConfig?.maxTokens && { max_output_tokens: genConfig.maxTokens }),
@@ -261,7 +299,7 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
         const endpoint = "https://api.openai.com/v1/chat/completions"
         const body = {
             model,
-            messages,
+            messages: media.mapOpenAIChat(messages),
             stream: false,
             ...(genConfig?.maxTokens && { max_tokens: genConfig.maxTokens }),
             ...(genConfig?.temperature != null && { temperature: genConfig.temperature }),
@@ -281,14 +319,12 @@ async function openaiGenerate({ apiKey, model, messages, genConfig, conversation
 // ─── Gemini adapters ──────────────────────────────────────────────────────────
 
 function toGeminiContents(messages) {
-    return messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }))
+    return media.mapGeminiContents(messages)
 }
 
 function geminiSystemInstruction(messages) {
     const sys = messages.find((m) => m.role === "system")
-    return sys ? { parts: [{ text: sys.content }] } : undefined
+    return sys ? { parts: [{ text: media.textOf(sys.content) }] } : undefined
 }
 
 // Interactions API (v1beta/interactions) takes system_instruction as a plain string —
@@ -296,7 +332,7 @@ function geminiSystemInstruction(messages) {
 // Confirmed via live 400: "Expected string, unexpected character: '{'"
 function geminiInteractionsSystemInstruction(messages) {
     const sys = messages.find((m) => m.role === "system")
-    return sys ? sys.content : undefined
+    return sys ? media.textOf(sys.content) : undefined
 }
 
 async function geminiStream({ apiKey, model, messages, genConfig, conversationId, stateful, res, signal }) {
@@ -304,7 +340,7 @@ async function geminiStream({ apiKey, model, messages, genConfig, conversationId
         // stateful: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiInteractionsSystemInstruction(messages)
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
+        const lastUserMsg = media.mapGeminiInteractionsInput(messages)
         const body = {
             model: `models/${model}`,
             input: lastUserMsg,
@@ -415,7 +451,7 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
         // stateful non-streaming: Interactions API (v1beta2)
         const endpoint = "https://generativelanguage.googleapis.com/v1beta/interactions"
         const sys = geminiInteractionsSystemInstruction(messages)
-        const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
+        const lastUserMsg = media.mapGeminiInteractionsInput(messages)
         const body = {
             model: `models/${model}`,
             input: lastUserMsg,
@@ -462,12 +498,141 @@ async function geminiGenerate({ apiKey, model, messages, genConfig, conversation
     }
 }
 
+// ─── Anthropic (Claude) adapters ──────────────────────────────────────────────
+// Messages API, stateless: the full history is sent every time and `conversationId` is ignored (returned as null).
+// Supports text, images, PDFs (see cloudMedia.mapAnthropicMessages) and structured outputs. Claude takes no audio input
+// and does no image generation or embeddings, so those stay with the other providers.
+
+const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages"
+const ANTHROPIC_VERSION = "2023-06-01"
+// max_tokens is required by the API. Streaming can afford a high default (no HTTP timeout to hit); callers cap it
+// with genConfig.maxTokens.
+const ANTHROPIC_DEFAULT_MAX_TOKENS = 16_000
+const ANTHROPIC_DEFAULT_STREAM_MAX_TOKENS = 64_000
+
+// Sampling parameters were removed on the current models: sending temperature/top_p to them is a 400. Older models still
+// take them, so only the newer families are excluded (Fable, Mythos, Opus 4.7+/5, Sonnet 5+, Haiku 5+).
+const NO_SAMPLING_RE = /^claude-(fable|mythos|opus-(4-[78]|5)|sonnet-5|haiku-5)/
+
+// usage: input_tokens EXCLUDES cached reads and cache writes, which Anthropic reports separately. promptTokens is
+// normalized to include them (as OpenAI and Gemini do) with cachedTokens the cached-read subset. output_tokens includes
+// thinking tokens and the API does not break them out, so reasoningTokens stays 0 and thinking is billed as output.
+function normalizeAnthropicUsage(usage, model) {
+    if (!usage) return null
+    const cacheRead = usage.cache_read_input_tokens ?? 0
+    return {
+        model,
+        promptTokens: (usage.input_tokens ?? 0) + cacheRead + (usage.cache_creation_input_tokens ?? 0),
+        cachedTokens: cacheRead,
+        completionTokens: usage.output_tokens ?? 0,
+        reasoningTokens: 0,
+    }
+}
+
+function anthropicBody({ model, messages, genConfig, stream }) {
+    const { system, messages: turns } = media.mapAnthropicMessages(messages)
+    const sampling = !NO_SAMPLING_RE.test(model)
+    return {
+        model,
+        max_tokens: genConfig?.maxTokens || (stream ? ANTHROPIC_DEFAULT_STREAM_MAX_TOKENS : ANTHROPIC_DEFAULT_MAX_TOKENS),
+        messages: turns,
+        ...(system && { system }),
+        ...(stream && { stream: true }),
+        ...(sampling && genConfig?.temperature != null && { temperature: genConfig.temperature }),
+        ...(sampling && genConfig?.topP != null && { top_p: genConfig.topP }),
+        // Structured outputs: genConfig.responseSchema is a JSON Schema object the reply must match.
+        ...(genConfig?.responseSchema && typeof genConfig.responseSchema === "object" && {
+            output_config: { format: { type: "json_schema", schema: genConfig.responseSchema } },
+        }),
+    }
+}
+
+function anthropicHeaders(apiKey) {
+    return { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION }
+}
+
+// A safety decline arrives as a normal 200 with stop_reason "refusal", not as an HTTP error.
+function anthropicRefusal(stopReason, stopDetails) {
+    if (stopReason !== "refusal") return null
+    const category = stopDetails?.category ? ` (${stopDetails.category})` : ""
+    return new Error(`The model declined this request${category}`)
+}
+
+async function anthropicStream({ apiKey, model, messages, genConfig, res, signal }) {
+    const response = await fetch(ANTHROPIC_ENDPOINT, {
+        method: "POST",
+        headers: anthropicHeaders(apiKey),
+        body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: true })),
+        signal,
+    })
+    if (!response.ok) await throwProviderError("anthropic", response)
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let usage = {}
+    let stopReason = null
+    let stopDetails = null
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
+        for (const line of lines) {
+            const trimmed = line.trim()
+            // Frames are `event: <name>` + `data: <json>`; the JSON carries the same name in `type`, so only data lines matter.
+            if (!trimmed.startsWith("data:")) continue
+            let parsed
+            try { parsed = JSON.parse(trimmed.slice(5).trim()) } catch (_) { continue }
+            if (parsed.type === "error") throw new Error(parsed.error?.message || "Claude stream error")
+            if (parsed.type === "message_start") usage = { ...usage, ...parsed.message?.usage }
+            else if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                res.write(`data: ${JSON.stringify({ token: parsed.delta.text })}\n\n`)
+            } else if (parsed.type === "message_delta") {
+                usage = { ...usage, ...parsed.usage }
+                stopReason = parsed.delta?.stop_reason ?? stopReason
+                stopDetails = parsed.delta?.stop_details ?? stopDetails
+            }
+        }
+    }
+
+    const refusal = anthropicRefusal(stopReason, stopDetails)
+    if (refusal) throw refusal
+    const normalized = normalizeAnthropicUsage(usage, model)
+    if (normalized) res.write(`data: ${JSON.stringify({ usage: normalized })}\n\n`)
+    res.write("data: [DONE]\n\n")
+    res.end()
+}
+
+async function anthropicGenerate({ apiKey, model, messages, genConfig }) {
+    const response = await fetch(ANTHROPIC_ENDPOINT, {
+        method: "POST",
+        headers: anthropicHeaders(apiKey),
+        body: JSON.stringify(anthropicBody({ model, messages, genConfig, stream: false })),
+    })
+    if (!response.ok) await throwProviderError("anthropic", response)
+    const data = await response.json()
+    const refusal = anthropicRefusal(data.stop_reason, data.stop_details)
+    if (refusal) throw refusal
+    const output = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("")
+    return { output, conversationId: null, usage: normalizeAnthropicUsage(data.usage, model) }
+}
+
 // ─── provider registry ────────────────────────────────────────────────────────
 
 const PROVIDERS = {
     openai: { stream: openaiStream, generate: openaiGenerate },
     gemini: { stream: geminiStream, generate: geminiGenerate },
+    anthropic: { stream: anthropicStream, generate: anthropicGenerate },
 }
+
+// image.generate: providers that can return an image. Anthropic cannot, so it is absent (404-style "unsupported").
+const IMAGE_ADAPTERS = imageGen.createImageAdapters({ throwProviderError, createError: (message) => new Error(message) })
+
+// speech.synthesize: providers that can return audio. Anthropic cannot, so it is absent.
+const SPEECH_ADAPTERS = speechGen.createSpeechAdapters({ throwProviderError, createError: (message) => new Error(message) })
 
 // ─── routes ───────────────────────────────────────────────────────────────────
 
@@ -507,7 +672,7 @@ router.post("/:provider/stream", async (req, res) => {
         return
     }
 
-    const validationError = validateRequestBody(req, cfg)
+    const validationError = validateRequestBody(req, cfg, provider)
     if (validationError) {
         await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
         return
@@ -576,7 +741,7 @@ router.post("/:provider/generate", async (req, res) => {
         return
     }
 
-    const validationError = validateRequestBody(req, cfg)
+    const validationError = validateRequestBody(req, cfg, provider)
     if (validationError) {
         await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, validationError)
         return
@@ -604,6 +769,138 @@ router.post("/:provider/generate", async (req, res) => {
     }
 })
 
+// POST /ai/:provider/image — image.generate. Body: { prompt, n?, size?, model?, images? }. `images` (max 4 of { mimeType, data }) makes it an edit.
+// The model defaults to the provider's `imageModel` in AI_CONFIG (never to the chat `defaultModel`). Returns { images: [{ mimeType, data(base64) }], usage, model }.
+router.post("/:provider/image", async (req, res) => {
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
+    const { provider } = req.params
+    if (!PROVIDERS[provider]) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
+    const adapter = IMAGE_ADAPTERS[provider]
+    if (!adapter) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, `unsupported: provider "${provider}" does not generate images`)
+        return
+    }
+
+    const cfg = getProviderConfig(provider)
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, `Provider "${provider}" not configured`)
+        return
+    }
+
+    const bodyError = imageGen.validateImageRequest(req.body)
+    const model = req.body?.model || cfg.imageModel
+    const modelError = !model
+        ? `no model specified and provider has no imageModel configured`
+        : typeof model !== "string" || !MODEL_NAME_RE.test(model)
+          ? "model contains invalid characters"
+          : null
+    if (bodyError || modelError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, bodyError || modelError)
+        return
+    }
+
+    const { prompt, n, size, images } = req.body
+    try {
+        const result = await adapter({ apiKey: cfg.apiKey, model, prompt, n, size, images })
+        res.json({ ...result, model })
+    } catch (err) {
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] %s image error:", knownProviderName(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
+        res.status(500).json({ error: err.message, code })
+    }
+})
+
+// POST /ai/:provider/speech — speech.synthesize. Body: { text, voice?, format?, model? }. The model defaults to the
+// provider's `speechModel` in AI_CONFIG (never the chat `defaultModel`). Returns { audio: { mimeType, data(base64) }, usage, model }.
+router.post("/:provider/speech", async (req, res) => {
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
+    const { provider } = req.params
+    if (!PROVIDERS[provider]) { res.status(404).json({ error: `Unknown provider: ${provider}` }); return }
+    const adapter = SPEECH_ADAPTERS[provider]
+    if (!adapter) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, `unsupported: provider "${provider}" does not synthesize speech`)
+        return
+    }
+
+    const cfg = getProviderConfig(provider)
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, `Provider "${provider}" not configured`)
+        return
+    }
+
+    const bodyError = speechGen.validateSpeechRequest(req.body)
+    const model = req.body?.model || cfg.speechModel
+    const modelError = !model
+        ? "no model specified and provider has no speechModel configured"
+        : typeof model !== "string" || !MODEL_NAME_RE.test(model)
+          ? "model contains invalid characters"
+          : null
+    if (bodyError || modelError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, bodyError || modelError)
+        return
+    }
+
+    const { text, voice, format } = req.body
+    try {
+        const result = await adapter({ apiKey: cfg.apiKey, model, text, voice, format })
+        res.json({ ...result, model })
+    } catch (err) {
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] %s speech error:", knownProviderName(provider), logSafe(code ? `[${code}] ${logSuffix}` : logSuffix))
+        res.status(500).json({ error: err.message, code })
+    }
+})
+
+// POST /ai/gemini/live-token — a one-use ephemeral token for the Gemini Live API, so the browser streams audio to Gemini
+// directly and never holds the API key. Body: { model? } (default: the provider's `liveModel` in AI_CONFIG).
+// Returns { token, model, expiresAt, startBy, url, setup }; the client opens `url?access_token=<token>` and sends `setup` first.
+router.post("/gemini/live-token", async (req, res) => {
+    const { ERROR_CODES } = await loadErrors()
+    if (!isAIEnabled()) {
+        await sendCodedError(res, 403, ERROR_CODES.AI_DISABLED, "AI is disabled. Set AI_CONFIG.enabled=true to enable.")
+        return
+    }
+    const cfg = getProviderConfig("gemini")
+    if (!cfg) {
+        await sendCodedError(res, 404, ERROR_CODES.AI_PROVIDER_NOT_CONFIGURED, 'Provider "gemini" not configured')
+        return
+    }
+    const model = req.body?.model || cfg.liveModel
+    const modelError = !model
+        ? "no model specified and provider has no liveModel configured"
+        : typeof model !== "string" || !MODEL_NAME_RE.test(model)
+          ? "model contains invalid characters"
+          : null
+    if (modelError) {
+        await sendCodedError(res, 400, ERROR_CODES.AI_INVALID_REQUEST_BODY, modelError)
+        return
+    }
+    try {
+        res.json(await liveGen.createLiveToken({ apiKey: cfg.apiKey, model, throwProviderError }))
+    } catch (err) {
+        const { CatalystError } = await loadErrors()
+        const code = err instanceof CatalystError ? err.code : undefined
+        const causeMessage = err.cause?.message
+        const logSuffix = causeMessage ? `${err.message} — cause: ${causeMessage.slice(0, 500)}` : err.message
+        console.error("[catalyst-ai] gemini live-token error:", code ? `[${code}] ${logSuffix}` : logSuffix)
+        res.status(500).json({ error: err.message, code })
+    }
+})
+
 module.exports = router
 
 // Testable internals, attached to the router (an Express router is a plain
@@ -618,10 +915,15 @@ router._internal = {
     isAIEnabled,
     getProviderConfig,
     validateRequestBody,
+    media,
     MODEL_NAME_RE,
     normalizeOpenAIChatUsage,
     normalizeOpenAIResponsesUsage,
     normalizeGeminiUsage,
     normalizeGeminiInteractionUsage,
+    normalizeAnthropicUsage,
+    anthropicBody,
     throwProviderError,
+    imageGen,
+    speechGen,
 }

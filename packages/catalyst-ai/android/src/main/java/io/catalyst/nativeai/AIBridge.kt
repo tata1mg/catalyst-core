@@ -8,6 +8,9 @@ interface AIBridge {
     fun initAI(optionsRaw: String?)
     fun generateNative(optionsRaw: String?)
     fun clearConversation()
+    /** The page reports the connection state: pause the model download (it keeps its partial file) or let it go on. */
+    fun pauseDownload(reason: String?)
+    fun resumeDownload()
 }
 
 /** Callbacks provided by the host app — decouples catalyst-ai from app internals. */
