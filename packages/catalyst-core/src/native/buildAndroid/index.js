@@ -4,7 +4,14 @@ const path = require("path")
 const { displayPath } = require("../../cli/theme.js")
 const fs = require("fs")
 const { execFileSync } = require("child_process")
-const { runCommand, runFile, runInteractiveCommand, isInteractive, select } = require("../utils.js")
+const {
+    androidTools,
+    runCommand,
+    runFile,
+    runInteractiveCommand,
+    isInteractive,
+    select,
+} = require("../utils.js")
 const { buildFailure } = require("../../cli/diagnostic.js")
 const TerminalProgress = require("../terminalProgress.js").default
 const { composeAndroidPlugins } = require("../pluginComposerAndroid.js")
@@ -73,8 +80,8 @@ function createAndroidBuild(
     const flags = { yes, acceptLicenses }
     const { WEBVIEW_CONFIG, BUILD_OUTPUT_PATH } = config
 
-    const configPath = `${process.cwd()}/config/config.json`
-    const publicPath = `${process.cwd()}/public`
+    const configPath = path.join(process.cwd(), "config", "config.json")
+    const publicPath = path.join(process.cwd(), "public")
 
     const progress = new TerminalProgress(steps, "catalyst buildApp", { subject: "android" })
 
@@ -194,7 +201,10 @@ function createAndroidBuild(
             // nothing answers on its port, and waits until it does.
             if (resolved.usesDevServer) {
                 progress.start("server")
-                await ensureDevServer({ cwd: appRoot, log })
+                // On Windows adb reverse reaches the host on 127.0.0.1, so that has
+                // to answer; there localhost can be ::1 alone. macOS and Linux keep
+                // the localhost server, which adb reaches as before.
+                await ensureDevServer({ cwd: appRoot, log, ipv4: process.platform === "win32" })
                 progress.complete("server")
             }
 
@@ -206,8 +216,8 @@ function createAndroidBuild(
             applyJavaHome(java)
             progress.log(`Java ${java.version} from ${java.source}`, "info")
             androidConfig.sdkPath = resolveSdkPath(androidConfig)
-            // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - sdkPath is the local Android SDK.
-            const adbPath = path.join(androidConfig.sdkPath, "platform-tools", "adb")
+            // With .exe on Windows, where listDevices checks the file exists.
+            const adbPath = androidTools(androidConfig.sdkPath).adb
 
             // Where a debug build runs: the emulator unless --device, or a
             // person here picks a connected phone.

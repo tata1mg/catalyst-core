@@ -205,7 +205,9 @@ describe("useCurrentRouteData", () => {
         // fetcher path is never taken, so initialState should be
         // reflected as-is for at least the first render before any
         // effect fires.
-        renderAtPage({ initialState: { "/page": { data: { hello: "world" }, error: null, isFetched: true } } })
+        renderAtPage({
+            initialState: { "/page": { data: { hello: "world" }, error: null, isFetched: true } },
+        })
         await waitFor(() => {
             const parsed = JSON.parse(screen.getByTestId("current").textContent)
             expect(parsed.data).toEqual({ hello: "world" })
@@ -236,7 +238,7 @@ describe("useCurrentRouteData", () => {
                         // loadable-shaped component so fetchRouteData resolves clientFetcher (jsdom has window)
                     />
                 </Routes>
-            </MemoryRouter>,
+            </MemoryRouter>
         )
         // route object here has no component -> refetch still runs
         // fetchRouteData (which finds no fetcher) and writes an
@@ -271,7 +273,7 @@ describe("useCurrentRouteData", () => {
                             }
                         />
                     </Routes>
-                </MemoryRouter>,
+                </MemoryRouter>
             )
             expect(typeof clearFn).toBe("function")
             act(() => {
@@ -306,7 +308,7 @@ describe("useCurrentRouteData", () => {
                         }
                     />
                 </Routes>
-            </MemoryRouter>,
+            </MemoryRouter>
         )
         await waitFor(() => expect(screen.getByTestId("ready")).toBeInTheDocument())
     })
@@ -350,7 +352,9 @@ describe("useRouterState", () => {
 
     it("throws a clear error when used outside a RouterDataProvider", () => {
         const spy = vi.spyOn(console, "error").mockImplementation(() => {})
-        expect(() => render(<StateProbe />)).toThrow(/useRouterState must be used within a RouterDataProvider/)
+        expect(() => render(<StateProbe />)).toThrow(
+            /useRouterState must be used within a RouterDataProvider/
+        )
         spy.mockRestore()
     })
 })

@@ -58,7 +58,15 @@ describe("registry with a DOM", () => {
 
     it("reports a failed execute and an unknown tool as ok:false end events", async () => {
         const end = listen("webmcp:execute:end")
-        registerTool(newOwnerKey(), "", makeSpec({ execute: async () => { throw new Error("bad") } }))
+        registerTool(
+            newOwnerKey(),
+            "",
+            makeSpec({
+                execute: async () => {
+                    throw new Error("bad")
+                },
+            })
+        )
         await expect(invokeTool("t")).rejects.toMatchObject({ code: "WEBMCP_EXECUTE_FAILED" })
         await expect(invokeTool("missing")).rejects.toMatchObject({ code: "WEBMCP_TOOL_NOT_FOUND" })
         expect(end.events.map((e) => e.ok)).toEqual([false, false])
@@ -111,7 +119,12 @@ describe("registry with a DOM", () => {
     it("treats a shim-marked backend as non-native and handles object receipts", () => {
         document.modelContext = {
             __isWebMcpShim: true,
-            registerTool: () => ({ id: "obj", unregister() { return true } }),
+            registerTool: () => ({
+                id: "obj",
+                unregister() {
+                    return true
+                },
+            }),
             getTools: () => [],
         }
         expect(isNative()).toBe(false)
@@ -121,7 +134,9 @@ describe("registry with a DOM", () => {
 
     it("surfaces a backend registerTool failure as ok:false", () => {
         document.modelContext = {
-            registerTool: () => { throw new Error("backend down") },
+            registerTool: () => {
+                throw new Error("backend down")
+            },
             getTools: () => [],
         }
         const res = registerTool(newOwnerKey(), "", makeSpec())
@@ -138,7 +153,11 @@ describe("registry with a DOM", () => {
         const reg = listen("webmcp:register")
         const k = newOwnerKey()
         registerTool(k, "/p", makeSpec())
-        updateToolSpec(k, { description: "d", inputSchema: { type: "object", properties: {} }, annotations: {} })
+        updateToolSpec(k, {
+            description: "d",
+            inputSchema: { type: "object", properties: {} },
+            annotations: {},
+        })
         expect(calls).toHaveLength(1)
         updateToolSpec(k, { description: "new", annotations: { readOnlyHint: true } })
         expect(calls).toHaveLength(2)
@@ -151,7 +170,15 @@ describe("registry with a DOM", () => {
     it("aborts in-flight tool signals on unregister", async () => {
         let signal
         const k = newOwnerKey()
-        registerTool(k, "", makeSpec({ execute: async (_a, ctx) => { signal = ctx.signal } }))
+        registerTool(
+            k,
+            "",
+            makeSpec({
+                execute: async (_a, ctx) => {
+                    signal = ctx.signal
+                },
+            })
+        )
         await invokeTool("t")
         unregisterTool(k)
         expect(signal.aborted).toBe(true)

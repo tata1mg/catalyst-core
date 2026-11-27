@@ -6,9 +6,9 @@ id: installation
 ### System Requirements
 
 * Node version [20.4.0](https://nodejs.org/docs/latest-v20.x/api/index.html) or later
-* Supported platforms: macOS, Linux.
+* Supported platforms: macOS, Linux, Windows.
 
-For windows users, we recommend using Windows Subsystem for Linux (WSL) for the best development experience.
+On Windows, Catalyst runs natively in PowerShell, Command Prompt or Git Bash, so WSL is not needed. Every command works there except the iOS ones, which need macOS and Xcode.
 
 ### Automatic Installation
 

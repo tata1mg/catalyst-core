@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "fs"
 import path from "path"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 import { ERROR_DEFINITIONS } from "./registry.js"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -94,7 +94,7 @@ export function generateDocs(errorsDir = DEFAULT_ERRORS_DIR) {
     return { count: Object.keys(ERROR_DEFINITIONS).length, errorsDir }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
     const { count, errorsDir } = generateDocs()
     console.log(`Generated ${count} error doc(s) + index.json in ${errorsDir}`)
 }

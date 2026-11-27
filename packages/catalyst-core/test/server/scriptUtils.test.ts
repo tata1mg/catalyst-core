@@ -24,9 +24,7 @@ describe("arrayToObject", () => {
 
 describe("resolveOutputMode", () => {
     it("prefers an explicit --debug flag over everything", () => {
-        expect(resolveOutputMode(["node", "x", "--debug"], { CATALYST_OUTPUT_MODE: "verbose" })).toBe(
-            "debug",
-        )
+        expect(resolveOutputMode(["node", "x", "--debug"], { CATALYST_OUTPUT_MODE: "verbose" })).toBe("debug")
     })
     it("honors --verbose", () => {
         expect(resolveOutputMode(["--verbose"], {})).toBe("verbose")

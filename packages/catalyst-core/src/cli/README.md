@@ -59,6 +59,7 @@ child sees a pipe and strips its own colour.
 | `buildErrors.js` | Mines real errors out of gradle/xcodebuild/Vite output, incl. gradle's "What went wrong" |
 | `hints.js`       | The short list of failures we can give real advice for                                   |
 | `devOutput.js`   | Classifies a dev/production server's lines; `superviseServer()`, `ensurePortFree()`      |
+| `platform.js`    | What differs on Windows: `appRoot()`, quoting for cmd.exe, advice naming real commands   |
 
 ## Default and --verbose
 

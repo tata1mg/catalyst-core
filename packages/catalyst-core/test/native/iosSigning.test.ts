@@ -380,7 +380,8 @@ describe("readProvisioningProfile", () => {
 
 describe("findInstalledProfileIdentity", () => {
     const der = (text: string) => Buffer.from(text).toString("base64")
-    const sha1 = (text: string) => crypto.createHash("sha1").update(Buffer.from(text)).digest("hex").toUpperCase()
+    const sha1 = (text: string) =>
+        crypto.createHash("sha1").update(Buffer.from(text)).digest("hex").toUpperCase()
 
     // A fake home with installed profiles, and a fake `security`/`plutil` that
     // answer from the fields of whichever profile was decoded last.
@@ -421,7 +422,11 @@ describe("findInstalledProfileIdentity", () => {
     it("picks the keychain identity the profile lists, not the first distribution certificate", () => {
         const setup = installed({ "a.mobileprovision": profile({}) }, keychain)
         expect(
-            findInstalledProfileIdentity({ profile: "Shop Distribution", bundleId: "com.acme.shop", ...setup })
+            findInstalledProfileIdentity({
+                profile: "Shop Distribution",
+                bundleId: "com.acme.shop",
+                ...setup,
+            })
         ).toMatchObject({
             sha1: sha1("iphone-dist"),
             name: "iPhone Distribution: Acme (TEAM123)",
@@ -580,7 +585,8 @@ describe("setupP12Signing", () => {
         expect(result.profile).toMatchObject({ name: "Acme App Store", teamId: "TEAM123456" })
         for (const file of profilePaths(fake.homeDir)) {
             expect(fs.existsSync(file)).toBe(true)
-            expect(fs.statSync(file).mode & 0o777).toBe(0o600)
+            // Windows has no POSIX modes to set or read.
+            if (process.platform !== "win32") expect(fs.statSync(file).mode & 0o777).toBe(0o600)
         }
         expect(Object.keys(fake.handlers).sort()).toEqual(["SIGINT", "SIGTERM"])
 
@@ -918,7 +924,7 @@ describe("updateInfoPlist", () => {
         const strict = infoPlistPhase({
             localNetworking: true,
             restoreManagedFileFromBaseline: (file: string) => {
-                if (file.endsWith("/Info.plist")) {
+                if (path.basename(file) === "Info.plist") {
                     fs.writeFileSync(
                         file,
                         JSON.stringify({ NSAppTransportSecurity: { NSAllowsArbitraryLoads: false } })

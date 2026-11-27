@@ -7,7 +7,16 @@ const defaultSandboxDir = path.join(repoRoot, ".sandbox")
 const npmCacheDir = path.join(defaultSandboxDir, ".npm-cache")
 const corePackageDir = path.join(repoRoot, "packages", "catalyst-core")
 const ccaPackageDir = path.join(repoRoot, "packages", "create-catalyst-app")
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
+// npm is a .cmd on Windows, which Node refuses to spawn directly (EINVAL). Under
+// `npm run` npm has told us where its script is; run directly, it takes a shell.
+function npmInvocation(args) {
+    if (process.platform !== "win32") return { file: "npm", args, shell: false }
+    if (process.env.npm_execpath) {
+        return { file: process.execPath, args: [process.env.npm_execpath, ...args], shell: false }
+    }
+    const quoted = args.map((arg) => `"${arg}"`)
+    return { file: ["npm", ...quoted].join(" "), args: [], shell: true }
+}
 
 function usage() {
     console.log(`Usage:
@@ -92,18 +101,19 @@ function run(command, args, options = {}) {
 
     let result
     if (command === "npm") {
-        result = spawnSync(npmCommand, args, {
+        const npm = npmInvocation(args)
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - internal release helper; see npmInvocation.
+        result = spawnSync(npm.file, npm.args, {
             cwd: repoRoot,
             stdio: "inherit",
+            shell: npm.shell,
             ...options,
             env,
         })
     } else if (command === "node") {
-        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             stdio: "inherit",
-            shell: process.platform === "win32",
             ...options,
             env,
         })
@@ -126,18 +136,19 @@ function runCapture(command, args, options = {}) {
 
     let result
     if (command === "npm") {
-        result = spawnSync(npmCommand, args, {
+        const npm = npmInvocation(args)
+        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - internal release helper; see npmInvocation.
+        result = spawnSync(npm.file, npm.args, {
             cwd: repoRoot,
             encoding: "utf8",
+            shell: npm.shell,
             ...options,
             env,
         })
     } else if (command === "node") {
-        // nosemgrep: javascript.lang.security.audit.spawn-shell-true.spawn-shell-true - Windows node execution intentionally uses shell compatibility in this internal release helper.
         result = spawnSync(process.execPath, args, {
             cwd: repoRoot,
             encoding: "utf8",
-            shell: process.platform === "win32",
             ...options,
             env,
         })

@@ -91,9 +91,9 @@ describe("ELF LOAD alignment", () => {
     it("reads p_align of LOAD segments only, for 64- and 32-bit ELF", () => {
         expect(elfLoadAlignments(aligned64)).toEqual({ bits: 64, aligns: [0x4000, 0x4000] })
         expect(elfLoadAlignments(unaligned32)).toEqual({ bits: 32, aligns: [0x1000] })
-        expect(() => elfLoadAlignments(Buffer.from("not an elf file, just some text here......................"))).toThrow(
-            /not an ELF/
-        )
+        expect(() =>
+            elfLoadAlignments(Buffer.from("not an elf file, just some text here......................"))
+        ).toThrow(/not an ELF/)
     })
 
     it("reads stored and deflated zip entries", () => {
@@ -135,8 +135,12 @@ describe("checkNativeAlignment", () => {
     })
 
     it("in an APK, fails an uncompressed 64-bit lib that is not on a 16 KB zip boundary", () => {
-        const misplaced = zip([{ name: "lib/arm64-v8a/libgood.so", data: aligned64, stored: true, alignTo: 4096 }])
-        const placed = zip([{ name: "lib/arm64-v8a/libgood.so", data: aligned64, stored: true, alignTo: 0x4000 }])
+        const misplaced = zip([
+            { name: "lib/arm64-v8a/libgood.so", data: aligned64, stored: true, alignTo: 4096 },
+        ])
+        const placed = zip([
+            { name: "lib/arm64-v8a/libgood.so", data: aligned64, stored: true, alignTo: 0x4000 },
+        ])
         expect(zipEntries(misplaced)[0].dataOffset).toBe(4096)
         expect(checkNativeAlignment(misplaced, { apk: true }).failures).toEqual([
             "lib/arm64-v8a/libgood.so: stored uncompressed at zip offset 4096, not on a 16 KB boundary",

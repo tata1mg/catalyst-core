@@ -10,7 +10,8 @@ const NATIVE_ENGINE_BY_PROVIDER: Record<string, string | undefined> = {
 
 export function resolveMode(provider: string | undefined): "local" | "native" | "cloud" {
     if (provider === "transformers") return "local"
-    if (provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)) return "native"
+    if (provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider))
+        return "native"
     return "cloud"
 }
 
@@ -22,7 +23,7 @@ export function resolveNativeEngine(
 ): string | undefined {
     const aliasEngine =
         provider !== undefined && Object.prototype.hasOwnProperty.call(NATIVE_ENGINE_BY_PROVIDER, provider)
-        ? NATIVE_ENGINE_BY_PROVIDER[provider]
-        : undefined
+            ? NATIVE_ENGINE_BY_PROVIDER[provider]
+            : undefined
     return explicitEngine ?? aliasEngine ?? config?.engine
 }

@@ -4,6 +4,18 @@ import os from "os"
 import path from "path"
 import { nativeError } from "./utils.js"
 
+/**
+ * The tar to run. On Windows that is its own (bsdtar, in System32 since
+ * Windows 10): Git's GNU tar, often first on PATH, reads the C: of an
+ * absolute path as a remote host name.
+ */
+function tarCommand({ platform = process.platform, env = process.env, exists = fs.existsSync } = {}) {
+    if (platform !== "win32") return "tar"
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal - SystemRoot names the Windows folder, never remote input.
+    const systemTar = path.join(env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
+    return exists(systemTar) ? systemTar : "tar"
+}
+
 // Signing files live in git-ignored credentials/<platform>/ in the app. CI
 // gets the same folder from one secret per platform, CATALYST_<PLATFORM>_CREDENTIALS:
 // a base64 gzipped tar of that folder, made by `catalyst credentials:export`.
@@ -88,7 +100,7 @@ function packCredentials(platform, { cwd = process.cwd() } = {}) {
         throw nativeError("NATIVE-008", `credentials/${platform}/ is missing or empty in ${cwd}`)
     }
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed tar argv; dir is the app's own credentials folder.
-    const archive = execFileSync("tar", ["-czf", "-", "--exclude", ".DS_Store", "-C", dir, "."], {
+    const archive = execFileSync(tarCommand(), ["-czf", "-", "--exclude", ".DS_Store", "-C", dir, "."], {
         env: TAR_ENV,
         maxBuffer: 64 * 1024 * 1024,
         stdio: ["ignore", "pipe", "pipe"],
@@ -140,12 +152,12 @@ function unpackCredentials(value, destDir, { envName = "the credentials secret" 
         let verbose
         try {
             // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed tar argv on a temp file.
-            listing = execFileSync("tar", ["-tzf", file], {
+            listing = execFileSync(tarCommand(), ["-tzf", file], {
                 encoding: "utf8",
                 stdio: ["ignore", "pipe", "pipe"],
             })
             // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed tar argv on a temp file.
-            verbose = execFileSync("tar", ["-tvzf", file], {
+            verbose = execFileSync(tarCommand(), ["-tvzf", file], {
                 encoding: "utf8",
                 stdio: ["ignore", "pipe", "pipe"],
             })
@@ -158,7 +170,7 @@ function unpackCredentials(value, destDir, { envName = "the credentials secret" 
         }
         fs.mkdirSync(destDir, { recursive: true, mode: 0o700 })
         // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process - fixed tar argv; entries were checked above.
-        execFileSync("tar", ["-xzf", file, "-C", destDir], { stdio: ["ignore", "pipe", "pipe"] })
+        execFileSync(tarCommand(), ["-xzf", file, "-C", destDir], { stdio: ["ignore", "pipe", "pipe"] })
     } finally {
         fs.rmSync(work, { recursive: true, force: true })
     }
@@ -259,4 +271,5 @@ export {
     unpackCredentials,
     resolveCredentials,
     cleanupOnSignal,
+    tarCommand,
 }

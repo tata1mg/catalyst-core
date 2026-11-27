@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-    getUserAgentDetails,
-    STATUS_CAKE_USER_AGENT_MOBILE,
-} from "../../src/server/utils/userAgentUtil.js"
+import { getUserAgentDetails, STATUS_CAKE_USER_AGENT_MOBILE } from "../../src/server/utils/userAgentUtil.js"
 
 // Bot detection consumed by handler.jsx's _renderMarkUp to decide the
 // no-JS SSR path (#348 coverage).
@@ -10,7 +7,7 @@ import {
 describe("getUserAgentDetails", () => {
     it("flags Googlebot", () => {
         const d: any = getUserAgentDetails(
-            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         )
         expect(d.googleBot).toBe("Googlebot")
         expect(d.aiBot).toBeNull()
@@ -30,7 +27,7 @@ describe("getUserAgentDetails", () => {
 
     it("returns null bot fields and parsed UA details for a normal browser", () => {
         const d: any = getUserAgentDetails(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15"
         )
         expect(d.googleBot).toBeNull()
         expect(d.aiBot).toBeNull()

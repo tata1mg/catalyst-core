@@ -127,7 +127,13 @@ describe("MetaTag", () => {
             const matchedRoutes = [
                 {
                     route: {
-                        component: { setMetaData: () => [<title key="t">{false}Aspirin{null}</title>] },
+                        component: {
+                            setMetaData: () => [
+                                <title key="t">
+                                    {false}Aspirin{null}
+                                </title>,
+                            ],
+                        },
                     },
                 },
             ]

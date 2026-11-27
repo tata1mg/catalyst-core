@@ -154,7 +154,8 @@ describe("startDevServerProcess", () => {
         expect(returned).toBe(child)
         expect(logFile).toBe(path.join(cwd, ".catalyst", "dev-server-3005.log"))
         expect(logFile.startsWith(os.tmpdir() + path.sep + "catalyst-dev-server")).toBe(false)
-        expect(fs.statSync(logFile).mode & 0o777).toBe(0o600)
+        // Windows has no POSIX modes to set or read.
+        if (process.platform !== "win32") expect(fs.statSync(logFile).mode & 0o777).toBe(0o600)
         expect(fs.readFileSync(path.join(cwd, ".catalyst", ".gitignore"), "utf8")).toBe("*\n")
         expect(spawned.command).toBe(process.execPath)
         expect(path.basename(spawned.args[0])).toBe("catalyst.js")
@@ -215,6 +216,42 @@ describe("ensureDevServer", () => {
         })
         expect(result).toMatchObject({ started: true, url: "http://localhost:3005", logFile: "/tmp/x.log" })
         expect(startedWith.overrides).toEqual({})
+    })
+
+    // adb reverse dials 127.0.0.1, and on Windows "localhost" can bind ::1 alone.
+    it("starts on and waits for 127.0.0.1 when the target needs IPv4 (Android)", async () => {
+        const probed: string[] = []
+        let startedWith: any
+        let calls = 0
+        await ensureDevServer({
+            config,
+            ipv4: true,
+            intervalMs: 1,
+            probe: async ({ host }: any) => {
+                probed.push(host)
+                return host === "127.0.0.1" && ++calls > 2
+            },
+            start: ((options: any) => {
+                startedWith = options
+                return { child: null, logFile: "/tmp/x.log" }
+            }) as any,
+        })
+        expect(startedWith.overrides).toEqual({ NODE_SERVER_HOSTNAME: "127.0.0.1" })
+        expect(probed[0]).toBe("127.0.0.1")
+    })
+
+    it("refuses a running dev server that answers on localhost but not 127.0.0.1", async () => {
+        const error = await ensureDevServer({
+            config,
+            ipv4: true,
+            probe: async ({ host }: any) => host === "localhost",
+            start: (() => {
+                throw new Error("must not start over a running server")
+            }) as any,
+        }).catch((caught) => caught)
+        expect(error.code).toBe("NATIVE-006")
+        expect(error.message).toContain("not on 127.0.0.1")
+        expect(error.hint).toContain('NODE_SERVER_HOSTNAME to "127.0.0.1"')
     })
 
     it("binds all interfaces and serves assets on a device host", async () => {
@@ -303,7 +340,7 @@ describe("ensureDevServer", () => {
         const error = await run("localhost", true).catch((e) => e)
         expect(error.code).toBe("NATIVE-006")
         expect(error.message).toContain("started for jane-mac.local")
-        expect(error.hint).toContain("kill 4242")
+        expect(error.hint).toContain(process.platform === "win32" ? "taskkill /PID 4242 /T /F" : "kill 4242")
 
         // The same target reuses it, and a recorded process that is gone is ignored.
         expect(await run("jane-mac.local", true)).toMatchObject({ started: false })

@@ -1256,7 +1256,8 @@ async function handle_create_github_pr(args = {}) {
     const dryRun = args.dry_run !== false
 
     const remoteHead = runGit(root, `git rev-parse --verify --quiet origin/${head}`)
-    const commits = runGit(root, `git log --oneline origin/${base}..${head} 2>/dev/null`) || ""
+    // runGit already discards stderr; a shell redirect here would not exist on Windows.
+    const commits = runGit(root, `git log --oneline origin/${base}..${head}`) || ""
     const tokenResult = getToken()
 
     const preview = {

@@ -384,7 +384,9 @@ function checkMode(projectDir, mode) {
  */
 function checkNode10(projectDir) {
     const mode = "node10"
-    console.log(`\n${dim("─".repeat(60))}\nmoduleResolution: ${mode} (module: commonjs, no moduleResolution set)\n`)
+    console.log(
+        `\n${dim("─".repeat(60))}\nmoduleResolution: ${mode} (module: commonjs, no moduleResolution set)\n`
+    )
 
     const tsc = path.join(projectDir, "node_modules", ".bin", "tsc")
 

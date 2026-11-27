@@ -89,7 +89,12 @@ describe("chooseAndroidTarget", () => {
 
     it("ignores a remembered phone that is not connected", async () => {
         const { asked, select } = fakeSelect()
-        await chooseAndroidTarget({ devices, isTTY: true, select, last: { target: "device", serial: "gone" } })
+        await chooseAndroidTarget({
+            devices,
+            isTTY: true,
+            select,
+            last: { target: "device", serial: "gone" },
+        })
         expect(asked[0].defaultValue).toBe("emulator")
     })
 

@@ -70,7 +70,11 @@ describe("pageInfoTool", () => {
     })
 
     it("survives a throwing setMetaData and notes that nothing was reported", async () => {
-        const tool = pageInfoTool(() => matchWith(() => { throw new Error("nope") }))
+        const tool = pageInfoTool(() =>
+            matchWith(() => {
+                throw new Error("nope")
+            })
+        )
         const res = await tool.execute()
         expect(res.title).toBeNull()
         expect(res._note).toMatch(/no setMetaData/)

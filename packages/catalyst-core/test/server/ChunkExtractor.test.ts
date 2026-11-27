@@ -73,9 +73,7 @@ describe("ChunkExtractor", () => {
         // raw "widgets/Modal.a1b2c3.js" isn't a key; "widgets/Modal" +
         // "." prefix-matches it.
         ce.addComponent("widgets/Modal")
-        expect(ce.getDeferredAssets().js).toEqual([
-            "https://cdn.example.com/static/assets/modal-a1b2c3.js",
-        ])
+        expect(ce.getDeferredAssets().js).toEqual(["https://cdn.example.com/static/assets/modal-a1b2c3.js"])
     })
 
     it("addComponent is a no-op (but still tracks the key) when no manifest entry matches at all", () => {

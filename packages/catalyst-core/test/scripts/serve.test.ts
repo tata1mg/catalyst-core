@@ -41,6 +41,8 @@ beforeEach(() => {
     writeFileSync(path.join(appDir, "config", "config.json"), JSON.stringify({ BUILD_OUTPUT_PATH: "build" }))
     writeFileSync(path.join(appDir, "package.json"), JSON.stringify({ name: "fixture-app" }))
     process.env.PWD = appDir
+    // appRoot() reads PWD or the working directory, depending on the platform.
+    vi.spyOn(process, "cwd").mockReturnValue(appDir)
     spawned.length = 0
     preflight.staleBuild = null
     stderr = ""
@@ -70,6 +72,17 @@ it("hands the production server the terminal's own stdout and stderr", async () 
     expect(options.stdio).toBe("inherit")
     expect(options.env.CATALYST_WRAPPED).toBeUndefined()
     expect(options.env.NODE_ENV).toBe("production")
+})
+
+it("loads its startup module by URL, which a Windows path is not", async () => {
+    await serve()
+    await vi.waitFor(() => expect(spawned).toHaveLength(1))
+
+    const { args } = spawned[0]
+    const imports = args.filter((_arg, i) => args[i - 1] === "--import")
+    // The loader goes first, so the startup module is the second import.
+    expect(imports).toHaveLength(2)
+    expect(imports[1]).toMatch(/^file:\/\/\/.*preServerInit\.js$/)
 })
 
 it("says to build first when there is no production build", async () => {

@@ -212,7 +212,8 @@ describe("ensureBuildOutputIgnore", () => {
         expect(fs.existsSync(path.join(appRoot, "build-output"))).toBe(false)
     })
 
-    it("rethrows a write failure other than an existing file", () => {
+    // chmod cannot make a folder read-only on Windows, so there is nothing to fail there.
+    it.skipIf(process.platform === "win32")("rethrows a write failure other than an existing file", () => {
         const appRoot = tempDir()
         const root = path.join(appRoot, "build-output")
         fs.mkdirSync(root)
