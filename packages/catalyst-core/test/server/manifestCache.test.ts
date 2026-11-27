@@ -51,7 +51,7 @@ describe("manifestCache (production load path)", () => {
         fs.writeFileSync(path.join(vite, "manifest.json"), JSON.stringify({ "entry.js": { file: "e.js" } }))
         fs.writeFileSync(
             path.join(vite, "asset-categories.json"),
-            JSON.stringify({ essential: { e: { file: "e.js" } } }),
+            JSON.stringify({ essential: { e: { file: "e.js" } } })
         )
 
         const mod = await import("../../src/server/manifestCache.js")
@@ -69,16 +69,91 @@ describe("manifestCache (production load path)", () => {
         warn.mockRestore()
     })
 
+    describe("integrity manifest (SCRIPT_INTEGRITY_ENABLE)", () => {
+        const files = { "client/assets/main-abc.js": "sha384-abc" }
+        let savedEnvObject: NodeJS.ProcessEnv
+
+        beforeEach(() => {
+            savedEnvObject = process.env
+            fs.writeFileSync(path.join(tmp, "build", ".vite", "integrity.json"), JSON.stringify(files))
+        })
+        afterEach(() => {
+            process.env = savedEnvObject
+        })
+
+        // config.json booleans reach process.env as real booleans, which only a
+        // replaced process.env object can hold.
+        const setEnv = (extra: Record<string, unknown>) => {
+            process.env = { ...process.env, ...extra } as any
+        }
+
+        it("re-keys integrity.json by script URL when the flag is on", async () => {
+            setEnv({
+                SCRIPT_INTEGRITY_ENABLE: true,
+                PUBLIC_STATIC_ASSET_URL: "https://cdn.test",
+                PUBLIC_STATIC_ASSET_PATH: "/static/",
+            })
+            const mod = await import("../../src/server/manifestCache.js")
+            expect(mod.getIntegrityManifest()).toEqual({
+                "https://cdn.test/static/client/assets/main-abc.js": "sha384-abc",
+            })
+        })
+
+        it("ignores integrity.json when the flag is off", async () => {
+            setEnv({ SCRIPT_INTEGRITY_ENABLE: false })
+            const mod = await import("../../src/server/manifestCache.js")
+            expect(mod.getIntegrityManifest()).toEqual({})
+        })
+
+        it("is empty and warns when the flag is on but the build wrote no integrity.json", async () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+            fs.rmSync(path.join(tmp, "build", ".vite", "integrity.json"))
+            setEnv({ SCRIPT_INTEGRITY_ENABLE: true })
+            const mod = await import("../../src/server/manifestCache.js")
+            expect(mod.getIntegrityManifest()).toEqual({})
+            expect(warn).toHaveBeenCalledWith(
+                expect.stringContaining("SCRIPT_INTEGRITY_ENABLE is on but"),
+                expect.stringContaining("integrity.json"),
+                expect.any(String)
+            )
+        })
+
+        it("warns about integrity.json alone when it is malformed, and keeps the other manifests", async () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+            const vite = path.join(tmp, "build", ".vite")
+            fs.writeFileSync(
+                path.join(vite, "manifest.json"),
+                JSON.stringify({ "client/index.js": { file: "a.js" } })
+            )
+            fs.writeFileSync(path.join(vite, "integrity.json"), "invalid json{")
+            setEnv({ SCRIPT_INTEGRITY_ENABLE: true })
+            const mod = await import("../../src/server/manifestCache.js")
+            expect(mod.getManifest()).toEqual({ "client/index.js": { file: "a.js" } })
+            expect(mod.getIntegrityManifest()).toEqual({})
+            expect(warn).not.toHaveBeenCalledWith("Could not load build manifests:", expect.any(String))
+            expect(warn).toHaveBeenCalledWith(
+                expect.stringContaining("SCRIPT_INTEGRITY_ENABLE is on but"),
+                expect.stringContaining("integrity.json"),
+                expect.any(String)
+            )
+        })
+
+        it("does not warn about a missing integrity.json when the flag is off", async () => {
+            const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+            fs.rmSync(path.join(tmp, "build", ".vite", "integrity.json"))
+            setEnv({ SCRIPT_INTEGRITY_ENABLE: false })
+            await import("../../src/server/manifestCache.js")
+            expect(warn).not.toHaveBeenCalled()
+        })
+    })
+
     it("catches and warns when manifest JSON is malformed", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
         const vite = path.join(tmp, "build", ".vite")
         fs.writeFileSync(path.join(vite, "manifest.json"), "invalid json{")
         const mod = await import("../../src/server/manifestCache.js")
         expect(mod.getManifest()).toBeNull()
-        expect(warn).toHaveBeenCalledWith(
-            "Could not load build manifests:",
-            expect.any(String),
-        )
+        expect(warn).toHaveBeenCalledWith("Could not load build manifests:", expect.any(String))
         warn.mockRestore()
     })
 })

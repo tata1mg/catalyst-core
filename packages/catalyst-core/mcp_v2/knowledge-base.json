@@ -1762,7 +1762,141 @@
             "ios",
             "safe-area",
             "openInBrowser",
-            "X-App-Info",
+            "X-App-Info"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/12-Migration/02-Version-Upgrades.md"
+        ]
+    },
+    {
+        "section": "security",
+        "title": "CSP Nonce — CSP_NONCE_ENABLE (1.3.0+)",
+        "content": "CSP_NONCE_ENABLE: true in config/config.json (default false) puts a per-request nonce on every script and modulepreload tag Catalyst renders. Styles are not nonced. Catalyst does not send the Content-Security-Policy header; the app sets it.\n\nSETTING THE HEADER: in a middleware registered in addMiddlewares (server/server.js), generate a base64 nonce, assign it to res.locals.cspNonce and send it, e.g. res.setHeader('Content-Security-Policy', `script-src 'self' 'nonce-${res.locals.cspNonce}'`). Catalyst uses that value for the tags (one produced by helmet works too). A value outside the base64 alphabet is replaced with a generated one.\n\nKNOWN ISSUE: Catalyst generates its own nonce in the render handler, after the app's middlewares, so a middleware that only reads res.locals.cspNonce gets undefined, sends 'nonce-undefined' and the browser blocks Catalyst's inline scripts. Set res.locals.cspNonce in the middleware as above.\n\nCUSTOM SCRIPTS: a script added by hand in server/document.js needs the nonce applied by hand (the document receives a nonce prop).\n\nDocs: docs/content/14-Best Practices/04-CSRF.md.",
+        "layer": "Server",
+        "source": "static",
+        "tags": [
+            "security",
+            "csp",
+            "nonce",
+            "CSP_NONCE_ENABLE",
+            "cspNonce",
+            "res.locals",
+            "content-security-policy",
+            "nonce-undefined",
+            "helmet",
+            "1.3.0",
+            "config"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/14-Best Practices/04-CSRF.md",
+            "packages/catalyst-core/src/server/renderer/handler.tsx"
+        ]
+    },
+    {
+        "section": "security",
+        "title": "Script Integrity (SRI) — SCRIPT_INTEGRITY_ENABLE (1.3.1+)",
+        "content": "SCRIPT_INTEGRITY_ENABLE: true in config/config.json (default false; true or \"true\" accepted) adds Subresource Integrity to the script tags Catalyst renders.\n\nBUILD: catalyst build hashes every built JS file with sha384 and writes build/.vite/integrity.json as { \"<file>\": \"sha384-...\" }. With the flag off the build removes a leftover file. A JS file listed in the Vite manifest but missing on disk gets no hash, and the build prints a warning naming it.\n\nSERVER: in production (catalyst serve) the server reads integrity.json at startup and adds integrity and crossorigin=\"anonymous\" to the <script type=\"module\"> tags and modulepreload links in the document, and to the scripts it streams after it.\n\nMUST REBUILD: the flag is read at build time. A server started with the flag on and no integrity.json logs 'SCRIPT_INTEGRITY_ENABLE is on but the integrity file could not be loaded' and serves the scripts without integrity. If the tags have no integrity attribute, check that the flag was in config.json when the build ran (in a Docker or CI build, at image build time), then rebuild.\n\nNOT COVERED: scripts that a tagged file loads with a static import, chunks loaded later with import() (client-side navigation), CSS, and scripts added by hand in server/document.js. On a page split into many chunks most JS files are loaded through imports, so the feature checks the tagged scripts only.\n\nREQUIREMENTS: the files must reach the browser exactly as built, so turn off anything that rewrites JS after the build (CDN auto-minification, a post-build step), or the browser blocks the scripts. Assets on another origin need Access-Control-Allow-Origin. No effect in catalyst start.\n\nDocs: docs/content/14-Best Practices/04-CSRF.md.",
+        "layer": "Build",
+        "source": "static",
+        "tags": [
+            "security",
+            "sri",
+            "subresource-integrity",
+            "integrity",
+            "SCRIPT_INTEGRITY_ENABLE",
+            "integrity.json",
+            "crossorigin",
+            "sha384",
+            "cdn",
+            "1.3.1",
+            "config",
+            "build",
+            "serve"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/14-Best Practices/04-CSRF.md",
+            "packages/catalyst-core/src/vite/script-integrity-plugin.js",
+            "packages/catalyst-core/src/server/manifestCache.ts",
+            "packages/catalyst-core/src/server/renderer/extract.ts"
+        ]
+    },
+    {
+        "section": "observability",
+        "title": "OpenTelemetry Error Sampling — errorSampling (1.3.0+)",
+        "content": "Otel.init({ samplingRate, errorSampling: { ENABLED: true } }) keeps the traces of failed requests when samplingRate is low. Unsampled traces are buffered in memory and re-evaluated when the request ends; traces that ended in an error get a second chance to be exported. Off unless ENABLED is set.\n\nOPTIONS (all optional): RATE_5XX (default 1.0; 5xx roots and roots with an OTel ERROR status), RATE_4XX (default samplingRate), EXPORT_FULL_TRACE_ON_ERROR (default false; export every buffered span instead of the root and error spans), PROMOTE_HANDLED_ERRORS (default false; also promote 2xx roots whose child spans errored), REPORT_ACTUAL_PROMOTION_RATE (default false; put the promotion rate, not samplingRate, in the exported sample_rate), SKIP_PROMOTION_CODES (default [408, 504, 524, 598, 599]), PROMOTE_BOT_TRAFFIC (default false).\n\nMEMORY: while error sampling is on, the server logs a memory heartbeat every diagnosticsIntervalMillis with RSS, heap and trace buffer size, and warns when memory gets close to the container limit (enableMemoryDiagnostics, default true).\n\nCall Otel.init in preServerInit (see 'OpenTelemetry Setup in Catalyst'). Docs: docs/content/02-Guides and Tutorials/06-Observability.md.",
+        "layer": "Observability",
+        "source": "static",
+        "tags": [
+            "otel",
+            "opentelemetry",
+            "observability",
+            "tracing",
+            "sampling",
+            "errorSampling",
+            "error-sampling",
+            "samplingRate",
+            "EXPORT_FULL_TRACE_ON_ERROR",
+            "memory",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/02-Guides and Tutorials/06-Observability.md"
+        ]
+    },
+    {
+        "section": "config_structure",
+        "title": "OFFLINE_SNAPSHOTS_ENABLE and WEBVIEW_CONFIG.location (1.3.0+)",
+        "content": "Two optional config.json keys added in 1.3.0.\n\nOFFLINE_SNAPSHOTS_ENABLE (top-level boolean, default true): set to false when the app ships its own service worker. The build then skips catalyst-offline-manifest.json and catalyst-sw.js, the browser client never registers the worker, and offline flags on routes are ignored.\n\nWEBVIEW_CONFIG.location (universal apps): { enabled: true, usageDescription: \"...\" }. With enabled true the Android build declares the location permissions and the WebView asks for the runtime permission the first time a page calls navigator.geolocation; the iOS build adds NSLocationWhenInUseUsageDescription with usageDescription as its text. Off by default, and location requests in the app are then denied.\n\nDocs: docs/content/11-API Reference/02-Configuration.mdx, docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md.",
+        "layer": "Config",
+        "source": "static",
+        "tags": [
+            "config",
+            "OFFLINE_SNAPSHOTS_ENABLE",
+            "service-worker",
+            "offline",
+            "location",
+            "geolocation",
+            "navigator.geolocation",
+            "permission",
+            "usageDescription",
+            "android",
+            "ios",
+            "webview_config",
+            "1.3.0"
+        ],
+        "github_files": [
+            "packages/catalyst-core/changelog.md",
+            "docs/content/11-API Reference/02-Configuration.mdx",
+            "docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md"
+        ]
+    },
+    {
+        "section": "version_migration",
+        "title": "Upgrading catalyst-core 1.2.x to 1.3.0 and 1.3.1",
+        "content": "1.3.0 and 1.3.1 have no breaking changes to the public API, and every new feature is off until its flag or option is set. Read the installed catalyst-core version from package.json first. Prefer 1.3.1 over 1.3.0.\n\n1. DEPENDENCIES: set catalyst-core to 1.3.1 and reinstall.\n\n2. BEHAVIOUR CHANGES IN 1.3.0:\n- A server/index.js that exists but fails to import stops startup with the import error. It used to be skipped. If catalyst start or catalyst serve now exits at startup, fix the import the error names.\n- <script type=\"application/ld+json\"> passed to setMetaData renders in the page body, where MetaTag sits, instead of in <head>. Update code or tests that select it under head.\n- Route-data cache keys are HTML-escaped (& becomes &amp;). Server and client agree; only code that builds a key by hand is affected.\n\n3. FIXES THAT CHANGE WHAT RUNS (1.3.0): preServerInit runs again for apps whose server/index.js imports a _moduleAliases alias (skipped without a message since 1.1.0), so work in it such as Otel.init starts running. MetaTag is the only owner of setMetaData tags apart from the title; the server no longer renders them twice.\n\n4. NEW IN 1.3.0, ALL OPT-IN: CSP_NONCE_ENABLE (see 'CSP Nonce — CSP_NONCE_ENABLE (1.3.0+)'), runInParallel in App.serverSideFunction, Otel errorSampling (see 'OpenTelemetry Error Sampling — errorSampling (1.3.0+)'), OFFLINE_SNAPSHOTS_ENABLE and WEBVIEW_CONFIG.location (see 'OFFLINE_SNAPSHOTS_ENABLE and WEBVIEW_CONFIG.location (1.3.0+)').\n\n5. 1.3.1: adds SCRIPT_INTEGRITY_ENABLE (see 'Script Integrity (SRI) — SCRIPT_INTEGRITY_ENABLE (1.3.1+)'), which needs a rebuild after it is turned on.\n\nFull guide: docs/content/12-Migration/02-Version-Upgrades.md.",
+        "layer": "Framework",
+        "source": "static",
+        "tags": [
+            "migration",
+            "upgrade",
+            "update",
+            "bump",
+            "1.3.1",
+            "1.3.0",
+            "1.2.1",
+            "1.2.0",
+            "behaviour-change",
+            "preServerInit",
+            "server/index.js",
+            "ld+json",
+            "setMetaData",
+            "cache-key",
+            "csp",
+            "sri",
             "latest"
         ],
         "github_files": [

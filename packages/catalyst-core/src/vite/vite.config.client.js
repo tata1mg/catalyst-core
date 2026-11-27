@@ -6,6 +6,7 @@ import path from "path"
 import { manifestCategorizationPlugin } from "./manifest-categorization-plugin.js"
 import { injectCacheKeyPlugin } from "./inject-cache-key-plugin.js"
 import { hoistImportsPlugin } from "./hoist-imports-plugin.js"
+import { scriptIntegrityPlugin } from "./script-integrity-plugin.js"
 import { loadCustomViteConfig } from "./loadCustomViteConfig.js"
 
 // Long-lived vendor chunks, highest priority first. Rolldown pulls each
@@ -48,6 +49,8 @@ const createClientConfig = async () => {
             injectCacheKeyPlugin(),
             hoistImportsPlugin(),
             ...(customViteConfig?.clientPlugins || []),
+            // Hashes the built JS. It waits for the other plugins' closeBundle hooks.
+            scriptIntegrityPlugin(),
         ],
 
         build: {
