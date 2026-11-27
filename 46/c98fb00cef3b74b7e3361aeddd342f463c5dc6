@@ -1,0 +1,36 @@
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_d374cd7c438f93 258-260
+packages/catalyst-core/src/native/bridge/hooks/useSpeechRecognition.ts
+  s_f9b68111c2008f::t_d374cd7c438f93 104,145,165,239-240
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_f9b68111c2008f::t_d374cd7c438f93 222-224
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_cdf5afca2927e0 257,259-263
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_493b93fe5f11a5 979-981,984,988
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_b863c11b5c07b3 140-146
+  s_f9b68111c2008f::t_cdf5afca2927e0 287-289
+"docs/content/10-Catalyst AI/05-Errors.md"
+  s_f9b68111c2008f::t_019e1a0f6691c4 9-11
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_493b93fe5f11a5 405-413
+"docs/content/10-Catalyst AI/02-Quick-Start.md"
+  s_f9b68111c2008f::t_019e1a0f6691c4 36-38,42-44,51,55,77-78,82-83,88-89,101-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46c98fb00cef3b74b7e3361aeddd342f463c5dc6",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+packages/catalyst-ai/plugins/ai/ios/CatalystAIBridge.swift
+  s_f9b68111c2008f::t_2eca6e5ff6c095 117-118
+examples/useai/src/js/pages/CameraAI/CameraAI.js
+  s_f9b68111c2008f::t_cc135d0bcc3d41 170-175
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_f9b68111c2008f::t_8ea803fde28782 143-144,227-235
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_f9b68111c2008f::t_8ea803fde28782 423-433
+  s_f9b68111c2008f::t_3a0fb6921ad5db 434
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Tests/CatalystCoreLogicTests/FrameworkServerUtilsLoopbackTests.swift
+  s_f9b68111c2008f::t_048c289aacc72b 80,96-120,123,125-126,128-135,407-409,414
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_cc135d0bcc3d41 46-48,106-122,130-138,145-146,158,175,179-180,234-239,276-277
+packages/catalyst-ai/plugins/ai/ios/FallbackEngine.swift
+  s_f9b68111c2008f::t_2eca6e5ff6c095 30-31,49,132-148,150-170
+packages/catalyst-core/src/native/iosnativeWebView/iosnativeWebViewTests/BridgeMessageValidatorTests.swift
+  s_f9b68111c2008f::t_831e479d709720 115-125
+examples/useai/src/js/containers/PipelineLab/useVoiceRecorder.js
+  s_f9b68111c2008f::t_776be63aaa936f 57-58,106
+  s_f9b68111c2008f::t_cc135d0bcc3d41 95,98,107-109
+  s_f9b68111c2008f::t_749ff6d862486e 35,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9f08fac9ea8c1b5257ec7cda359c9799e96364b",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

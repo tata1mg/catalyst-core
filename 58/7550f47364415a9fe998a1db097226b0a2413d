@@ -1,0 +1,26 @@
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_f9b3fa864d099d 431-435
+"docs/content/10-Catalyst AI/03-Recipes.md"
+  s_f9b68111c2008f::t_734b0aaef72ad1 141-144,160-166
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_b4652fa41db3de 757-780
+  s_f9b68111c2008f::t_f9b3fa864d099d 711-713
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_734b0aaef72ad1 61,734,1092-1095,1130-1136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "587550f47364415a9fe998a1db097226b0a2413d",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

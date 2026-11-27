@@ -1,0 +1,29 @@
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_367a7ec5e6282e 517
+  s_f9b68111c2008f::t_5a70ea3675bc67 498-516,518-541,550-554
+  s_f9b68111c2008f::t_1de9c82868d38d 662-669
+  s_f9b68111c2008f::t_d098be35fa7d99 767-795
+  s_f9b68111c2008f::t_0c20c648fed67d 542-549
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_f9b68111c2008f::t_d1401554e8e430 244-246,905-916,925-927,930-931,933-939,949-950,962-967,969,996,1006,1008,1011-1016,1033-1034,1040
+  s_f9b68111c2008f::t_079704901244ef 1003-1005,1007,1010
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_f9b68111c2008f::t_1d0adbb0d5b660 318-320,322-334,337-340,342-347,366-368,384
+  s_f9b68111c2008f::t_d098be35fa7d99 321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0577c59d272464116d4186dcbf0c30febce7a0a",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

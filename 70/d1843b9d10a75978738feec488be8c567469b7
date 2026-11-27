@@ -1,0 +1,24 @@
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/BridgeUtilsTest.kt
+  s_f9b68111c2008f::t_527a1fab9f45f6 466-483,486,488,493-513
+  s_f9b68111c2008f::t_81ca83115e2687 484-485,487,489-492
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/SpeechRecognitionManagerTest.kt
+  s_f9b68111c2008f::t_39e77e56e08d29 1-93
+packages/catalyst-core/src/native/androidProject/app/src/test/java/io/yourname/androidproject/BridgeMessageValidatorTest.kt
+  s_f9b68111c2008f::t_758773a99d84be 267-295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70d1843b9d10a75978738feec488be8c567469b7",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

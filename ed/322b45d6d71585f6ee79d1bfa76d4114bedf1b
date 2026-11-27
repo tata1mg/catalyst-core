@@ -1,0 +1,20 @@
+packages/catalyst-core/test/hooks/catalystAiNotInstalled.test.ts
+  s_f9b68111c2008f::t_fa6644f18fdc9e 2,44-94
+  s_f9b68111c2008f::t_e841122318cb1b 95-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed322b45d6d71585f6ee79d1bfa76d4114bedf1b",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

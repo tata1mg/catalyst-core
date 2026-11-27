@@ -1,0 +1,194 @@
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_ee1da9130d683f::t_302752cebfbe09 44,48,268-301,394-480,509,577,629
+packages/catalyst-core/test/server/otel.errorSampling.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-461
+packages/catalyst-core/src/native/buildAndroid/index.js
+  s_ee1da9130d683f::t_172edd53929d3c 103,295,428
+packages/catalyst-core/src/web-router/components/RouterDataProvider.server.test.jsx
+  s_ee1da9130d683f::t_172edd53929d3c 96-111
+docs/release-pages.json
+  s_ee1da9130d683f::t_172edd53929d3c 2-21
+"docs/content/02-Guides and Tutorials/10-Customising-Shell.md"
+  s_ee1da9130d683f::t_172edd53929d3c 81-92,125
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebView.swift
+  s_ee1da9130d683f::t_172edd53929d3c 100-108,136-139
+packages/catalyst-core/test/native/locationPermissions.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-73
+packages/catalyst-core/test/scripts/build.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 123,173-196,214-215
+packages/catalyst-core/mcp_v2/knowledge-base.json
+  s_ee1da9130d683f::t_172edd53929d3c 583,586-603,671,674,757,760,940,953-959,963-968,1290,1293-1304,1467-1565,1745-1899,1901-1905
+  s_ee1da9130d683f::t_2046a0d1e0c4e3 1900
+.release-meta.json
+  s_ee1da9130d683f::t_172edd53929d3c 2,4-5
+packages/create-catalyst-app/templates/none-ts/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 31
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/NativeBridge.swift
+  s_ee1da9130d683f::t_172edd53929d3c 307-309
+packages/catalyst-core/mcp_v2/test/app-icon.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-289
+"docs/content/02-Guides and Tutorials/01-First Catalyst App/03-Project-Structure.md"
+  s_ee1da9130d683f::t_172edd53929d3c 23-27,56-58
+"docs/content/09-Core Concepts/05-Route-Offline-Snapshots.md"
+  s_ee1da9130d683f::t_172edd53929d3c 69-82
+docs/release-stories/1.2.1.mdx
+  s_ee1da9130d683f::t_172edd53929d3c 1-104
+packages/create-catalyst-app/templates/rtk-js/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 33
+packages/catalyst-core/test/cli/buildErrors.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 118-214,238
+packages/create-catalyst-app/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 4
+"docs/content/02-Guides and Tutorials/06-Observability.md"
+  s_ee1da9130d683f::t_172edd53929d3c 89-116
+packages/catalyst-core/src/web-router/components/MetaTag.tsx
+  s_ee1da9130d683f::t_172edd53929d3c 1-2,6-19,24,28,30-33,40-44,51-54,56-63
+packages/catalyst-core/src/native/buildAndroid/assets.js
+  s_ee1da9130d683f::t_172edd53929d3c 7,713-714,723
+packages/catalyst-core/src/native/buildIos/config.js
+  s_ee1da9130d683f::t_172edd53929d3c 132-133,505-510
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_ee1da9130d683f::t_49e2607018bff0 35,44,281-292,403-404,438-445,447-452,473,497,505,540-541,544-546,551,564,577-578,613-622,630-631,655-664,678-707,709,712-732,735,758-759,775-776,796-797,803-805,820-821
+packages/catalyst-core/test/scripts/serve.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 103-116
+packages/catalyst-core/test/cli/diagnostic.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 381
+packages/catalyst-core/src/native/iosnativeWebView/CoreLogic/Sources/CatalystCoreLogic/Constants/CatalystConstants.swift
+  s_ee1da9130d683f::t_172edd53929d3c 101-102
+packages/catalyst-core/src/scripts/preServerInit.js
+  s_ee1da9130d683f::t_172edd53929d3c 1,76-85
+packages/catalyst-core/src/native/bridge/utils/NativeBridge.ts
+  s_ee1da9130d683f::t_172edd53929d3c 265-270
+packages/catalyst-core/src/vite/FastRefresh.jsx
+  s_ee1da9130d683f::t_172edd53929d3c 3,7
+packages/catalyst-core/src/web-router/components/RouterDataProvider.tsx
+  s_ee1da9130d683f::t_172edd53929d3c 13,199-202
+packages/catalyst-core/test/vite/scriptIntegrityPlugin.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-111
+packages/catalyst-core/mcp_v2/tools/build.js
+  s_ee1da9130d683f::t_172edd53929d3c 7,114-119,144-145,181,187,204-341,736-737,753-754,787-789,791,797-798,811,813,819-820,825-829,850-855,870-872,989-995
+packages/catalyst-core/src/server/renderer/document/Body.tsx
+  s_ee1da9130d683f::t_172edd53929d3c 28,34,42-46,50
+packages/catalyst-core/test/server/extract.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 109-151
+"docs/content/14-Best Practices/04-CSRF.md"
+  s_ee1da9130d683f::t_172edd53929d3c 30-87,135
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/CustomWebview.kt
+  s_ee1da9130d683f::t_172edd53929d3c 3,7,16-19,52-56,98-101,356-379,836-838,1324-1352
+  s_ee1da9130d683f::t_d0a0b40e07de2e 1353
+packages/catalyst-core/src/native/bridge/hooks/useIntent.ts
+  s_ee1da9130d683f::t_172edd53929d3c 16-17,59,111-123,137
+packages/catalyst-core/test/server/Head.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-18
+packages/create-catalyst-app/templates/redux-ts/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 34
+packages/catalyst-core/src/scripts/start.js
+  s_ee1da9130d683f::t_172edd53929d3c 50-52,55
+packages/catalyst-core/src/scripts/build.js
+  s_ee1da9130d683f::t_172edd53929d3c 100-101,127,159-160,174,334,368-372,374-397,399
+packages/catalyst-core/src/web-router/components/MetaTag.test.jsx
+  s_ee1da9130d683f::t_172edd53929d3c 2,109-139,169-171,173-182,188,197-198,203,213-216,224,235,238-239,248,250,284,292
+packages/catalyst-core/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 3
+packages/catalyst-core/mcp_v2/tools/config.js
+  s_ee1da9130d683f::t_172edd53929d3c 5-14,74-78,461-463,465-470,481-482,485,571-617,619
+  s_ee1da9130d683f::t_09ec5b4cfabcd1 618,620-621
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeMessageValidator.swift
+  s_ee1da9130d683f::t_172edd53929d3c 221-227,396-397
+packages/catalyst-core/test/server/handler.runInParallel.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-406
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_ee1da9130d683f::t_172edd53929d3c 214-312,320-326
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_ee1da9130d683f::t_172edd53929d3c 28-35,88,164-184
+  s_ee1da9130d683f::t_46c832cddc87f0 185
+packages/catalyst-core/src/otel.js
+  s_ee1da9130d683f::t_172edd53929d3c 3-18,25-26,33,35-470,480-482,495-498,502,524-553,561,576-601,609-616
+packages/catalyst-core/src/server/renderer/extract.ts
+  s_ee1da9130d683f::t_172edd53929d3c 90-101,106-107,109-114,121-122,225-227,229,231-237,250-252,254-256,258-260,263
+packages/catalyst-core/src/vite/script-integrity-plugin.js
+  s_ee1da9130d683f::t_172edd53929d3c 1-81
+packages/catalyst-core/test/server/manifestCache.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 54,72-149,156
+packages/catalyst-core/src/server/manifestCache.ts
+  s_ee1da9130d683f::t_172edd53929d3c 6,10-22,45-60,67-73
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/MainActivity.kt
+  s_ee1da9130d683f::t_172edd53929d3c 168-183
+packages/catalyst-core/src/native/buildAndroid/location.js
+  s_ee1da9130d683f::t_172edd53929d3c 1-51
+"docs/content/11-API Reference/01-Hooks.md"
+  s_ee1da9130d683f::t_172edd53929d3c 379,385-388,409-416
+  s_ee1da9130d683f::t_c1170a3b978fb1 417-419
+packages/catalyst-core/context.md
+  s_ee1da9130d683f::t_172edd53929d3c 4,49-51,53-54,56-60,74,76-78,87-91,108-112,120-123,126,128-131,140,181-189,192-198,343-351,387-388,400-403,409-410,412-414,457-464
+  s_ee1da9130d683f::t_e4e1c963461267 465
+packages/catalyst-core/src/cli/buildErrors.js
+  s_ee1da9130d683f::t_172edd53929d3c 72-74,79,108-109,116-172,218-219
+packages/catalyst-core/src/vite/vite.config.js
+  s_ee1da9130d683f::t_172edd53929d3c 1,195-201,204-209,212,219,222-224,353,407-422
+packages/catalyst-core/src/offline/registerServiceWorker.js
+  s_ee1da9130d683f::t_172edd53929d3c 12-13
+packages/create-catalyst-app/templates/redux-js/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 33
+packages/catalyst-core/changelog.md
+  s_ee1da9130d683f::t_172edd53929d3c 3-39
+packages/catalyst-core/mcp_v2/conversion-tasks.json
+  s_ee1da9130d683f::t_172edd53929d3c 226,229-231,233-234,240,243-245,247-248
+"docs/content/02-Guides and Tutorials/02-First Universal App/03-Configuration.mdx"
+  s_ee1da9130d683f::t_172edd53929d3c 185-193,334
+  s_ee1da9130d683f::t_8d436bf46d75d8 335
+packages/catalyst-core/test/server/otel.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 123,354,362
+docs/content/12-Migration/02-Version-Upgrades.md
+  s_ee1da9130d683f::t_172edd53929d3c 9-49
+packages/catalyst-core/src/scripts/serve.js
+  s_ee1da9130d683f::t_172edd53929d3c 82-84,87-88
+packages/catalyst-core/src/vite/vite.config.client.js
+  s_ee1da9130d683f::t_172edd53929d3c 8,27-28
+packages/create-catalyst-app/templates/rtk-ts/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 34
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/WebViewModel.swift
+  s_ee1da9130d683f::t_172edd53929d3c 183-187
+packages/catalyst-core/src/native/bridge/constants/NativeInterfaces.ts
+  s_ee1da9130d683f::t_172edd53929d3c 21,161
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/WebView/BridgeCommandHandler.swift
+  s_ee1da9130d683f::t_172edd53929d3c 449-485
+packages/catalyst-core/src/web-router/components/RouterDataProvider.test.jsx
+  s_ee1da9130d683f::t_172edd53929d3c 92-94
+packages/catalyst-core/mcp_v2/tools/conversion.js
+  s_ee1da9130d683f::t_172edd53929d3c 9-12,110-176,573-576,578
+packages/catalyst-core/test/scripts/preServerInit.test.ts
+  s_ee1da9130d683f::t_172edd53929d3c 1-84
+packages/create-catalyst-app/templates/none-js/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 30
+packages/catalyst-ai/package.json
+  s_ee1da9130d683f::t_172edd53929d3c 3
+packages/catalyst-core/src/server/renderer/document/Head.tsx
+  s_ee1da9130d683f::t_172edd53929d3c 19,27,34-37
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_ee1da9130d683f::t_172edd53929d3c 11-12,93,98-109
+  s_ee1da9130d683f::t_a0642417ebf99d 110
+packages/catalyst-core/src/cli/hints.js
+  s_ee1da9130d683f::t_172edd53929d3c 13-14,16,18
+packages/catalyst-core/src/native/androidProject/app/src/main/java/io/yourname/androidproject/NativeBridge.kt
+  s_ee1da9130d683f::t_172edd53929d3c 488-513
+  s_ee1da9130d683f::t_75872db6a88f8a 487
+package-lock.json
+  s_ee1da9130d683f::t_a24c4681d4197f 13492,13511,14113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cc7f50b22c0470ab5e6864268487c3108357f409",
+  "prompts": {},
+  "sessions": {
+    "s_ee1da9130d683f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aaa90215-d573-4b8d-a78e-27f47f95cb9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

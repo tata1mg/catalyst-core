@@ -1,0 +1,58 @@
+packages/catalyst-ai/test/useCloudAI.supersede.test.ts
+  s_f9b68111c2008f::t_fe499120096f00 1-28
+packages/catalyst-ai/test/liveTranscribe.session.test.ts
+  s_f9b68111c2008f::t_dd286941f20d96 184,192,389-433,435,437-438,440-442,452
+  s_f9b68111c2008f::t_d8e01b6da4235b 436,439,443-451
+  s_f9b68111c2008f::t_05b60e9b74e2ec 434
+  s_f9b68111c2008f::t_16aee27cd5e52e 453
+packages/catalyst-ai/src/useWebAI.js
+  s_f9b68111c2008f::t_799a5b5dbd0bc6 387-389
+packages/catalyst-ai/src/resumableFetch.js
+  s_f9b68111c2008f::t_cde59594f9728d 25-42,204-207,209,218-223,465-466,469,486-488,588-594
+  s_f9b68111c2008f::t_2b269d155518c9 489,527-548,595,645-647
+  s_f9b68111c2008f::t_6b91c439ebc391 644
+packages/catalyst-ai/src/webWorkerScript.js
+  s_f9b68111c2008f::t_2b269d155518c9 29-30
+  s_f9b68111c2008f::t_cde59594f9728d 307-308
+packages/catalyst-ai/test/resumableFetch.test.ts
+  s_f9b68111c2008f::t_6b91c439ebc391 387-423,426,428-430,437-438
+  s_f9b68111c2008f::t_7fc22600aad114 425,432-433
+  s_f9b68111c2008f::t_2b269d155518c9 439-473
+  s_f9b68111c2008f::t_6b6bb503bd8447 424,427,431,434-436
+packages/catalyst-ai/src/useNativeAI.js
+  s_f9b68111c2008f::t_e663edcdb3f710 328-334
+  s_f9b68111c2008f::t_799a5b5dbd0bc6 408-410
+packages/catalyst-ai/test/speechGen.adapters.test.ts
+  s_f9b68111c2008f::t_05b60e9b74e2ec 14
+packages/catalyst-ai/test/useNativeAI.hook.test.ts
+  s_f9b68111c2008f::t_d28e75d88def37 163-172
+packages/catalyst-ai/src/useCloudAI.js
+  s_f9b68111c2008f::t_e663edcdb3f710 342-344
+packages/catalyst-ai/src/liveTranscribe.js
+  s_f9b68111c2008f::t_e44e1c60f9be99 13-14,93,101,168-170,172,197-203,218-228
+  s_f9b68111c2008f::t_a0d8625b373f99 91-92,95-100,102-117
+  s_f9b68111c2008f::t_cb8b4a0912bdd4 12,286,318-325
+packages/catalyst-ai/test/outcomeContract.test.ts
+  s_f9b68111c2008f::t_799a5b5dbd0bc6 1-9,11,19-23,25-34
+  s_f9b68111c2008f::t_d28e75d88def37 10,12-18,24
+packages/catalyst-ai/src/promptApiEngine.js
+  s_f9b68111c2008f::t_cb8b4a0912bdd4 141-143,163,178
+packages/catalyst-ai/test/promptApiEngine.test.ts
+  s_f9b68111c2008f::t_dd286941f20d96 132-141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7c826a0f235b39afce20127a8bdc50690faab35",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+packages/catalyst-core/src/native/iosnativeWebView/Sources/Core/Utils/SpeechRecognitionManager.swift
+  s_f9b68111c2008f::t_a44d7bffafc79f 29-30
+  s_f9b68111c2008f::t_e60abcfadad0ce 79-81,130-134,140-141,143-148,233-236,254-257
+"docs/content/10-Catalyst AI/04-Choosing-a-Hook.md"
+  s_f9b68111c2008f::t_9cb0a1cd3211ba 96-102,119
+examples/useai/src/js/containers/PipelineLab/useVoiceRecorder.js
+  s_f9b68111c2008f::t_9cb0a1cd3211ba 105-107,109-124
+  s_f9b68111c2008f::t_7eb5bdc26b6c9e 180
+packages/catalyst-core/src/native/bridge/hooks/useAI.ts
+  s_f9b68111c2008f::t_7f6f230cc64f2f 261-263,270-271
+packages/catalyst-core/mcp_v2/lib/helpers.js
+  s_f9b68111c2008f::t_05e359ba75eb0f 367-370,377
+packages/catalyst-core/mcp_v2/test/config.test.ts
+  s_f9b68111c2008f::t_05e359ba75eb0f 892-895
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aaaa27aa50ca5ef86949f8502bc6b96df40ad540",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

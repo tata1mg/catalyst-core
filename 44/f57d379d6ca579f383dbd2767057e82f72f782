@@ -1,0 +1,33 @@
+packages/catalyst-core/test/server/extract.test.ts
+  s_58778c8afb8550::t_e091100007be7d 1
+  s_58778c8afb8550::t_9d19d3311f76b8 158-173
+packages/catalyst-core/test/server/handler.assets.test.ts
+  s_58778c8afb8550::t_9d19d3311f76b8 1,108-109,441-442,444-446,451-454,465-518
+  s_58778c8afb8550::t_513b0d31621c59 447-450
+  s_58778c8afb8550::t_ea9c3bb5f1b541 519
+packages/catalyst-core/src/server/renderer/extract.ts
+  s_58778c8afb8550::t_309df820cf3389 130-146,155
+  s_58778c8afb8550::t_60207a83455a39 127-129
+"docs/content/11-API Reference/02-Configuration.mdx"
+  s_58778c8afb8550::t_309df820cf3389 60
+"docs/content/11-API Reference/04-SSR-Lifecycle.md"
+  s_58778c8afb8550::t_309df820cf3389 74,83
+packages/catalyst-core/src/server/renderer/handler.tsx
+  s_58778c8afb8550::t_309df820cf3389 199-201,234,487-494
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "44f57d379d6ca579f383dbd2767057e82f72f782",
+  "prompts": {},
+  "sessions": {
+    "s_58778c8afb8550": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d49d4a45-259d-4016-b8cf-12258aaa0401",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+examples/useai/src/js/containers/Chess/Chess.js
+  s_f9b68111c2008f::t_bf5d9a2ae36247 149-150
+  s_f9b68111c2008f::t_51677aca7f6dc3 151
+"docs/content/10-Catalyst AI/03-Recipes.md"
+  s_f9b68111c2008f::t_c1b6a96673a22e 164-173
+examples/useai/src/js/containers/PipelineLab/PipelineLab.js
+  s_f9b68111c2008f::t_8d9182f84d38a4 148-154
+examples/useai/IOS_DEVICE_TEST.md
+  s_f9b68111c2008f::t_c1b6a96673a22e 18,24
+examples/useai/src/js/containers/PipelineLab/useVoiceRecorder.js
+  s_f9b68111c2008f::t_8d9182f84d38a4 35-36,57-71,73,82,90-91,95-102,124,159-167,169
+"docs/content/11-API Reference/01-Hooks.md"
+  s_f9b68111c2008f::t_c1b6a96673a22e 61-63,1129-1130,1133-1143
+examples/useai/src/js/containers/Multimodal/Multimodal.js
+  s_f9b68111c2008f::t_bf5d9a2ae36247 246-262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a56e153da1d578ee91c33439ffb4603b8dab247",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

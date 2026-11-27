@@ -1,0 +1,19 @@
+packages/catalyst-core/test/hooks/useMicrophone.analyser.test.ts
+  s_f9b68111c2008f::t_e8c846dcb40c3c 1-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82a255b102b52432b35667e23dd588b368fc282c",
+  "prompts": {},
+  "sessions": {
+    "s_f9b68111c2008f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8a631e9-038e-4244-b9f1-163f783b045f",
+        "model": "unknown"
+      },
+      "human_author": "mayankmahavar1mg <mayank.mahavar@1mg.com>"
+    }
+  }
+}

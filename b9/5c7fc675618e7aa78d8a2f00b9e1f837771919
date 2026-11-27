@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "b95c7fc675618e7aa78d8a2f00b9e1f837771919",
+  "prompts": {
+    "bf45863ad3d93c2d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07f2a6b6-5875-4752-9448-f9edf7ae5494",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "mayan.sharma@1mg.com",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
