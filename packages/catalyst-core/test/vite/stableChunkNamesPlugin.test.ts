@@ -1,4 +1,5 @@
 import { parseAst } from "rollup/parseAst"
+import type { Rollup } from "vite"
 import { describe, expect, it, vi } from "vitest"
 import {
     isStableChunkNamesEnabled,
@@ -8,9 +9,22 @@ import {
 const ROOT = "/app"
 const A = "client/assets"
 
+// The parts of the bundler's chunk objects the plugin reads, so the fixtures are checked against the real types.
+type ChunkFixture = Pick<
+    Rollup.RenderedChunk,
+    "name" | "isEntry" | "imports" | "dynamicImports" | "facadeModuleId" | "moduleIds"
+> &
+    Partial<Pick<Rollup.RenderedChunk, "fileName">> & { viteMetadata: { importedCss: Set<string> } }
+type ChunkGraph = Record<string, ChunkFixture>
+type BundleChunkFixture = Pick<
+    Rollup.OutputChunk,
+    "type" | "fileName" | "preliminaryFileName" | "isEntry" | "name" | "code" | "map"
+>
+type Plugin = ReturnType<typeof stableChunkNamesPlugin>
+
 // A minimal Rollup "meta.chunks" graph: `app` is a hub (imported by 2 chunks with minImporters: 2),
 // `pageA` is a leaf that imports `app`, and `main` is the entry.
-const makeChunks = (): Record<string, any> => ({
+const makeChunks = (): ChunkGraph => ({
     [`${A}/main-!~{001}~.js`]: chunk("main", { isEntry: true, imports: [`${A}/app-!~{002}~.js`] }),
     [`${A}/app-!~{002}~.js`]: chunk("app", {
         moduleIds: [`${ROOT}/node_modules/catalyst-core/dist/index.js`],
@@ -50,7 +64,7 @@ function chunk(
         moduleIds = undefined as string[] | undefined,
         importedCss = [] as string[],
     } = {}
-): any {
+): ChunkFixture {
     return {
         name,
         isEntry,
@@ -63,7 +77,7 @@ function chunk(
 }
 
 const VITE_LINE = `const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["x.css"])))=>i.map(i=>d[i]);\n`
-const MAIN_MAP = { mappings: ";;AAAA" }
+const MAIN_MAP = { mappings: ";;AAAA" } as Rollup.SourceMap
 
 // The three call shapes found in the real \`app\` chunk at renderChunk time (every import() there is wrapped in
 // Vite's preload helper), plus the import.meta.url form Vite uses with a relative base.
@@ -76,8 +90,8 @@ const HUB_CODE = [
     `export{a,b,p,c};`,
 ].join("\n")
 
-const setup = ({ extraTargets = {} as Record<string, any> } = {}) => {
-    const plugin: any = stableChunkNamesPlugin({ minImporters: 2, root: ROOT })
+const setup = ({ extraTargets = {} as ChunkGraph, sourcemap = false } = {}) => {
+    const plugin: Plugin = stableChunkNamesPlugin({ minImporters: 2, root: ROOT })
     const warnings: string[] = []
     const ctx = {
         parse: (code: string) => parseAst(code),
@@ -101,8 +115,8 @@ const setup = ({ extraTargets = {} as Record<string, any> } = {}) => {
         plugin.renderChunk.handler.call(
             ctx,
             code,
-            { fileName, ...chunks[fileName] },
-            { format: "es" },
+            { ...chunks[fileName], fileName },
+            { format: "es", sourcemap },
             { chunks }
         )
     return { plugin, ctx, chunks, render, warnings }
@@ -142,7 +156,7 @@ describe("stable-chunk-names plugin", () => {
         }
         const mainCode = render(`${A}/main-!~{001}~.js`, `import"./app-!~{002}~.js";`).code
         const final = (f: string) => f.replace(/!~\{0*(\w+)\}~/, "h$1")
-        const bundle: Record<string, any> = {}
+        const bundle: Record<string, BundleChunkFixture> = {}
         for (const fileName of Object.keys(chunks)) {
             if (fileName.includes("pure-")) continue // Vite removed this pure-CSS chunk
             bundle[final(fileName)] = {
@@ -153,7 +167,7 @@ describe("stable-chunk-names plugin", () => {
                 name: chunks[fileName].name,
                 code: fileName.includes("main-") ? VITE_LINE + mainCode : "",
                 map: fileName.includes("main-") ? MAIN_MAP : null,
-            }
+            } satisfies BundleChunkFixture
         }
         plugin.generateBundle.handler.call(ctx, { format: "es" }, bundle)
         const mainChunk = Object.values(bundle).find((c) => c.isEntry)!
@@ -182,6 +196,18 @@ describe("stable-chunk-names plugin", () => {
             expect(t.j["src/js/lib/Paytm"]).toBe("Paytm-!~{005}~") // no CSS: a plain file name (Rollup fills the placeholder)
             expect(main).not.toContain("@@catalyst-css:")
         })
+    })
+
+    it("builds source maps only when the build asks for them", () => {
+        for (const sourcemap of [false, true]) {
+            const { render } = setup({ sourcemap })
+            const hub = render(`${A}/app-!~{002}~.js`, HUB_CODE)
+            const main = render(`${A}/main-!~{001}~.js`, `import"./app-!~{002}~.js";`)
+            for (const out of [hub, main]) {
+                if (sourcemap) expect(out.map.mappings).toBeTruthy()
+                else expect(out).not.toHaveProperty("map")
+            }
+        }
     })
 
     it("rewrites nested preload calls, each with its own import", () => {

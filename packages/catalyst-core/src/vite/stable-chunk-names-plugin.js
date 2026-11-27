@@ -160,6 +160,13 @@ const realPath = (p) => {
 
 const baseName = (fileName) => fileName.slice(fileName.lastIndexOf("/") + 1)
 
+// renderChunk result. The map is built only when the build asks for one (the client build doesn't), like Vite's own
+// plugins: MagicString's mappings are the costly part of the rewrite and Rollup would discard them.
+const rendered = (s, outputOptions) =>
+    outputOptions.sourcemap
+        ? { code: s.toString(), map: s.generateMap({ hires: "boundary" }) }
+        : { code: s.toString() }
+
 export const isStableChunkNamesEnabled = (value) => value === true || value === "true"
 
 /**
@@ -327,7 +334,7 @@ export function stableChunkNamesPlugin({ minImporters = DEFAULT_MIN_IMPORTERS, r
                         return null
                     }
                     plan.rewritten.add(chunk.fileName)
-                    return { code: s.toString(), map: s.generateMap({ hires: "boundary" }) }
+                    return rendered(s, outputOptions)
                 }
 
                 if (chunk.isEntry && chunk.name === "main" && plan.hubs.size) {
@@ -347,7 +354,7 @@ export function stableChunkNamesPlugin({ minImporters = DEFAULT_MIN_IMPORTERS, r
                             ","
                         )}},c:${CSS_MARKER},e:${EMPTY_MARKER}});\n`
                     )
-                    return { code: s.toString(), map: s.generateMap({ hires: "boundary" }) }
+                    return rendered(s, outputOptions)
                 }
                 return null
             },

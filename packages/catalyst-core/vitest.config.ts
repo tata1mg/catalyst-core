@@ -73,6 +73,10 @@ export default defineConfig({
                 test: {
                     name: "node",
                     environment: "node",
+                    // src/cli is CommonJS. Source that imports it (src/native/utils.js) would otherwise run a
+                    // transformed copy next to the one tests require(), and v8 coverage merges the two
+                    // differently depending on test order. Loading it natively keeps one copy.
+                    server: { deps: { external: [/\/src\/cli\//] } },
                     include: [
                         "test/**/*.test.ts",
                         "src/web-router/**/*.server.test.{js,jsx}",
