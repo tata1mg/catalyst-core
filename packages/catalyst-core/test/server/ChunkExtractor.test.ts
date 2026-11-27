@@ -122,6 +122,19 @@ describe("ChunkExtractor", () => {
         expect(ce.getDeferredAssets()).toEqual({ js: [], scripts: [], css: ["assets/shared.css"] })
     })
 
+    it("skips static imports missing from the manifest and ones already tracked", () => {
+        const ce = new ChunkExtractor({
+            manifest: {
+                "pages/Home": { file: "assets/home.js", imports: ["_missing.js", "_vendor.js", "_vendor.js"] },
+                "_vendor.js": { file: "assets/vendor.js", imports: ["pages/Home"] },
+            },
+        })
+        ce.preloadRouteCss([{ route: { component: { __cacheKey: "pages/Home" } } }])
+        const base = "https://cdn.example.com/static/assets/"
+        expect(ce.getCriticalAssets().js).toEqual([`${base}home.js`, `${base}vendor.js`])
+        expect(ce.getCriticalAssets().scripts).toEqual([`${base}home.js`])
+    })
+
     it("moves a static import of a deferred chunk to critical when a route then requests it", () => {
         const ce = new ChunkExtractor({
             manifest: {

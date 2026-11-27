@@ -642,6 +642,28 @@ describe("SSR handler — Early Hints Link header (CLOUDFLARE_EARLY_HINTS_ENABLE
         expect(res.getHtml()).toContain("<html")
     })
 
+    it.each([
+        ["an array from config.json", [{ url: "https://api.example.com", rel: "preconnect" }], 4096, true],
+        ["a JSON string that does not parse", "[{", 4096, false],
+        ["a JSON value that is not an array", '{"url":"https://api.example.com"}', 4096, false],
+        ["no byte budget (negative)", [{ url: "https://api.example.com", rel: "preconnect" }], -1, true],
+    ])("reads EARLY_HINTS_LINKS given as %s", async (_label, links, budget, included) => {
+        ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
+        ;(process.env as any).EARLY_HINTS_LINKS = links
+        ;(process.env as any).EARLY_HINTS_MAX_LINK_BYTES = budget
+        vi.doMock(TEMPLATE_DOC, () => ({ default: undefined }))
+        mockManifest()
+
+        const { default: handler } = await import("../../src/server/renderer/handler.jsx")
+        const { req, res } = makeReqRes("/")
+
+        await handler(req, res)
+        await res.waitForEnd()
+
+        expect(res.headers.link).toContain("<http://localhost/assets/home.abc123.js>; rel=preload")
+        expect(res.headers.link.includes("<https://api.example.com>; rel=preconnect")).toBe(included)
+    })
+
     it("skips the rest of the request when the getEarlyHintLinks hook sends a response", async () => {
         ;(process.env as any).CLOUDFLARE_EARLY_HINTS_ENABLE = true
         const onAppServerSideSuccess = vi.fn()
