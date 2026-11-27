@@ -1,0 +1,24 @@
+"docs/content/11-API Reference/02-Configuration.mdx"
+  h_83a1406b041db4 34
+package-lock.json
+  h_83a1406b041db4 13520
+packages/catalyst-core/package.json
+  h_83a1406b041db4 81
+packages/catalyst-core/src/vite/stable-chunk-names-plugin.js
+  h_83a1406b041db4 1-425
+packages/catalyst-core/src/vite/vite.config.client.js
+  h_83a1406b041db4 9,27-30
+packages/catalyst-core/test/vite/stableChunkNamesPlugin.test.ts
+  h_83a1406b041db4 1-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dbe9fa62589e96267e825579c53dffa43bd71ca1",
+  "prompts": {},
+  "humans": {
+    "h_83a1406b041db4": {
+      "author": "Ashref Raj <ashref.raj@1mg.com>"
+    }
+  }
+}
