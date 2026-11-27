@@ -15,6 +15,14 @@ const About = split(() => import("../pages/About/About"), {
     fallback: <div>Loading about page...</div>,
 })
 
+// renderMode and pprFallback go on the split() wrapper: the server reads them before the
+// page module has loaded.
+const PPRPage = split(() => import("../pages/PPRPage/PPRPage"), {
+    ssr: true,
+})
+PPRPage.renderMode = "ppr"
+PPRPage.pprFallback = <div data-testid="ppr-skeleton">Loading PPR page...</div>
+
 const routes = [
     {
         path: "/",
@@ -31,6 +39,10 @@ const routes = [
             {
                 path: "about",
                 component: About,
+            },
+            {
+                path: "ppr",
+                component: PPRPage,
             },
         ],
     },

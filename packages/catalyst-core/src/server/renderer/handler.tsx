@@ -7,7 +7,10 @@ import { Head } from "./document/Head.jsx"
 
 import { StaticRouter, matchRoutes as NestedMatchRoutes } from "react-router"
 import ServerRouter from "../../router/ServerRouter.js"
-import { renderToPipeableStream } from "react-dom/server"
+// Namespace import: resumeToPipeableStream only exists from React 19.2, and a named import of a
+// missing export would fail at module load on an app still on React 19.0/19.1.
+import * as ReactDOMServer from "react-dom/server"
+import { prerenderToNodeStream } from "react-dom/static"
 import { getUserAgentDetails } from "../utils/userAgentUtil.js"
 import { serverDataFetcher } from "../../web-router/components/RouterDataProvider.jsx"
 import { getMetaData } from "../../web-router/utils/metaDataUtils.jsx"
@@ -29,6 +32,28 @@ import {
     getDeferredPreloadScriptUrls,
     generateModulePreloadLinkElements,
 } from "./extract.js"
+import {
+    isPPREnabled,
+    PPR_PRERENDER_SETTLE_MS,
+    PPR_RESUME_TIMEOUT_MS,
+    PPR_PROGRESSIVE_CHUNK_SIZE,
+    ShellCache,
+    shellCache,
+    STATIC_PAGE_CACHE_MAX,
+    STATIC_PAGE_CACHE_MAX_BYTES,
+    STATIC_PAGE_CACHE_TTL_MS,
+    cssSignature,
+    createNoncePlaceholder,
+    applyNonce,
+    prepareReactScripts,
+    serializeForScript,
+    guardLateResponseCalls,
+    isPreloadLearningEnabled,
+    extractPriorityImagePreloads,
+    PreloadLearner,
+    findHeadPreloadOffset,
+    insertAt,
+} from "./ppr.js"
 import path from "path"
 import crypto from "node:crypto"
 import { Transform } from "node:stream"
@@ -39,6 +64,12 @@ import App from "@catalyst/template/src/js/containers/App/index"
 import { getRoutes } from "@catalyst/template/src/js/routes/utils"
 import createStore from "@catalyst/template/src/js/store/index.js"
 import { SsrRequestProvider } from "../../web-router/components/SsrRequestContext.jsx"
+import { PPRRenderProvider, PPRRouteBoundary } from "../../web-router/components/PPR.jsx"
+import {
+    PPRDataProvider,
+    createPPRRequestCache,
+    getRequestCachedData,
+} from "../../web-router/components/DataFetcher.jsx"
 import { getManifest, getAssetManifest, getIntegrityManifest } from "../manifestCache.js"
 import { wrapSSRError, formatError } from "../../errors/index.js"
 import { resolveOutputMode, getDebugEnvInfo } from "../../scripts/scriptUtils.js"
@@ -184,7 +215,10 @@ let _onRouteMatch: any,
     _onAppServerSideSuccess: any,
     _onAppServerSideError: any,
     _onRenderError: any,
-    _onRequestError: any
+    _onRequestError: any,
+    getPPRShellKey: any,
+    getPPRPreloadKey: any,
+    beforePPRFlush: any
 try {
     const hooks = await import("@catalyst/template/server/index.js")
     _onRouteMatch = hooks.onRouteMatch
@@ -194,6 +228,19 @@ try {
     _onAppServerSideError = hooks.onAppServerSideError
     _onRenderError = hooks.onRenderError
     _onRequestError = hooks.onRequestError
+    const pprHooks: any = hooks
+    // PPR: ({ req, res, store, matches }) => string | null. The string is added to the shell
+    // cache key (use it for every request property the shell's markup depends on, e.g.
+    // language or platform). null/false serves this request on the classic path.
+    getPPRShellKey = pprHooks.getPPRShellKey
+    // PPR: ({ req, res, store }) => string. Added to the shell key for learned LCP image
+    // preloads (see ppr.ts): every request property that changes image URLs but not the shell
+    // (e.g. device pixel ratio). Throwing turns preload learning off for that request.
+    getPPRPreloadKey = pprHooks.getPPRPreloadKey
+    // PPR: ({ req, res, store }) => void. Runs right before the shell is written, the last
+    // point where headers and cookies can be set (e.g. create a CSRF token whose cookie
+    // has to go out with the headers).
+    beforePPRFlush = pprHooks.beforePPRFlush
 } catch {
     // No hooks file — all hooks remain undefined, safeCall will skip them
 }
@@ -240,6 +287,78 @@ const onAppServerSideError = traceHook(_onAppServerSideError, "onAppServerSideEr
 const onRenderError = traceHook(_onRenderError, "onRenderError")
 const onRequestError = traceHook(_onRequestError, "onRequestError")
 
+const getLogger = (): any => (globalThis as any).logger || console
+
+const { renderToPipeableStream } = ReactDOMServer
+const resumeToPipeableStream: any = (ReactDOMServer as any).resumeToPipeableStream
+
+// PPR needs React >= 19.2 (prerender `postponed` state + resumeToPipeableStream). On an older
+// React, PPR routes use the classic path and we say why once, instead of failing silently.
+let pprUnsupportedLogged = false
+const isPPRAvailable = () => {
+    if (!isPPREnabled()) return false
+    if (typeof resumeToPipeableStream === "function") return true
+    if (!pprUnsupportedLogged) {
+        pprUnsupportedLogged = true
+        getLogger().error?.(
+            `[PPR] PPR_ENABLE is on but react-dom ${(ReactDOMServer as any).version || "(unknown)"} has no resumeToPipeableStream; PPR needs React 19.2 or newer. PPR routes are rendered with the classic path.`
+        )
+    }
+    return false
+}
+
+// renderMode ("ppr" | "static" | undefined) lives on the leaf-matched route's component,
+// next to serverFetcher/clientFetcher. matchRoutes orders matches root-first, so the last
+// entry is the page being rendered. Unset means the classic (streaming) path.
+const getRenderMode = (allMatches: any) => {
+    const route = allMatches[allMatches.length - 1]?.route
+    return (route?.Component || route?.component)?.renderMode
+}
+const getRouteComponent = (allMatches: any) => {
+    const route = allMatches[allMatches.length - 1]?.route
+    return route?.Component || route?.component
+}
+
+const isBotRequest = (req: any) => {
+    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
+    // Synthetic monitors (StatusCake) and AI crawlers also take the bot code path: no JS,
+    // and split(... ssr: false ...) widgets render on the server (via SsrRequestContext).
+    return !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
+}
+
+// Never throws: Express accepts paths that are not valid URLs (`//`, `//[x`), and this runs on
+// every route. A path is put after a fixed origin rather than resolved against it, so `//host/x`
+// keeps its own key instead of becoming `/x`.
+const parseRequestUrl = (req: any): URL | null => {
+    const raw = String(req.originalUrl ?? req.url ?? "/")
+    try {
+        return new URL(raw.startsWith("/") ? `http://localhost${raw}` : raw, "http://localhost")
+    } catch {
+        return null
+    }
+}
+const getPathname = (req: any): string => parseRequestUrl(req)?.pathname ?? (req.path || "/")
+// Static pages: route fetchers read req.query, so the (sorted) query is part of the key.
+const getStaticCacheKey = (req: any) => {
+    const url = parseRequestUrl(req)
+    if (!url) return getPathname(req)
+    url.searchParams.delete("__refresh_static_cache") // dev bypass refreshes the plain entry
+    url.searchParams.sort()
+    const query = url.searchParams.toString()
+    return query ? `${url.pathname}?${query}` : url.pathname
+}
+
+const routeStatus = (allMatches: any) => (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
+
+function collectStream(stream: any): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = []
+        stream.on("data", (chunk: any) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+        stream.on("end", () => resolve(Buffer.concat(chunks)))
+        stream.on("error", reject)
+    })
+}
+
 // ── Asset collection ───────────────────────────────────────────────────
 const _collectAssets = (req: any, allMatches: any) => {
     const chunkExtractor = new ChunkExtractor({
@@ -271,48 +390,51 @@ const SsrRequestProviderAny = SsrRequestProvider as any
 const ProviderAny = Provider as any
 const StaticRouterAny = StaticRouter as any
 
-const getComponent = (store: any, context: any, req: any, fetcherData: any, isBot: any) => (
+// requestCache: per-request store for usePPRRouteData. A PPR route can be served on this path
+// (bots, PPR_ENABLE off, getPPRShellKey null); without a cache the hook calls its fetcher again
+// when React retries the suspended component, and the client gets no cachedData to hydrate
+// from, so it fetches a third time.
+const getComponent = (
+    store: any,
+    context: any,
+    req: any,
+    fetcherData: any,
+    isBot: any,
+    chunkExtractor?: any,
+    requestCache?: any
+) => (
     <div id="app">
-        <SsrRequestProviderAny value={{ isBot }}>
-            <ProviderAny store={store}>
-                <StaticRouterAny context={context} location={req.originalUrl}>
-                    <ServerRouter store={store} intialData={fetcherData} />
-                </StaticRouterAny>
-            </ProviderAny>
+        <SsrRequestProviderAny value={{ isBot, chunkExtractor }}>
+            <PPRDataProvider cacheKey={getPathname(req)} cache={requestCache}>
+                <ProviderAny store={store}>
+                    <StaticRouterAny context={context} location={req.originalUrl}>
+                        <ServerRouter store={store} intialData={fetcherData} />
+                    </StaticRouterAny>
+                </ProviderAny>
+            </PPRDataProvider>
         </SsrRequestProviderAny>
     </div>
 )
 
-// ── Render and stream ──────────────────────────────────────────────────
-const _renderMarkUp = async (
-    errorCode: any,
+// usePPRRouteData results for window.cachedData, so the client hydrates without refetching.
+const routeCacheScript = (requestCache: any, req: any, nonceAttr = "") => {
+    const cacheKey = getPathname(req)
+    const routeCache = getRequestCachedData(requestCache, cacheKey)
+    return routeCache === undefined
+        ? ""
+        : `<script${nonceAttr}>window.cachedData=${serializeForScript({ [cacheKey]: routeCache })}</script>`
+}
+
+// Shared <head>/<body> props for every render path.
+const buildShellStart = (
     req: any,
-    res: any,
-    metaTags: any,
-    fetcherData: any,
-    store: any,
     allMatches: any,
-    context: any,
     chunkExtractor: any,
+    metaTags: any,
+    isBot: boolean,
+    fetcherData: any,
     nonce?: string
 ) => {
-    const deviceDetails = getUserAgentDetails(req.headers["user-agent"] || "")
-    // Match mweb's wider definition: synthetic monitors (StatusCake) and AI crawlers
-    // also need the bot code path — no JS, and split(... ssr: false ...) widgets that
-    // previously read state.shellReducer.isBot now read this via SsrRequestContext.
-    const isBot = !!(deviceDetails.googleBot || deviceDetails.aiBot || deviceDetails.statusCakeBot)
-    const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
-    const previousSafeArea = globalThis.__SAFE_AREA_INITIAL__
-    globalThis.__SAFE_AREA_INITIAL__ = safeArea
-
-    const cleanupSafeArea = () => {
-        if (previousSafeArea === undefined) {
-            delete globalThis.__SAFE_AREA_INITIAL__
-        } else {
-            globalThis.__SAFE_AREA_INITIAL__ = previousSafeArea
-        }
-    }
-
     // Critical assets → <head>
     const criticalAssets = chunkExtractor ? chunkExtractor.getCriticalAssets() : { js: [], css: [] }
 
@@ -321,10 +443,8 @@ const _renderMarkUp = async (
     const inlineCss = readCssFromDisk(criticalAssets.css, buildDir)
 
     const deferredRouteKey = getDeferredRouteKey(req, allMatches)
-    const deferredRouteInlineCss = readCssFromDisk(
-        getCachedDeferredCssPathsForRoute(deferredRouteKey),
-        buildDir
-    )
+    const deferredCssPaths = getCachedDeferredCssPathsForRoute(deferredRouteKey)
+    const deferredRouteInlineCss = readCssFromDisk(deferredCssPaths, buildDir)
 
     const integrityManifest = getIntegrityManifest()
     const jsScripts = generateScriptElements(criticalAssets.js, nonce, integrityManifest)
@@ -342,62 +462,108 @@ const _renderMarkUp = async (
         integrityManifest
     )
 
-    // Build Head props
-    const shellStart = renderStart({
-        inlineCss,
-        deferredRouteInlineCss,
-        jsScripts,
-        criticalPreloadLinks,
-        deferredPreloadLinks,
+    return {
+        deferredRouteKey,
+        buildDir,
+        deferredCssPaths,
+        integrityManifest,
+        shellStart: renderStart({
+            inlineCss,
+            deferredRouteInlineCss,
+            jsScripts,
+            criticalPreloadLinks,
+            deferredPreloadLinks,
+            metaTags,
+            isBot,
+            fetcherData,
+        }),
+    }
+}
+
+const renderDocument = (finalProps: any) => {
+    // CustomDocument is an OPTIONAL export (server/document.js) — its
+    // absence is valid, so PREFLIGHT-020 (missing) is not surfaced. If it
+    // IS exported but isn't callable, flag it (PREFLIGHT-021) and fall
+    // back to the built-in document rather than crashing the render.
+    if (CustomDocument) {
+        const customDocErr = validateCustomDocument(CustomDocument)
+        if (customDocErr) handleError(customDocErr)
+        else return CustomDocument(finalProps)
+    }
+    return (
+        <html lang={finalProps.lang}>
+            <Head
+                isBot={finalProps.isBot}
+                inlineCss={finalProps.inlineCss}
+                deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
+                jsScripts={finalProps.jsScripts}
+                criticalPreloadLinks={finalProps.criticalPreloadLinks}
+                deferredPreloadLinks={finalProps.deferredPreloadLinks}
+                fetcherData={finalProps.fetcherData}
+                metaTags={finalProps.metaTags}
+                publicAssetPath={finalProps.publicAssetPath}
+                nonce={finalProps.nonce}
+            />
+            <Body
+                initialState={finalProps.initialState}
+                jsx={finalProps.jsx}
+                statusCode={finalProps.statusCode}
+                fetcherData={finalProps.fetcherData}
+                safeArea={finalProps.safeArea}
+                pprShell={finalProps.pprShell}
+                nonce={finalProps.nonce}
+            />
+        </html>
+    )
+}
+
+// ── Render and stream ──────────────────────────────────────────────────
+const _renderMarkUp = async (
+    errorCode: any,
+    req: any,
+    res: any,
+    metaTags: any,
+    fetcherData: any,
+    store: any,
+    allMatches: any,
+    context: any,
+    chunkExtractor: any,
+    nonce?: string
+) => {
+    const isBot = isBotRequest(req)
+    const safeArea = parseSafeAreaFromHeaders(req) || { ...DEFAULT_SAFE_AREA_INSETS }
+    const previousSafeArea = globalThis.__SAFE_AREA_INITIAL__
+    globalThis.__SAFE_AREA_INITIAL__ = safeArea
+
+    const cleanupSafeArea = () => {
+        if (previousSafeArea === undefined) {
+            delete globalThis.__SAFE_AREA_INITIAL__
+        } else {
+            globalThis.__SAFE_AREA_INITIAL__ = previousSafeArea
+        }
+    }
+
+    const { deferredRouteKey, buildDir, shellStart, integrityManifest } = buildShellStart(
+        req,
+        allMatches,
+        chunkExtractor,
         metaTags,
         isBot,
         fetcherData,
-    })
+        nonce
+    )
 
     const state = store.getState()
-    const jsx = getComponent(store, context, req, fetcherData, isBot)
+    const requestCache = createPPRRequestCache()
+    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
     const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
 
     // The response status also reaches the document as `statusCode`, which Body
     // exposes as window.__STATUS_CODE__. `errorCode` stays for custom documents.
-    const status = errorCode || (allMatches.length && allMatches[0]?.route?.path === "*" ? 404 : 200)
+    const status = errorCode || routeStatus(allMatches)
     const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status, nonce }
 
-    const CompleteDocument = () => {
-        // CustomDocument is an OPTIONAL export (server/document.js) — its
-        // absence is valid, so PREFLIGHT-020 (missing) is not surfaced. If it
-        // IS exported but isn't callable, flag it (PREFLIGHT-021) and fall
-        // back to the built-in document rather than crashing the render.
-        if (CustomDocument) {
-            const customDocErr = validateCustomDocument(CustomDocument)
-            if (customDocErr) handleError(customDocErr)
-            else return CustomDocument(finalProps)
-        }
-        return (
-            <html lang={finalProps.lang}>
-                <Head
-                    isBot={finalProps.isBot}
-                    inlineCss={finalProps.inlineCss}
-                    deferredRouteInlineCss={finalProps.deferredRouteInlineCss}
-                    jsScripts={finalProps.jsScripts}
-                    criticalPreloadLinks={finalProps.criticalPreloadLinks}
-                    deferredPreloadLinks={finalProps.deferredPreloadLinks}
-                    fetcherData={finalProps.fetcherData}
-                    metaTags={finalProps.metaTags}
-                    publicAssetPath={finalProps.publicAssetPath}
-                    nonce={finalProps.nonce}
-                />
-                <Body
-                    initialState={finalProps.initialState}
-                    jsx={finalProps.jsx}
-                    statusCode={finalProps.statusCode}
-                    fetcherData={finalProps.fetcherData}
-                    safeArea={finalProps.safeArea}
-                    nonce={finalProps.nonce}
-                />
-            </html>
-        )
-    }
+    const CompleteDocument = () => renderDocument(finalProps)
 
     try {
         res.set({ "content-type": "text/html; charset=utf-8" })
@@ -427,6 +593,7 @@ const _renderMarkUp = async (
                     this.push(
                         `<script${nonceAttr}>window.__CATALYST_IS_BOT__=${isBot ? "true" : "false"};</script>`
                     )
+                    this.push(routeCacheScript(requestCache, req, nonceAttr))
                     if (chunkExtractor) {
                         const renderedKeys = chunkExtractor.getRenderedComponentKeys()
                         this.push(
@@ -486,7 +653,570 @@ const _renderMarkUp = async (
     }
 }
 
+// ── Static (full-page cache) ─────────────────────────────────────────────
+// A route opted into `Component.renderMode = "static"` is rendered once and the bytes are
+// replayed to every later request, bots included. Only for pages that are identical for
+// every visitor: no cookies, tokens or nonces in the markup.
+// Whole pages, so it is bounded in bytes as well as entries (see STATIC_PAGE_CACHE_MAX_BYTES).
+const staticPageCache = new ShellCache({
+    maxEntries: STATIC_PAGE_CACHE_MAX,
+    maxBytes: STATIC_PAGE_CACHE_MAX_BYTES,
+    sizeOf: (page: any) => page.buffer.byteLength,
+    maxAgeMs: STATIC_PAGE_CACHE_TTL_MS,
+})
+export const clearStaticPageCache = () => staticPageCache.clear()
+
+// Dev-only escape hatch: ?__refresh_static_cache re-renders (and re-caches) one static route.
+const isStaticCacheBypassRequested = (req: any) =>
+    process.env.NODE_ENV !== "production" && req.query?.__refresh_static_cache !== undefined
+
+// Cookie values long enough to be identifiers (session, visitor id, tokens).
+const findRequestValuesInShell = (html: string, req: any) => {
+    const leaked: string[] = []
+    for (const [name, value] of Object.entries(req.cookies || {})) {
+        const v = typeof value === "string" ? value : ""
+        // Whole value and its parts: some cookies pack several tokens (e.g. CSRF "token|hash").
+        const parts = [v, ...v.split(/[|:.]/)].filter((part) => part.length >= 12)
+        if (parts.some((part) => html.includes(part) || html.includes(encodeURIComponent(part))))
+            leaked.push(name)
+    }
+    return leaked
+}
+
+const _renderMarkUpStatic = async (
+    errorCode: any,
+    req: any,
+    res: any,
+    metaTags: any,
+    fetcherData: any,
+    store: any,
+    allMatches: any,
+    context: any,
+    chunkExtractor: any
+) => {
+    const cacheKey = getStaticCacheKey(req)
+    // One canonical version for every visitor, so no per-request bot branching.
+    const isBot = false
+    const safeArea = { ...DEFAULT_SAFE_AREA_INSETS }
+
+    const { deferredRouteKey, buildDir, shellStart, integrityManifest } = buildShellStart(
+        req,
+        allMatches,
+        chunkExtractor,
+        metaTags,
+        isBot,
+        fetcherData
+    )
+
+    const status = errorCode || routeStatus(allMatches)
+    const state = store.getState()
+    const requestCache = createPPRRequestCache()
+    const jsx = getComponent(store, context, req, fetcherData, isBot, chunkExtractor, requestCache)
+    const shellEnd = renderEnd(state, res, jsx, errorCode, fetcherData)
+    const finalProps: any = { ...shellStart, ...shellEnd, jsx, req, res, safeArea, statusCode: status }
+    const CompleteDocument = () => renderDocument(finalProps)
+
+    try {
+        // No abort signal: waits for the whole tree, so the result is the complete page.
+        const result: any = await prerenderToNodeStream(<CompleteDocument />)
+        const preludeBuffer = result.prelude ? await collectStream(result.prelude) : Buffer.from("")
+
+        const deferredAssets = chunkExtractor ? chunkExtractor.getDeferredAssets() : { js: [], css: [] }
+        const trailerParts = [
+            `<script>window.__CATALYST_IS_BOT__=false;</script>`,
+            routeCacheScript(requestCache, req),
+        ]
+        if (chunkExtractor) {
+            const renderedKeys = chunkExtractor.getRenderedComponentKeys()
+            trailerParts.push(
+                // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag - renderedKeys are internal bundler component-module keys, never request input, and are serialized for a script.
+                `<script>window.__SSR_RENDERED_COMPONENTS__=new Set(${serializeForScript(renderedKeys)})</script>`
+            )
+        }
+        const { newCssPaths } = registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets, isBot)
+        if (newCssPaths.length) {
+            trailerParts.push(`<style>${readCssFromDisk(newCssPaths, buildDir)}</style>`)
+        }
+        trailerParts.push(generateScriptStrings(deferredAssets.js, undefined, integrityManifest))
+
+        const buffer = Buffer.concat([preludeBuffer, Buffer.from(trailerParts.join(""))])
+
+        // Only cache a clean 200, never a transient error page or a redirect, and never a
+        // page that carries this visitor's cookie values (it would be replayed to everyone).
+        if (status === 200) {
+            const leaked = findRequestValuesInShell(buffer.toString("utf8"), req)
+            if (leaked.length) {
+                getLogger().error?.(
+                    `[Static] ${cacheKey}: page contains request cookie values (${leaked.join(", ")}); not caching`
+                )
+            } else {
+                staticPageCache.set(cacheKey, { buffer, statusCode: status })
+            }
+        }
+
+        res.setHeader("x-rendering-mode", "static-cache-miss")
+        res.status(status)
+        res.set({ "content-type": "text/html; charset=utf-8" })
+        res.end(buffer)
+    } catch (error: any) {
+        logSSRError("RENDER", error, req)
+        safeCall(onRenderError, { req, res, store, error })
+        throw markRenderFailure(error)
+    }
+}
+
+// ── PPR (partial prerendering) ───────────────────────────────────────────
+// The response for a PPR route is
+//   1. the shell: the document (head, CSS, preloads) plus the route's static skeleton
+//      (Component.pprFallback), prerendered once per (pathname, getPPRShellKey) and
+//      replayed from memory. It is written as soon as App.serverSideFunction has run
+//      (that hook sets cookies, so it still runs before the headers go out);
+//   2. the app, resumed into the shell when this request's serverFetcher data is ready;
+//   3. a trailer with this request's redux state, router data and deferred assets.
+// The whole app is inside the hole, so the shell never contains another user's data:
+// the app's Document must keep per-request values out of the shell (PPRDynamic) or
+// put the property they depend on into getPPRShellKey. As a guard, a shell that
+// contains a value from the request's cookies is not cached.
+
+const getPPRAppTree = ({ store, req, chunkExtractor, phase, requestCache, fallback, cacheKey }: any) => (
+    <div id="app">
+        <SsrRequestProviderAny value={{ isBot: false, chunkExtractor }}>
+            <PPRDataProvider phase={phase} cacheKey={cacheKey} cache={requestCache}>
+                <ProviderAny store={store}>
+                    <PPRRouteBoundary fallback={fallback}>
+                        {(fetcherData: any) => (
+                            <StaticRouterAny context={{}} location={req.originalUrl}>
+                                <ServerRouter store={store} intialData={fetcherData} />
+                            </StaticRouterAny>
+                        )}
+                    </PPRRouteBoundary>
+                </ProviderAny>
+            </PPRDataProvider>
+        </SsrRequestProviderAny>
+    </div>
+)
+
+// The PPR context wraps the whole document, not just #app, so <PPRDynamic> in the app's
+// Document (CSRF input, per-user scripts) is postponed out of the shell too.
+const PPRDocument = ({ phase, routeData, shellStart, store, req, res, tree, nonce }: any) => {
+    const shellEnd = renderEnd(store.getState(), res, tree, null, {})
+    return (
+        <PPRRenderProvider value={{ phase, routeData }}>
+            {renderDocument({
+                ...shellStart,
+                ...shellEnd,
+                jsx: tree,
+                req,
+                res,
+                safeArea: { ...DEFAULT_SAFE_AREA_INSETS },
+                statusCode: 200,
+                pprShell: true,
+                nonce,
+            })}
+        </PPRRenderProvider>
+    )
+}
+
+const prerenderPPRShell = async ({
+    key,
+    req,
+    res,
+    store,
+    allMatches,
+    chunkExtractor,
+    metaTags,
+    fallback,
+    appNonce,
+    signature,
+}: any) => {
+    // The shell is shared, so it must not carry this response's nonce. Render it with a
+    // placeholder (the app's Document reads res.locals.cspNonce) and swap in each
+    // response's own nonce when the shell is written.
+    const placeholder = appNonce ? createNoncePlaceholder() : null
+    const locals = res.locals || {}
+    const hadLocalsNonce = Object.prototype.hasOwnProperty.call(locals, "cspNonce")
+    const prevLocalsNonce = locals.cspNonce
+    if (placeholder) locals.cspNonce = placeholder
+
+    try {
+        const { shellStart, deferredCssPaths } = buildShellStart(
+            req,
+            allMatches,
+            chunkExtractor,
+            metaTags,
+            false,
+            {},
+            placeholder || undefined
+        )
+        const tree = getPPRAppTree({
+            store,
+            req,
+            chunkExtractor,
+            phase: "prerender",
+            fallback,
+            cacheKey: getPathname(req),
+        })
+
+        // The hole never settles while prerendering, so the render is cut once the static
+        // parts are done; the hole and anything still pending is postponed.
+        const controller = new AbortController()
+        let renderError: any = null
+        const timer = setTimeout(
+            () => controller.abort(new Error("PPR shell complete")),
+            PPR_PRERENDER_SETTLE_MS()
+        )
+        let result: any
+        try {
+            result = await prerenderToNodeStream(
+                <PPRDocument
+                    phase="prerender"
+                    nonce={placeholder || undefined}
+                    shellStart={shellStart}
+                    store={store}
+                    req={req}
+                    res={res}
+                    tree={tree}
+                />,
+                {
+                    signal: controller.signal,
+                    nonce: placeholder || undefined,
+                    progressiveChunkSize: PPR_PROGRESSIVE_CHUNK_SIZE(),
+                    onError(error: any) {
+                        if (!controller.signal.aborted) renderError = error
+                    },
+                } as any
+            )
+        } finally {
+            clearTimeout(timer)
+        }
+        const prelude = result.prelude ? (await collectStream(result.prelude)).toString("utf8") : ""
+
+        if (renderError) throw renderError
+        if (!result.postponed) {
+            getLogger().warn?.(`[PPR] ${key}: nothing was postponed; not caching a PPR shell`)
+            return null
+        }
+        if (!prelude.includes("</head>") || !prelude.includes('<div id="app">')) {
+            getLogger().warn?.(`[PPR] ${key}: shell is incomplete (head or #app missing); not caching`)
+            return null
+        }
+        const leaked = findRequestValuesInShell(prelude, req)
+        if (leaked.length) {
+            getLogger().error?.(
+                `[PPR] ${key}: shell contains request cookie values (${leaked.join(", ")}); not caching. ` +
+                    "Wrap per-request markup in <PPRDynamic> or return null from getPPRShellKey."
+            )
+            return null
+        }
+
+        return {
+            prelude: prepareReactScripts(prelude, placeholder),
+            preloadOffset: findHeadPreloadOffset(prelude),
+            postponed: JSON.stringify(result.postponed),
+            placeholder,
+            signature,
+            cssPaths: deferredCssPaths,
+            builtAt: Date.now(),
+        }
+    } catch (error: any) {
+        logSSRError("RENDER", error, req)
+        safeCall(onRenderError, { req, res, store, error })
+        return null
+    } finally {
+        if (placeholder) {
+            if (hadLocalsNonce) locals.cspNonce = prevLocalsNonce
+            else delete locals.cspNonce
+        }
+    }
+}
+
+const PPR_FAILED_RETRY_MS = 60 * 1000
+const LEARN_PRELOADS_MAX_BYTES = 512 * 1024
+const shellFailures = new Map<string, number>()
+// Priority image preloads learned from resumed responses (see ppr.ts).
+const learnedPreloads = new PreloadLearner()
+
+/**
+ * Serves a PPR route. Resolves true when the response was handled, false when this
+ * request should take the classic path instead (no shell key, or the shell could not be
+ * built). Never resolves false once anything has been written.
+ */
+const _renderMarkUpPPR = async ({ req, res, store, allMatches, cachedRoutes, waitForParallelWork }: any) => {
+    let appKey: any = ""
+    if (typeof getPPRShellKey === "function") {
+        try {
+            appKey = getPPRShellKey({ req, res, store, matches: allMatches })
+        } catch (error) {
+            getLogger().error?.("[PPR] getPPRShellKey failed; using the classic path:", error)
+            return false
+        }
+        if (appKey === null || appKey === false) return false
+    }
+
+    // Last point where headers/cookies can be set (also before the shell is prerendered,
+    // so the Document sees the same values in both renders).
+    safeCall(beforePPRFlush, { req, res, store })
+    if (res.headersSent) return true
+
+    // The nonce this response's CSP header uses, when the app sets one.
+    // Only the base64 alphabet a CSP nonce may use, since it goes into raw HTML strings.
+    const appNonce = isValidNonce(res.locals?.cspNonce) ? res.locals.cspNonce : undefined
+    const cacheKey = getPathname(req)
+    // A shell built for a nonce request carries a nonce placeholder, one built without a nonce
+    // has none to replace, so the two are cached apart.
+    const key = `${cacheKey}|${appKey ?? ""}${appNonce ? "|nonce" : ""}`
+    const chunkExtractor = collectAssets(req, allMatches)
+    const fallback = getRouteComponent(allMatches)?.pprFallback ?? null
+    const metaTags = tracedGetMetaData(allMatches, {})
+
+    // Rebuild the shell when the route has learned new deferred CSS/JS since it was built,
+    // so the shell's inlined CSS and modulepreloads keep up with the classic path.
+    const deferredRouteKey = getDeferredRouteKey(req, allMatches)
+    const signature = cssSignature([
+        ...getCachedDeferredCssPathsForRoute(deferredRouteKey),
+        ...getDeferredPreloadScriptUrls(deferredRouteKey, []),
+    ])
+
+    // Development (vite dev server): rebuild the shell on every request so code edits show up.
+    if (process.env.NODE_ENV === "development") shellCache.delete(key)
+    let shell = shellCache.get(key)
+    if (shell && shell.signature !== signature) {
+        shellCache.delete(key)
+        shell = null
+    }
+    const hit = Boolean(shell)
+    if (!shell) {
+        // A key whose shell could not be built recently goes straight to the classic path
+        // instead of paying for a prerender attempt on every request.
+        const failedAt = shellFailures.get(key)
+        if (failedAt !== undefined && Date.now() - failedAt < PPR_FAILED_RETRY_MS) return false
+        // Too many shells being built at once (many distinct keys): serve this one classic.
+        if (shellCache.isSaturated(key)) return false
+        shell = await shellCache.build(key, () =>
+            prerenderPPRShell({
+                key,
+                req,
+                res,
+                store,
+                allMatches,
+                chunkExtractor,
+                metaTags,
+                fallback,
+                appNonce,
+                signature,
+            })
+        )
+        if (!shell) {
+            if (shellFailures.size > 1000) shellFailures.clear()
+            shellFailures.set(key, Date.now())
+        }
+        if (!shell || res.headersSent) return Boolean(res.headersSent)
+        shellFailures.delete(key)
+    }
+
+    const { buildDir, shellStart, integrityManifest } = buildShellStart(
+        req,
+        allMatches,
+        chunkExtractor,
+        metaTags,
+        false,
+        {},
+        appNonce
+    )
+
+    const guard = guardLateResponseCalls(res, getLogger())
+    let statusCode = routeStatus(allMatches)
+    let fetcherData: any = {}
+
+    res.status(statusCode)
+    res.setHeader("content-type", "text/html; charset=utf-8")
+    res.setHeader("x-rendering-mode", hit ? "ppr-hit" : "ppr-miss")
+
+    // Route data runs while the shell is on the wire. Same hooks as the classic path; the
+    // status line is already sent, so a fetcher error is rendered by the app with the
+    // status it would have had exposed as window.__STATUS_CODE__.
+    const routeData = (async () => {
+        try {
+            const fetcherResult = tracedServerDataFetcher(
+                { routes: cachedRoutes, req, res, url: req.originalUrl },
+                { store }
+            )
+            // Work serverSideFunction passed to runInParallel finishes before the resumed app
+            // reads route data, so the serialized state holds its results. A failure is handled
+            // like a rejected serverSideFunction on the classic path.
+            const parallelResult = waitForParallelWork?.() ?? null
+            await fetcherResult.catch(() => {})
+            const failed = await parallelResult
+            if (failed) {
+                logSSRError("SERVER_SIDE_FUNCTION", failed.error, req)
+                if (failed.error?.status_code) statusCode = failed.error.status_code
+                safeCall(onAppServerSideError, { req, res, store, error: failed.error })
+                return fetcherData
+            }
+            const data = await fetcherResult
+            fetcherData = data || {}
+            const err = fetcherData?.[req.originalUrl]?.error
+            if (err) {
+                statusCode = err.status_code || 404
+                safeCall(onFetcherError, { req, res, store, error: err })
+            } else {
+                safeCall(onFetcherSuccess, { req, res, store })
+            }
+        } catch (error: any) {
+            logSSRError("FETCHER", error, req)
+            statusCode = 404
+            safeCall(onFetcherError, { req, res, store, error })
+        }
+        return fetcherData
+    })()
+    // Late cookie/redirect calls stay guarded until route data settles, even if the client
+    // goes away first; restore() is idempotent.
+    const restoreGuard = () => routeData.finally(() => guard.restore())
+
+    // A fetcher may have redirected or ended the response before its first await.
+    if (res.headersSent || res.writableEnded) {
+        restoreGuard()
+        return true
+    }
+
+    let preloadKey: string | null = null
+    if (isPreloadLearningEnabled()) {
+        try {
+            const extra = typeof getPPRPreloadKey === "function" ? getPPRPreloadKey({ req, res, store }) : ""
+            preloadKey = `${key}|${extra ?? ""}`
+        } catch (error) {
+            getLogger().error?.("[PPR] getPPRPreloadKey failed; no learned preloads for this request:", error)
+        }
+    }
+    const learnPreloads = preloadKey !== null
+    const preloads = learnPreloads ? learnedPreloads.get(preloadKey as string).join("") : ""
+    res.write(applyNonce(insertAt(shell.prelude, shell.preloadOffset, preloads), shell.placeholder, appNonce))
+    if (typeof res.flush === "function") res.flush()
+
+    const requestCache = createPPRRequestCache()
+    const tree = getPPRAppTree({
+        store,
+        req,
+        chunkExtractor,
+        phase: "resume",
+        requestCache,
+        fallback,
+        cacheKey,
+    })
+    const nonceAttr = appNonce ? ` nonce="${appNonce}"` : ""
+    const shellCss = new Set(shell.cssPaths)
+
+    await new Promise<void>((resolve) => {
+        let timeout: any
+        let abort: any
+        // Start of the resumed output, where React writes the priority image preloads.
+        const resumed: any[] = []
+        let resumedBytes = 0
+        const done = () => {
+            clearTimeout(timeout)
+            restoreGuard()
+            resolve()
+        }
+        res.once("finish", done)
+        res.once("close", () => {
+            // Client went away: stop rendering and fetching for it.
+            if (!res.writableFinished) abort?.(new Error("PPR client disconnected"))
+            done()
+        })
+
+        const tail = new Transform({
+            transform(chunk: any, _enc: any, cb: any) {
+                if (learnPreloads && resumedBytes < LEARN_PRELOADS_MAX_BYTES) {
+                    resumed.push(chunk)
+                    resumedBytes += chunk.length
+                }
+                cb(null, chunk)
+            },
+            flush(cb: any) {
+                try {
+                    const deferredAssets = chunkExtractor.getDeferredAssets()
+                    const renderedKeys = chunkExtractor.getRenderedComponentKeys()
+                    // This request's state. Written after the app so it holds the fetched data;
+                    // the client hydrates on/after DOMContentLoaded, when it has run.
+                    this.push(
+                        `<script${nonceAttr}>window.__CATALYST_PPR__=true;window.__CATALYST_IS_BOT__=false;` +
+                            `window.__INITIAL_STATE__=${serializeForScript(store.getState())};` +
+                            `window.__STATUS_CODE__=${Number(statusCode) || 200};` +
+                            `window.__ROUTER_INITIAL_DATA__=${serializeForScript(fetcherData)};` +
+                            `window.__SSR_RENDERED_COMPONENTS__=new Set(${serializeForScript(renderedKeys)});</script>`
+                    )
+                    this.push(routeCacheScript(requestCache, req, nonceAttr))
+                    if (learnPreloads) {
+                        const seen = extractPriorityImagePreloads(
+                            Buffer.concat(resumed.map((c) => Buffer.from(c))).toString("utf8")
+                        )
+                        learnedPreloads.record(preloadKey as string, seen)
+                    }
+                    registerDeferredAssetsForRoute(deferredRouteKey, deferredAssets, false)
+                    // CSS the shell does not already inline.
+                    const missingCss = deferredAssets.css.filter(
+                        (cssPath: string) => cssPath && !shellCss.has(cssPath)
+                    )
+                    if (missingCss.length) {
+                        this.push(`<style>${readCssFromDisk(missingCss, buildDir)}</style>`)
+                    }
+                    this.push(guard.scripts(appNonce))
+                    this.push(
+                        generateScriptStrings(deferredAssets.js, appNonce, integrityManifest)
+                    )
+                } catch (error) {
+                    logSSRError("RENDER", error, req)
+                }
+                cb()
+            },
+        })
+        tail.on("error", () => {})
+        tail.pipe(res)
+
+        const stream: any = resumeToPipeableStream(
+            <PPRDocument
+                phase="resume"
+                nonce={appNonce}
+                routeData={routeData}
+                shellStart={shellStart}
+                store={store}
+                req={req}
+                res={res}
+                tree={tree}
+            />,
+            JSON.parse(shell.postponed),
+            {
+                nonce: appNonce,
+                onShellReady() {
+                    pipe(tail)
+                },
+                onShellError(error: any) {
+                    logSSRError("RENDER", error, req)
+                    safeCall(onRenderError, { req, res, store, error })
+                    tail.end()
+                },
+                onError(error: any) {
+                    // Our own aborts (timeout, disconnect) are reported once where they happen.
+                    if (/^PPR (resume timed out|client disconnected)/.test(error?.message || "")) return
+                    logSSRError("RENDER", error, req)
+                    safeCall(onRenderError, { req, res, store, error })
+                },
+            } as any
+        )
+        const { pipe } = stream
+        abort = stream.abort
+        // On timeout React marks what is still pending for client rendering and ends.
+        timeout = setTimeout(() => {
+            getLogger().warn?.(`[PPR] Resume of ${req.originalUrl} timed out; the rest renders on the client`)
+            abort(new Error("PPR resume timed out"))
+        }, PPR_RESUME_TIMEOUT_MS())
+    })
+    return true
+}
+
 const tracedRenderMarkUp = withObservability(SSR_SERVICE, _renderMarkUp, "renderMarkUp")
+const tracedRenderMarkUpStatic = withObservability(SSR_SERVICE, _renderMarkUpStatic, "renderMarkUpStatic")
+const tracedRenderMarkUpPPR = withObservability(SSR_SERVICE, _renderMarkUpPPR, "renderMarkUpPPR")
 const tracedAppServerSideFunction = withObservability(
     SSR_SERVICE,
     (args: any) => App.serverSideFunction(args),
@@ -508,11 +1238,15 @@ const tracedGetMetaData = withSyncObservability(SSR_SERVICE, getMetaData, "getMe
 // ── Express middleware ──────────────────────────────────────────────────
 /**
  * SSR request handler. Execution pipeline per request:
- *   1. Match route → collect assets
- *   2. App.serverSideFunction (app-level server hook)
- *   3. serverDataFetcher (route-level data fetching), alongside anything
- *      serverSideFunction passed to runInParallel()
- *   4. renderMarkUp → renderToPipeableStream (stream to client)
+ *   1. Match route
+ *   2. App.serverSideFunction (app-level server hook; may set cookies or redirect), plus any
+ *      work it passed to runInParallel()
+ *   3. Static route (renderMode "static") with a cached page: replay it and stop
+ *   4a. PPR route (renderMode "ppr", PPR_ENABLE on, not a bot, getPPRShellKey not null):
+ *       write the cached shell, then resume the app with this request's serverFetcher data
+ *       (the parallel work finishes before the state is serialized)
+ *   4b. Otherwise: serverDataFetcher alongside the parallel work, then renderMarkUp →
+ *       renderToPipeableStream (or a static prerender that is cached for the next request)
  *
  * res.headersSent is checked after each async step: if a user hook
  * (onRouteMatch, onFetcherSuccess, etc.) has already sent a response
@@ -583,6 +1317,9 @@ async function _handler(req: any, res: any) {
             return parallelDone
         }
 
+        const renderMode = getRenderMode(allMatches)
+        const hasSafeArea = parseSafeAreaFromHeaders(req) !== null
+
         try {
             await tracedAppServerSideFunction({ store, req, res, runInParallel })
             safeCall(onAppServerSideSuccess, { req, res, store })
@@ -591,6 +1328,57 @@ async function _handler(req: any, res: any) {
                 // The response is already out, but registered work still finishes before the handler returns.
                 if (parallelWork.length) await waitForParallelWork()
                 return
+            }
+
+            // A cached static page is shared by every visitor, so requests that carry per-request
+            // document values (a nonce-based CSP, native safe-area insets) use the classic path.
+            // Decided after the app hooks, since they are where a nonce is usually set.
+            const isStaticRoute = renderMode === "static" && !res.locals?.cspNonce && !hasSafeArea
+            const renderMarkUp = isStaticRoute ? tracedRenderMarkUpStatic : tracedRenderMarkUp
+
+            // Static: replay a cached page only after App.serverSideFunction, so its redirects,
+            // auth checks and cookies still apply to every request.
+            if (isStaticRoute && !isStaticCacheBypassRequested(req)) {
+                const cached = staticPageCache.get(getStaticCacheKey(req))
+                if (cached) {
+                    // Registered parallel work still finishes first; a failure takes the
+                    // serverSideFunction catch below, as on the rendered path.
+                    const failed = await waitForParallelWork()
+                    if (res.headersSent) return
+                    if (failed) throw failed.error
+                    res.setHeader("x-rendering-mode", "static-cache-hit")
+                    res.status(cached.statusCode)
+                    res.set({ "content-type": "text/html; charset=utf-8" })
+                    res.end(cached.buffer)
+                    return
+                }
+            }
+
+            if (renderMode === "ppr" && isPPRAvailable() && !isBotRequest(req) && !hasSafeArea) {
+                let served = false
+                try {
+                    served = await tracedRenderMarkUpPPR({
+                        req,
+                        res,
+                        store,
+                        allMatches,
+                        cachedRoutes,
+                        waitForParallelWork,
+                    })
+                } catch (error: any) {
+                    logSSRError("RENDER", error, req)
+                    safeCall(onRenderError, { req, res, store, error })
+                    if (res.headersSent) {
+                        if (!res.writableEnded) res.end()
+                        if (parallelWork.length) await waitForParallelWork()
+                        return
+                    }
+                    // Nothing written yet: fall through to the classic path.
+                }
+                if (served || res.headersSent) {
+                    if (parallelWork.length) await waitForParallelWork()
+                    return
+                }
             }
 
             // Page fetchers can now run while parallel work is still running.
@@ -624,7 +1412,7 @@ async function _handler(req: any, res: any) {
                     if (res.headersSent) return
 
                     const statusCode = err.status_code || 404
-                    await tracedRenderMarkUp(
+                    await renderMarkUp(
                         statusCode,
                         req,
                         res,
@@ -641,7 +1429,7 @@ async function _handler(req: any, res: any) {
 
                     if (res.headersSent) return
 
-                    await tracedRenderMarkUp(
+                    await renderMarkUp(
                         null,
                         req,
                         res,
@@ -662,7 +1450,7 @@ async function _handler(req: any, res: any) {
                 if (res.headersSent) return
 
                 const chunkExtractor = collectAssets(req, allMatches)
-                await tracedRenderMarkUp(
+                await renderMarkUp(
                     404,
                     req,
                     res,
@@ -685,6 +1473,8 @@ async function _handler(req: any, res: any) {
 
             if (res.headersSent) return
 
+            // Rendered fresh, never as a static page: an error page must not be cached (and
+            // error.status_code may be unset, which would otherwise read as a clean 200).
             const chunkExtractor = collectAssets(req, allMatches)
             await tracedRenderMarkUp(
                 error.status_code,
